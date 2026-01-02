@@ -18,6 +18,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+import json
+
 
 def health(request):
     return JsonResponse({"status": "ok", "service": "gyangrit-backend"})
@@ -41,14 +44,33 @@ def course_lessons(request, course_id):
     )
     return JsonResponse(data, safe=False)
 
-def lesson_progress_placeholder(request, lesson_id):
-    return JsonResponse(
-        {
-            "lesson_id": lesson_id,
-            "completed": False,
-            "last_position": 0,
-        }
-    )
+from apps.content.models import Lesson, LessonProgress
+from django.shortcuts import get_object_or_404
+
+@require_http_methods(["GET", "PATCH"])
+def lesson_progress(request, lesson_id):
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    progress, _ = LessonProgress.objects.get_or_create(lesson=lesson)
+
+    if request.method == "PATCH":
+        body = json.loads(request.body)
+        progress.completed = body.get("completed", progress.completed)
+        progress.last_position = body.get("last_position", progress.last_position)
+        progress.save()
+
+    return JsonResponse({
+        "lesson_id": lesson.id,
+        "completed": progress.completed,
+        "last_position": progress.last_position,
+    })
+
+def lesson_detail(request, lesson_id):
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    return JsonResponse({
+        "id": lesson.id,
+        "title": lesson.title,
+        "content": lesson.content,
+    })
 
 
 urlpatterns = [
@@ -56,6 +78,9 @@ urlpatterns = [
     path("api/health/", health),
     path("api/courses/", courses),
     path("api/courses/<int:course_id>/lessons/", course_lessons),
-    path("api/lessons/<int:lesson_id>/progress/", lesson_progress_placeholder),
+    path("api/lessons/<int:lesson_id>/progress/", lesson_progress),
+    path("api/lessons/<int:lesson_id>/", lesson_detail),
+
+
 
 ]

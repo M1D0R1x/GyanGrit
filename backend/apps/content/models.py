@@ -29,11 +29,10 @@ class Lesson(models.Model):
 
 
 class LessonProgress(models.Model):
-    # user will be added later (ForeignKey to User)
-    lesson = models.ForeignKey(
+    lesson = models.OneToOneField(
         Lesson,
         on_delete=models.CASCADE,
-        related_name="progress_records",
+        related_name="progress",
     )
     completed = models.BooleanField(default=False)
     last_position = models.PositiveIntegerField(default=0)

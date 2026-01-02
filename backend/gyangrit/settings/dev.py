@@ -1,7 +1,20 @@
 from .base import *
 
 DEBUG = True
-ALLOWED_HOSTS = []
+
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers)
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
+
 
 DATABASES = {
     "default": {

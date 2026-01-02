@@ -20,12 +20,25 @@ from django.urls import path
 from django.http import JsonResponse
 
 def health(request):
-    return JsonResponse({
-        "status": "ok",
-        "service": "gyangrit-backend"
-    })
+    return JsonResponse({"status": "ok", "service": "gyangrit-backend"})
+
+def courses(request):
+    data = [
+        {
+            "id": 1,
+            "title": "Mathematics – Grade 6",
+            "description": "Foundational arithmetic and problem solving",
+        },
+        {
+            "id": 2,
+            "title": "Science – Grade 6",
+            "description": "Basic physics, chemistry, and biology",
+        },
+    ]
+    return JsonResponse(data, safe=False)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health),
+    path("api/courses/", courses),
 ]

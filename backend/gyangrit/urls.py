@@ -41,10 +41,21 @@ def course_lessons(request, course_id):
     )
     return JsonResponse(data, safe=False)
 
+def lesson_progress_placeholder(request, lesson_id):
+    return JsonResponse(
+        {
+            "lesson_id": lesson_id,
+            "completed": False,
+            "last_position": 0,
+        }
+    )
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health),
     path("api/courses/", courses),
     path("api/courses/<int:course_id>/lessons/", course_lessons),
+    path("api/lessons/<int:lesson_id>/progress/", lesson_progress_placeholder),
+
 ]

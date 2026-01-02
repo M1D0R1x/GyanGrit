@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "./services/api";
+import LessonItem from "./components/LessonItem";
+import LessonPage from "./pages/LessonPage";
 
 type Course = {
   id: number;
@@ -11,12 +13,14 @@ type Lesson = {
   id: number;
   title: string;
   order: number;
+  content: string;
 };
 
 function App() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
 
   useEffect(() => {
     apiGet<Course[]>("/api/courses/").then(setCourses);
@@ -28,6 +32,10 @@ function App() {
       .then(setLessons);
   }
 
+  if (activeLesson) {
+    return <LessonPage lesson={activeLesson} onBack={() => setActiveLesson(null)} />;
+  }
+
   return (
     <div>
       <h1>GyanGrit</h1>
@@ -36,9 +44,7 @@ function App() {
         <ul>
           {courses.map((c) => (
             <li key={c.id}>
-              <button onClick={() => loadLessons(c)}>
-                {c.title}
-              </button>
+              <button onClick={() => loadLessons(c)}>{c.title}</button>
             </li>
           ))}
         </ul>
@@ -49,9 +55,13 @@ function App() {
           <h2>{selectedCourse.title}</h2>
           <ul>
             {lessons.map((l) => (
-              <li key={l.id}>
-                {l.order}. {l.title}
-              </li>
+              <LessonItem
+                key={l.id}
+                id={l.id}
+                title={l.title}
+                order={l.order}
+                onSelect={() => setActiveLesson(l)}
+              />
             ))}
           </ul>
 

@@ -7,30 +7,59 @@ type Course = {
   description: string;
 };
 
+type Lesson = {
+  id: number;
+  title: string;
+  order: number;
+};
+
 function App() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
 
   useEffect(() => {
-    apiGet<Course[]>("/api/courses/")
-      .then(setCourses)
-      .catch((e) => setError(e.message));
+    apiGet<Course[]>("/api/courses/").then(setCourses);
   }, []);
+
+  function loadLessons(course: Course) {
+    setSelectedCourse(course);
+    apiGet<Lesson[]>(`/api/courses/${course.id}/lessons/`)
+      .then(setLessons);
+  }
 
   return (
     <div>
       <h1>GyanGrit</h1>
 
-      {error && <p>Error: {error}</p>}
+      {!selectedCourse && (
+        <ul>
+          {courses.map((c) => (
+            <li key={c.id}>
+              <button onClick={() => loadLessons(c)}>
+                {c.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <ul>
-        {courses.map((c) => (
-          <li key={c.id}>
-            <strong>{c.title}</strong>
-            <p>{c.description}</p>
-          </li>
-        ))}
-      </ul>
+      {selectedCourse && (
+        <>
+          <h2>{selectedCourse.title}</h2>
+          <ul>
+            {lessons.map((l) => (
+              <li key={l.id}>
+                {l.order}. {l.title}
+              </li>
+            ))}
+          </ul>
+
+          <button onClick={() => setSelectedCourse(null)}>
+            Back to courses
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -30,9 +30,21 @@ def courses(request):
     )
     return JsonResponse(data, safe=False)
 
+from apps.content.models import Course, Lesson
+from django.shortcuts import get_object_or_404
+
+
+def course_lessons(request, course_id):
+    course = get_object_or_404(Course, id=course_id)
+    data = list(
+        course.lessons.all().values("id", "title", "order", "content")
+    )
+    return JsonResponse(data, safe=False)
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health),
     path("api/courses/", courses),
+    path("api/courses/<int:course_id>/lessons/", course_lessons),
 ]

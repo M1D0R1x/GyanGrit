@@ -1,0 +1,172 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+############################################
+# OS / Editor junk
+############################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.log
+
+.vscode/
+.idea/
+*.iml
+
+############################################
+# Python / Django
+############################################
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.env.*
+.python-version
+
+# Django runtime
+db.sqlite3
+media/
+staticfiles/
+
+# Django secrets
+secret_key.txt
+
+############################################
+# Python packaging
+############################################
+.eggs/
+*.egg-info/
+dist/
+build/
+
+############################################
+# Django settings safety
+############################################
+# Never commit environment-specific secrets
+backend/**/settings/local.py
+
+############################################
+# Celery / Redis / Runtime
+############################################
+celerybeat-schedule
+celerybeat.pid
+*.pid
+
+############################################
+# Logs
+############################################
+logs/
+*.log
+
+############################################
+# Frontend (React / PWA)
+############################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+frontend/dist/
+frontend/build/
+
+# Environment files
+frontend/.env
+frontend/.env.*
+frontend/*.local
+
+############################################
+# Service workers & cache (generated)
+############################################
+frontend/public/sw.js
+frontend/public/workbox-*
+
+############################################
+# IndexedDB / PWA generated artifacts
+############################################
+*.sqlite
+*.db
+
+############################################
+# Docker / Infra
+############################################
+*.env
+.envrc
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+############################################
+# Media / Video / Large files
+############################################
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.hls
+*.ts
+*.m3u8
+
+uploads/
+processed_videos/
+
+############################################
+# AI / ML artifacts (future-proof)
+############################################
+*.bin
+*.pt
+*.pth
+*.onnx
+*.pkl
+*.joblib
+vector_store/
+embeddings/
+
+############################################
+# Test artifacts
+############################################
+.coverage
+htmlcov/
+.pytest_cache/
+
+############################################
+# Security
+############################################
+*.pem
+*.key
+*.crt
+*.csr
+
+############################################
+# Ignore EVERYTHING inside infra secrets
+############################################
+infra/**/secrets/

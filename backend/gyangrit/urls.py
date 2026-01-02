@@ -73,6 +73,35 @@ def lesson_detail(request, lesson_id):
     })
 
 
+from django.db.models import Count, Q
+
+def course_progress(request, course_id):
+    course = get_object_or_404(Course, id=course_id)
+
+    total = course.lessons.count()
+    if total == 0:
+        return JsonResponse({
+            "course_id": course.id,
+            "completed": 0,
+            "total": 0,
+            "percentage": 0,
+        })
+
+    completed = LessonProgress.objects.filter(
+        lesson__course=course,
+        completed=True,
+    ).count()
+
+    percentage = int((completed / total) * 100)
+
+    return JsonResponse({
+        "course_id": course.id,
+        "completed": completed,
+        "total": total,
+        "percentage": percentage,
+    })
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health),
@@ -80,6 +109,7 @@ urlpatterns = [
     path("api/courses/<int:course_id>/lessons/", course_lessons),
     path("api/lessons/<int:lesson_id>/progress/", lesson_progress),
     path("api/lessons/<int:lesson_id>/", lesson_detail),
+    path("api/courses/<int:course_id>/progress/", course_progress),
 
 
 

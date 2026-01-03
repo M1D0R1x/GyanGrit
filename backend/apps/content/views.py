@@ -7,6 +7,14 @@ from django.db import models
 
 from .models import Course, Lesson, LessonProgress
 
+"""
+API CONTRACT NOTES:
+
+- All endpoints are versioned under /api/v1/
+- Responses are stable and backward-compatible
+- User scoping will be added without changing response shape
+"""
+
 
 def health(request):
     """

@@ -1,42 +1,47 @@
 import { useEffect, useState } from "react";
-import { apiGet } from "../services/api";
-
-type CourseAnalytics = {
-  course_id: number;
-  title: string;
-  total_lessons: number;
-  completed_lessons: number;
-  percentage: number;
-};
+import {
+  getTeacherCourseAnalytics,
+  getTeacherLessonAnalytics,
+    type TeacherCourseAnalytics,
+    type TeacherLessonAnalytics,
+} from "../services/teacherAnalytics";
 
 export default function TeacherDashboardPage() {
-  const [analytics, setAnalytics] = useState<CourseAnalytics[]>([]);
+  const [courses, setCourses] = useState<TeacherCourseAnalytics[]>([]);
+  const [lessons, setLessons] = useState<TeacherLessonAnalytics[]>([]);
 
   useEffect(() => {
-    apiGet<CourseAnalytics[]>("/api/teacher/analytics/")
-      .then(setAnalytics);
+    getTeacherCourseAnalytics().then(setCourses);
+    getTeacherLessonAnalytics().then(setLessons);
   }, []);
 
   return (
     <div>
-      <header>
-        <h1>Teacher Dashboard</h1>
-        <p>Course completion overview</p>
-      </header>
+      <h1>Teacher Dashboard</h1>
 
-      <main>
+      <section>
+        <h2>Course Overview</h2>
         <ul>
-          {analytics.map((c) => (
+          {courses.map((c) => (
             <li key={c.course_id}>
-              <h3>{c.title}</h3>
-              <p>
-                Lessons: {c.completed_lessons}/{c.total_lessons}
-              </p>
-              <p>Completion: {c.percentage}%</p>
+              {c.title} — {c.percentage}% complete
             </li>
           ))}
         </ul>
-      </main>
+      </section>
+
+      <section>
+        <h2>Lesson Analytics</h2>
+        <ul>
+          {lessons.map((l) => (
+            <li key={l.lesson_id}>
+              {l.course_title} → {l.lesson_title}
+              ({l.completed_count}/{l.total_attempts})
+              avg time: {l.avg_time_spent}s
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

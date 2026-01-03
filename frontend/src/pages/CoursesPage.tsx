@@ -13,7 +13,7 @@ export default function CoursesPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    apiGet<Course[]>("/api/courses/")
+    apiGet<Course[]>("/courses/")
       .then(setCourses)
       .catch((err) => {
         console.error("Failed to load courses", err);

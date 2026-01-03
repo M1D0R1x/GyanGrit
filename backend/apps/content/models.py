@@ -27,17 +27,15 @@ class Lesson(models.Model):
     def __str__(self):
         return f"{self.course.title} – {self.title}"
 
+from django.db import models
+from django.utils import timezone
 
 class LessonProgress(models.Model):
-    lesson = models.OneToOneField(
-        Lesson,
-        on_delete=models.CASCADE,
-        related_name="progress",
-    )
+    lesson = models.ForeignKey("Lesson", on_delete=models.CASCADE)
     completed = models.BooleanField(default=False)
-    last_position = models.PositiveIntegerField(default=0)
+    last_position = models.IntegerField(default=0)
+    last_opened_at = models.DateTimeField(null=True, blank=True)
 
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Progress for {self.lesson.title}"
+    def mark_opened(self):
+        self.last_opened_at = timezone.now()
+        self.save(update_fields=["last_opened_at"])

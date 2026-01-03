@@ -18,13 +18,25 @@ def courses(request):
     return JsonResponse(data, safe=False)
 
 
+from apps.content.models import LessonProgress
+
 def course_lessons(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    data = list(
-        course.lessons.all().values("id", "title", "order", "content")
-    )
-    return JsonResponse(data, safe=False)
 
+    data = []
+    for lesson in course.lessons.all():
+        progress = LessonProgress.objects.filter(
+            lesson=lesson, completed=True
+        ).exists()
+
+        data.append({
+            "id": lesson.id,
+            "title": lesson.title,
+            "order": lesson.order,
+            "completed": progress,
+        })
+
+    return JsonResponse(data, safe=False)
 
 from django.utils import timezone
 from apps.content.models import LessonProgress

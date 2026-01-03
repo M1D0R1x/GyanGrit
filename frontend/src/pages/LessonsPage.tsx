@@ -4,44 +4,61 @@ import { apiGet } from "../services/api";
 import { updateLessonProgress } from "../services/progress";
 import LessonItem from "../components/LessonItem";
 
+/**
+ * Lesson shape returned by the backend.
+ * `completed` is included so we can show ✅ in the UI.
+ */
 type Lesson = {
   id: number;
   title: string;
   order: number;
+  completed: boolean;
 };
 
 export default function LessonsPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+
+  // List of lessons for the selected course
   const [lessons, setLessons] = useState<Lesson[]>([]);
 
+  // Fetch lessons whenever courseId changes
   useEffect(() => {
+    if (!courseId) return;
+
     apiGet<Lesson[]>(`/api/courses/${courseId}/lessons/`)
       .then(setLessons);
   }, [courseId]);
 
   return (
     <div>
-      <h2>Lessons</h2>
+      <header>
+        <h2>Lessons</h2>
+      </header>
 
-      <ul>
-        {lessons.map((l) => (
-          <LessonItem
-            key={l.id}
-            id={l.id}
-            title={l.title}
-            order={l.order}
-            onSelect={() => navigate(`/lessons/${l.id}`)}
-            onComplete={() =>
-              updateLessonProgress(l.id, { completed: true })
-            }
-          />
-        ))}
-      </ul>
+      <main>
+        <ul>
+          {lessons.map((lesson) => (
+            <LessonItem
+              key={lesson.id}
+              id={lesson.id}
+              order={lesson.order}
+              // Append a checkmark if the lesson is completed
+              title={`${lesson.title}${lesson.completed ? " ✅" : ""}`}
+              onSelect={() => navigate(`/lessons/${lesson.id}`)}
+              onComplete={() =>
+                updateLessonProgress(lesson.id, { completed: true })
+              }
+            />
+          ))}
+        </ul>
+      </main>
 
-      <button onClick={() => navigate("/")}>
-        Back to courses
-      </button>
+      <footer>
+        <button onClick={() => navigate("/")}>
+          Back to courses
+        </button>
+      </footer>
     </div>
   );
 }

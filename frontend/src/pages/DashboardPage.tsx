@@ -15,68 +15,92 @@ export default function DashboardPage() {
   const [progress, setProgress] = useState<Record<number, CourseProgress>>({});
   const navigate = useNavigate();
 
-  // Load courses
+  // Fetch all courses once on mount
   useEffect(() => {
     apiGet<Course[]>("/api/courses/").then(setCourses);
   }, []);
 
-  // Load progress per course
+  // Fetch progress for each course
   useEffect(() => {
     courses.forEach(async (course) => {
       const prog = await getCourseProgress(course.id);
-      setProgress((p) => ({ ...p, [course.id]: prog }));
+      setProgress((prev) => ({ ...prev, [course.id]: prog }));
     });
   }, [courses]);
 
-return (
-  <div>
-    <header>
-      <h1>Student Dashboard</h1>
-    </header>
+  return (
+    <div>
+      <header>
+        <h1>Student Dashboard</h1>
+      </header>
 
-    <main>
-      <section>
-        <h2>Continue Learning</h2>
+      <main>
+        <section>
+          <h2>Your Courses</h2>
 
-        <ul>
-          {courses.map((course) => {
-            const prog = progress[course.id];
+          <ul>
+            {courses.map((course) => {
+              const prog = progress[course.id];
 
-            return (
-              <li key={course.id}>
-                <h3>{course.title}</h3>
+              return (
+                <li key={course.id} style={{ marginBottom: "16px" }}>
+                  <h3>{course.title}</h3>
 
-                {prog && (
-                  <p>
-                    Progress: {prog.percentage}% (
-                    {prog.completed}/{prog.total})
-                  </p>
-                )}
+                  {/* Progress text */}
+                  {prog && (
+                    <p>
+                      {prog.completed}/{prog.total} lessons completed
+                    </p>
+                  )}
 
-                {prog?.resume_lesson_id ? (
-                  <button
-                    onClick={() =>
-                      navigate(`/lessons/${prog.resume_lesson_id}`)
-                    }
-                  >
-                    Resume
-                  </button>
-                ) : (
-                  <p>✅ Completed</p>
-                )}
+                  {/* Progress bar */}
+                  {prog && (
+                    <div
+                      style={{
+                        width: "100%",
+                        background: "#ddd",
+                        height: "8px",
+                        borderRadius: "4px",
+                        overflow: "hidden",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${prog.percentage}%`,
+                          background: "#4caf50",
+                          height: "100%",
+                        }}
+                      />
+                    </div>
+                  )}
 
-                <button
-                  onClick={() => navigate(`/courses/${course.id}`)}
-                >
-                  View lessons
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    </main>
-  </div>
-);
+                  {/* Resume or completed indicator */}
+                  {prog?.resume_lesson_id ? (
+                    <button
+                      onClick={() =>
+                        navigate(`/lessons/${prog.resume_lesson_id}`)
+                      }
+                    >
+                      Resume learning
+                    </button>
+                  ) : (
+                    <span>✅ Course completed</span>
+                  )}
 
+                  <div>
+                    <button
+                      onClick={() => navigate(`/courses/${course.id}`)}
+                    >
+                      View lessons
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </main>
+    </div>
+  );
 }

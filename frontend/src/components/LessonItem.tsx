@@ -1,5 +1,4 @@
 type Props = {
-  id: number;
   title: string;
   order: number;
   completed: boolean;
@@ -8,10 +7,12 @@ type Props = {
 };
 
 /**
- * Renders a single lesson row with:
- * - order number
- * - completion indicator
- * - optional "mark complete" action
+ * Renders a single lesson row.
+ *
+ * Rules:
+ * - Completion state comes ONLY from backend
+ * - Completed lessons are visually downgraded
+ * - Completion action is explicit and separate
  */
 export default function LessonItem({
   title,
@@ -25,23 +26,24 @@ export default function LessonItem({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
+        gap: "12px",
         opacity: completed ? 0.6 : 1,
       }}
     >
-      {/* Lesson title */}
+      {/* Lesson navigation */}
       <button onClick={onSelect}>
         {order}. {title}
       </button>
 
       {/* Completion indicator */}
-      {completed && <span>✅</span>}
+      {completed && <span aria-label="completed">✅</span>}
 
-      {/* Optional manual completion (alpha/testing only) */}
+      {/* Explicit completion action (alpha only) */}
       {!completed && onComplete && (
         <button
           onClick={onComplete}
           style={{ marginLeft: "auto" }}
+          aria-label="mark-complete"
         >
           Mark complete
         </button>

@@ -5,8 +5,8 @@ import { updateLessonProgress } from "../services/progress";
 import LessonItem from "../components/LessonItem";
 
 /**
- * Lesson shape returned by the backend.
- * `completed` is included so we can show ✅ in the UI.
+ * Lesson shape returned by backend.
+ * `completed` comes from LessonProgress aggregation.
  */
 type Lesson = {
   id: number;
@@ -18,11 +18,9 @@ type Lesson = {
 export default function LessonsPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-
-  // List of lessons for the selected course
   const [lessons, setLessons] = useState<Lesson[]>([]);
 
-  // Fetch lessons whenever courseId changes
+  // Fetch lessons for the selected course
   useEffect(() => {
     if (!courseId) return;
 
@@ -43,8 +41,8 @@ export default function LessonsPage() {
               key={lesson.id}
               id={lesson.id}
               order={lesson.order}
-              // Append a checkmark if the lesson is completed
-              title={`${lesson.title}${lesson.completed ? " ✅" : ""}`}
+              title={lesson.title}
+              completed={lesson.completed}
               onSelect={() => navigate(`/lessons/${lesson.id}`)}
               onComplete={() =>
                 updateLessonProgress(lesson.id, { completed: true })

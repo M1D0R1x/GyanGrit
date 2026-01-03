@@ -15,8 +15,7 @@ export default function LessonPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
 
   useEffect(() => {
-    apiGet<Lesson>(`/api/lessons/${lessonId}/`)
-      .then(setLesson);
+    apiGet<Lesson>(`/api/lessons/${lessonId}/`).then(setLesson);
   }, [lessonId]);
 
   if (!lesson) return <p>Loading…</p>;

@@ -22,6 +22,7 @@ export default function LessonsPage() {
   return (
     <div>
       <h2>Lessons</h2>
+
       <ul>
         {lessons.map((l) => (
           <LessonItem

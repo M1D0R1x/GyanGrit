@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
-import { getCourseProgress } from "../services/courseProgress.ts";
-import type { CourseProgress } from "../services/courseProgress.ts";
+import { getCourseProgress } from "../services/courseProgress";
+import type { CourseProgress } from "../services/courseProgress";
 
 type Course = {
   id: number;
@@ -15,14 +15,12 @@ export default function CoursesPage() {
   const [progress, setProgress] = useState<Record<number, CourseProgress>>({});
   const navigate = useNavigate();
 
-  // Load courses
   useEffect(() => {
     apiGet<Course[]>("/api/courses/").then(setCourses);
   }, []);
 
-  // Load progress per course
   useEffect(() => {
-    courses.forEach((c: Course) => {
+    courses.forEach((c) => {
       getCourseProgress(c.id).then((p) =>
         setProgress((prev) => ({ ...prev, [c.id]: p }))
       );
@@ -34,17 +32,14 @@ export default function CoursesPage() {
       <h1>Courses</h1>
 
       <ul>
-        {courses.map((c: Course) => (
+        {courses.map((c) => (
           <li key={c.id}>
             <button onClick={() => navigate(`/courses/${c.id}`)}>
               {c.title}
             </button>
 
             {progress[c.id] && (
-              <small>
-                {" "}
-                — {progress[c.id].percentage}% complete
-              </small>
+              <small> — {progress[c.id].percentage}% complete</small>
             )}
           </li>
         ))}

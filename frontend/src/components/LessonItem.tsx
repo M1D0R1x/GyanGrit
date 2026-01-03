@@ -1,7 +1,3 @@
-import { useEffect, useState } from "react";
-import { getLessonProgress } from "../services/progress";
-import type { LessonProgress } from "../services/progress";
-
 type Props = {
   id: number;
   title: string;
@@ -9,23 +5,11 @@ type Props = {
   onSelect: () => void;
 };
 
-export default function LessonItem({ id, title, order, onSelect }: Props) {
-  const [progress, setProgress] = useState<LessonProgress | null>(null);
-
-  useEffect(() => {
-    getLessonProgress(id).then(setProgress);
-  }, [id]);
-
+export default function LessonItem({ title, order, onSelect }: Props) {
   return (
     <li>
       <button onClick={onSelect}>
         {order}. {title}
-        {progress && (
-          <span>
-            {" "}
-            — {progress.completed ? "✅ Completed" : "⏳ In progress"}
-          </span>
-        )}
       </button>
     </li>
   );

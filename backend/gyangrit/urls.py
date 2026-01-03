@@ -14,103 +14,10 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-# from django.contrib import admin
 from django.contrib import admin
-from django.urls import path
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-import json
-
-
-def health(request):
-    return JsonResponse({"status": "ok", "service": "gyangrit-backend"})
-
-from apps.content.models import Course
-
-def courses(request):
-    data = list(
-        Course.objects.all().values("id", "title", "description")
-    )
-    return JsonResponse(data, safe=False)
-
-from apps.content.models import Course, Lesson
-from django.shortcuts import get_object_or_404
-
-
-def course_lessons(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-    data = list(
-        course.lessons.all().values("id", "title", "order", "content")
-    )
-    return JsonResponse(data, safe=False)
-
-from apps.content.models import Lesson, LessonProgress
-from django.shortcuts import get_object_or_404
-
-@require_http_methods(["GET", "PATCH"])
-def lesson_progress(request, lesson_id):
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    progress, _ = LessonProgress.objects.get_or_create(lesson=lesson)
-
-    if request.method == "PATCH":
-        body = json.loads(request.body)
-        progress.completed = body.get("completed", progress.completed)
-        progress.last_position = body.get("last_position", progress.last_position)
-        progress.save()
-
-    return JsonResponse({
-        "lesson_id": lesson.id,
-        "completed": progress.completed,
-        "last_position": progress.last_position,
-    })
-
-def lesson_detail(request, lesson_id):
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "content": lesson.content,
-    })
-
-
-from django.db.models import Count, Q
-
-def course_progress(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-
-    total = course.lessons.count()
-    if total == 0:
-        return JsonResponse({
-            "course_id": course.id,
-            "completed": 0,
-            "total": 0,
-            "percentage": 0,
-        })
-
-    completed = LessonProgress.objects.filter(
-        lesson__course=course,
-        completed=True,
-    ).count()
-
-    percentage = int((completed / total) * 100)
-
-    return JsonResponse({
-        "course_id": course.id,
-        "completed": completed,
-        "total": total,
-        "percentage": percentage,
-    })
-
+from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/health/", health),
-    path("api/courses/", courses),
-    path("api/courses/<int:course_id>/lessons/", course_lessons),
-    path("api/lessons/<int:lesson_id>/progress/", lesson_progress),
-    path("api/lessons/<int:lesson_id>/", lesson_detail),
-    path("api/courses/<int:course_id>/progress/", course_progress),
-
-
-
+    path("api/", include("apps.content.urls")),
 ]

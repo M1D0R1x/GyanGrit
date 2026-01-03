@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
+import { updateLessonProgress } from "../services/progress";
 import LessonItem from "../components/LessonItem";
 
 type Lesson = {
@@ -31,11 +32,16 @@ export default function LessonsPage() {
             title={l.title}
             order={l.order}
             onSelect={() => navigate(`/lessons/${l.id}`)}
+            onComplete={() =>
+              updateLessonProgress(l.id, { completed: true })
+            }
           />
         ))}
       </ul>
 
-      <button onClick={() => navigate("/")}>Back to courses</button>
+      <button onClick={() => navigate("/")}>
+        Back to courses
+      </button>
     </div>
   );
 }

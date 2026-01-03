@@ -2,61 +2,77 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { updateLessonProgress } from "../services/progress";
-import LessonItem from "../components/LessonItem";
 
-/**
- * Lesson shape returned by backend.
- * `completed` comes from LessonProgress aggregation.
- */
 type Lesson = {
   id: number;
   title: string;
-  order: number;
+  content: string;
+};
+
+type LessonProgress = {
+  lesson_id: number;
   completed: boolean;
 };
 
-export default function LessonsPage() {
-  const { courseId } = useParams();
+export default function LessonPage() {
+  const { lessonId } = useParams();
   const navigate = useNavigate();
-  const [lessons, setLessons] = useState<Lesson[]>([]);
 
-  // Fetch lessons for the selected course
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [completed, setCompleted] = useState(false);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
-    if (!courseId) return;
+    if (!lessonId) return;
 
-    apiGet<Lesson[]>(`/api/courses/${courseId}/lessons/`)
-      .then(setLessons);
-  }, [courseId]);
+    apiGet<Lesson>(`/lessons/${lessonId}/`).then(setLesson);
+
+    apiGet<LessonProgress>(`/lessons/${lessonId}/progress/`)
+      .then((p) => setCompleted(p.completed));
+  }, [lessonId]);
+
+  async function markCompleted() {
+    if (!lesson || completed) return;
+
+    setSaving(true);
+    await updateLessonProgress(lesson.id, { completed: true });
+    setCompleted(true);
+    setSaving(false);
+  }
+
+  if (!lesson) return <p>Loading…</p>;
 
   return (
-    <div>
-      <header>
-        <h2>Lessons</h2>
-      </header>
+    <div style={{ maxWidth: "700px" }}>
+      <button onClick={() => navigate(-1)}>← Back</button>
 
-      <main>
-        <ul>
-          {lessons.map((lesson) => (
-            <LessonItem
-              key={lesson.id}
-              id={lesson.id}
-              order={lesson.order}
-              title={lesson.title}
-              completed={lesson.completed}
-              onSelect={() => navigate(`/lessons/${lesson.id}`)}
-              onComplete={() =>
-                updateLessonProgress(lesson.id, { completed: true })
-              }
-            />
-          ))}
-        </ul>
-      </main>
+      <h2>{lesson.title}</h2>
 
-      <footer>
-        <button onClick={() => navigate("/")}>
-          Back to courses
-        </button>
-      </footer>
+      <p style={{ marginBottom: "24px" }}>
+        {lesson.content || "Lesson content coming soon."}
+      </p>
+
+      {/* Completion block */}
+      <div style={{ marginTop: "32px" }}>
+        {completed ? (
+          <div
+            style={{
+              padding: "12px",
+              background: "#f0fdf4",
+              border: "1px solid #16a34a",
+            }}
+          >
+            ✅ Lesson completed
+          </div>
+        ) : (
+          <button
+            onClick={markCompleted}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Mark as completed"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

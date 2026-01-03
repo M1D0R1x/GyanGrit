@@ -4,6 +4,8 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db import models
+from django.views.decorators.csrf import csrf_exempt
+
 
 from .models import Course, Lesson, LessonProgress
 
@@ -81,6 +83,10 @@ def lesson_detail(request, lesson_id):
     })
 
 
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+@csrf_exempt
 @require_http_methods(["GET", "PATCH"])
 def lesson_progress(request, lesson_id):
     """

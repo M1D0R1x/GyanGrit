@@ -7,12 +7,12 @@ type Props = {
 };
 
 /**
- * Renders a single lesson row.
+ * Lesson list item.
  *
- * Rules:
- * - Completion state comes ONLY from backend
- * - Completed lessons are visually downgraded
- * - Completion action is explicit and separate
+ * UX rules:
+ * - Navigation is primary
+ * - Completion is explicit and secondary
+ * - Completed lessons are clearly marked
  */
 export default function LessonItem({
   title,
@@ -27,22 +27,35 @@ export default function LessonItem({
         display: "flex",
         alignItems: "center",
         gap: "12px",
-        opacity: completed ? 0.6 : 1,
+        padding: "6px 0",
+        opacity: completed ? 0.65 : 1,
       }}
     >
-      {/* Lesson navigation */}
-      <button onClick={onSelect}>
+      {/* Lesson navigation (primary action) */}
+      <button
+        onClick={onSelect}
+        style={{
+          fontWeight: completed ? "normal" : "bold",
+        }}
+      >
         {order}. {title}
       </button>
 
       {/* Completion indicator */}
-      {completed && <span aria-label="completed">✅</span>}
+      {completed && (
+        <span aria-label="completed" title="Completed">
+          ✅
+        </span>
+      )}
 
-      {/* Explicit completion action (alpha only) */}
+      {/* Completion action (secondary, explicit) */}
       {!completed && onComplete && (
         <button
           onClick={onComplete}
-          style={{ marginLeft: "auto" }}
+          style={{
+            marginLeft: "auto",
+            fontSize: "0.85em",
+          }}
           aria-label="mark-complete"
         >
           Mark complete

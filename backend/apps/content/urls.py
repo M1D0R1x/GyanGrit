@@ -10,4 +10,5 @@ urlpatterns = [
 
     path("lessons/<int:lesson_id>/", views.lesson_detail),
     path("lessons/<int:lesson_id>/progress/", views.lesson_progress),
+    path("teacher/analytics/", views.teacher_course_analytics),
 ]

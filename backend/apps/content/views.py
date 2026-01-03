@@ -100,3 +100,30 @@ def course_progress(request, course_id):
         "percentage": percentage,
         "resume_lesson_id": resume_lesson_id,
     })
+
+from django.db.models import Count, Q
+
+def teacher_course_analytics(request):
+    courses = Course.objects.all()
+
+    data = []
+    for course in courses:
+        total_lessons = course.lessons.count()
+        completed_lessons = LessonProgress.objects.filter(
+            lesson__course=course,
+            completed=True
+        ).count()
+
+        percentage = int(
+            (completed_lessons / total_lessons) * 100
+        ) if total_lessons else 0
+
+        data.append({
+            "course_id": course.id,
+            "title": course.title,
+            "total_lessons": total_lessons,
+            "completed_lessons": completed_lessons,
+            "percentage": percentage,
+        })
+
+    return JsonResponse(data, safe=False)

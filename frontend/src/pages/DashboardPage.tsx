@@ -28,46 +28,55 @@ export default function DashboardPage() {
     });
   }, [courses]);
 
-  return (
-    <div>
+return (
+  <div>
+    <header>
       <h1>Student Dashboard</h1>
+    </header>
 
-      <ul>
-        {courses.map((course) => {
-          const prog = progress[course.id];
+    <main>
+      <section>
+        <h2>Continue Learning</h2>
 
-          return (
-            <li key={course.id}>
-              <h3>{course.title}</h3>
+        <ul>
+          {courses.map((course) => {
+            const prog = progress[course.id];
 
-              {prog && (
-                <p>
-                  Progress: {prog.percentage}% (
-                  {prog.completed}/{prog.total})
-                </p>
-              )}
+            return (
+              <li key={course.id}>
+                <h3>{course.title}</h3>
 
-              {prog?.resume_lesson_id ? (
+                {prog && (
+                  <p>
+                    Progress: {prog.percentage}% (
+                    {prog.completed}/{prog.total})
+                  </p>
+                )}
+
+                {prog?.resume_lesson_id ? (
+                  <button
+                    onClick={() =>
+                      navigate(`/lessons/${prog.resume_lesson_id}`)
+                    }
+                  >
+                    Resume
+                  </button>
+                ) : (
+                  <p>✅ Completed</p>
+                )}
+
                 <button
-                  onClick={() =>
-                    navigate(`/lessons/${prog.resume_lesson_id}`)
-                  }
+                  onClick={() => navigate(`/courses/${course.id}`)}
                 >
-                  Resume learning
+                  View lessons
                 </button>
-              ) : prog ? (
-                <p>✅ Course completed</p>
-              ) : (
-                <p>Loading progress…</p>
-              )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </main>
+  </div>
+);
 
-              <button onClick={() => navigate(`/courses/${course.id}`)}>
-                View lessons
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
 }

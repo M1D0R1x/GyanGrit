@@ -31,19 +31,18 @@ export default function LessonsPage() {
       <ul>
         {lessons.map((lesson) => (
           <LessonItem
-            key={lesson.id}
-            id={lesson.id}
+            key={lesson.id}                 // React-only, OK
             order={lesson.order}
             title={lesson.title}
             completed={lesson.completed}
             onSelect={() => navigate(`/lessons/${lesson.id}`)}
             onComplete={() =>
-              updateLessonProgress(lesson.id, { completed: true })
+            updateLessonProgress(lesson.id, { completed: true })
             }
-          />
+            />
+
         ))}
       </ul>
-
       <button onClick={() => navigate("/")}>
         Back to courses
       </button>

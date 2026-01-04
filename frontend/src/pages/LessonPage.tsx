@@ -26,14 +26,12 @@ export default function LessonPage() {
     if (!lessonId) return;
 
     apiGet<Lesson>(`/lessons/${lessonId}/`).then(setLesson);
-
     apiGet<LessonProgress>(`/lessons/${lessonId}/progress/`)
       .then((p) => setCompleted(p.completed));
   }, [lessonId]);
 
   async function markCompleted() {
     if (!lesson || completed) return;
-
     setSaving(true);
     await updateLessonProgress(lesson.id, { completed: true });
     setCompleted(true);
@@ -43,35 +41,40 @@ export default function LessonPage() {
   if (!lesson) return <p>Loading…</p>;
 
   return (
-    <div style={{ maxWidth: "700px" }}>
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
       <button onClick={() => navigate(-1)}>← Back</button>
 
-      <h2>{lesson.title}</h2>
+      <h1 style={{ marginTop: 16 }}>{lesson.title}</h1>
 
-      <p style={{ marginBottom: "24px" }}>
+      <section
+        style={{
+          margin: "24px 0",
+          lineHeight: 1.6,
+          whiteSpace: "pre-wrap",
+        }}
+      >
         {lesson.content || "Lesson content coming soon."}
-      </p>
+      </section>
 
-      {/* Completion block */}
-      <div style={{ marginTop: "32px" }}>
-        {completed ? (
-          <div
-            style={{
-              padding: "12px",
-              background: "#f0fdf4",
-              border: "1px solid #16a34a",
-            }}
-          >
-            ✅ Lesson completed
-          </div>
-        ) : (
-          <button
-            onClick={markCompleted}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Mark as completed"}
-          </button>
-        )}
+      {/* Lesson actions */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        <button
+          onClick={markCompleted}
+          disabled={completed || saving}
+        >
+          {completed ? "Completed ✓" : saving ? "Saving…" : "Mark completed"}
+        </button>
+
+        {/* Navigation affordance (UI-only) */}
+        <span style={{ opacity: 0.6 }}>
+          Use Back / Resume to continue
+        </span>
       </div>
     </div>
   );

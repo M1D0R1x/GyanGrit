@@ -37,15 +37,12 @@ class Lesson(models.Model):
         return f"{self.course.title} – {self.title}"
 
 
-class LessonProgress(models.Model):
-    """
-    Tracks progress for a lesson.
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
 
-    Currently user is nullable because:
-    - auth is not implemented yet
-    - later this will become user-scoped progress
-    """
-    time_spent_seconds = models.PositiveIntegerField(default=0)
+
+class LessonProgress(models.Model):
     lesson = models.ForeignKey(
         Lesson,
         on_delete=models.CASCADE,
@@ -63,14 +60,21 @@ class LessonProgress(models.Model):
     last_position = models.IntegerField(default=0)
     last_opened_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lesson", "user"],
+                name="unique_lesson_progress_per_user",
+            )
+        ]
+
     def mark_opened(self):
         """
-        Update the last time the lesson was accessed.
-        Used for resume logic.
+        Updates last_opened_at for resume logic.
+        Called whenever a lesson is opened.
         """
         self.last_opened_at = timezone.now()
         self.save(update_fields=["last_opened_at"])
 
     def __str__(self):
-        status = "done" if self.completed else "in progress"
-        return f"{self.lesson.title} – {status}"
+        return f"{self.lesson.title} – {'done' if self.completed else 'in progress'}"

@@ -86,7 +86,6 @@ def lesson_detail(request, lesson_id):
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-@csrf_exempt
 @require_http_methods(["GET", "PATCH"])
 def lesson_progress(request, lesson_id):
     """
@@ -102,13 +101,9 @@ def lesson_progress(request, lesson_id):
     if request.method == "PATCH":
         body = json.loads(request.body)
 
+        # Only update fields that ACTUALLY exist
         progress.completed = body.get(
             "completed", progress.completed
-        )
-
-        # Time accumulation (frontend sends delta)
-        progress.time_spent_seconds += body.get(
-            "time_spent_seconds", 0
         )
 
         progress.last_position = body.get(

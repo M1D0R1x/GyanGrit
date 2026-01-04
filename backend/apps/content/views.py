@@ -4,8 +4,6 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db import models
-from django.views.decorators.csrf import csrf_exempt
-
 
 from .models import Course, Lesson, LessonProgress
 
@@ -14,7 +12,7 @@ API CONTRACT NOTES:
 
 - All endpoints are versioned under /api/v1/
 - Responses are stable and backward-compatible
-- User scoping will be added without changing response shape
+- User scoping will be added later without changing response shape
 """
 
 
@@ -51,6 +49,7 @@ def course_lessons(request, course_id):
         completed = LessonProgress.objects.filter(
             lesson=lesson,
             completed=True,
+            user=None,
         ).exists()
 
         lessons_data.append({
@@ -70,11 +69,23 @@ def lesson_detail(request, lesson_id):
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    progress, _ = LessonProgress.objects.get_or_create(
-        lesson=lesson,
-        user=None,  # will change when auth is added
+    # Safely get latest progress (avoids duplicate crash)
+    progress = (
+        LessonProgress.objects
+        .filter(lesson=lesson, user=None)
+        .order_by("-last_opened_at")
+        .first()
     )
-    progress.mark_opened()
+
+    if not progress:
+        progress = LessonProgress.objects.create(
+            lesson=lesson,
+            user=None,
+        )
+
+    # Update resume timestamp
+    progress.last_opened_at = timezone.now()
+    progress.save(update_fields=["last_opened_at"])
 
     return JsonResponse({
         "id": lesson.id,
@@ -83,9 +94,6 @@ def lesson_detail(request, lesson_id):
     })
 
 
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-
 @require_http_methods(["GET", "PATCH"])
 def lesson_progress(request, lesson_id):
     """
@@ -93,19 +101,25 @@ def lesson_progress(request, lesson_id):
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    progress, _ = LessonProgress.objects.get_or_create(
-        lesson=lesson,
-        user=None,
+    progress = (
+        LessonProgress.objects
+        .filter(lesson=lesson, user=None)
+        .order_by("-last_opened_at")
+        .first()
     )
+
+    if not progress:
+        progress = LessonProgress.objects.create(
+            lesson=lesson,
+            user=None,
+        )
 
     if request.method == "PATCH":
         body = json.loads(request.body)
 
-        # Only update fields that ACTUALLY exist
         progress.completed = body.get(
             "completed", progress.completed
         )
-
         progress.last_position = body.get(
             "last_position", progress.last_position
         )
@@ -125,7 +139,6 @@ def course_progress(request, course_id):
     """
     course = get_object_or_404(Course, id=course_id)
     lessons = course.lessons.all()
-
     total = lessons.count()
 
     progresses = LessonProgress.objects.filter(
@@ -134,18 +147,19 @@ def course_progress(request, course_id):
     ).select_related("lesson")
 
     completed_ids = set(
-        progresses.filter(
-            completed=True
-        ).values_list("lesson_id", flat=True)
+        progresses.filter(completed=True)
+        .values_list("lesson_id", flat=True)
     )
 
     incomplete = progresses.filter(completed=False)
 
-    # Resume priority:
+    # Resume logic:
     # 1. Most recently opened incomplete lesson
-    recent = incomplete.exclude(
-        last_opened_at__isnull=True
-    ).order_by("-last_opened_at").first()
+    recent = (
+        incomplete.exclude(last_opened_at__isnull=True)
+        .order_by("-last_opened_at")
+        .first()
+    )
 
     if recent:
         resume_lesson_id = recent.lesson_id
@@ -201,7 +215,7 @@ def teacher_lesson_analytics(request):
     Lesson-level analytics for teachers.
 
     NOTE:
-    - Currently aggregated globally (no users yet)
+    - Aggregated globally (no users yet)
     - User scoping will be added later without changing response shape
     """
     data = []
@@ -212,7 +226,7 @@ def teacher_lesson_analytics(request):
         completed_count = progress_qs.filter(completed=True).count()
         total_attempts = progress_qs.count()
 
-        avg_time_spent = (
+        avg_position = (
             progress_qs.exclude(last_position=0)
             .aggregate(avg=models.Avg("last_position"))
             .get("avg")
@@ -224,7 +238,7 @@ def teacher_lesson_analytics(request):
             "course_title": lesson.course.title,
             "completed_count": completed_count,
             "total_attempts": total_attempts,
-            "avg_time_spent": int(avg_time_spent or 0),
+            "avg_time_spent": int(avg_position or 0),
         })
 
     return JsonResponse(data, safe=False)

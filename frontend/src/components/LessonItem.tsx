@@ -31,32 +31,22 @@ export default function LessonItem({
         opacity: completed ? 0.65 : 1,
       }}
     >
-      {/* Lesson navigation (primary action) */}
+      {/* Primary navigation */}
       <button
         onClick={onSelect}
-        style={{
-          fontWeight: completed ? "normal" : "bold",
-        }}
+        style={{ fontWeight: completed ? "normal" : "bold" }}
       >
         {order}. {title}
       </button>
 
       {/* Completion indicator */}
-      {completed && (
-        <span aria-label="completed" title="Completed">
-          ✅
-        </span>
-      )}
+      {completed && <span title="Completed">✅</span>}
 
-      {/* Completion action (secondary, explicit) */}
+      {/* Explicit completion (alpha only) */}
       {!completed && onComplete && (
         <button
           onClick={onComplete}
-          style={{
-            marginLeft: "auto",
-            fontSize: "0.85em",
-          }}
-          aria-label="mark-complete"
+          style={{ marginLeft: "auto", fontSize: "0.85em" }}
         >
           Mark complete
         </button>

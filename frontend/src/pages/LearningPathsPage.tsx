@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   getLearningPaths,
   getLearningPathProgress,
-    type LearningPath,
-    type LearningPathProgress,
+  type LearningPath,
+  type LearningPathProgress,
 } from "../services/learningPaths";
 
 export default function LearningPathsPage() {
@@ -15,10 +15,12 @@ export default function LearningPathsPage() {
     Record<number, LearningPathProgress>
   >({});
 
+  // Load all learning paths
   useEffect(() => {
     getLearningPaths().then(setPaths);
   }, []);
 
+  // Load progress per learning path
   useEffect(() => {
     paths.forEach(async (path) => {
       const p = await getLearningPathProgress(path.id);

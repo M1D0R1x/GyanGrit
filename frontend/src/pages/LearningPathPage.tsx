@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getLearningPath,
-    type LearningPathDetail,
+  type LearningPathDetail,
 } from "../services/learningPaths";
 
 export default function LearningPathPage() {

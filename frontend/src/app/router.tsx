@@ -4,8 +4,9 @@ import CoursesPage from "../pages/CoursesPage";
 import LessonsPage from "../pages/LessonsPage";
 import LessonPage from "../pages/LessonPage";
 import TeacherDashboardPage from "../pages/TeacherDashboardPage";
+import LearningPathsPage from "../pages/LearningPathsPage";
+import LearningPathPage from "../pages/LearningPathPage";
 import { RequireRole } from "../auth/AuthContext";
-
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,22 @@ export const router = createBrowserRouter([
     element: (
       <RequireRole role="teacher">
         <TeacherDashboardPage />
+      </RequireRole>
+    ),
+  },
+  {
+    path: "/learning",
+    element: (
+      <RequireRole role="student">
+        <LearningPathsPage />
+      </RequireRole>
+    ),
+  },
+  {
+    path: "/learning/:pathId",
+    element: (
+      <RequireRole role="student">
+        <LearningPathPage />
       </RequireRole>
     ),
   },

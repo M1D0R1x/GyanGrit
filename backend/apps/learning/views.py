@@ -103,3 +103,93 @@ def update_enrollment(request, enrollment_id):
         "id": enrollment.id,
         "status": enrollment.status,
     })
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+
+from apps.learning.models import (
+    LearningPath,
+    LearningPathCourse,
+    Enrollment,
+)
+
+
+def learning_paths(request):
+    """
+    List all learning paths.
+
+    READ-ONLY.
+    """
+    data = list(
+        LearningPath.objects.all().values(
+            "id",
+            "name",
+            "description",
+        )
+    )
+    return JsonResponse(data, safe=False)
+
+
+def learning_path_detail(request, path_id):
+    """
+    Returns a learning path with ordered courses.
+    """
+    path = get_object_or_404(LearningPath, id=path_id)
+
+    courses = (
+        LearningPathCourse.objects
+        .filter(learning_path=path)
+        .select_related("course")
+        .order_by("order")
+    )
+
+    data = {
+        "id": path.id,
+        "name": path.name,
+        "description": path.description,
+        "courses": [
+            {
+                "course_id": c.course.id,
+                "title": c.course.title,
+                "order": c.order,
+            }
+            for c in courses
+        ],
+    }
+
+    return JsonResponse(data)
+
+
+def learning_path_progress(request, path_id):
+    """
+    Derived progress for a learning path.
+
+    Rules:
+    - Progress is computed, NEVER stored
+    - Uses Enrollment status
+    """
+    path = get_object_or_404(LearningPath, id=path_id)
+
+    course_ids = list(
+        LearningPathCourse.objects
+        .filter(learning_path=path)
+        .values_list("course_id", flat=True)
+    )
+
+    total = len(course_ids)
+
+    completed = Enrollment.objects.filter(
+        course_id__in=course_ids,
+        status="COMPLETED",
+        user=None,  # auth will be added later
+    ).count()
+
+    percentage = int((completed / total) * 100) if total else 0
+
+    return JsonResponse({
+        "path_id": path.id,
+        "total_courses": total,
+        "completed_courses": completed,
+        "percentage": percentage,
+    })
+

@@ -8,13 +8,19 @@ from django.db import models
 from .models import Course, Lesson, LessonProgress
 
 """
-API CONTRACT NOTES:
+CONTENT APP API (v1)
 
+Design principles:
 - All endpoints are versioned under /api/v1/
-- Responses are stable and backward-compatible
-- User scoping will be added later without changing response shape
+- No auth yet (user=None everywhere)
+- MUST be resilient to duplicate LessonProgress rows
+- Response shapes must remain stable
 """
 
+
+# ---------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------
 
 def health(request):
     """
@@ -26,17 +32,27 @@ def health(request):
     })
 
 
+# ---------------------------------------------------------------------
+# Courses
+# ---------------------------------------------------------------------
+
 def courses(request):
     """
     Returns all courses.
     """
     data = list(
         Course.objects.all().values(
-            "id", "title", "description"
+            "id",
+            "title",
+            "description",
         )
     )
     return JsonResponse(data, safe=False)
 
+
+# ---------------------------------------------------------------------
+# Course → Lessons
+# ---------------------------------------------------------------------
 
 def course_lessons(request, course_id):
     """
@@ -45,11 +61,12 @@ def course_lessons(request, course_id):
     course = get_object_or_404(Course, id=course_id)
 
     lessons_data = []
+
     for lesson in course.lessons.all():
         completed = LessonProgress.objects.filter(
             lesson=lesson,
-            completed=True,
             user=None,
+            completed=True,
         ).exists()
 
         lessons_data.append({
@@ -62,18 +79,24 @@ def course_lessons(request, course_id):
     return JsonResponse(lessons_data, safe=False)
 
 
+# ---------------------------------------------------------------------
+# Lesson detail
+# ---------------------------------------------------------------------
+
 def lesson_detail(request, lesson_id):
     """
-    Returns lesson content and updates last_opened_at
-    for resume functionality.
+    Returns lesson content and updates last_opened_at.
+
+    IMPORTANT:
+    - Must NOT crash if duplicate LessonProgress rows exist
+    - Always pick ONE canonical progress row
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    # Safely get latest progress (avoids duplicate crash)
     progress = (
         LessonProgress.objects
         .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at")
+        .order_by("-last_opened_at", "-id")
         .first()
     )
 
@@ -83,7 +106,6 @@ def lesson_detail(request, lesson_id):
             user=None,
         )
 
-    # Update resume timestamp
     progress.last_opened_at = timezone.now()
     progress.save(update_fields=["last_opened_at"])
 
@@ -94,17 +116,27 @@ def lesson_detail(request, lesson_id):
     })
 
 
+# ---------------------------------------------------------------------
+# Lesson progress
+# ---------------------------------------------------------------------
+
 @require_http_methods(["GET", "PATCH"])
 def lesson_progress(request, lesson_id):
     """
     Get or update progress for a lesson.
+
+    PATCH body (partial):
+    {
+        "completed": boolean,
+        "last_position": number
+    }
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
     progress = (
         LessonProgress.objects
         .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at")
+        .order_by("-last_opened_at", "-id")
         .first()
     )
 
@@ -115,13 +147,16 @@ def lesson_progress(request, lesson_id):
         )
 
     if request.method == "PATCH":
-        body = json.loads(request.body)
+        body = json.loads(request.body or "{}")
 
         progress.completed = body.get(
-            "completed", progress.completed
+            "completed",
+            progress.completed,
         )
+
         progress.last_position = body.get(
-            "last_position", progress.last_position
+            "last_position",
+            progress.last_position,
         )
 
         progress.save()
@@ -132,6 +167,10 @@ def lesson_progress(request, lesson_id):
         "last_position": progress.last_position,
     })
 
+
+# ---------------------------------------------------------------------
+# Course progress (dashboard + resume)
+# ---------------------------------------------------------------------
 
 def course_progress(request, course_id):
     """
@@ -182,9 +221,13 @@ def course_progress(request, course_id):
     })
 
 
+# ---------------------------------------------------------------------
+# Teacher analytics
+# ---------------------------------------------------------------------
+
 def teacher_course_analytics(request):
     """
-    Aggregated course-level analytics for teachers/admins.
+    Aggregated course-level analytics.
     """
     data = []
 
@@ -212,11 +255,11 @@ def teacher_course_analytics(request):
 
 def teacher_lesson_analytics(request):
     """
-    Lesson-level analytics for teachers.
+    Lesson-level analytics.
 
     NOTE:
-    - Aggregated globally (no users yet)
-    - User scoping will be added later without changing response shape
+    - Aggregated globally
+    - User scoping will be added later
     """
     data = []
 

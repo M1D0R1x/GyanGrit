@@ -1,21 +1,30 @@
 import json
+
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 from apps.content.models import Course
-from .models import Enrollment
+from apps.learning.models import (
+    Enrollment,
+    LearningPath,
+    LearningPathCourse,
+)
 
 """
-LEARNING APP API
+LEARNING APP API (v1)
 
 Principles:
 - Versioned under /api/v1/learning/
 - No auth yet (user=None)
-- Stable response shapes (won’t break when auth is added)
+- Stable response shapes
+- Derived progress only (never stored)
 """
 
+# ---------------------------------------------------------------------
+# Enrollment APIs
+# ---------------------------------------------------------------------
 
 @require_http_methods(["GET"])
 def enrollments(request):
@@ -23,7 +32,8 @@ def enrollments(request):
     List all enrollments for the current (anonymous) learner.
     """
     data = list(
-        Enrollment.objects.filter(user=None)
+        Enrollment.objects
+        .filter(user=None)
         .select_related("course")
         .values(
             "id",
@@ -42,7 +52,9 @@ def enrollments(request):
 def enroll_course(request):
     """
     Enroll into a course.
-    Idempotent: enrolling twice does not duplicate data.
+
+    Idempotent:
+    - Enrolling twice does not duplicate data
     """
     body = json.loads(request.body)
     course_id = body.get("course_id")
@@ -71,6 +83,7 @@ def enroll_course(request):
 def update_enrollment(request, enrollment_id):
     """
     Update enrollment status.
+
     Allowed transitions:
     - ENROLLED → COMPLETED
     - ENROLLED → DROPPED
@@ -104,21 +117,15 @@ def update_enrollment(request, enrollment_id):
         "status": enrollment.status,
     })
 
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 
-from apps.learning.models import (
-    LearningPath,
-    LearningPathCourse,
-    Enrollment,
-)
+# ---------------------------------------------------------------------
+# Learning Path APIs (READ-ONLY)
+# ---------------------------------------------------------------------
 
-
+@require_http_methods(["GET"])
 def learning_paths(request):
     """
     List all learning paths.
-
-    READ-ONLY.
     """
     data = list(
         LearningPath.objects.all().values(
@@ -130,6 +137,7 @@ def learning_paths(request):
     return JsonResponse(data, safe=False)
 
 
+@require_http_methods(["GET"])
 def learning_path_detail(request, path_id):
     """
     Returns a learning path with ordered courses.
@@ -143,7 +151,7 @@ def learning_path_detail(request, path_id):
         .order_by("order")
     )
 
-    data = {
+    return JsonResponse({
         "id": path.id,
         "name": path.name,
         "description": path.description,
@@ -155,18 +163,17 @@ def learning_path_detail(request, path_id):
             }
             for c in courses
         ],
-    }
-
-    return JsonResponse(data)
+    })
 
 
+@require_http_methods(["GET"])
 def learning_path_progress(request, path_id):
     """
     Derived progress for a learning path.
 
     Rules:
-    - Progress is computed, NEVER stored
-    - Uses Enrollment status
+    - Computed dynamically
+    - Uses Enrollment table
     """
     path = get_object_or_404(LearningPath, id=path_id)
 
@@ -181,7 +188,7 @@ def learning_path_progress(request, path_id):
     completed = Enrollment.objects.filter(
         course_id__in=course_ids,
         status="COMPLETED",
-        user=None,  # auth will be added later
+        user=None,
     ).count()
 
     percentage = int((completed / total) * 100) if total else 0
@@ -192,4 +199,3 @@ def learning_path_progress(request, path_id):
         "completed_courses": completed,
         "percentage": percentage,
     })
-

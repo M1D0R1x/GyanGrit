@@ -199,3 +199,31 @@ def learning_path_progress(request, path_id):
         "completed_courses": completed,
         "percentage": percentage,
     })
+
+
+@require_http_methods(["POST"])
+def enroll_learning_path(request, path_id):
+    """
+    Enroll user into ALL courses in a learning path.
+    Idempotent.
+    """
+    path = get_object_or_404(LearningPath, id=path_id)
+
+    courses = LearningPathCourse.objects.filter(
+        learning_path=path
+    ).select_related("course")
+
+    created = 0
+
+    for item in courses:
+        _, was_created = Enrollment.objects.get_or_create(
+            course=item.course,
+            user=None,
+        )
+        if was_created:
+            created += 1
+
+    return JsonResponse({
+        "path_id": path.id,
+        "enrolled_courses": created,
+    })

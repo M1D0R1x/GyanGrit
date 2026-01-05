@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../pages/CoursesPage";
 import LessonsPage from "../pages/LessonsPage";
@@ -6,9 +7,22 @@ import LessonPage from "../pages/LessonPage";
 import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
+
 import { RequireRole } from "../auth/AuthContext";
 
+/**
+ * Application router.
+ *
+ * Rules:
+ * - "/" is the student dashboard
+ * - Learning Paths live under /learning
+ * - Content (courses/lessons) stays separate
+ * - Role guards are explicit, not implicit
+ */
 export const router = createBrowserRouter([
+  /**
+   * Student dashboard (default landing)
+   */
   {
     path: "/",
     element: (
@@ -17,6 +31,10 @@ export const router = createBrowserRouter([
       </RequireRole>
     ),
   },
+
+  /**
+   * Teacher dashboard
+   */
   {
     path: "/teacher",
     element: (
@@ -25,6 +43,10 @@ export const router = createBrowserRouter([
       </RequireRole>
     ),
   },
+
+  /**
+   * Learning paths (curriculum-level navigation)
+   */
   {
     path: "/learning",
     element: (
@@ -41,6 +63,10 @@ export const router = createBrowserRouter([
       </RequireRole>
     ),
   },
+
+  /**
+   * Course browsing (content app)
+   */
   {
     path: "/courses",
     element: <CoursesPage />,
@@ -49,6 +75,10 @@ export const router = createBrowserRouter([
     path: "/courses/:courseId",
     element: <LessonsPage />,
   },
+
+  /**
+   * Individual lesson view
+   */
   {
     path: "/lessons/:lessonId",
     element: <LessonPage />,

@@ -3,23 +3,23 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from django.db import models
+from django.db.models import Avg
 
-from .models import Course, Lesson, LessonProgress
+from apps.content.models import Course, Lesson, LessonProgress
+from apps.learning.models import Enrollment
 
 """
-API CONTRACT NOTES:
+CONTENT APP API
 
-- All endpoints are versioned under /api/v1/
-- Responses are stable and backward-compatible
-- User scoping will be added later without changing response shape
+Principles:
+- Versioned under /api/v1/
+- Exactly ONE LessonProgress per (lesson, user)
+- Learning actions REQUIRE enrollment
+- user=None for now (auth will replace this)
 """
 
 
 def health(request):
-    """
-    Simple health endpoint for frontend / monitoring.
-    """
     return JsonResponse({
         "status": "ok",
         "service": "gyangrit-backend",
@@ -28,7 +28,7 @@ def health(request):
 
 def courses(request):
     """
-    Returns all courses.
+    Public: list all courses.
     """
     data = list(
         Course.objects.all().values(
@@ -40,7 +40,8 @@ def courses(request):
 
 def course_lessons(request, course_id):
     """
-    Returns lessons for a course, including completion state.
+    List lessons for a course.
+    Viewing lesson list does NOT require enrollment.
     """
     course = get_object_or_404(Course, id=course_id)
 
@@ -48,8 +49,8 @@ def course_lessons(request, course_id):
     for lesson in course.lessons.all():
         completed = LessonProgress.objects.filter(
             lesson=lesson,
-            completed=True,
             user=None,
+            completed=True,
         ).exists()
 
         lessons_data.append({
@@ -62,28 +63,42 @@ def course_lessons(request, course_id):
     return JsonResponse(lessons_data, safe=False)
 
 
+def _require_enrollment(course):
+    """
+    Internal guard: checks enrollment for current learner.
+    """
+    enrolled = Enrollment.objects.filter(
+        course=course,
+        user=None,
+        status="ENROLLED",
+    ).exists()
+
+    if not enrolled:
+        return JsonResponse(
+            {"error": "Not enrolled in this course"},
+            status=403,
+        )
+
+    return None
+
+
 def lesson_detail(request, lesson_id):
     """
-    Returns lesson content and updates last_opened_at
-    for resume functionality.
+    View lesson content.
+    Requires enrollment.
+    Updates last_opened_at for resume logic.
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    # Safely get latest progress (avoids duplicate crash)
-    progress = (
-        LessonProgress.objects
-        .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at")
-        .first()
+    guard = _require_enrollment(lesson.course)
+    if guard:
+        return guard
+
+    progress, _ = LessonProgress.objects.get_or_create(
+        lesson=lesson,
+        user=None,
     )
 
-    if not progress:
-        progress = LessonProgress.objects.create(
-            lesson=lesson,
-            user=None,
-        )
-
-    # Update resume timestamp
     progress.last_opened_at = timezone.now()
     progress.save(update_fields=["last_opened_at"])
 
@@ -97,22 +112,19 @@ def lesson_detail(request, lesson_id):
 @require_http_methods(["GET", "PATCH"])
 def lesson_progress(request, lesson_id):
     """
-    Get or update progress for a lesson.
+    Get or update lesson progress.
+    Requires enrollment.
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    progress = (
-        LessonProgress.objects
-        .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at")
-        .first()
-    )
+    guard = _require_enrollment(lesson.course)
+    if guard:
+        return guard
 
-    if not progress:
-        progress = LessonProgress.objects.create(
-            lesson=lesson,
-            user=None,
-        )
+    progress, _ = LessonProgress.objects.get_or_create(
+        lesson=lesson,
+        user=None,
+    )
 
     if request.method == "PATCH":
         body = json.loads(request.body)
@@ -135,16 +147,22 @@ def lesson_progress(request, lesson_id):
 
 def course_progress(request, course_id):
     """
-    Returns course-level progress including resume lesson.
+    Course-level progress + resume lesson.
+    Requires enrollment.
     """
     course = get_object_or_404(Course, id=course_id)
+
+    guard = _require_enrollment(course)
+    if guard:
+        return guard
+
     lessons = course.lessons.all()
     total = lessons.count()
 
     progresses = LessonProgress.objects.filter(
         lesson__course=course,
         user=None,
-    ).select_related("lesson")
+    )
 
     completed_ids = set(
         progresses.filter(completed=True)
@@ -153,8 +171,6 @@ def course_progress(request, course_id):
 
     incomplete = progresses.filter(completed=False)
 
-    # Resume logic:
-    # 1. Most recently opened incomplete lesson
     recent = (
         incomplete.exclude(last_opened_at__isnull=True)
         .order_by("-last_opened_at")
@@ -164,7 +180,6 @@ def course_progress(request, course_id):
     if recent:
         resume_lesson_id = recent.lesson_id
     else:
-        # 2. First not-yet-completed lesson
         next_lesson = lessons.exclude(
             id__in=completed_ids
         ).first()
@@ -184,7 +199,7 @@ def course_progress(request, course_id):
 
 def teacher_course_analytics(request):
     """
-    Aggregated course-level analytics for teachers/admins.
+    Aggregated course-level analytics.
     """
     data = []
 
@@ -212,25 +227,19 @@ def teacher_course_analytics(request):
 
 def teacher_lesson_analytics(request):
     """
-    Lesson-level analytics for teachers.
-
-    NOTE:
-    - Aggregated globally (no users yet)
-    - User scoping will be added later without changing response shape
+    Lesson-level analytics.
     """
     data = []
 
     for lesson in Lesson.objects.select_related("course"):
-        progress_qs = LessonProgress.objects.filter(lesson=lesson)
+        qs = LessonProgress.objects.filter(lesson=lesson)
 
-        completed_count = progress_qs.filter(completed=True).count()
-        total_attempts = progress_qs.count()
+        completed_count = qs.filter(completed=True).count()
+        total_attempts = qs.count()
 
-        avg_position = (
-            progress_qs.exclude(last_position=0)
-            .aggregate(avg=models.Avg("last_position"))
-            .get("avg")
-        )
+        avg_position = qs.exclude(last_position=0).aggregate(
+            avg=Avg("last_position")
+        )["avg"]
 
         data.append({
             "lesson_id": lesson.id,

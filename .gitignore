@@ -109,7 +109,6 @@ frontend/public/workbox-*
 *.avi
 *.mov
 *.hls
-*.ts
 *.m3u8
 
 uploads/

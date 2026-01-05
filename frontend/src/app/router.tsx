@@ -6,6 +6,7 @@ import LessonPage from "../pages/LessonPage";
 import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import { RequireRole } from "../auth/AuthContext";
 
+
 export const router = createBrowserRouter([
   {
     path: "/",

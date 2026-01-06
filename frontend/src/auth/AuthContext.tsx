@@ -7,7 +7,7 @@ import {
 } from "react";
 import { apiGet } from "../services/api";
 
-export type Role = "STUDENT" | "TEACHER" | "ADMIN";
+export type Role = "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
 
 type MeResponse = {
   authenticated: boolean;

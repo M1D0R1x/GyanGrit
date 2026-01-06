@@ -4,18 +4,16 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     """
-    Custom user model.
+    Custom user model with role-based access.
 
-    DESIGN DECISIONS:
-    - Extend AbstractUser (not AbstractBaseUser)
-      → avoids auth complexity
-      → admin works out of the box
-    - Role-based access via a single field
+    Role hierarchy:
+    ADMIN > OFFICIAL > TEACHER > STUDENT
     """
 
     ROLE_CHOICES = (
         ("STUDENT", "Student"),
         ("TEACHER", "Teacher"),
+        ("OFFICIAL", "Official"),
         ("ADMIN", "Admin"),
     )
 

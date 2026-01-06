@@ -1,26 +1,65 @@
-import { createContext, useContext } from "react";
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { apiGet } from "../services/api";
 
-export type Role = "student" | "teacher" | "admin";
+export type Role = "STUDENT" | "TEACHER" | "ADMIN";
 
-export const AuthContext = createContext<{ role: Role }>({
-  role: "student",
+type MeResponse = {
+  authenticated: boolean;
+  role: Role;
+  id?: number;
+  username?: string;
+};
+
+type AuthState = {
+  loading: boolean;
+  authenticated: boolean;
+  role: Role;
+};
+
+export const AuthContext = createContext<AuthState>({
+  loading: true,
+  authenticated: false,
+  role: "STUDENT",
 });
 
-export const useAuth = () => useContext(AuthContext);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AuthState>({
+    loading: true,
+    authenticated: false,
+    role: "STUDENT",
+  });
 
-export function RequireRole({
-  role,
-  children,
-}: {
-  role: Role;
-  children: ReactNode;
-}) {
-  const auth = useAuth();
+  useEffect(() => {
+    apiGet<MeResponse>("/accounts/me/")
+      .then((me) => {
+        setState({
+          loading: false,
+          authenticated: me.authenticated,
+          role: me.role,
+        });
+      })
+      .catch(() => {
+        setState({
+          loading: false,
+          authenticated: false,
+          role: "STUDENT",
+        });
+      });
+  }, []);
 
-  if (auth.role !== role) {
-    return <p>Access denied</p>;
-  }
+  return (
+    <AuthContext.Provider value={state}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  return <>{children}</>;
+export function useAuth() {
+  return useContext(AuthContext);
 }

@@ -8,16 +8,17 @@ import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
 
-import { RequireRole } from "../auth/AuthContext";
+import { RequireRole } from "../auth/RequireRole";
 
 /**
  * Application router.
  *
- * Rules:
+ * DESIGN RULES:
  * - "/" is the student dashboard
- * - Learning Paths live under /learning
- * - Content (courses/lessons) stays separate
- * - Role guards are explicit, not implicit
+ * - Roles are enforced explicitly via RequireRole
+ * - Roles MUST match backend (UPPERCASE)
+ * - Content (courses/lessons) is role-agnostic
+ * - Learning paths are student-only
  */
 export const router = createBrowserRouter([
   /**
@@ -26,7 +27,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <RequireRole role="student">
+      <RequireRole role="STUDENT">
         <DashboardPage />
       </RequireRole>
     ),
@@ -38,7 +39,7 @@ export const router = createBrowserRouter([
   {
     path: "/teacher",
     element: (
-      <RequireRole role="teacher">
+      <RequireRole role="TEACHER">
         <TeacherDashboardPage />
       </RequireRole>
     ),
@@ -50,7 +51,7 @@ export const router = createBrowserRouter([
   {
     path: "/learning",
     element: (
-      <RequireRole role="student">
+      <RequireRole role="STUDENT">
         <LearningPathsPage />
       </RequireRole>
     ),
@@ -58,7 +59,7 @@ export const router = createBrowserRouter([
   {
     path: "/learning/:pathId",
     element: (
-      <RequireRole role="student">
+      <RequireRole role="STUDENT">
         <LearningPathPage />
       </RequireRole>
     ),
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
 
   /**
    * Course browsing (content app)
+   * No role restriction here by design
    */
   {
     path: "/courses",

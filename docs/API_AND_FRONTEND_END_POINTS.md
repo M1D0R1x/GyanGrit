@@ -1,59 +1,53 @@
 # GyanGrit – Backend & Frontend Endpoint Documentation
 
-> **Status:** Content app frozen
+> **Status**
+> - Content app: **Frozen**
+> - Learning app: **Frozen**
+> - Accounts app: **Versioned scaffold ready**
 >
-> This document describes all **backend API endpoints** and their **frontend usage** as implemented.
-> It reflects the current stable architecture and should be treated as the source of truth.
+> This document is the **single source of truth** for the current backend + frontend contract.
+> It reflects exactly what is implemented and stable.
 
 ---
 
-## 1. Backend API Endpoints (Django – `/api/v1/`)
+## 1. Global API Versioning
 
-All backend APIs are **versioned** under:
+All backend APIs are versioned under:
 
-```
-/api/v1/
-```
+`/api/v1/`
 
-This allows future iterations (`/v2`, `/v3`) without breaking the frontend.
+Rules:
+- Frontend **must never hardcode** base URLs
+- All calls go through `api.ts`
+- Future versions (`/v2`, `/v3`) will coexist
 
 ---
 
-### 1.1 Health Check
+## 2. Content App (Frozen)
 
-**Endpoint**
+Base path: `/api/v1/`
 
-```
-GET /api/v1/health/
-```
+### 2.1 Health Check
 
-**Purpose**
+**GET** `/api/v1/health/`
 
-* Verify backend availability
-* Used for debugging / monitoring
+Response:
 
-**Response**
-
-```json
 {
   "status": "ok",
   "service": "gyangrit-backend"
 }
-```
 
----
 
-### 1.2 Courses
+Purpose:
+Backend liveness check
 
-#### List all courses
+### 2.2 Courses
 
-**Endpoint**
+List all courses  
+**GET** `/api/v1/courses/`
 
-```
-GET /api/v1/courses/
-```
-
-**Response**
+Response:
 
 ```json
 [
@@ -65,26 +59,16 @@ GET /api/v1/courses/
 ]
 ```
 
-**Frontend usage**
+Used by:
+Courses page
+Student dashboard
 
-* Courses page
-* Dashboard course listing
+### 2.3 Course Lessons
 
----
+**GET** `/api/v1/courses/{course_id}/lessons/`
 
-### 1.3 Course Lessons
+Response:
 
-#### Get lessons for a course (with completion state)
-
-**Endpoint**
-
-```
-GET /api/v1/courses/{course_id}/lessons/
-```
-
-**Response**
-
-```json
 [
   {
     "id": 1,
@@ -93,35 +77,24 @@ GET /api/v1/courses/{course_id}/lessons/
     "completed": false
   }
 ]
-```
 
-**Notes**
 
-* `completed` is derived from `LessonProgress`
-* No frontend-side computation required
+Notes:
+- completed is derived from LessonProgress
+- No frontend-side logic
 
-**Frontend usage**
+Used by:
+Lessons page
 
-* Lessons page
+### 2.4 Lesson Detail
 
----
+**GET** `/api/v1/lessons/{lesson_id}/`
 
-### 1.4 Lesson Detail
+Side effects:
+- Updates last_opened_at
+- Enables resume logic
 
-#### Get lesson content
-
-**Endpoint**
-
-```
-GET /api/v1/lessons/{lesson_id}/
-```
-
-**Side effects**
-
-* Updates `last_opened_at` in `LessonProgress`
-* Enables resume logic
-
-**Response**
+Response:
 
 ```json
 {
@@ -131,23 +104,15 @@ GET /api/v1/lessons/{lesson_id}/
 }
 ```
 
-**Frontend usage**
+Used by:
+Lesson page
 
-* Lesson page
+### 2.5 Lesson Progress
 
----
+Get progress  
+**GET** `/api/v1/lessons/{lesson_id}/progress/`
 
-### 1.5 Lesson Progress
-
-#### Get lesson progress
-
-**Endpoint**
-
-```
-GET /api/v1/lessons/{lesson_id}/progress/
-```
-
-**Response**
+Response:
 
 ```json
 {
@@ -157,17 +122,10 @@ GET /api/v1/lessons/{lesson_id}/progress/
 }
 ```
 
----
+Update progress  
+**PATCH** `/api/v1/lessons/{lesson_id}/progress/`
 
-#### Update lesson progress
-
-**Endpoint**
-
-```
-PATCH /api/v1/lessons/{lesson_id}/progress/
-```
-
-**Request body**
+Request body:
 
 ```json
 {
@@ -175,7 +133,7 @@ PATCH /api/v1/lessons/{lesson_id}/progress/
 }
 ```
 
-**Response**
+Response:
 
 ```json
 {
@@ -185,28 +143,19 @@ PATCH /api/v1/lessons/{lesson_id}/progress/
 }
 ```
 
-**Rules**
+Rules:
+- Only existing fields updated
+- Idempotent
+- Safe to retry
 
-* Only fields that exist are updated
-* Safe to call multiple times
+Used by:
+“Mark as completed” UI
 
-**Frontend usage**
+### 2.6 Course Progress (Dashboard Resume Logic)
 
-* Mark lesson as completed
+**GET** `/api/v1/courses/{course_id}/progress/`
 
----
-
-### 1.6 Course Progress (Dashboard Resume Logic)
-
-#### Get aggregated course progress
-
-**Endpoint**
-
-```
-GET /api/v1/courses/{course_id}/progress/
-```
-
-**Response**
+Response:
 
 ```json
 {
@@ -218,29 +167,20 @@ GET /api/v1/courses/{course_id}/progress/
 }
 ```
 
-**Resume logic priority**
+Resume priority:
+- Most recently opened incomplete lesson
+- First not-completed lesson
+- null if course completed
 
-1. Most recently opened incomplete lesson
-2. First not-yet-completed lesson
-3. `null` if course completed
+Used by:
+Student dashboard
 
-**Frontend usage**
+### 2.7 Teacher Analytics
 
-* Student dashboard
+Course-level analytics  
+**GET** `/api/v1/teacher/analytics/courses/`
 
----
-
-### 1.7 Teacher Analytics
-
-#### Course-level analytics
-
-**Endpoint**
-
-```
-GET /api/v1/teacher/analytics/courses/
-```
-
-**Response**
+Response:
 
 ```json
 [
@@ -254,17 +194,10 @@ GET /api/v1/teacher/analytics/courses/
 ]
 ```
 
----
+Lesson-level analytics  
+**GET** `/api/v1/teacher/analytics/lessons/`
 
-#### Lesson-level analytics
-
-**Endpoint**
-
-```
-GET /api/v1/teacher/analytics/lessons/
-```
-
-**Response**
+Response:
 
 ```json
 {
@@ -279,46 +212,162 @@ GET /api/v1/teacher/analytics/lessons/
 
 ---
 
-## 2. Frontend Endpoints (React Router)
+## 3. Learning App (Frozen)
 
-All frontend routes are client-side routes handled by React Router.
+Base path: `/api/v1/learning/`
+
+### 3.1 Enrollments
+
+List enrollments  
+**GET** `/api/v1/learning/enrollments/`
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "course__id": 2,
+    "course__title": "Chemistry",
+    "status": "enrolled",
+    "enrolled_at": "2026-01-01T10:00:00Z",
+    "completed_at": null
+  }
+]
+```
+
+Enroll into a course  
+**POST** `/api/v1/learning/enroll/`
+
+Request:
+
+```json
+{
+  "course_id": 2
+}
+```
+
+Response:
+
+```json
+{
+  "enrollment_id": 1,
+  "course_id": 2,
+  "status": "enrolled"
+}
+```
+
+Update enrollment  
+**PATCH** `/api/v1/learning/enrollments/{enrollment_id}/`
+
+Request:
+
+```json
+{
+  "status": "completed"
+}
+```
+
+### 3.2 Learning Paths
+
+List learning paths  
+**GET** `/api/v1/learning/paths/`
+
+Learning path detail  
+**GET** `/api/v1/learning/paths/{path_id}/`
+
+Response:
+
+```json
+{
+  "id": 1,
+  "name": "Class 10 Science",
+  "description": "",
+  "courses": [
+    {
+      "course_id": 1,
+      "title": "Physics",
+      "order": 1
+    }
+  ]
+}
+```
+
+Learning path progress  
+**GET** `/api/v1/learning/paths/{path_id}/progress/`
+
+Response:
+
+```json
+{
+  "path_id": 1,
+  "total_courses": 5,
+  "completed_courses": 2,
+  "percentage": 40
+}
+```
+
+Enroll into learning path  
+**POST** `/api/v1/learning/paths/{path_id}/enroll/`
+
+Response:
+
+```json
+{
+  "path_id": 1,
+  "enrolled_courses": 5
+}
+```
 
 ---
 
-### 2.1 Student Routes
+## 4. Accounts App (Versioned, Scaffolded)
 
-| Route                | Component       | Purpose                       |
-| -------------------- | --------------- | ----------------------------- |
-| `/`                  | `DashboardPage` | Student dashboard with resume |
-| `/courses`           | `CoursesPage`   | List all courses              |
-| `/courses/:courseId` | `LessonsPage`   | Lessons in a course           |
-| `/lessons/:lessonId` | `LessonPage`    | Lesson content                |
+Base path: `/api/v1/accounts/`
 
----
+Authentication
+**POST** `/api/v1/accounts/register/`
+**POST** `/api/v1/accounts/login/`
+**GET**  `/api/v1/accounts/me/`
 
-### 2.2 Teacher Routes
-
-| Route      | Component              | Purpose           |
-| ---------- | ---------------------- | ----------------- |
-| `/teacher` | `TeacherDashboardPage` | Teacher analytics |
+Notes:
+- Currently scaffold only
+- Will be wired later without breaking APIs
 
 ---
 
-## 3. Frontend API Access Rules (IMPORTANT)
+## 5. Frontend Routes (React Router)
 
-**All API calls MUST:**
+### Student
 
-* Go through `api.ts`
-* Be relative to `/api/v1`
-* Never hardcode base URLs
+| Route                | Component       | Purpose           |
+|----------------------|-----------------|-------------------|
+| `/`                  | DashboardPage   | Resume learning   |
+| `/courses`           | CoursesPage     | Course list       |
+| `/courses/:courseId` | LessonsPage     | Lessons           |
+| `/lessons/:lessonId` | LessonPage      | Lesson content    |
 
-Example:
+### Teacher
+
+| Route      | Component            | Purpose   |
+|------------|----------------------|-----------|
+| `/teacher` | TeacherDashboardPage | Analytics |
+
+---
+
+## 6. Frontend API Rules (MANDATORY)
+
+- All calls go through `api.ts`
+- Paths are relative
+- Never hardcode base URLs
+
+Correct:
 
 ```ts
 apiGet("/courses/")
 ```
 
-**Never do:**
+Incorrect:
 
 ```ts
 fetch("http://localhost:8000/api/v1/...")
@@ -326,22 +375,21 @@ fetch("http://localhost:8000/api/v1/...")
 
 ---
 
-## 4. Stability Guarantees
+## 7. Stability Guarantees
 
-* Content app APIs are **frozen**
-* Response shapes will not change
-* User scoping will be added internally later
-* Frontend does not need refactors when auth is added
-
----
-
-## 5. Next Apps (Not Implemented Yet)
-
-* `accounts` – user profiles & roles
-* `learning` – enrollments, learning paths
-
-These will **consume** the content APIs, not modify them.
+- Content app frozen
+- Learning app frozen
+- Response shapes stable
+- Auth & roles will be layered later
+- No frontend refactors required later
 
 ---
 
-**End of document**
+## 8. Next Phase (Capstone Work)
+
+- Accounts auth wiring
+- Role-based UI gating
+- UI polish
+- Diagrams & final report
+
+# End of document

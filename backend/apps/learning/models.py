@@ -9,15 +9,15 @@ class Enrollment(models.Model):
     """
     Represents a learner being enrolled in a course.
 
-    NOTE:
+    NOTES:
     - `user` is nullable for now (no auth yet)
-    - When auth is added, this becomes mandatory without breaking data
+    - Progress is DERIVED from content app
     """
 
     STATUS_CHOICES = (
-        ("ENROLLED", "Enrolled"),
-        ("COMPLETED", "Completed"),
-        ("DROPPED", "Dropped"),
+        ("enrolled", "Enrolled"),
+        ("completed", "Completed"),
+        ("dropped", "Dropped"),
     )
 
     user = models.ForeignKey(
@@ -37,10 +37,10 @@ class Enrollment(models.Model):
     status = models.CharField(
         max_length=16,
         choices=STATUS_CHOICES,
-        default="ENROLLED",
+        default="enrolled",
     )
 
-    started_at = models.DateTimeField(default=timezone.now)
+    enrolled_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -50,6 +50,17 @@ class Enrollment(models.Model):
                 name="unique_enrollment_per_user_course",
             )
         ]
+
+    def mark_completed(self):
+        """Marks enrollment as completed."""
+        self.status = "completed"
+        self.completed_at = timezone.now()
+        self.save(update_fields=["status", "completed_at"])
+
+    def mark_dropped(self):
+        """Marks enrollment as dropped."""
+        self.status = "dropped"
+        self.save(update_fields=["status"])
 
     def __str__(self):
         return f"{self.course.title} – {self.status}"
@@ -63,7 +74,6 @@ class LearningPath(models.Model):
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

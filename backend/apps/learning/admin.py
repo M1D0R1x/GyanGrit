@@ -1,12 +1,17 @@
 from django.contrib import admin
-
 from .models import Enrollment, LearningPath, LearningPathCourse
 
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ("course", "user", "status", "started_at")
-    list_filter = ("status",)
+    list_display = (
+        "course",
+        "user",
+        "status",
+        "enrolled_at",
+        "completed_at",
+    )
+    list_filter = ("status", "course")
     search_fields = ("course__title",)
 
 

@@ -1,6 +1,6 @@
 import json
 
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, login
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -12,7 +12,7 @@ ACCOUNTS API (v1)
 
 Scope:
 - Basic registration
-- Basic login
+- Basic login (session-based)
 - Role exposure
 - NO tokens yet
 """
@@ -23,7 +23,7 @@ def register(request):
     """
     Register a new user.
 
-    Expected payload:
+    Payload:
     {
         "username": "...",
         "password": "...",
@@ -43,6 +43,12 @@ def register(request):
             status=400,
         )
 
+    if role not in dict(User.ROLE_CHOICES):
+        return JsonResponse(
+            {"error": "invalid role"},
+            status=400,
+        )
+
     if User.objects.filter(username=username).exists():
         return JsonResponse(
             {"error": "username already exists"},
@@ -52,8 +58,10 @@ def register(request):
     user = User.objects.create_user(
         username=username,
         password=password,
-        role=role,
     )
+
+    user.role = role
+    user.save(update_fields=["role"])
 
     return JsonResponse({
         "id": user.id,
@@ -63,11 +71,11 @@ def register(request):
 
 
 @require_http_methods(["POST"])
-def login(request):
+def login_view(request):
     """
-    Login endpoint (no tokens yet).
+    Login endpoint (session-based).
 
-    Expected payload:
+    Payload:
     {
         "username": "...",
         "password": "..."
@@ -87,6 +95,9 @@ def login(request):
             status=401,
         )
 
+    # IMPORTANT: establish session
+    login(request, user)
+
     return JsonResponse({
         "id": user.id,
         "username": user.username,
@@ -97,14 +108,25 @@ def login(request):
 @require_http_methods(["GET"])
 def me(request):
     """
-    Temporary identity endpoint.
+    Identity endpoint.
 
-    NOTE:
-    - Until auth is wired, this returns a stub
-    - Later replaced with real request.user
+    CURRENT:
+    - Works with session auth
+    - Anonymous-safe
+
+    FUTURE:
+    - Becomes real auth source without changing response shape
     """
 
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            "authenticated": False,
+            "role": "STUDENT",
+        })
+
     return JsonResponse({
-        "authenticated": False,
-        "role": "STUDENT",
+        "authenticated": True,
+        "id": request.user.id,
+        "username": request.user.username,
+        "role": request.user.role,
     })

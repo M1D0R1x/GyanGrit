@@ -113,9 +113,6 @@ def me(request):
     CURRENT:
     - Works with session auth
     - Anonymous-safe
-
-    FUTURE:
-    - Becomes real auth source without changing response shape
     """
 
     if not request.user.is_authenticated:

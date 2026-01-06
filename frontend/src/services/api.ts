@@ -9,7 +9,9 @@
 const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`);
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include", // ✅ SEND SESSION COOKIE
+  });
 
   if (!res.ok) {
     throw new Error(`API error: ${res.status}`);
@@ -17,12 +19,14 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   return res.json();
 }
+
 export async function apiPatch<T>(
   path: string,
   body: unknown
 ): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "PATCH",
+    credentials: "include", // ✅ REQUIRED
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });

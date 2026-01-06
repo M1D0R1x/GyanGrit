@@ -1,9 +1,22 @@
 from pathlib import Path
 
+# -------------------------------------------------
+# Base directory
+# -------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# -------------------------------------------------
+# Core security (overridden in env files if needed)
+# -------------------------------------------------
 SECRET_KEY = "django-insecure-change-this-later"
 
+DEBUG = False  # MUST be overridden by dev.py / prod.py
+
+ALLOWED_HOSTS = []
+
+# -------------------------------------------------
+# Installed apps
+# -------------------------------------------------
 INSTALLED_APPS = [
     # Django core
     "django.contrib.admin",
@@ -23,21 +36,36 @@ INSTALLED_APPS = [
     "apps.learning.apps.LearningConfig",
 ]
 
+# -------------------------------------------------
+# Custom user model
+# -------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
 
+# -------------------------------------------------
+# Middleware (ORDER MATTERS)
+# -------------------------------------------------
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# -------------------------------------------------
+# URLs / WSGI
+# -------------------------------------------------
 ROOT_URLCONF = "gyangrit.urls"
+WSGI_APPLICATION = "gyangrit.wsgi.application"
 
+# -------------------------------------------------
+# Templates
+# -------------------------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -53,8 +81,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "gyangrit.wsgi.application"
-
+# -------------------------------------------------
+# Database (override if needed)
+# -------------------------------------------------
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -62,6 +91,9 @@ DATABASES = {
     }
 }
 
+# -------------------------------------------------
+# Password validation
+# -------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -69,12 +101,32 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# -------------------------------------------------
+# Internationalization
+# -------------------------------------------------
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# -------------------------------------------------
+# Static files
+# -------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# -------------------------------------------------
+# Defaults
+# -------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# =================================================
+# CORS / CSRF — safe defaults (expanded in dev)
+# =================================================
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"
+
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False

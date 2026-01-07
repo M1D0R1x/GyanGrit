@@ -134,6 +134,7 @@ def me(request):
     })
 
 @require_http_methods(["POST"])
+@csrf_exempt
 def logout_view(request):
     """
     Logout endpoint (session-based).

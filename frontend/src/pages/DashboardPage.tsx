@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { getCourseProgress } from "../services/courseProgress";
+import LogoutButton from "../components/LogoutButton";
+import { useAuth } from "../auth/AuthContext";
 
 type Course = {
   id: number;
@@ -18,6 +20,7 @@ type CourseProgress = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [progress, setProgress] = useState<Record<number, CourseProgress>>({});
@@ -37,7 +40,26 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1>Student Dashboard</h1>
+      {/* Top bar */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+        }}
+      >
+        <h1>Student Dashboard</h1>
+
+        <div>
+          {auth.username && (
+            <span style={{ marginRight: 12 }}>
+              Logged in as <strong>{auth.username}</strong>
+            </span>
+          )}
+          <LogoutButton />
+        </div>
+      </div>
 
       <ul>
         {courses.map((course) => {

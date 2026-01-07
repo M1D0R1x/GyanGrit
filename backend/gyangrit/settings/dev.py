@@ -34,10 +34,10 @@ CSRF_TRUSTED_ORIGINS = [
 # SameSite=Lax blocks cookies on cross-origin fetches
 # In development (HTTP, different ports), we must use None + Secure=False
 SESSION_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = False  # Must be False on HTTP
+SESSION_COOKIE_SECURE = True  # Must be False on HTTP
 
 CSRF_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SECURE = False  # Must be False on HTTP
+CSRF_COOKIE_SECURE = True  # Must be False on HTTP
 
 # -------------------------------------------------
 # Database (explicit for clarity, same as base)

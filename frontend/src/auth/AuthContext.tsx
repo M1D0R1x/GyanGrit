@@ -20,12 +20,14 @@ type AuthState = {
   loading: boolean;
   authenticated: boolean;
   role: Role;
+  username?: string;
 };
 
 export const AuthContext = createContext<AuthState>({
   loading: true,
   authenticated: false,
   role: "STUDENT",
+  username: undefined,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true,
     authenticated: false,
     role: "STUDENT",
+    username: undefined,
   });
 
   useEffect(() => {
@@ -42,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loading: false,
           authenticated: me.authenticated,
           role: me.role,
+          username: me.username,
         });
       })
       .catch(() => {
@@ -49,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loading: false,
           authenticated: false,
           role: "STUDENT",
+          username: undefined,
         });
       });
   }, []);

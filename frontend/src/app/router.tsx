@@ -7,8 +7,10 @@ import LessonPage from "../pages/LessonPage";
 import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
-
 import { RequireRole } from "../auth/RequireRole";
+import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
+
 
 /**
  * Application router.
@@ -84,5 +86,14 @@ export const router = createBrowserRouter([
   {
     path: "/lessons/:lessonId",
     element: <LessonPage />,
+  },
+
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
   },
 ]);

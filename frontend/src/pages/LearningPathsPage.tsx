@@ -14,23 +14,53 @@ export default function LearningPathsPage() {
   const [progress, setProgress] = useState<
     Record<number, LearningPathProgress>
   >({});
+  const [loadingProgress, setLoadingProgress] = useState(false);
 
+  // --------------------------------------------------
   // Load all learning paths
+  // --------------------------------------------------
   useEffect(() => {
     getLearningPaths().then(setPaths);
   }, []);
 
-  // Load progress per learning path
+  // --------------------------------------------------
+  // Load progress safely (Promise.all)
+  // --------------------------------------------------
   useEffect(() => {
-    paths.forEach(async (path) => {
-      const p = await getLearningPathProgress(path.id);
-      setProgress((prev) => ({ ...prev, [path.id]: p }));
+    if (paths.length === 0) return;
+
+    let cancelled = false;
+    setLoadingProgress(true);
+
+    Promise.all(
+      paths.map(async (path) => ({
+        pathId: path.id,
+        progress: await getLearningPathProgress(path.id),
+      }))
+    ).then((results) => {
+      if (cancelled) return;
+
+      const map: Record<number, LearningPathProgress> = {};
+      results.forEach(({ pathId, progress }) => {
+        map[pathId] = progress;
+      });
+
+      setProgress(map);
+      setLoadingProgress(false);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [paths]);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
       <h1>Learning Paths</h1>
+
+      {paths.length === 0 && (
+        <p>No learning paths available yet.</p>
+      )}
 
       <div
         style={{
@@ -58,29 +88,33 @@ export default function LearningPathsPage() {
                 {path.description || "No description"}
               </p>
 
-              {p && (
-                <>
-                  <div
-                    style={{
-                      height: 6,
-                      background: "#eee",
-                      borderRadius: 4,
-                      overflow: "hidden",
-                      margin: "12px 0",
-                    }}
-                  >
+              {loadingProgress && !p ? (
+                <p>Loading progress…</p>
+              ) : (
+                p && (
+                  <>
                     <div
                       style={{
-                        width: `${p.percentage}%`,
-                        height: "100%",
-                        background: "#4caf50",
+                        height: 6,
+                        background: "#eee",
+                        borderRadius: 4,
+                        overflow: "hidden",
+                        margin: "12px 0",
                       }}
-                    />
-                  </div>
-                  <small>
-                    {p.completed_courses}/{p.total_courses} completed
-                  </small>
-                </>
+                    >
+                      <div
+                        style={{
+                          width: `${p.percentage}%`,
+                          height: "100%",
+                          background: "#4caf50",
+                        }}
+                      />
+                    </div>
+                    <small>
+                      {p.completed_courses}/{p.total_courses} completed
+                    </small>
+                  </>
+                )
               )}
 
               <button

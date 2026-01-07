@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt  # <-- ADD THIS IMPORT
 
 User = get_user_model()
 
@@ -19,6 +20,7 @@ Scope:
 
 
 @require_http_methods(["POST"])
+@csrf_exempt  # <-- ADD THIS: safe and standard for public login/register
 def register(request):
     """
     Register a new user.
@@ -71,6 +73,7 @@ def register(request):
 
 
 @require_http_methods(["POST"])
+@csrf_exempt  # <-- ADD THIS
 def login_view(request):
     """
     Login endpoint (session-based).

@@ -17,9 +17,9 @@ LEARNING APP API (v1)
 
 Principles:
 - Versioned under /api/v1/learning/
-- No auth yet (user=None)
+- Session-based (user=None for now)
 - Stable response shapes
-- Derived progress only (never stored)
+- Progress is DERIVED, never stored
 """
 
 # ---------------------------------------------------------------------
@@ -29,7 +29,7 @@ Principles:
 @require_http_methods(["GET"])
 def enrollments(request):
     """
-    List all enrollments for the current (anonymous) learner.
+    List all enrollments for the current learner.
     """
     data = list(
         Enrollment.objects
@@ -40,7 +40,7 @@ def enrollments(request):
             "course__id",
             "course__title",
             "status",
-            "started_at",
+            "enrolled_at",     # ✅ FIXED
             "completed_at",
         )
     )
@@ -85,8 +85,8 @@ def update_enrollment(request, enrollment_id):
     Update enrollment status.
 
     Allowed transitions:
-    - ENROLLED → COMPLETED
-    - ENROLLED → DROPPED
+    - enrolled → completed
+    - enrolled → dropped
     """
     enrollment = get_object_or_404(
         Enrollment,
@@ -97,12 +97,12 @@ def update_enrollment(request, enrollment_id):
     body = json.loads(request.body)
     status = body.get("status")
 
-    if status == "COMPLETED":
-        enrollment.status = "COMPLETED"
+    if status == "completed":
+        enrollment.status = "completed"
         enrollment.completed_at = timezone.now()
 
-    elif status == "DROPPED":
-        enrollment.status = "DROPPED"
+    elif status == "dropped":
+        enrollment.status = "dropped"
 
     else:
         return JsonResponse(
@@ -170,10 +170,6 @@ def learning_path_detail(request, path_id):
 def learning_path_progress(request, path_id):
     """
     Derived progress for a learning path.
-
-    Rules:
-    - Computed dynamically
-    - Uses Enrollment table
     """
     path = get_object_or_404(LearningPath, id=path_id)
 
@@ -187,7 +183,7 @@ def learning_path_progress(request, path_id):
 
     completed = Enrollment.objects.filter(
         course_id__in=course_ids,
-        status="COMPLETED",
+        status="completed",   # ✅ FIXED
         user=None,
     ).count()
 

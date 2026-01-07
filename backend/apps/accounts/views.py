@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt  # <-- ADD THIS IMPORT
+from django.contrib.auth import logout
+
 
 User = get_user_model()
 
@@ -129,4 +131,19 @@ def me(request):
         "id": request.user.id,
         "username": request.user.username,
         "role": request.user.role,
+    })
+
+@require_http_methods(["POST"])
+def logout_view(request):
+    """
+    Logout endpoint (session-based).
+
+    EFFECT:
+    - Clears Django session
+    - Frontend must refetch /accounts/me/
+    """
+    logout(request)
+
+    return JsonResponse({
+        "success": True,
     })

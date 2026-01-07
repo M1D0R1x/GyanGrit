@@ -16,17 +16,34 @@ export default function LearningPathPage() {
 
   const [path, setPath] = useState<LearningPathDetail | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  // --------------------------------------------------
+  // Load learning path + enrollments
+  // --------------------------------------------------
   useEffect(() => {
     if (!pathId) return;
 
-    getLearningPath(Number(pathId)).then(setPath);
-    getEnrollments().then(setEnrollments);
+    setLoading(true);
+
+    Promise.all([
+      getLearningPath(Number(pathId)),
+      getEnrollments(),
+    ]).then(([pathData, enrollmentData]) => {
+      setPath(pathData);
+      setEnrollments(enrollmentData);
+      setLoading(false);
+    });
   }, [pathId]);
 
+  // --------------------------------------------------
+  // Enrollment helpers
+  // --------------------------------------------------
   function isEnrolled(courseId: number) {
     return enrollments.some(
-      (e) => e.course__id === courseId && e.status === "ENROLLED"
+      (e) =>
+        e.course__id === courseId &&
+        e.status === "enrolled" // ✅ lowercase (matches backend)
     );
   }
 
@@ -36,7 +53,7 @@ export default function LearningPathPage() {
     setEnrollments(updated);
   }
 
-  if (!path) {
+  if (loading || !path) {
     return <p style={{ padding: 24 }}>Loading learning path…</p>;
   }
 
@@ -45,9 +62,11 @@ export default function LearningPathPage() {
       <button onClick={() => navigate(-1)}>← Back</button>
 
       <h1 style={{ marginTop: 16 }}>{path.name}</h1>
-      <p style={{ opacity: 0.7 }}>{path.description}</p>
+      <p style={{ opacity: 0.7 }}>
+        {path.description || "No description"}
+      </p>
 
-      <ul style={{ marginTop: 24 }}>
+      <ul style={{ marginTop: 24, paddingLeft: 0 }}>
         {path.courses.map((course) => {
           const enrolled = isEnrolled(course.course_id);
 
@@ -57,6 +76,7 @@ export default function LearningPathPage() {
               style={{
                 display: "flex",
                 justifyContent: "space-between",
+                alignItems: "center",
                 padding: "10px 0",
                 borderBottom: "1px solid #eee",
               }}
@@ -74,7 +94,9 @@ export default function LearningPathPage() {
                   Go to course
                 </button>
               ) : (
-                <button onClick={() => handleEnroll(course.course_id)}>
+                <button
+                  onClick={() => handleEnroll(course.course_id)}
+                >
                   Enroll
                 </button>
               )}

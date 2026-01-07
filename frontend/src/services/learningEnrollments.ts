@@ -1,13 +1,16 @@
-import { apiGet, apiPatch } from "./api";
+import { apiGet, apiPost, apiPatch } from "./api";
 
 /**
  * Enrollment record.
+ *
+ * NOTE:
+ * - Status values MUST match backend exactly (lowercase)
  */
 export type Enrollment = {
   id: number;
   course__id: number;
   course__title: string;
-  status: "ENROLLED" | "COMPLETED" | "DROPPED";
+  status: "enrolled" | "completed" | "dropped";
 };
 
 /**
@@ -19,17 +22,15 @@ export function getEnrollments() {
 
 /**
  * Enroll into a course.
+ *
+ * Rules:
+ * - Always go through api.ts
+ * - Never hardcode base URL
+ * - Session + CSRF safe
  */
 export function enrollCourse(courseId: number) {
-  return fetch("http://127.0.0.1:8000/api/v1/learning/enroll/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ course_id: courseId }),
-  }).then((res) => {
-    if (!res.ok) {
-      throw new Error("Failed to enroll");
-    }
-    return res.json();
+  return apiPost("/learning/enroll/", {
+    course_id: courseId,
   });
 }
 
@@ -38,7 +39,10 @@ export function enrollCourse(courseId: number) {
  */
 export function updateEnrollment(
   enrollmentId: number,
-  status: "COMPLETED" | "DROPPED"
+  status: "completed" | "dropped"
 ) {
-  return apiPatch(`/learning/enrollments/${enrollmentId}/`, { status });
+  return apiPatch(
+    `/learning/enrollments/${enrollmentId}/`,
+    { status }
+  );
 }

@@ -24,19 +24,52 @@ export default function DashboardPage() {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [progress, setProgress] = useState<Record<number, CourseProgress>>({});
+  const [loadingProgress, setLoadingProgress] = useState(false);
 
+  // --------------------------------------------------
   // Load all courses
+  // --------------------------------------------------
   useEffect(() => {
     apiGet<Course[]>("/courses/").then(setCourses);
   }, []);
 
-  // Load progress per course
+  // --------------------------------------------------
+  // Load progress for all courses (safe + ordered)
+  // --------------------------------------------------
   useEffect(() => {
-    courses.forEach(async (course) => {
-      const prog = await getCourseProgress(course.id);
-      setProgress((prev) => ({ ...prev, [course.id]: prog }));
+    if (courses.length === 0) return;
+
+    let cancelled = false;
+    setLoadingProgress(true);
+
+    Promise.all(
+      courses.map(async (course) => ({
+        courseId: course.id,
+        progress: await getCourseProgress(course.id),
+      }))
+    ).then((results) => {
+      if (cancelled) return;
+
+      const map: Record<number, CourseProgress> = {};
+      results.forEach(({ courseId, progress }) => {
+        map[courseId] = progress;
+      });
+
+      setProgress(map);
+      setLoadingProgress(false);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [courses]);
+
+  // --------------------------------------------------
+  // Auth still loading (extra safety)
+  // --------------------------------------------------
+  if (auth.loading) {
+    return <p>Loading dashboard…</p>;
+  }
 
   return (
     <div>
@@ -61,6 +94,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Empty state */}
+      {courses.length === 0 && (
+        <p>No courses available yet.</p>
+      )}
+
       <ul>
         {courses.map((course) => {
           const prog = progress[course.id];
@@ -69,7 +107,9 @@ export default function DashboardPage() {
             <li key={course.id} style={{ marginBottom: "16px" }}>
               <h3>{course.title}</h3>
 
-              {prog ? (
+              {loadingProgress && !prog ? (
+                <p>Loading progress…</p>
+              ) : prog ? (
                 <>
                   <p>
                     Progress: {prog.percentage}% ({prog.completed}/{prog.total})

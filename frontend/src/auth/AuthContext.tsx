@@ -21,6 +21,7 @@ type AuthState = {
   authenticated: boolean;
   role: Role;
   username?: string;
+  refresh: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthState>({
@@ -28,38 +29,42 @@ export const AuthContext = createContext<AuthState>({
   authenticated: false,
   role: "STUDENT",
   username: undefined,
+  refresh: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({
+  const [state, setState] = useState<Omit<AuthState, "refresh">>({
     loading: true,
     authenticated: false,
     role: "STUDENT",
     username: undefined,
   });
 
-  useEffect(() => {
-    apiGet<MeResponse>("/accounts/me/")
-      .then((me) => {
-        setState({
-          loading: false,
-          authenticated: me.authenticated,
-          role: me.role,
-          username: me.username,
-        });
-      })
-      .catch(() => {
-        setState({
-          loading: false,
-          authenticated: false,
-          role: "STUDENT",
-          username: undefined,
-        });
+  async function refresh() {
+    try {
+      const me = await apiGet<MeResponse>("/accounts/me/");
+      setState({
+        loading: false,
+        authenticated: me.authenticated,
+        role: me.role,
+        username: me.username,
       });
+    } catch {
+      setState({
+        loading: false,
+        authenticated: false,
+        role: "STUDENT",
+        username: undefined,
+      });
+    }
+  }
+
+  useEffect(() => {
+    refresh();
   }, []);
 
   return (
-    <AuthContext.Provider value={state}>
+    <AuthContext.Provider value={{ ...state, refresh }}>
       {children}
     </AuthContext.Provider>
   );

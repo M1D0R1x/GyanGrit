@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "../services/api";
+import { useAuth } from "../auth/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,15 +18,10 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await apiPost("/accounts/login/", {
-        username,
-        password,
-      });
-
-      // Session is now established
+      await apiPost("/accounts/login/", { username, password });
+      await auth.refresh(); // ✅ clean state sync
       navigate("/");
-      window.location.reload(); // force AuthContext refresh (dev-safe)
-    } catch (err) {
+    } catch {
       setError("Invalid credentials");
     } finally {
       setLoading(false);

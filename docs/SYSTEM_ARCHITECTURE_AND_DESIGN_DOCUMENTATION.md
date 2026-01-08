@@ -40,10 +40,10 @@ Database
 
 The backend is divided into independent Django apps:
 
-| App Name  | Responsibility |
-|----------|---------------|
-| accounts | Authentication, users, roles |
-| content  | Courses, lessons, lesson progress |
+| App Name | Responsibility                         |
+|----------|----------------------------------------|
+| accounts | Authentication, users, roles           |
+| content  | Courses, lessons, lesson progress      |
 | learning | Enrollments, learning paths, analytics |
 
 This structure avoids tight coupling and enables independent evolution of features.
@@ -124,16 +124,16 @@ The learning app never stores lesson progress; it only consumes data from the co
 
 The frontend uses React Router with explicit role-based guards.
 
-| Route | Role | Purpose |
-|-----|-----|--------|
-| `/` | STUDENT | Student dashboard |
-| `/courses` | All | Course listing |
-| `/courses/:id` | Enrolled | Course lessons |
-| `/lessons/:id` | Enrolled | Lesson view |
-| `/learning` | STUDENT | Learning paths |
-| `/teacher` | TEACHER+ | Teacher analytics |
-| `/login` | Public | Login |
-| `/register` | Public | Registration |
+| Route          | Role     | Purpose           |
+|----------------|----------|-------------------|
+| `/`            | STUDENT  | Student dashboard |
+| `/courses`     | All      | Course listing    |
+| `/courses/:id` | Enrolled | Course lessons    |
+| `/lessons/:id` | Enrolled | Lesson view       |
+| `/learning`    | STUDENT  | Learning paths    |
+| `/teacher`     | TEACHER+ | Teacher analytics |
+| `/login`       | Public   | Login             |
+| `/register`    | Public   | Registration      |
 
 ---
 

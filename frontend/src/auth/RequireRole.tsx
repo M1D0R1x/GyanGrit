@@ -1,4 +1,5 @@
-import type {ReactNode} from "react";
+import type { ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
 type Role = "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
@@ -18,16 +19,25 @@ const roleRank: Record<Role, number> = {
 
 export function RequireRole({ role, children }: Props) {
   const auth = useAuth();
+  const location = useLocation();
 
+  // Still loading auth state
   if (auth.loading) {
     return <p>Loading…</p>;
   }
 
+  // 🚨 NOT AUTHENTICATED → REDIRECT TO LOGIN
   if (!auth.authenticated) {
-    return <p>Access denied</p>;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
   }
 
-  // ✅ Hierarchical access check
+  // AUTHENTICATED BUT INSUFFICIENT ROLE
   if (roleRank[auth.role] < roleRank[role]) {
     return <p>Access denied</p>;
   }

@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
+
+  const from =
+    (location.state as { from?: string })?.from || "/";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -19,8 +23,14 @@ export default function LoginPage() {
 
     try {
       await apiPost("/accounts/login/", { username, password });
-      await auth.refresh(); // ✅ clean state sync
-      navigate("/");
+      await auth.refresh();
+
+      // Role-aware redirect
+      if (auth.role === "TEACHER") {
+        navigate("/teacher", { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch {
       setError("Invalid credentials");
     } finally {

@@ -7,25 +7,13 @@ import LessonPage from "../pages/LessonPage";
 import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
+import ProfilePage from "../pages/ProfilePage";
+
 import { RequireRole } from "../auth/RequireRole";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 
-
-/**
- * Application router.
- *
- * DESIGN RULES:
- * - "/" is the student dashboard
- * - Roles are enforced explicitly via RequireRole
- * - Roles MUST match backend (UPPERCASE)
- * - Content (courses/lessons) is role-agnostic
- * - Learning paths are student-only
- */
 export const router = createBrowserRouter([
-  /**
-   * Student dashboard (default landing)
-   */
   {
     path: "/",
     element: (
@@ -35,9 +23,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  /**
-   * Teacher dashboard
-   */
   {
     path: "/teacher",
     element: (
@@ -47,9 +32,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  /**
-   * Learning paths (curriculum-level navigation)
-   */
   {
     path: "/learning",
     element: (
@@ -67,10 +49,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  /**
-   * Course browsing (content app)
-   * No role restriction here by design
-   */
   {
     path: "/courses",
     element: <CoursesPage />,
@@ -80,12 +58,18 @@ export const router = createBrowserRouter([
     element: <LessonsPage />,
   },
 
-  /**
-   * Individual lesson view
-   */
   {
     path: "/lessons/:lessonId",
     element: <LessonPage />,
+  },
+
+  {
+    path: "/profile",
+    element: (
+      <RequireRole role="STUDENT">
+        <ProfilePage />
+      </RequireRole>
+    ),
   },
 
   {

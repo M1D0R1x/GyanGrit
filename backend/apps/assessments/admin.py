@@ -1,22 +1,60 @@
 from django.contrib import admin
 
-# Register your models here.
-from django.contrib import admin
-from .models import Assessment, Question, Choice, Attempt, Response
+from .models import (
+    Assessment,
+    Question,
+    QuestionOption,
+    AssessmentAttempt,
+)
 
 
-class ChoiceInline(admin.TabularInline):
-    model = Choice
-    extra = 2
+@admin.register(Assessment)
+class AssessmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "course",
+        "total_marks",
+        "pass_marks",
+        "is_published",
+        "created_at",
+    )
+    list_filter = ("is_published", "course")
+    search_fields = ("title",)
+    ordering = ("-created_at",)
 
 
+@admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    inlines = [ChoiceInline]
-    list_display = ("text", "assessment", "order", "marks")
+    list_display = (
+        "id",
+        "assessment",
+        "marks",
+        "order",
+    )
+    list_filter = ("assessment",)
     ordering = ("assessment", "order")
 
 
-admin.site.register(Assessment)
-admin.site.register(Question, QuestionAdmin)
-admin.site.register(Attempt)
-admin.site.register(Response)
+@admin.register(QuestionOption)
+class QuestionOptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "question",
+        "text",
+        "is_correct",
+    )
+    list_filter = ("is_correct",)
+
+
+@admin.register(AssessmentAttempt)
+class AssessmentAttemptAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "assessment",
+        "user",
+        "score",
+        "passed",
+        "started_at",
+        "submitted_at",
+    )
+    list_filter = ("passed", "assessment")

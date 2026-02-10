@@ -7,7 +7,6 @@ from django.utils import timezone
 
 from apps.assessments.models import (
     Assessment,
-    Question,
     QuestionOption,
     AssessmentAttempt,
 )
@@ -17,13 +16,13 @@ from apps.content.models import Course
 @require_http_methods(["GET"])
 def course_assessments(request, course_id):
     """
-    List all assessments for a course.
+    List all published assessments for a course.
     """
     course = get_object_or_404(Course, id=course_id)
 
     data = list(
         Assessment.objects
-        .filter(course=course)
+        .filter(course=course, is_published=True)
         .values(
             "id",
             "title",
@@ -39,9 +38,13 @@ def course_assessments(request, course_id):
 @require_http_methods(["GET"])
 def assessment_detail(request, assessment_id):
     """
-    Fetch assessment with questions (NO answers exposed).
+    Fetch assessment with questions (NO correct answers exposed).
     """
-    assessment = get_object_or_404(Assessment, id=assessment_id)
+    assessment = get_object_or_404(
+        Assessment,
+        id=assessment_id,
+        is_published=True,
+    )
 
     questions = []
     for q in assessment.questions.all():
@@ -73,11 +76,15 @@ def start_assessment(request, assessment_id):
     """
     Create a new attempt.
     """
-    assessment = get_object_or_404(Assessment, id=assessment_id)
+    assessment = get_object_or_404(
+        Assessment,
+        id=assessment_id,
+        is_published=True,
+    )
 
     attempt = AssessmentAttempt.objects.create(
         assessment=assessment,
-        user=None,  # auth wired later
+        user=request.user if request.user.is_authenticated else None,
     )
 
     return JsonResponse({

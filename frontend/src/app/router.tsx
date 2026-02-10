@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import {createBrowserRouter} from "react-router-dom";
 
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../pages/CoursesPage";
@@ -9,11 +9,14 @@ import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
 import ProfilePage from "../pages/ProfilePage";
 
-import { RequireRole } from "../auth/RequireRole";
+import {RequireRole} from "../auth/RequireRole";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import OfficialDashboardPage from "../pages/OfficaialDashboardPage.tsx";
 import AdminDashboardPage from "../pages/AdminDashboardPage.tsx";
+import CourseAssessmentsPage from "../pages/CourseAssessmentsPage.tsx";
+import AssessmentPage from "../pages/AssessmentPage.tsx";
+import AssessmentResultPage from "../pages/AssessmentsResultPage.tsx";
 
 export const router = createBrowserRouter([
   {
@@ -99,5 +102,18 @@ export const router = createBrowserRouter([
     </RequireRole>
   ),
 },
+    {
+  path: "/courses/:courseId/assessments",
+  element: <CourseAssessmentsPage />,
+},
+{
+  path: "/assessments/:assessmentId",
+  element: <AssessmentPage />,
+},
+{
+  path: "/assessment-result",
+  element: <AssessmentResultPage />,
+},
+
 
 ]);

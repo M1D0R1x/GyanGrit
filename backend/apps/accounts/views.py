@@ -1,12 +1,10 @@
 import json
 
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt  # <-- ADD THIS IMPORT
-from django.contrib.auth import logout
-
+from django.views.decorators.csrf import csrf_exempt
 
 User = get_user_model()
 
@@ -17,12 +15,16 @@ Scope:
 - Basic registration
 - Basic login (session-based)
 - Role exposure
-- NO tokens yet
+- Admin-only user listing (READ-ONLY)
 """
 
 
+# --------------------------------------------------
+# Registration
+# --------------------------------------------------
+
 @require_http_methods(["POST"])
-@csrf_exempt  # <-- ADD THIS: safe and standard for public login/register
+@csrf_exempt
 def register(request):
     """
     Register a new user.
@@ -31,10 +33,9 @@ def register(request):
     {
         "username": "...",
         "password": "...",
-        "role": "STUDENT" | "TEACHER"
+        "role": "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN"
     }
     """
-
     body = json.loads(request.body)
 
     username = body.get("username")
@@ -63,7 +64,6 @@ def register(request):
         username=username,
         password=password,
     )
-
     user.role = role
     user.save(update_fields=["role"])
 
@@ -74,19 +74,16 @@ def register(request):
     })
 
 
+# --------------------------------------------------
+# Login / Logout
+# --------------------------------------------------
+
 @require_http_methods(["POST"])
-@csrf_exempt  # <-- ADD THIS
+@csrf_exempt
 def login_view(request):
     """
     Login endpoint (session-based).
-
-    Payload:
-    {
-        "username": "...",
-        "password": "..."
-    }
     """
-
     body = json.loads(request.body)
 
     user = authenticate(
@@ -100,7 +97,6 @@ def login_view(request):
             status=401,
         )
 
-    # IMPORTANT: establish session
     login(request, user)
 
     return JsonResponse({
@@ -110,16 +106,26 @@ def login_view(request):
     })
 
 
+@require_http_methods(["POST"])
+@csrf_exempt
+def logout_view(request):
+    """
+    Logout endpoint (session-based).
+    """
+    logout(request)
+
+    return JsonResponse({"success": True})
+
+
+# --------------------------------------------------
+# Identity
+# --------------------------------------------------
+
 @require_http_methods(["GET"])
 def me(request):
     """
     Identity endpoint.
-
-    CURRENT:
-    - Works with session auth
-    - Anonymous-safe
     """
-
     if not request.user.is_authenticated:
         return JsonResponse({
             "authenticated": False,
@@ -133,18 +139,35 @@ def me(request):
         "role": request.user.role,
     })
 
-@require_http_methods(["POST"])
-@csrf_exempt
-def logout_view(request):
-    """
-    Logout endpoint (session-based).
 
-    EFFECT:
-    - Clears Django session
-    - Frontend must refetch /accounts/me/
-    """
-    logout(request)
+# --------------------------------------------------
+# ADMIN: User Listing (READ-ONLY)
+# --------------------------------------------------
 
-    return JsonResponse({
-        "success": True,
-    })
+@require_http_methods(["GET"])
+def users(request):
+    """
+    Admin-only endpoint.
+    Returns all users (read-only).
+
+    Response shape is STABLE.
+    """
+
+    if not request.user.is_authenticated or request.user.role != "ADMIN":
+        return JsonResponse(
+            {"error": "Forbidden"},
+            status=403,
+        )
+
+    data = list(
+        User.objects.all()
+        .order_by("id")
+        .values(
+            "id",
+            "username",
+            "role",
+            "is_active",
+        )
+    )
+
+    return JsonResponse(data, safe=False)

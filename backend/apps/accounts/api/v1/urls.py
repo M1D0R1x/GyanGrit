@@ -6,4 +6,7 @@ urlpatterns = [
     path("login/", views.login_view),
     path("logout/", views.logout_view),
     path("me/", views.me),
+
+    # Admin-only
+    path("users/", views.users),
 ]

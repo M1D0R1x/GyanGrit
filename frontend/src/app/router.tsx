@@ -12,6 +12,8 @@ import ProfilePage from "../pages/ProfilePage";
 import { RequireRole } from "../auth/RequireRole";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import OfficialDashboardPage from "../pages/OfficaialDashboardPage.tsx";
+import AdminDashboardPage from "../pages/AdminDashboardPage.tsx";
 
 export const router = createBrowserRouter([
   {
@@ -80,4 +82,22 @@ export const router = createBrowserRouter([
     path: "/register",
     element: <RegisterPage />,
   },
+
+    {
+  path: "/official",
+  element: (
+    <RequireRole role="OFFICIAL">
+      <OfficialDashboardPage />
+    </RequireRole>
+  ),
+},
+{
+  path: "/admin-panel",
+  element: (
+    <RequireRole role="ADMIN">
+      <AdminDashboardPage />
+    </RequireRole>
+  ),
+},
+
 ]);

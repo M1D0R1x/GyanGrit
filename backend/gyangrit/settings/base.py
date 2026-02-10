@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from apps import accounts
+
 # -------------------------------------------------
 # Base directory
 # -------------------------------------------------
@@ -34,6 +36,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.content.apps.ContentConfig",
     "apps.learning.apps.LearningConfig",
+    "apps.assessments.apps.AssessmentsConfig",
 ]
 
 # -------------------------------------------------

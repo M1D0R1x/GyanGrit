@@ -17,11 +17,22 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+# includeurlpatterns = [
+#     path("admin/", admin.site.urls),
+#
+#     # Versioned APIs
+#     path("api/v1/accounts/", include("apps.assesments.api.v1.urls")),
+#     path("api/v1/", include("apps.content.api.v1.urls")),
+#     path("api/v1/learning/", include("apps.learning.api.v1.urls")),
+# ]
+from django.contrib import admin
+from django.urls import path, include
+
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # Versioned APIs
     path("api/v1/accounts/", include("apps.accounts.api.v1.urls")),
-    path("api/v1/", include("apps.content.api.v1.urls")),
+    path("api/v1/content/", include("apps.content.api.v1.urls")),
     path("api/v1/learning/", include("apps.learning.api.v1.urls")),
+    path("api/v1/assessments/", include("apps.assessments.api.v1.urls")),  # ✅ CORRECT
 ]

@@ -208,3 +208,66 @@ def teacher_assessment_analytics(request):
         })
 
     return JsonResponse(data, safe=False)
+
+
+from django.db.models import Avg
+
+
+@require_http_methods(["GET"])
+def teacher_class_analytics(request):
+    """
+    Class-level assessment analytics.
+
+    TEACHER:
+        Only their classes.
+
+    OFFICIAL / ADMIN:
+        All classes.
+    """
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.accounts.models import ClassRoom
+
+    # Determine classes visible to user
+    if request.user.role == "TEACHER":
+        classes = request.user.teaching_classes.all()
+    else:
+        classes = ClassRoom.objects.all()
+
+    data = []
+
+    for classroom in classes:
+        students = classroom.students.all()
+
+        attempts = AssessmentAttempt.objects.filter(
+            user__in=students,
+            submitted_at__isnull=False,
+        )
+
+        total_students = students.count()
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+
+        pass_rate = (
+            (pass_count / total_attempts) * 100
+            if total_attempts > 0
+            else 0
+        )
+
+        data.append({
+            "class_id": classroom.id,
+            "class_name": classroom.name,
+            "institution": classroom.institution.name,
+            "total_students": total_students,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)

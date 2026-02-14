@@ -1,63 +1,85 @@
 import { useEffect, useState } from "react";
-import { apiGet } from "../services/api";
-
-type CourseAnalytics = {
-  course_id: number;
-  title: string;
-  total_lessons: number;
-  completed_lessons: number;
-  percentage: number;
-};
+import {
+  getTeacherCourseAnalytics,
+  getTeacherAssessmentAnalytics,
+  getTeacherClassAnalytics,
+  type TeacherCourseAnalytics,
+  type TeacherAssessmentAnalytics,
+  type TeacherClassAnalytics,
+} from "../services/teacherAnalytics";
 
 export default function TeacherDashboardPage() {
-  const [data, setData] = useState<CourseAnalytics[]>([]);
+  const [courses, setCourses] =
+    useState<TeacherCourseAnalytics[]>([]);
+
+  const [assessments, setAssessments] =
+    useState<TeacherAssessmentAnalytics[]>([]);
+
+  const [classes, setClasses] =
+    useState<TeacherClassAnalytics[]>([]);
 
   useEffect(() => {
-    apiGet<CourseAnalytics[]>("/teacher/analytics/courses/")
-      .then(setData);
+    getTeacherCourseAnalytics().then(setCourses);
+    getTeacherAssessmentAnalytics().then(setAssessments);
+    getTeacherClassAnalytics().then(setClasses);
   }, []);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
       <h1>Teacher Dashboard</h1>
 
-      {data.map((course) => (
+      {/* COURSE ANALYTICS */}
+      <h2>Course Completion</h2>
+      {courses.map((course) => (
+        <div key={course.course_id} style={{ marginBottom: 16 }}>
+          <h4>{course.title}</h4>
+          <p>
+            {course.completed_lessons} / {course.total_lessons}
+          </p>
+          <small>{course.percentage}% completion</small>
+        </div>
+      ))}
+
+      {/* ASSESSMENT ANALYTICS */}
+      <h2 style={{ marginTop: 40 }}>
+        Assessment Performance
+      </h2>
+      {assessments.map((a) => (
         <div
-          key={course.course_id}
+          key={a.assessment_id}
           style={{
             border: "1px solid #ddd",
-            borderRadius: 8,
             padding: 16,
             marginBottom: 16,
           }}
         >
-          <h3>{course.title}</h3>
+          <h4>{a.title}</h4>
+          <p>Total Attempts: {a.total_attempts}</p>
+          <p>Unique Students: {a.unique_students}</p>
+          <p>Average Score: {a.average_score}</p>
+          <p>Pass Rate: {a.pass_rate}%</p>
+        </div>
+      ))}
 
-          <p>
-            Lessons completed: {course.completed_lessons} /{" "}
-            {course.total_lessons}
-          </p>
-
-          {/* Visual completion indicator */}
-          <div
-            style={{
-              background: "#eee",
-              borderRadius: 4,
-              overflow: "hidden",
-              height: 8,
-              marginTop: 8,
-            }}
-          >
-            <div
-              style={{
-                width: `${course.percentage}%`,
-                background: "#1976d2",
-                height: "100%",
-              }}
-            />
-          </div>
-
-          <small>{course.percentage}% completion</small>
+      {/* CLASS ANALYTICS */}
+      <h2 style={{ marginTop: 40 }}>
+        Class Performance
+      </h2>
+      {classes.map((c) => (
+        <div
+          key={c.class_id}
+          style={{
+            border: "1px solid #ddd",
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
+          <h4>{c.class_name}</h4>
+          <p>Institution: {c.institution}</p>
+          <p>Total Students: {c.total_students}</p>
+          <p>Total Attempts: {c.total_attempts}</p>
+          <p>Average Score: {c.average_score}</p>
+          <p>Pass Rate: {c.pass_rate}%</p>
         </div>
       ))}
     </div>

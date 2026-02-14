@@ -29,6 +29,14 @@ export type AssessmentDetail = {
   }[];
 };
 
+export type AttemptHistoryItem = {
+  id: number;
+  score: number;
+  passed: boolean;
+  started_at: string;
+  submitted_at: string;
+};
+
 /* =========================
    API Calls
 ========================= */
@@ -46,7 +54,10 @@ export function getAssessment(assessmentId: number) {
 }
 
 export function startAssessment(assessmentId: number) {
-  return apiPost(`/assessments/${assessmentId}/start/`, {});
+  return apiPost(
+    `/assessments/${assessmentId}/start/`,
+    {}
+  );
 }
 
 export function submitAssessment(
@@ -56,5 +67,14 @@ export function submitAssessment(
     answers: Record<number, number>;
   }
 ) {
-  return apiPost(`/assessments/${assessmentId}/submit/`, payload);
+  return apiPost(
+    `/assessments/${assessmentId}/submit/`,
+    payload
+  );
+}
+
+export function getMyAttempts(assessmentId: number) {
+  return apiGet<AttemptHistoryItem[]>(
+    `/assessments/${assessmentId}/my-attempts/`
+  );
 }

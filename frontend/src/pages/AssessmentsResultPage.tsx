@@ -21,6 +21,15 @@ export default function AssessmentResultPage() {
         </strong>
       </p>
 
+      <button
+        onClick={() =>
+          navigate(`/assessments/${state.assessment_id}/history`)
+        }
+        style={{ marginRight: 12 }}
+      >
+        View Attempt History
+      </button>
+
       <button onClick={() => navigate("/")}>
         Back to Dashboard
       </button>

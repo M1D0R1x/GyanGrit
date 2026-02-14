@@ -17,6 +17,8 @@ import AdminDashboardPage from "../pages/AdminDashboardPage.tsx";
 import CourseAssessmentsPage from "../pages/CourseAssessmentsPage.tsx";
 import AssessmentPage from "../pages/AssessmentPage.tsx";
 import AssessmentResultPage from "../pages/AssessmentsResultPage.tsx";
+import AssessmentHistoryPage from "../pages/AssessmentHistoryPage";
+
 
 export const router = createBrowserRouter([
   {
@@ -113,6 +115,10 @@ export const router = createBrowserRouter([
 {
   path: "/assessment-result",
   element: <AssessmentResultPage />,
+},
+{
+  path: "/assessments/:assessmentId/history",
+  element: <AssessmentHistoryPage />,
 },
 
 

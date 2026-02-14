@@ -116,11 +116,11 @@ async function handleSubmit() {
       <h2>{assessment.title}</h2>
       <p>{assessment.description}</p>
 
-      {assessment.questions.map((q) => (
+      {assessment.questions.map((q: AssessmentDetail["questions"][number]) => (
         <div key={q.id} style={{ marginBottom: 20 }}>
           <strong>{q.text}</strong>
 
-          {q.options.map((opt) => (
+          {q.options.map((opt: AssessmentDetail["questions"][number]["options"][number]) => (
             <div key={opt.id}>
               <label>
                 <input

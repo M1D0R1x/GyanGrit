@@ -153,6 +153,45 @@ def submit_assessment(request, assessment_id):
 
     return JsonResponse({
         "attempt_id": attempt.id,
+        "assessment_id": assessment_id,
         "score": attempt.score,
         "passed": attempt.passed,
     })
+
+
+@require_http_methods(["GET"])
+def my_attempts(request, assessment_id):
+    """
+    Return all attempts of the logged-in user
+    for a given assessment.
+    """
+
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"detail": "Authentication required"},
+            status=401,
+        )
+
+    assessment = get_object_or_404(
+        Assessment,
+        id=assessment_id,
+    )
+
+    attempts = (
+        AssessmentAttempt.objects
+        .filter(
+            assessment=assessment,
+            user=request.user,
+            submitted_at__isnull=False,
+        )
+        .values(
+            "id",
+            "score",
+            "passed",
+            "started_at",
+            "submitted_at",
+        )
+        .order_by("-started_at")
+    )
+
+    return JsonResponse(list(attempts), safe=False)

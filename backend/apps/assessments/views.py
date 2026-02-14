@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.db.models import Avg
 
 from apps.assessments.models import (
     Assessment,
@@ -15,9 +16,6 @@ from apps.content.models import Course
 
 @require_http_methods(["GET"])
 def course_assessments(request, course_id):
-    """
-    List all published assessments for a course.
-    """
     course = get_object_or_404(Course, id=course_id)
 
     data = list(
@@ -37,9 +35,6 @@ def course_assessments(request, course_id):
 
 @require_http_methods(["GET"])
 def assessment_detail(request, assessment_id):
-    """
-    Fetch assessment with questions (NO correct answers exposed).
-    """
     assessment = get_object_or_404(
         Assessment,
         id=assessment_id,
@@ -53,10 +48,7 @@ def assessment_detail(request, assessment_id):
             "text": q.text,
             "marks": q.marks,
             "options": [
-                {
-                    "id": opt.id,
-                    "text": opt.text,
-                }
+                {"id": opt.id, "text": opt.text}
                 for opt in q.options.all()
             ],
         })
@@ -73,16 +65,11 @@ def assessment_detail(request, assessment_id):
 
 @require_http_methods(["POST"])
 def start_assessment(request, assessment_id):
-    """
-    Create a new attempt.
-    Authentication required.
-    """
-
     if not request.user.is_authenticated:
-        return JsonResponse(
-            {"detail": "Authentication required"},
-            status=401,
-        )
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if not request.user.institution:
+        return JsonResponse({"detail": "No institution assigned"}, status=400)
 
     assessment = get_object_or_404(
         Assessment,
@@ -104,15 +91,8 @@ def start_assessment(request, assessment_id):
 
 @require_http_methods(["POST"])
 def submit_assessment(request, assessment_id):
-    """
-    Submit answers and calculate score.
-    """
-
     if not request.user.is_authenticated:
-        return JsonResponse(
-            {"detail": "Authentication required"},
-            status=401,
-        )
+        return JsonResponse({"detail": "Authentication required"}, status=401)
 
     body = json.loads(request.body)
 
@@ -127,10 +107,7 @@ def submit_assessment(request, assessment_id):
     )
 
     if attempt.submitted_at is not None:
-        return JsonResponse(
-            {"detail": "Attempt already submitted"},
-            status=400,
-        )
+        return JsonResponse({"detail": "Already submitted"}, status=400)
 
     score = 0
 
@@ -161,21 +138,10 @@ def submit_assessment(request, assessment_id):
 
 @require_http_methods(["GET"])
 def my_attempts(request, assessment_id):
-    """
-    Return all attempts of the logged-in user
-    for a given assessment.
-    """
-
     if not request.user.is_authenticated:
-        return JsonResponse(
-            {"detail": "Authentication required"},
-            status=401,
-        )
+        return JsonResponse({"detail": "Authentication required"}, status=401)
 
-    assessment = get_object_or_404(
-        Assessment,
-        id=assessment_id,
-    )
+    assessment = get_object_or_404(Assessment, id=assessment_id)
 
     attempts = (
         AssessmentAttempt.objects
@@ -195,3 +161,50 @@ def my_attempts(request, assessment_id):
     )
 
     return JsonResponse(list(attempts), safe=False)
+
+
+@require_http_methods(["GET"])
+def teacher_assessment_analytics(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    assessments = Assessment.objects.all()
+    data = []
+
+    for assessment in assessments:
+        attempts = assessment.attempts.filter(
+            submitted_at__isnull=False
+        )
+
+        if request.user.role == "TEACHER":
+            attempts = attempts.filter(
+                user__institution=request.user.institution
+            )
+
+        total_attempts = attempts.count()
+        unique_students = attempts.values("user").distinct().count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+        fail_count = attempts.filter(passed=False).count()
+
+        pass_rate = (
+            (pass_count / total_attempts) * 100
+            if total_attempts > 0
+            else 0
+        )
+
+        data.append({
+            "assessment_id": assessment.id,
+            "title": assessment.title,
+            "total_attempts": total_attempts,
+            "unique_students": unique_students,
+            "average_score": round(avg_score, 2),
+            "pass_count": pass_count,
+            "fail_count": fail_count,
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)

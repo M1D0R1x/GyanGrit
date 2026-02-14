@@ -1,30 +1,5 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from .models import User
-
-
-@admin.register(User)
-class UserAdmin(DjangoUserAdmin):
-    """
-    Admin configuration for custom User.
-    """
-
-    fieldsets = DjangoUserAdmin.fieldsets + (
-        ("Role", {"fields": ("role",)}),
-    )
-
-    list_display = (
-        "username",
-        "email",
-        "role",
-        "is_staff",
-        "is_active",
-    )
-
-    list_filter = ("role", "is_staff", "is_active")
-    search_fields = ("username", "email")
-
-from django.contrib import admin
 from .models import User, Institution
 
 
@@ -34,4 +9,24 @@ class InstitutionAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
-admin.site.register(User)
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    """
+    Admin configuration for custom User.
+    """
+
+    fieldsets = DjangoUserAdmin.fieldsets + (
+        ("Institution & Role", {"fields": ("role", "institution")}),
+    )
+
+    list_display = (
+        "username",
+        "email",
+        "role",
+        "institution",
+        "is_staff",
+        "is_active",
+    )
+
+    list_filter = ("role", "institution", "is_staff", "is_active")
+    search_fields = ("username", "email")

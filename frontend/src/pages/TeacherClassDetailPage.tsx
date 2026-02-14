@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   getTeacherClassStudents,
   type TeacherClassStudentAnalytics,
@@ -7,6 +7,7 @@ import {
 
 export default function TeacherClassDetailPage() {
   const { classId } = useParams();
+  const navigate = useNavigate();
 
   const [students, setStudents] =
     useState<TeacherClassStudentAnalytics[]>([]);
@@ -30,7 +31,21 @@ export default function TeacherClassDetailPage() {
             marginBottom: 12,
           }}
         >
-          <h4>{s.username}</h4>
+          <h4
+            style={{
+              cursor: "pointer",
+              color: "#1976d2",
+              textDecoration: "underline",
+            }}
+            onClick={() =>
+              navigate(
+                `/teacher/classes/${classId}/students/${s.student_id}`
+              )
+            }
+          >
+            {s.username}
+          </h4>
+
           <p>Total Attempts: {s.total_attempts}</p>
           <p>Average Score: {s.average_score}</p>
           <p>Pass Rate: {s.pass_rate}%</p>

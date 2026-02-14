@@ -91,3 +91,26 @@ export function getTeacherClassStudents(classId: number) {
     `/teacher/analytics/classes/${classId}/students/`
   );
 }
+
+export type TeacherStudentAssessmentDetail = {
+  assessment_id: number;
+  assessment_title: string;
+  score: number;
+  passed: boolean;
+  submitted_at: string;
+};
+
+export type TeacherStudentDetailResponse = {
+  student_id: number;
+  username: string;
+  attempts: TeacherStudentAssessmentDetail[];
+};
+
+export function getTeacherStudentAssessments(
+  classId: number,
+  studentId: number
+) {
+  return apiGet<TeacherStudentDetailResponse>(
+    `/teacher/analytics/classes/${classId}/students/${studentId}/`
+  );
+}

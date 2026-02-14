@@ -322,3 +322,52 @@ def teacher_class_students(request, class_id):
         })
 
     return JsonResponse(data, safe=False)
+
+@require_http_methods(["GET"])
+def teacher_student_assessments(request, class_id, student_id):
+    """
+    Detailed assessment breakdown for a student inside a class.
+    """
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.accounts.models import ClassRoom, User
+
+    classroom = get_object_or_404(ClassRoom, id=class_id)
+    student = get_object_or_404(User, id=student_id, classroom=classroom)
+
+    # Teacher restriction
+    if request.user.role == "TEACHER":
+        if classroom not in request.user.teaching_classes.all():
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    attempts = (
+        AssessmentAttempt.objects
+        .filter(
+            user=student,
+            submitted_at__isnull=False,
+        )
+        .select_related("assessment")
+        .order_by("-submitted_at")
+    )
+
+    data = []
+
+    for attempt in attempts:
+        data.append({
+            "assessment_id": attempt.assessment.id,
+            "assessment_title": attempt.assessment.title,
+            "score": attempt.score,
+            "passed": attempt.passed,
+            "submitted_at": attempt.submitted_at,
+        })
+
+    return JsonResponse({
+        "student_id": student.id,
+        "username": student.username,
+        "attempts": data,
+    })

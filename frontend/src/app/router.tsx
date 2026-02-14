@@ -19,6 +19,7 @@ import AssessmentPage from "../pages/AssessmentPage.tsx";
 import AssessmentResultPage from "../pages/AssessmentsResultPage.tsx";
 import AssessmentHistoryPage from "../pages/AssessmentHistoryPage";
 import TeacherClassDetailPage from "../pages/TeacherClassDetailPage";
+import TeacherStudentDetailPage from "../pages/TeacherStudentDetailPage";
 
 
 
@@ -131,5 +132,14 @@ export const router = createBrowserRouter([
     </RequireRole>
   ),
 },
+    {
+  path: "/teacher/classes/:classId/students/:studentId",
+  element: (
+    <RequireRole role="TEACHER">
+      <TeacherStudentDetailPage />
+    </RequireRole>
+  ),
+},
+
 
 ]);

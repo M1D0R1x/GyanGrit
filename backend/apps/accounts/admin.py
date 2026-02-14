@@ -23,3 +23,15 @@ class UserAdmin(DjangoUserAdmin):
 
     list_filter = ("role", "is_staff", "is_active")
     search_fields = ("username", "email")
+
+from django.contrib import admin
+from .models import User, Institution
+
+
+@admin.register(Institution)
+class InstitutionAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "district", "created_at")
+    search_fields = ("name",)
+
+
+admin.site.register(User)

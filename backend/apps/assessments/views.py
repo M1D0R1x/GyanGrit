@@ -75,7 +75,15 @@ def assessment_detail(request, assessment_id):
 def start_assessment(request, assessment_id):
     """
     Create a new attempt.
+    Authentication required.
     """
+
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"detail": "Authentication required"},
+            status=401,
+        )
+
     assessment = get_object_or_404(
         Assessment,
         id=assessment_id,
@@ -84,7 +92,7 @@ def start_assessment(request, assessment_id):
 
     attempt = AssessmentAttempt.objects.create(
         assessment=assessment,
-        user=request.user if request.user.is_authenticated else None,
+        user=request.user,
     )
 
     return JsonResponse({
@@ -98,15 +106,14 @@ def start_assessment(request, assessment_id):
 def submit_assessment(request, assessment_id):
     """
     Submit answers and calculate score.
-
-    Payload:
-    {
-        "attempt_id": 1,
-        "answers": {
-            "<question_id>": "<option_id>"
-        }
-    }
     """
+
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"detail": "Authentication required"},
+            status=401,
+        )
+
     body = json.loads(request.body)
 
     attempt_id = body.get("attempt_id")
@@ -116,7 +123,14 @@ def submit_assessment(request, assessment_id):
         AssessmentAttempt,
         id=attempt_id,
         assessment_id=assessment_id,
+        user=request.user,
     )
+
+    if attempt.submitted_at is not None:
+        return JsonResponse(
+            {"detail": "Attempt already submitted"},
+            status=400,
+        )
 
     score = 0
 
@@ -131,6 +145,7 @@ def submit_assessment(request, assessment_id):
         except QuestionOption.DoesNotExist:
             continue
 
+    attempt.answers = answers
     attempt.score = score
     attempt.submitted_at = timezone.now()
     attempt.passed = score >= attempt.assessment.pass_marks

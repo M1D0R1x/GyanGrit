@@ -36,6 +36,8 @@ export default function AssessmentPage() {
   const [answers, setAnswers] =
     useState<Record<number, number>>({});
 
+  const [loading, setLoading] = useState(true);
+
   /* -----------------------------
      Load assessment + start attempt
   ----------------------------- */
@@ -43,27 +45,38 @@ export default function AssessmentPage() {
     if (!assessmentId) return;
 
     async function init() {
-      const assessmentData =
-        await getAssessment(Number(assessmentId));
+      try {
+        const assessmentData =
+          await getAssessment(Number(assessmentId));
 
-      setAssessment(assessmentData);
+        setAssessment(assessmentData);
 
-      const attempt =
-        await startAssessment(
-          Number(assessmentId)
-        ) as StartAssessmentResponse;
+        const attempt =
+          (await startAssessment(
+            Number(assessmentId)
+          )) as StartAssessmentResponse;
 
-      setAttemptId(attempt.attempt_id);
+        setAttemptId(attempt.attempt_id);
+      } catch (err) {
+        console.error("Failed to start assessment", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
     init();
   }, [assessmentId]);
 
   /* -----------------------------
-     Guards
+     Loading guards
   ----------------------------- */
-  if (!assessment) {
+
+  if (loading) {
     return <p>Loading assessment…</p>;
+  }
+
+  if (!assessment) {
+    return <p>Assessment not found.</p>;
   }
 
   if (!attemptId) {
@@ -73,20 +86,27 @@ export default function AssessmentPage() {
   /* -----------------------------
      Submit
   ----------------------------- */
-  async function handleSubmit() {
+async function handleSubmit() {
+  if (!assessment || !attemptId) return;
+
+  try {
     const result =
-      await submitAssessment(
+      (await submitAssessment(
         assessment.id,
         {
           attempt_id: attemptId,
           answers,
         }
-      ) as SubmitResponse;
+      )) as SubmitResponse;
 
     navigate("/assessment-result", {
       state: result,
     });
+  } catch (err) {
+    console.error("Submit failed", err);
   }
+}
+
 
   /* -----------------------------
      Render
@@ -106,6 +126,7 @@ export default function AssessmentPage() {
                 <input
                   type="radio"
                   name={`q-${q.id}`}
+                  checked={answers[q.id] === opt.id}
                   onChange={() =>
                     setAnswers((prev) => ({
                       ...prev,

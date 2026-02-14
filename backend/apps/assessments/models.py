@@ -72,13 +72,11 @@ class QuestionOption(models.Model):
 
 class AssessmentAttempt(models.Model):
     """
-    One attempt by a user (auth ready).
+    One attempt by a user.
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
         on_delete=models.CASCADE,
         related_name="assessment_attempts",
     )
@@ -92,8 +90,13 @@ class AssessmentAttempt(models.Model):
     started_at = models.DateTimeField(default=timezone.now)
     submitted_at = models.DateTimeField(null=True, blank=True)
 
+    answers = models.JSONField(default=dict, blank=True)
+
     score = models.PositiveIntegerField(default=0)
     passed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-started_at"]
 
     def __str__(self):
         return f"Attempt {self.id} – {self.assessment.title}"

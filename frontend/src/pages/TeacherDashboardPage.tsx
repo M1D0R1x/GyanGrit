@@ -7,8 +7,11 @@ import {
   type TeacherAssessmentAnalytics,
   type TeacherClassAnalytics,
 } from "../services/teacherAnalytics";
+import { useNavigate } from "react-router-dom";
 
 export default function TeacherDashboardPage() {
+  const navigate = useNavigate();
+
   const [courses, setCourses] =
     useState<TeacherCourseAnalytics[]>([]);
 
@@ -74,7 +77,19 @@ export default function TeacherDashboardPage() {
             marginBottom: 16,
           }}
         >
-          <h4>{c.class_name}</h4>
+          <h4
+            style={{
+              cursor: "pointer",
+              color: "#1976d2",
+              textDecoration: "underline",
+            }}
+            onClick={() =>
+              navigate(`/teacher/classes/${c.class_id}`)
+            }
+          >
+            {c.class_name}
+          </h4>
+
           <p>Institution: {c.institution}</p>
           <p>Total Students: {c.total_students}</p>
           <p>Total Attempts: {c.total_attempts}</p>

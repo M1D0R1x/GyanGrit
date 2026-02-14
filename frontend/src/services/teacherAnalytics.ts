@@ -77,3 +77,17 @@ export function getTeacherClassAnalytics() {
     "/teacher/analytics/classes/"
   );
 }
+
+export type TeacherClassStudentAnalytics = {
+  student_id: number;
+  username: string;
+  total_attempts: number;
+  average_score: number;
+  pass_rate: number;
+};
+
+export function getTeacherClassStudents(classId: number) {
+  return apiGet<TeacherClassStudentAnalytics[]>(
+    `/teacher/analytics/classes/${classId}/students/`
+  );
+}

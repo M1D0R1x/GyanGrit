@@ -271,3 +271,54 @@ def teacher_class_analytics(request):
         })
 
     return JsonResponse(data, safe=False)
+
+@require_http_methods(["GET"])
+def teacher_class_students(request, class_id):
+    """
+    Student-level analytics for a class.
+    """
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.accounts.models import ClassRoom
+
+    classroom = get_object_or_404(ClassRoom, id=class_id)
+
+    # Teacher restriction
+    if request.user.role == "TEACHER":
+        if classroom not in request.user.teaching_classes.all():
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    students = classroom.students.all()
+
+    data = []
+
+    for student in students:
+        attempts = AssessmentAttempt.objects.filter(
+            user=student,
+            submitted_at__isnull=False,
+        )
+
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+
+        pass_rate = (
+            (pass_count / total_attempts) * 100
+            if total_attempts > 0
+            else 0
+        )
+
+        data.append({
+            "student_id": student.id,
+            "username": student.username,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)

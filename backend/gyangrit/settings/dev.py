@@ -5,10 +5,7 @@ from .base import *
 # -------------------------------------------------
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # -------------------------------------------------
 # CORS (Frontend → Backend)
@@ -17,57 +14,19 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
-    "http://127.0.0.1:5174",  # Added 5174 variant for completeness
-]
-
-# Required for session auth + PATCH/POST
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://http://localhost:5174",
     "http://127.0.0.1:5174",
 ]
 
-# =================================================
-# CRITICAL FOR CROSS-ORIGIN SESSION AUTH (dev only)
-# =================================================
-# SameSite=Lax blocks cookies on cross-origin fetches
-# In development (HTTP, different ports), we must use None + Secure=False
-SESSION_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = True  # Must be False on HTTP
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",   # fixed typo
+    "http://127.0.0.1:5174",
+]
 
-CSRF_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SECURE = True  # Must be False on HTTP
+# ---- CSRF / Session (DEV) ----
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
-# -------------------------------------------------
-# Database (explicit for clarity, same as base)
-# -------------------------------------------------
-import os
-from urllib.parse import urlparse
-
-DATABASE_URL = os.getenv("POSTGRES_URL_NON_POOLING")
-
-if DATABASE_URL:
-    url = urlparse(DATABASE_URL)
-
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": url.path[1:],
-            "USER": url.username,
-            "PASSWORD": url.password,
-            "HOST": url.hostname,
-            "PORT": url.port,
-            "OPTIONS": {
-                "sslmode": "require",
-            },
-        }
-    }
-else:
-    # fallback to sqlite
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False

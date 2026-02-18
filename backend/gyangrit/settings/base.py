@@ -1,62 +1,53 @@
 from pathlib import Path
-
+import os
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-from apps import accounts
-load_dotenv()
 # -------------------------------------------------
 # Base directory
 # -------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# -------------------------------------------------
-# Core security (overridden in env files if needed)
-# -------------------------------------------------
-SECRET_KEY = "django-insecure-change-this-later"
+# Load environment variables FIRST
+load_dotenv()
 
-DEBUG = False  # MUST be overridden by dev.py / prod.py
+# -------------------------------------------------
+# Core security
+# -------------------------------------------------
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-change-this")
 
+DEBUG = False
 ALLOWED_HOSTS = []
 
 # -------------------------------------------------
 # Installed apps
 # -------------------------------------------------
 INSTALLED_APPS = [
-    # Django core
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
-    # Third-party
     "rest_framework",
     "corsheaders",
-
-    # Local apps
     "apps.accounts.apps.AccountsConfig",
     "apps.content.apps.ContentConfig",
     "apps.learning.apps.LearningConfig",
     "apps.assessments.apps.AssessmentsConfig",
 ]
 
-# -------------------------------------------------
-# Custom user model
-# -------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
 
 # -------------------------------------------------
-# Middleware (ORDER MATTERS)
+# Middleware
 # -------------------------------------------------
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -87,16 +78,12 @@ TEMPLATES = [
 ]
 
 # -------------------------------------------------
-# Database (override if needed)
+# Database (SINGLE CLEAN VERSION)
 # -------------------------------------------------
-import os
-from urllib.parse import urlparse
-
-DATABASE_URL = os.getenv("POSTGRES_URL_NON_POOLING")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
     url = urlparse(DATABASE_URL)
-
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -105,20 +92,16 @@ if DATABASE_URL:
             "PASSWORD": url.password,
             "HOST": url.hostname,
             "PORT": url.port,
-            "OPTIONS": {
-                "sslmode": "require",
-            },
+            "OPTIONS": {"sslmode": "require"},
         }
     }
 else:
-    # fallback to sqlite
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-
 
 # -------------------------------------------------
 # Password validation
@@ -144,18 +127,13 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# -------------------------------------------------
-# Defaults
-# -------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# =================================================
-# CORS / CSRF — safe defaults (expanded in dev)
-# =================================================
+# -------------------------------------------------
+# Default CORS / CSRF (safe defaults)
+# -------------------------------------------------
 CORS_ALLOW_CREDENTIALS = True
-
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SAMESITE = "Lax"
-
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 
 
 class Institution(models.Model):
@@ -42,12 +43,16 @@ class ClassRoom(models.Model):
 
     def clean(self):
         """
-        Ensure teachers belong to same institution.
+        Validate teachers only AFTER object has a primary key.
+        Avoid accessing ManyToMany before save.
         """
+        if not self.pk:
+            return  # Skip validation during initial save
+
         for teacher in self.teachers.all():
             if teacher.institution != self.institution:
-                raise ValueError(
-                    f"Teacher {teacher.username} does not belong to this institution."
+                raise ValidationError(
+                    f"Teacher '{teacher.username}' does not belong to this institution."
                 )
 
     def __str__(self):
@@ -98,12 +103,12 @@ class User(AbstractUser):
 
         if self.classroom:
             if not self.institution:
-                raise ValueError(
+                raise ValidationError(
                     "User must belong to an institution if assigned to a classroom."
                 )
 
             if self.classroom.institution != self.institution:
-                raise ValueError(
+                raise ValidationError(
                     "Classroom institution must match user's institution."
                 )
 

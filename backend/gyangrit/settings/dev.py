@@ -42,9 +42,32 @@ CSRF_COOKIE_SECURE = True  # Must be False on HTTP
 # -------------------------------------------------
 # Database (explicit for clarity, same as base)
 # -------------------------------------------------
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+import os
+from urllib.parse import urlparse
+
+DATABASE_URL = os.getenv("POSTGRES_URL_NON_POOLING")
+
+if DATABASE_URL:
+    url = urlparse(DATABASE_URL)
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": url.path[1:],
+            "USER": url.username,
+            "PASSWORD": url.password,
+            "HOST": url.hostname,
+            "PORT": url.port,
+            "OPTIONS": {
+                "sslmode": "require",
+            },
+        }
     }
-}
+else:
+    # fallback to sqlite
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }

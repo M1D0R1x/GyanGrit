@@ -1,13 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+import uuid
+import secrets
 
+
+# =========================================================
+# INSTITUTION
+# =========================================================
 
 class Institution(models.Model):
-    """
-    Represents a school / institution.
-    """
-
     name = models.CharField(max_length=255)
     district = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -16,12 +19,11 @@ class Institution(models.Model):
         return self.name
 
 
-class ClassRoom(models.Model):
-    """
-    Represents a class inside an institution.
-    Example: 8A, 10-B, Grade 9 Science
-    """
+# =========================================================
+# CLASS (e.g., Grade 10)
+# =========================================================
 
+class ClassRoom(models.Model):
     name = models.CharField(max_length=100)
 
     institution = models.ForeignKey(
@@ -30,46 +32,62 @@ class ClassRoom(models.Model):
         related_name="classes",
     )
 
-    teachers = models.ManyToManyField(
-        "User",
-        blank=True,
-        related_name="teaching_classes",
-    )
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("name", "institution")
 
-    def clean(self):
-        """
-        Validate teachers only AFTER object has a primary key.
-        Avoid accessing ManyToMany before save.
-        """
-        if not self.pk:
-            return  # Skip validation during initial save
-
-        for teacher in self.teachers.all():
-            if teacher.institution != self.institution:
-                raise ValidationError(
-                    f"Teacher '{teacher.username}' does not belong to this institution."
-                )
-
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
 
 
-class User(AbstractUser):
-    """
-    Custom user model with role-based access.
+# =========================================================
+# SECTION (e.g., 10A, 10B)
+# =========================================================
 
-    Role hierarchy:
-    ADMIN > OFFICIAL > TEACHER > STUDENT
-    """
+class Section(models.Model):
+    name = models.CharField(max_length=20)
+
+    classroom = models.ForeignKey(
+        ClassRoom,
+        on_delete=models.CASCADE,
+        related_name="sections",
+    )
+
+    class Meta:
+        unique_together = ("name", "classroom")
+
+    def __str__(self):
+        return f"{self.classroom.name} {self.name}"
+
+
+# =========================================================
+# SUBJECT
+# =========================================================
+
+class Subject(models.Model):
+    name = models.CharField(max_length=100)
+
+    institution = models.ForeignKey(
+        Institution,
+        on_delete=models.CASCADE,
+        related_name="subjects",
+    )
+
+    def __str__(self):
+        return f"{self.name} ({self.institution.name})"
+
+
+# =========================================================
+# USER
+# =========================================================
+
+class User(AbstractUser):
 
     ROLE_CHOICES = (
         ("STUDENT", "Student"),
         ("TEACHER", "Teacher"),
+        ("PRINCIPAL", "Principal"),
         ("OFFICIAL", "Official"),
         ("ADMIN", "Admin"),
     )
@@ -88,8 +106,8 @@ class User(AbstractUser):
         related_name="users",
     )
 
-    classroom = models.ForeignKey(
-        ClassRoom,
+    section = models.ForeignKey(
+        Section,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -97,20 +115,129 @@ class User(AbstractUser):
     )
 
     def clean(self):
-        """
-        Ensure classroom and institution consistency.
-        """
-
-        if self.classroom:
+        if self.section:
             if not self.institution:
                 raise ValidationError(
-                    "User must belong to an institution if assigned to a classroom."
+                    "User must belong to an institution if assigned to a section."
                 )
-
-            if self.classroom.institution != self.institution:
+            if self.section.classroom.institution != self.institution:
                 raise ValidationError(
-                    "Classroom institution must match user's institution."
+                    "Section institution must match user's institution."
                 )
 
     def __str__(self):
         return f"{self.username} ({self.role})"
+
+
+# =========================================================
+# TEACHING ASSIGNMENT
+# =========================================================
+
+class TeachingAssignment(models.Model):
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={"role": "TEACHER"},
+        related_name="assignments",
+    )
+
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="teaching_assignments",
+    )
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="teaching_assignments",
+    )
+
+    class Meta:
+        unique_together = ("teacher", "section", "subject")
+
+    def clean(self):
+        if self.teacher.institution != self.section.classroom.institution:
+            raise ValidationError(
+                "Teacher must belong to same institution as section."
+            )
+
+    def __str__(self):
+        return f"{self.teacher.username} - {self.subject.name} - {self.section}"
+
+
+# =========================================================
+# STUDENT REGISTRATION RECORD
+# =========================================================
+
+class StudentRegistrationRecord(models.Model):
+    student_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    registration_code = models.CharField(max_length=32, unique=True)
+
+    name = models.CharField(max_length=255)
+    dob = models.DateField()
+
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="registration_records",
+    )
+
+    is_registered = models.BooleanField(default=False)
+
+    linked_user = models.OneToOneField(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="registration_record",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.registration_code:
+            self.registration_code = secrets.token_hex(8)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.section})"
+
+
+# =========================================================
+# OTP VERIFICATION
+# =========================================================
+
+class OTPVerification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timezone.timedelta(minutes=5)
+
+
+# =========================================================
+# DEVICE SESSION (Single Device Enforcement)
+# =========================================================
+
+class DeviceSession(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    device_fingerprint = models.CharField(max_length=255)
+    last_login = models.DateTimeField(auto_now=True)
+
+
+# =========================================================
+# AUDIT LOG
+# =========================================================
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=255)
+    target_model = models.CharField(max_length=255)
+    target_id = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.actor} - {self.action}"

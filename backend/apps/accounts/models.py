@@ -246,7 +246,9 @@ class OTPVerification(models.Model):
     # Removed: date field and unique_together → we now allow multiple OTPs per user per day
 
     def is_expired(self):
-        return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
+        # Option B: valid until end of day
+        today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        return timezone.now() > today_end
 
     def can_attempt(self):
         return self.attempt_count < 5

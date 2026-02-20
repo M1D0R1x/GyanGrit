@@ -99,7 +99,7 @@ def register(request):
 
 
 # =========================================================
-# LOGIN
+# LOGIN (PASSWORD STAGE ONLY)
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -116,6 +116,7 @@ def login_view(request):
     if not user:
         return JsonResponse({"error": "invalid credentials"}, status=401)
 
+    # STUDENTS → direct login
     if user.role == "STUDENT":
         login(request, user)
         return JsonResponse({
@@ -136,23 +137,32 @@ def login_view(request):
         },
     )
 
+    # If already verified today → login immediately
     if not created and otp_record.is_verified:
-        login(request, user)
+
+        login(request, user)  # 🔴 THIS WAS MISSING
+
         return JsonResponse({
             "otp_required": False,
             "id": user.id,
             "username": user.username,
             "role": user.role,
+            "dev_console": {
+                "username": user.username,
+                "otp": otp_record.otp_code,
+            }
         })
 
     return JsonResponse({
         "otp_required": True,
-        "otp_preview": otp_record.otp_code,
+        "dev_console": {
+            "username": user.username,
+            "otp": otp_record.otp_code,
+        }
     })
 
-
 # =========================================================
-# VERIFY OTP
+# VERIFY OTP + SINGLE DEVICE ENFORCEMENT
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -182,14 +192,51 @@ def verify_otp(request):
     if otp_record.otp_code != otp_input:
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
+    # ==========================
+    # DEVICE FINGERPRINT
+    # ==========================
+
+    import hashlib
+    from django.contrib.sessions.models import Session
+
+    user_agent = request.META.get("HTTP_USER_AGENT", "")
+    ip = request.META.get("REMOTE_ADDR", "")
+    raw = f"{user_agent}-{ip}"
+    fingerprint = hashlib.sha256(raw.encode()).hexdigest()
+
+    from apps.accounts.models import DeviceSession
+
+    # If device exists → invalidate old session
+    existing = DeviceSession.objects.filter(user=user).first()
+
+    if existing:
+        # Kill previous Django session
+        old_session_key = existing.device_fingerprint  # we will store session key instead
+        try:
+            Session.objects.filter(session_key=old_session_key).delete()
+        except Exception:
+            pass
+
+        existing.delete()
+
+    # Log user in
+    login(request, user)
+
+    # Store current session key
+    DeviceSession.objects.create(
+        user=user,
+        device_fingerprint=request.session.session_key,
+    )
+
     otp_record.is_verified = True
     otp_record.save(update_fields=["is_verified"])
 
-    login(request, user)
-
-    return JsonResponse({"success": True})
-
-
+    return JsonResponse({
+        "success": True,
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+    })
 # =========================================================
 # LOGOUT
 # =========================================================

@@ -3,11 +3,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
-type LoginResponse = {
-  id: number;
-  username: string;
-  role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
-};
+type LoginApiResponse =
+  | {
+      otp_required: true;
+    }
+  | {
+      otp_required: false;
+      id: number;
+      username: string;
+      role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+    };
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -28,16 +33,27 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // Login request
-      const response = await apiPost<LoginResponse>(
+      const response = await apiPost<LoginApiResponse>(
         "/accounts/login/",
         { username, password }
       );
 
-      // Refresh auth state (updates context)
+      // OTP required
+      if (response.otp_required) {
+        navigate("/verify-otp", {
+          state: { username },
+          replace: true,
+        });
+        return;
+      }
+
+      if ("dev_console" in response) {
+  console.log("DEV LOGIN INFO:", response.dev_console);
+}
+
+      // Student flow
       await auth.refresh();
 
-      // Redirect based on role from response (not stale context)
       if (response.role === "TEACHER") {
         navigate("/teacher", { replace: true });
       } else if (response.role === "OFFICIAL") {
@@ -54,6 +70,9 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
+
+
 
   return (
     <div style={{ maxWidth: 360, margin: "80px auto" }}>

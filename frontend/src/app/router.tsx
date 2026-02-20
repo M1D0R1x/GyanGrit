@@ -20,6 +20,7 @@ import AssessmentResultPage from "../pages/AssessmentsResultPage.tsx";
 import AssessmentHistoryPage from "../pages/AssessmentHistoryPage";
 import TeacherClassDetailPage from "../pages/TeacherClassDetailPage";
 import TeacherStudentDetailPage from "../pages/TeacherStudentDetailPage";
+import VerifyOtpPage from "../pages/VerifyOtpPage";
 
 
 
@@ -141,5 +142,9 @@ export const router = createBrowserRouter([
   ),
 },
 
+  {
+  path: "/verify-otp",
+  element: <VerifyOtpPage />,
+}
 
 ]);

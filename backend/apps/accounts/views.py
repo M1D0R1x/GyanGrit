@@ -80,10 +80,7 @@ def register(request):
         join_code.is_used = True
         join_code.save(update_fields=["is_used"])
 
-    user = User.objects.create_user(
-        username=username,
-        password=password,
-    )
+    user = User.objects.create_user(username=username, password=password)
 
     user.role = role
     user.institution = institution
@@ -102,7 +99,7 @@ def register(request):
 
 
 # =========================================================
-# LOGIN (STEP 1: PASSWORD)
+# LOGIN
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -148,21 +145,14 @@ def login_view(request):
             "role": user.role,
         })
 
-    if not created and otp_record.is_expired():
-        otp_record.otp_code = str(random.randint(100000, 999999))
-        otp_record.attempt_count = 0
-        otp_record.is_verified = False
-        otp_record.created_at = timezone.now()
-        otp_record.save()
-
     return JsonResponse({
         "otp_required": True,
-        "otp_preview": otp_record.otp_code,  # REMOVE IN PRODUCTION
+        "otp_preview": otp_record.otp_code,
     })
 
 
 # =========================================================
-# VERIFY OTP (STEP 2)
+# VERIFY OTP
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -189,16 +179,7 @@ def verify_otp(request):
     except OTPVerification.DoesNotExist:
         return JsonResponse({"error": "OTP not found"}, status=400)
 
-    if otp_record.is_expired():
-        return JsonResponse({"error": "OTP expired"}, status=400)
-
-    if not otp_record.can_attempt():
-        return JsonResponse({"error": "Too many attempts"}, status=403)
-
     if otp_record.otp_code != otp_input:
-        otp_record.attempt_count += 1
-        otp_record.last_attempt_at = timezone.now()
-        otp_record.save(update_fields=["attempt_count", "last_attempt_at"])
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
     otp_record.is_verified = True
@@ -206,12 +187,7 @@ def verify_otp(request):
 
     login(request, user)
 
-    return JsonResponse({
-        "success": True,
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,
-    })
+    return JsonResponse({"success": True})
 
 
 # =========================================================
@@ -233,10 +209,7 @@ def logout_view(request):
 def me(request):
 
     if not request.user.is_authenticated:
-        return JsonResponse({
-            "authenticated": False,
-            "role": "STUDENT",
-        })
+        return JsonResponse({"authenticated": False})
 
     return JsonResponse({
         "authenticated": True,
@@ -249,26 +222,114 @@ def me(request):
 
 
 # =========================================================
-# ADMIN USER LIST
+# SCOPED ENDPOINTS
 # =========================================================
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
 @require_http_methods(["GET"])
 def users(request):
-
-    queryset = User.objects.all().order_by("id")
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(
-        queryset.values(
-            "id",
-            "public_id",
-            "username",
-            "role",
-            "institution__name",
-            "section__name",
-            "is_active",
-        )
-    )
-
+    queryset = institution_scope_queryset(request.user, User.objects.all())
+    data = list(queryset.values("id", "username", "role"))
     return JsonResponse(data, safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def institutions(request):
+    queryset = institution_scope_queryset(request.user, Institution.objects.all())
+    return JsonResponse(list(queryset.values("id", "name", "district")), safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
+@require_http_methods(["GET"])
+def sections(request):
+    queryset = institution_scope_queryset(request.user, Section.objects.all())
+    return JsonResponse(list(queryset.values("id", "name")), safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
+@require_http_methods(["GET"])
+def subjects(request):
+    queryset = institution_scope_queryset(request.user, Subject.objects.all())
+    return JsonResponse(list(queryset.values("id", "name")), safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def teachers(request):
+    queryset = institution_scope_queryset(
+        request.user,
+        User.objects.filter(role="TEACHER"),
+    )
+    return JsonResponse(list(queryset.values("id", "username")), safe=False)
+
+# =========================================================
+# STUDENT SELF REGISTRATION
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def student_register(request):
+    """
+    Student self registration using registration_code.
+
+    Payload:
+    {
+        "registration_code": "...",
+        "username": "...",
+        "password": "...",
+        "dob": "YYYY-MM-DD"
+    }
+    """
+
+    body = json.loads(request.body)
+
+    code = body.get("registration_code")
+    username = body.get("username")
+    password = body.get("password")
+    dob = body.get("dob")
+
+    if not all([code, username, password, dob]):
+        return JsonResponse({"error": "Missing required fields"}, status=400)
+
+    try:
+        record = StudentRegistrationRecord.objects.select_related(
+            "section",
+            "section__classroom",
+            "section__classroom__institution",
+        ).get(registration_code=code)
+    except StudentRegistrationRecord.DoesNotExist:
+        return JsonResponse({"error": "Invalid registration code"}, status=400)
+
+    if record.is_registered:
+        return JsonResponse({"error": "Code already used"}, status=400)
+
+    if str(record.dob) != str(dob):
+        return JsonResponse({"error": "DOB does not match school record"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"error": "Username already exists"}, status=400)
+
+    with transaction.atomic():
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+        )
+
+        user.role = "STUDENT"
+        user.institution = record.section.classroom.institution
+        user.section = record.section
+        user.save()
+
+        record.is_registered = True
+        record.linked_user = user
+        record.save()
+
+    return JsonResponse({
+        "id": user.id,
+        "public_id": user.public_id,
+        "username": user.username,
+        "section": user.section.name,
+        "institution": user.institution.name,
+    })

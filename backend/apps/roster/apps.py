@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
 
-class AccesscontrolConfig(AppConfig):
-    name = 'apps.accesscontrol'
+class RosterConfig(AppConfig):
+    name = 'apps.roster'

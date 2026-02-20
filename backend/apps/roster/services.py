@@ -107,3 +107,44 @@ def regenerate_student_code(record_id, actor):
         "new_registration_code": record.registration_code,
         "name": record.name,
     }
+
+# =========================================================
+# LIST REGISTRATION RECORDS
+# =========================================================
+
+def list_registration_records(actor, section_id=None):
+
+    queryset = StudentRegistrationRecord.objects.select_related(
+        "section",
+        "section__classroom",
+        "section__classroom__institution",
+    )
+
+    # Role-based scoping
+    if actor.role == "TEACHER":
+        queryset = queryset.filter(
+            section__in=actor.assignments.values_list("section", flat=True)
+        )
+
+    elif actor.role == "PRINCIPAL":
+        queryset = queryset.filter(
+            section__classroom__institution=actor.institution
+        )
+
+    else:
+        raise ValidationError("Unauthorized")
+
+    if section_id:
+        queryset = queryset.filter(section_id=section_id)
+
+    return list(
+        queryset.values(
+            "id",
+            "name",
+            "student_uuid",
+            "registration_code",
+            "is_registered",
+            "section__name",
+            "section__classroom__name",
+        )
+    )

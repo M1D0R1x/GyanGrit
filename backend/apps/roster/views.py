@@ -48,3 +48,25 @@ def regenerate_code(request):
         return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse(result)
+
+from .services import list_registration_records
+
+
+@require_roles(["TEACHER", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def list_records(request):
+
+    section_id = request.GET.get("section_id")
+
+    try:
+        records = list_registration_records(
+            request.user,
+            section_id=section_id,
+        )
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({
+        "count": len(records),
+        "records": records,
+    })

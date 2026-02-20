@@ -31,4 +31,6 @@ urlpatterns = [
 
     # Assessments stays namespaced
     path("api/v1/assessments/", include("apps.assessments.api.v1.urls")),
+
+    path("api/v1/roster/", include("apps.roster.api.v1.urls")),
 ]

@@ -1,5 +1,6 @@
 import json
 import random
+import hashlib
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
@@ -8,6 +9,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib.sessions.models import Session
 
 from apps.accesscontrol.models import JoinCode
 from apps.accesscontrol.permissions import require_roles
@@ -19,6 +21,7 @@ from .models import (
     Subject,
     StudentRegistrationRecord,
     OTPVerification,
+    DeviceSession,
 )
 
 User = get_user_model()
@@ -30,7 +33,6 @@ User = get_user_model()
 @require_http_methods(["POST"])
 @csrf_exempt
 def register(request):
-
     body = json.loads(request.body)
 
     username = body.get("username")
@@ -58,7 +60,6 @@ def register(request):
     district = None
 
     if role in ["PRINCIPAL", "TEACHER"]:
-
         if not join_code_value:
             return JsonResponse({"error": "join_code required"}, status=400)
 
@@ -105,7 +106,6 @@ def register(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def login_view(request):
-
     body = json.loads(request.body)
 
     user = authenticate(
@@ -116,7 +116,7 @@ def login_view(request):
     if not user:
         return JsonResponse({"error": "invalid credentials"}, status=401)
 
-    # STUDENTS → direct login
+    # STUDENTS → direct login (no OTP)
     if user.role == "STUDENT":
         login(request, user)
         return JsonResponse({
@@ -126,108 +126,85 @@ def login_view(request):
             "role": user.role,
         })
 
-    today = timezone.now().date()
+    # Non-students: ALWAYS require OTP on every login attempt
+    otp_code = str(random.randint(100000, 999999))
 
-    otp_record, created = OTPVerification.objects.get_or_create(
+    # Create a fresh OTP record every time
+    otp_record = OTPVerification.objects.create(
         user=user,
-        date=today,
-        defaults={
-            "otp_code": str(random.randint(100000, 999999)),
-            "is_verified": False,
-        },
+        otp_code=otp_code,
+        is_verified=False,
+        attempt_count=0,
     )
-
-    # If already verified today → login immediately
-    if not created and otp_record.is_verified:
-
-        login(request, user)  # 🔴 THIS WAS MISSING
-
-        return JsonResponse({
-            "otp_required": False,
-            "id": user.id,
-            "username": user.username,
-            "role": user.role,
-            "dev_console": {
-                "username": user.username,
-                "otp": otp_record.otp_code,
-            }
-        })
 
     return JsonResponse({
         "otp_required": True,
-        "dev_console": {
+        "dev_console": {  # REMOVE THIS IN PRODUCTION!
             "username": user.username,
             "otp": otp_record.otp_code,
         }
     })
 
+
 # =========================================================
-# VERIFY OTP + SINGLE DEVICE ENFORCEMENT
+# VERIFY OTP + SINGLE SESSION ENFORCEMENT
 # =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
 def verify_otp(request):
-
     body = json.loads(request.body)
 
     username = body.get("username")
     otp_input = body.get("otp")
 
     if not username or not otp_input:
-        return JsonResponse({"error": "Missing fields"}, status=400)
+        return JsonResponse({"error": "Missing username or OTP"}, status=400)
 
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
         return JsonResponse({"error": "Invalid user"}, status=400)
 
-    today = timezone.now().date()
+    # Get the most recent OTP record
+    otp_record = OTPVerification.objects.filter(user=user).order_by('-created_at').first()
 
-    try:
-        otp_record = OTPVerification.objects.get(user=user, date=today)
-    except OTPVerification.DoesNotExist:
-        return JsonResponse({"error": "OTP not found"}, status=400)
+    if not otp_record:
+        return JsonResponse({"error": "No OTP found for this login attempt"}, status=400)
+
+    # Check expiration (10 minutes)
+    if otp_record.is_expired():
+        return JsonResponse({"error": "OTP has expired"}, status=400)
+
+    # Check attempt limit
+    if otp_record.attempt_count >= 5:
+        return JsonResponse({"error": "Too many invalid attempts. Please login again."}, status=429)
 
     if otp_record.otp_code != otp_input:
+        otp_record.attempt_count += 1
+        otp_record.last_attempt_at = timezone.now()
+        otp_record.save(update_fields=["attempt_count", "last_attempt_at"])
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
-    # ==========================
-    # DEVICE FINGERPRINT
-    # ==========================
-
-    import hashlib
-    from django.contrib.sessions.models import Session
-
-    user_agent = request.META.get("HTTP_USER_AGENT", "")
-    ip = request.META.get("REMOTE_ADDR", "")
-    raw = f"{user_agent}-{ip}"
-    fingerprint = hashlib.sha256(raw.encode()).hexdigest()
-
-    from apps.accounts.models import DeviceSession
-
-    # If device exists → invalidate old session
-    existing = DeviceSession.objects.filter(user=user).first()
-
-    if existing:
-        # Kill previous Django session
-        old_session_key = existing.device_fingerprint  # we will store session key instead
+    # OTP is correct → enforce single session
+    existing_session = DeviceSession.objects.filter(user=user).first()
+    if existing_session:
         try:
-            Session.objects.filter(session_key=old_session_key).delete()
+            Session.objects.filter(session_key=existing_session.device_fingerprint).delete()
         except Exception:
-            pass
+            pass  # silent fail
+        existing_session.delete()
 
-        existing.delete()
-
-    # Log user in
+    # Log in the user (creates new session)
     login(request, user)
 
-    # Store current session key
+    # Save new session
     DeviceSession.objects.create(
         user=user,
         device_fingerprint=request.session.session_key,
     )
 
+    # Mark OTP as verified
     otp_record.is_verified = True
     otp_record.save(update_fields=["is_verified"])
 
@@ -237,6 +214,8 @@ def verify_otp(request):
         "username": user.username,
         "role": user.role,
     })
+
+
 # =========================================================
 # LOGOUT
 # =========================================================
@@ -244,17 +223,21 @@ def verify_otp(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def logout_view(request):
+    if request.user.is_authenticated:
+        # Optional: clean up unverified OTPs
+        OTPVerification.objects.filter(user=request.user, is_verified=False).delete()
+        # Delete current device session
+        DeviceSession.objects.filter(user=request.user).delete()
     logout(request)
     return JsonResponse({"success": True})
 
 
 # =========================================================
-# ME
+# ME (current user info)
 # =========================================================
 
 @require_http_methods(["GET"])
 def me(request):
-
     if not request.user.is_authenticated:
         return JsonResponse({"authenticated": False})
 
@@ -269,7 +252,7 @@ def me(request):
 
 
 # =========================================================
-# SCOPED ENDPOINTS
+# SCOPED ENDPOINTS (unchanged)
 # =========================================================
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
@@ -310,25 +293,14 @@ def teachers(request):
     )
     return JsonResponse(list(queryset.values("id", "username")), safe=False)
 
+
 # =========================================================
-# STUDENT SELF REGISTRATION
+# STUDENT SELF REGISTRATION (unchanged)
 # =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
 def student_register(request):
-    """
-    Student self registration using registration_code.
-
-    Payload:
-    {
-        "registration_code": "...",
-        "username": "...",
-        "password": "...",
-        "dob": "YYYY-MM-DD"
-    }
-    """
-
     body = json.loads(request.body)
 
     code = body.get("registration_code")
@@ -358,7 +330,6 @@ def student_register(request):
         return JsonResponse({"error": "Username already exists"}, status=400)
 
     with transaction.atomic():
-
         user = User.objects.create_user(
             username=username,
             password=password,

@@ -36,6 +36,8 @@ class ClassRoom(models.Model):
 
     class Meta:
         unique_together = ("name", "institution")
+        verbose_name = "Class"
+        verbose_name_plural = "Classes"
 
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
@@ -114,7 +116,6 @@ class User(AbstractUser):
         related_name="students",
     )
 
-    # 🔴 NEW: Public readable ID
     public_id = models.CharField(
         max_length=32,
         unique=True,
@@ -122,7 +123,6 @@ class User(AbstractUser):
         null=True,
     )
 
-    # 🔴 NEW: Only used for OFFICIAL role
     district = models.CharField(
         max_length=255,
         blank=True,
@@ -131,7 +131,6 @@ class User(AbstractUser):
 
     def generate_public_id(self):
         year = timezone.now().year
-
         if self.role == "STUDENT":
             return f"S-{year}-{secrets.token_hex(4)}"
         elif self.role == "TEACHER":
@@ -142,19 +141,13 @@ class User(AbstractUser):
             return f"O-{secrets.token_hex(6)}"
         elif self.role == "ADMIN":
             return f"A-{secrets.token_hex(6)}"
-
         return secrets.token_hex(8)
 
     def clean(self):
-        if self.section:
-            if not self.institution:
-                raise ValidationError(
-                    "User must belong to an institution if assigned to a section."
-                )
-            if self.section.classroom.institution != self.institution:
-                raise ValidationError(
-                    "Section institution must match user's institution."
-                )
+        if self.section and not self.institution:
+            raise ValidationError("User must belong to an institution if assigned to a section.")
+        if self.section and self.section.classroom.institution != self.institution:
+            raise ValidationError("Section institution must match user's institution.")
 
     def save(self, *args, **kwargs):
         if not self.public_id:
@@ -194,9 +187,7 @@ class TeachingAssignment(models.Model):
 
     def clean(self):
         if self.teacher.institution != self.section.classroom.institution:
-            raise ValidationError(
-                "Teacher must belong to same institution as section."
-            )
+            raise ValidationError("Teacher must belong to same institution as section.")
 
     def __str__(self):
         return f"{self.teacher.username} - {self.subject.name} - {self.section}"
@@ -241,51 +232,46 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTP VERIFICATION
-# =========================================================
-
-# =========================================================
-# OTP VERIFICATION
+# OTP VERIFICATION (updated: no per-day uniqueness)
 # =========================================================
 
 class OTPVerification(models.Model):
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
     otp_code = models.CharField(max_length=6)
-
-    date = models.DateField(auto_now_add=True)
-
     is_verified = models.BooleanField(default=False)
-
     attempt_count = models.IntegerField(default=0)
-
     last_attempt_at = models.DateTimeField(null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        unique_together = ("user", "date")
-
-    def is_valid_today(self):
-        return self.date == timezone.now().date()
+    # Removed: date field and unique_together → we now allow multiple OTPs per user per day
 
     def is_expired(self):
         return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
 
     def can_attempt(self):
-        if self.attempt_count >= 5:
-            return False
-        return True
+        return self.attempt_count < 5
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "OTP Verification"
+        verbose_name_plural = "OTP Verifications"
+
+    def __str__(self):
+        status = "Verified" if self.is_verified else f"{self.attempt_count} attempts"
+        return f"OTP for {self.user.username} - {status} ({self.created_at.date()})"
+
 
 # =========================================================
-# DEVICE SESSION (Single Device Enforcement)
+# DEVICE SESSION (Single Session Enforcement)
 # =========================================================
 
 class DeviceSession(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    device_fingerprint = models.CharField(max_length=255)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="device_session")
+    device_fingerprint = models.CharField(max_length=255)  # currently stores session_key
     last_login = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.device_fingerprint[:16]}..."
 
 
 # =========================================================
@@ -293,7 +279,7 @@ class DeviceSession(models.Model):
 # =========================================================
 
 class AuditLog(models.Model):
-    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="audit_logs")
     action = models.CharField(max_length=255)
     target_model = models.CharField(max_length=255)
     target_id = models.CharField(max_length=255)
@@ -301,5 +287,3 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.actor} - {self.action}"
-
-

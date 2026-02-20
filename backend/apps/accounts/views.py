@@ -257,3 +257,73 @@ def teachers(request):
     )
 
     return JsonResponse(data, safe=False)
+
+from .models import StudentRegistrationRecord
+from django.db import transaction
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def student_register(request):
+    """
+    Student self registration using registration_code.
+
+    Payload:
+    {
+        "registration_code": "...",
+        "username": "...",
+        "password": "...",
+        "dob": "YYYY-MM-DD"
+    }
+    """
+
+    body = json.loads(request.body)
+
+    code = body.get("registration_code")
+    username = body.get("username")
+    password = body.get("password")
+    dob = body.get("dob")
+
+    if not all([code, username, password, dob]):
+        return JsonResponse({"error": "Missing required fields"}, status=400)
+
+    try:
+        record = StudentRegistrationRecord.objects.select_related(
+            "section", "section__classroom", "section__classroom__institution"
+        ).get(registration_code=code)
+    except StudentRegistrationRecord.DoesNotExist:
+        return JsonResponse({"error": "Invalid registration code"}, status=400)
+
+    if record.is_registered:
+        return JsonResponse({"error": "Code already used"}, status=400)
+
+    # DOB validation
+    if str(record.dob) != str(dob):
+        return JsonResponse({"error": "DOB does not match school record"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"error": "Username already exists"}, status=400)
+
+    with transaction.atomic():
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+        )
+
+        user.role = "STUDENT"
+        user.institution = record.section.classroom.institution
+        user.section = record.section
+        user.save()
+
+        record.is_registered = True
+        record.linked_user = user
+        record.save()
+
+    return JsonResponse({
+        "id": user.id,
+        "public_id": user.public_id,
+        "username": user.username,
+        "section": user.section.name,
+        "institution": user.institution.name,
+    })

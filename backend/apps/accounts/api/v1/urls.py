@@ -12,4 +12,6 @@ urlpatterns = [
     path("sections/", views.sections),
     path("subjects/", views.subjects),
     path("teachers/", views.teachers),
+
+    path("student-register/", views.student_register),
 ]

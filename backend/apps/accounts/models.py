@@ -245,13 +245,22 @@ class StudentRegistrationRecord(models.Model):
 # =========================================================
 
 class OTPVerification(models.Model):
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
     otp_code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    date = models.DateField(auto_now_add=True)
+
     is_verified = models.BooleanField(default=False)
 
-    def is_expired(self):
-        return timezone.now() > self.created_at + timezone.timedelta(minutes=5)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "date")
+
+    def is_valid_today(self):
+        return self.date == timezone.now().date()
 
 
 # =========================================================
@@ -277,3 +286,5 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.actor} - {self.action}"
+
+

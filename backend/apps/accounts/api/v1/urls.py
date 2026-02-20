@@ -14,4 +14,5 @@ urlpatterns = [
     path("teachers/", views.teachers),
 
     path("student-register/", views.student_register),
+    path("verify-otp/", views.verify_otp),
 ]

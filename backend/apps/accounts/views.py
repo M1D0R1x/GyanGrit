@@ -97,6 +97,11 @@ def register(request):
 # LOGIN
 # =========================================================
 
+from django.utils import timezone
+from .models import OTPVerification
+import random
+
+
 @require_http_methods(["POST"])
 @csrf_exempt
 def login_view(request):
@@ -111,28 +116,44 @@ def login_view(request):
     if not user:
         return JsonResponse({"error": "invalid credentials"}, status=401)
 
-    login(request, user)
+    # Students bypass OTP
+    if user.role == "STUDENT":
+        login(request, user)
+        return JsonResponse({
+            "otp_required": False,
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+        })
 
+    # Teachers / Principal / Official require OTP
+
+    today = timezone.now().date()
+
+    otp_record, created = OTPVerification.objects.get_or_create(
+        user=user,
+        date=today,
+        defaults={
+            "otp_code": str(random.randint(100000, 999999)),
+            "is_verified": False,
+        },
+    )
+
+    if not created and otp_record.is_verified:
+        # Already verified today
+        login(request, user)
+        return JsonResponse({
+            "otp_required": False,
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+        })
+
+    # Return OTP requirement (for prototype we return OTP directly)
     return JsonResponse({
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,
-        "institution": user.institution.name if user.institution else None,
-        "section": user.section.name if user.section else None,
+        "otp_required": True,
+        "otp_preview": otp_record.otp_code,  # remove in production
     })
-
-
-# =========================================================
-# LOGOUT
-# =========================================================
-
-@require_http_methods(["POST"])
-@csrf_exempt
-def logout_view(request):
-    logout(request)
-    return JsonResponse({"success": True})
-
-
 # =========================================================
 # ME
 # =========================================================
@@ -326,4 +347,43 @@ def student_register(request):
         "username": user.username,
         "section": user.section.name,
         "institution": user.institution.name,
+    })
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def verify_otp(request):
+
+    body = json.loads(request.body)
+
+    username = body.get("username")
+    otp_input = body.get("otp")
+
+    if not username or not otp_input:
+        return JsonResponse({"error": "Missing fields"}, status=400)
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "Invalid user"}, status=400)
+
+    today = timezone.now().date()
+
+    try:
+        otp_record = OTPVerification.objects.get(user=user, date=today)
+    except OTPVerification.DoesNotExist:
+        return JsonResponse({"error": "OTP not found"}, status=400)
+
+    if otp_record.otp_code != otp_input:
+        return JsonResponse({"error": "Invalid OTP"}, status=400)
+
+    otp_record.is_verified = True
+    otp_record.save(update_fields=["is_verified"])
+
+    login(request, user)
+
+    return JsonResponse({
+        "success": True,
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
     })

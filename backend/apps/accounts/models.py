@@ -244,6 +244,10 @@ class StudentRegistrationRecord(models.Model):
 # OTP VERIFICATION
 # =========================================================
 
+# =========================================================
+# OTP VERIFICATION
+# =========================================================
+
 class OTPVerification(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -254,6 +258,10 @@ class OTPVerification(models.Model):
 
     is_verified = models.BooleanField(default=False)
 
+    attempt_count = models.IntegerField(default=0)
+
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -262,6 +270,13 @@ class OTPVerification(models.Model):
     def is_valid_today(self):
         return self.date == timezone.now().date()
 
+    def is_expired(self):
+        return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
+
+    def can_attempt(self):
+        if self.attempt_count >= 5:
+            return False
+        return True
 
 # =========================================================
 # DEVICE SESSION (Single Device Enforcement)

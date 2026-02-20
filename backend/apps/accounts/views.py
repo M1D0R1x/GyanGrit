@@ -1,22 +1,31 @@
 import json
+import random
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
 from apps.accesscontrol.models import JoinCode
 from apps.accesscontrol.permissions import require_roles
+from apps.accesscontrol.scoping import institution_scope_queryset
 
-from .models import Institution, Section
+from .models import (
+    Institution,
+    Section,
+    Subject,
+    StudentRegistrationRecord,
+    OTPVerification,
+)
 
 User = get_user_model()
 
-
 # =========================================================
-# REGISTER
+# REGISTER (PRINCIPAL / TEACHER via JOIN CODE)
 # =========================================================
-
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -26,7 +35,7 @@ def register(request):
 
     username = body.get("username")
     password = body.get("password")
-    role = body.get("role", "STUDENT")
+    role = body.get("role")
     join_code_value = body.get("join_code")
 
     if not username or not password:
@@ -38,11 +47,16 @@ def register(request):
     if User.objects.filter(username=username).exists():
         return JsonResponse({"error": "username already exists"}, status=400)
 
+    if role == "STUDENT":
+        return JsonResponse(
+            {"error": "students must register using registration code"},
+            status=400,
+        )
+
     institution = None
     section = None
     district = None
 
-    # 🔴 REQUIRE JOIN CODE FOR NON-STUDENT ROLES
     if role in ["PRINCIPAL", "TEACHER"]:
 
         if not join_code_value:
@@ -66,13 +80,6 @@ def register(request):
         join_code.is_used = True
         join_code.save(update_fields=["is_used"])
 
-    # STUDENTS handled separately later
-    elif role == "STUDENT":
-        return JsonResponse(
-            {"error": "students must register using registration code"},
-            status=400,
-        )
-
     user = User.objects.create_user(
         username=username,
         password=password,
@@ -93,14 +100,10 @@ def register(request):
         "section": user.section.name if user.section else None,
     })
 
-# =========================================================
-# LOGIN
-# =========================================================
 
-from django.utils import timezone
-from .models import OTPVerification
-import random
-
+# =========================================================
+# LOGIN (STEP 1: PASSWORD)
+# =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -116,7 +119,6 @@ def login_view(request):
     if not user:
         return JsonResponse({"error": "invalid credentials"}, status=401)
 
-    # Students bypass OTP
     if user.role == "STUDENT":
         login(request, user)
         return JsonResponse({
@@ -125,8 +127,6 @@ def login_view(request):
             "username": user.username,
             "role": user.role,
         })
-
-    # Teachers / Principal / Official require OTP
 
     today = timezone.now().date()
 
@@ -140,7 +140,6 @@ def login_view(request):
     )
 
     if not created and otp_record.is_verified:
-        # Already verified today
         login(request, user)
         return JsonResponse({
             "otp_required": False,
@@ -149,205 +148,22 @@ def login_view(request):
             "role": user.role,
         })
 
-    # Return OTP requirement (for prototype we return OTP directly)
+    if not created and otp_record.is_expired():
+        otp_record.otp_code = str(random.randint(100000, 999999))
+        otp_record.attempt_count = 0
+        otp_record.is_verified = False
+        otp_record.created_at = timezone.now()
+        otp_record.save()
+
     return JsonResponse({
         "otp_required": True,
-        "otp_preview": otp_record.otp_code,  # remove in production
-    })
-# =========================================================
-# ME
-# =========================================================
-
-@require_http_methods(["GET"])
-def me(request):
-
-    if not request.user.is_authenticated:
-        return JsonResponse({
-            "authenticated": False,
-            "role": "STUDENT",
-        })
-
-    return JsonResponse({
-        "authenticated": True,
-        "id": request.user.id,
-        "username": request.user.username,
-        "role": request.user.role,
-        "institution": request.user.institution.name
-        if request.user.institution else None,
-        "section": request.user.section.name
-        if request.user.section else None,
+        "otp_preview": otp_record.otp_code,  # REMOVE IN PRODUCTION
     })
 
 
 # =========================================================
-# ADMIN USER LIST
+# VERIFY OTP (STEP 2)
 # =========================================================
-
-from apps.accesscontrol.permissions import require_roles
-from apps.accesscontrol.scoping import institution_scope_queryset
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
-@require_http_methods(["GET"])
-def users(request):
-
-    queryset = User.objects.all().order_by("id")
-
-    # Apply scope filtering
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(
-        queryset.values(
-            "id",
-            "public_id",
-            "username",
-            "role",
-            "institution__name",
-            "section__name",
-            "is_active",
-        )
-    )
-
-    return JsonResponse(data, safe=False)
-
-from .models import Institution, Section, Subject
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
-@require_http_methods(["GET"])
-def institutions(request):
-
-    queryset = Institution.objects.all()
-
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(queryset.values("id", "name", "district"))
-
-    return JsonResponse(data, safe=False)
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
-@require_http_methods(["GET"])
-def sections(request):
-
-    queryset = Section.objects.select_related("classroom", "classroom__institution")
-
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(
-        queryset.values(
-            "id",
-            "name",
-            "classroom__name",
-            "classroom__institution__name",
-        )
-    )
-
-    return JsonResponse(data, safe=False)
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
-@require_http_methods(["GET"])
-def subjects(request):
-
-    queryset = Subject.objects.all()
-
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(queryset.values("id", "name", "institution__name"))
-
-    return JsonResponse(data, safe=False)
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
-@require_http_methods(["GET"])
-def teachers(request):
-
-    queryset = User.objects.filter(role="TEACHER")
-
-    queryset = institution_scope_queryset(request.user, queryset)
-
-    data = list(
-        queryset.values(
-            "id",
-            "public_id",
-            "username",
-            "section__name",
-            "institution__name",
-        )
-    )
-
-    return JsonResponse(data, safe=False)
-
-from .models import StudentRegistrationRecord
-from django.db import transaction
-
-
-@require_http_methods(["POST"])
-@csrf_exempt
-def student_register(request):
-    """
-    Student self registration using registration_code.
-
-    Payload:
-    {
-        "registration_code": "...",
-        "username": "...",
-        "password": "...",
-        "dob": "YYYY-MM-DD"
-    }
-    """
-
-    body = json.loads(request.body)
-
-    code = body.get("registration_code")
-    username = body.get("username")
-    password = body.get("password")
-    dob = body.get("dob")
-
-    if not all([code, username, password, dob]):
-        return JsonResponse({"error": "Missing required fields"}, status=400)
-
-    try:
-        record = StudentRegistrationRecord.objects.select_related(
-            "section", "section__classroom", "section__classroom__institution"
-        ).get(registration_code=code)
-    except StudentRegistrationRecord.DoesNotExist:
-        return JsonResponse({"error": "Invalid registration code"}, status=400)
-
-    if record.is_registered:
-        return JsonResponse({"error": "Code already used"}, status=400)
-
-    # DOB validation
-    if str(record.dob) != str(dob):
-        return JsonResponse({"error": "DOB does not match school record"}, status=400)
-
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "Username already exists"}, status=400)
-
-    with transaction.atomic():
-
-        user = User.objects.create_user(
-            username=username,
-            password=password,
-        )
-
-        user.role = "STUDENT"
-        user.institution = record.section.classroom.institution
-        user.section = record.section
-        user.save()
-
-        record.is_registered = True
-        record.linked_user = user
-        record.save()
-
-    return JsonResponse({
-        "id": user.id,
-        "public_id": user.public_id,
-        "username": user.username,
-        "section": user.section.name,
-        "institution": user.institution.name,
-    })
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -373,7 +189,16 @@ def verify_otp(request):
     except OTPVerification.DoesNotExist:
         return JsonResponse({"error": "OTP not found"}, status=400)
 
+    if otp_record.is_expired():
+        return JsonResponse({"error": "OTP expired"}, status=400)
+
+    if not otp_record.can_attempt():
+        return JsonResponse({"error": "Too many attempts"}, status=403)
+
     if otp_record.otp_code != otp_input:
+        otp_record.attempt_count += 1
+        otp_record.last_attempt_at = timezone.now()
+        otp_record.save(update_fields=["attempt_count", "last_attempt_at"])
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
     otp_record.is_verified = True
@@ -387,3 +212,63 @@ def verify_otp(request):
         "username": user.username,
         "role": user.role,
     })
+
+
+# =========================================================
+# LOGOUT
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def logout_view(request):
+    logout(request)
+    return JsonResponse({"success": True})
+
+
+# =========================================================
+# ME
+# =========================================================
+
+@require_http_methods(["GET"])
+def me(request):
+
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            "authenticated": False,
+            "role": "STUDENT",
+        })
+
+    return JsonResponse({
+        "authenticated": True,
+        "id": request.user.id,
+        "username": request.user.username,
+        "role": request.user.role,
+        "institution": request.user.institution.name if request.user.institution else None,
+        "section": request.user.section.name if request.user.section else None,
+    })
+
+
+# =========================================================
+# ADMIN USER LIST
+# =========================================================
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def users(request):
+
+    queryset = User.objects.all().order_by("id")
+    queryset = institution_scope_queryset(request.user, queryset)
+
+    data = list(
+        queryset.values(
+            "id",
+            "public_id",
+            "username",
+            "role",
+            "institution__name",
+            "section__name",
+            "is_active",
+        )
+    )
+
+    return JsonResponse(data, safe=False)

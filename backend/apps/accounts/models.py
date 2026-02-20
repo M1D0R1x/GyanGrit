@@ -114,6 +114,37 @@ class User(AbstractUser):
         related_name="students",
     )
 
+    # 🔴 NEW: Public readable ID
+    public_id = models.CharField(
+        max_length=32,
+        unique=True,
+        blank=True,
+        null=True,
+    )
+
+    # 🔴 NEW: Only used for OFFICIAL role
+    district = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+    )
+
+    def generate_public_id(self):
+        year = timezone.now().year
+
+        if self.role == "STUDENT":
+            return f"S-{year}-{secrets.token_hex(4)}"
+        elif self.role == "TEACHER":
+            return f"T-{secrets.token_hex(6)}"
+        elif self.role == "PRINCIPAL":
+            return f"P-{secrets.token_hex(6)}"
+        elif self.role == "OFFICIAL":
+            return f"O-{secrets.token_hex(6)}"
+        elif self.role == "ADMIN":
+            return f"A-{secrets.token_hex(6)}"
+
+        return secrets.token_hex(8)
+
     def clean(self):
         if self.section:
             if not self.institution:
@@ -124,6 +155,11 @@ class User(AbstractUser):
                 raise ValidationError(
                     "Section institution must match user's institution."
                 )
+
+    def save(self, *args, **kwargs):
+        if not self.public_id:
+            self.public_id = self.generate_public_id()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.username} ({self.role})"

@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from apps.accesscontrol.models import JoinCode
 
 from .models import Institution, Section
 
@@ -15,6 +16,7 @@ User = get_user_model()
 # REGISTER
 # =========================================================
 
+
 @require_http_methods(["POST"])
 @csrf_exempt
 def register(request):
@@ -24,8 +26,7 @@ def register(request):
     username = body.get("username")
     password = body.get("password")
     role = body.get("role", "STUDENT")
-    institution_id = body.get("institution_id")
-    section_id = body.get("section_id")
+    join_code_value = body.get("join_code")
 
     if not username or not password:
         return JsonResponse({"error": "username and password required"}, status=400)
@@ -37,18 +38,39 @@ def register(request):
         return JsonResponse({"error": "username already exists"}, status=400)
 
     institution = None
-    if institution_id:
-        try:
-            institution = Institution.objects.get(id=institution_id)
-        except Institution.DoesNotExist:
-            return JsonResponse({"error": "invalid institution"}, status=400)
-
     section = None
-    if section_id:
+    district = None
+
+    # 🔴 REQUIRE JOIN CODE FOR NON-STUDENT ROLES
+    if role in ["PRINCIPAL", "TEACHER"]:
+
+        if not join_code_value:
+            return JsonResponse({"error": "join_code required"}, status=400)
+
         try:
-            section = Section.objects.get(id=section_id)
-        except Section.DoesNotExist:
-            return JsonResponse({"error": "invalid section"}, status=400)
+            join_code = JoinCode.objects.get(code=join_code_value)
+        except JoinCode.DoesNotExist:
+            return JsonResponse({"error": "invalid join_code"}, status=400)
+
+        if not join_code.is_valid():
+            return JsonResponse({"error": "expired or used join_code"}, status=400)
+
+        if join_code.role != role:
+            return JsonResponse({"error": "role mismatch for join_code"}, status=400)
+
+        institution = join_code.institution
+        section = join_code.section
+        district = join_code.district
+
+        join_code.is_used = True
+        join_code.save(update_fields=["is_used"])
+
+    # STUDENTS handled separately later
+    elif role == "STUDENT":
+        return JsonResponse(
+            {"error": "students must register using registration code"},
+            status=400,
+        )
 
     user = User.objects.create_user(
         username=username,
@@ -58,16 +80,17 @@ def register(request):
     user.role = role
     user.institution = institution
     user.section = section
+    user.district = district
     user.save()
 
     return JsonResponse({
         "id": user.id,
+        "public_id": user.public_id,
         "username": user.username,
         "role": user.role,
         "institution": user.institution.name if user.institution else None,
         "section": user.section.name if user.section else None,
     })
-
 
 # =========================================================
 # LOGIN

@@ -3,6 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
+type LoginResponse = {
+  id: number;
+  username: string;
+  role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,15 +28,26 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await apiPost("/accounts/login/", { username, password });
+      // Login request
+      const response = await apiPost<LoginResponse>(
+        "/accounts/login/",
+        { username, password }
+      );
+
+      // Refresh auth state (updates context)
       await auth.refresh();
 
-      // Role-aware redirect
-      if (auth.role === "TEACHER") {
+      // Redirect based on role from response (not stale context)
+      if (response.role === "TEACHER") {
         navigate("/teacher", { replace: true });
+      } else if (response.role === "OFFICIAL") {
+        navigate("/official", { replace: true });
+      } else if (response.role === "ADMIN") {
+        navigate("/admin-panel", { replace: true });
       } else {
         navigate(from, { replace: true });
       }
+
     } catch {
       setError("Invalid credentials");
     } finally {

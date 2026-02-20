@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from apps.accesscontrol.models import JoinCode
+from apps.accesscontrol.permissions import require_roles
 
 from .models import Institution, Section
 
@@ -161,22 +162,97 @@ def me(request):
 # ADMIN USER LIST
 # =========================================================
 
+from apps.accesscontrol.permissions import require_roles
+from apps.accesscontrol.scoping import institution_scope_queryset
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
 @require_http_methods(["GET"])
 def users(request):
 
-    if not request.user.is_authenticated or request.user.role != "ADMIN":
-        return JsonResponse({"error": "Forbidden"}, status=403)
+    queryset = User.objects.all().order_by("id")
+
+    # Apply scope filtering
+    queryset = institution_scope_queryset(request.user, queryset)
 
     data = list(
-        User.objects.all()
-        .order_by("id")
-        .values(
+        queryset.values(
             "id",
+            "public_id",
             "username",
             "role",
             "institution__name",
             "section__name",
             "is_active",
+        )
+    )
+
+    return JsonResponse(data, safe=False)
+
+from .models import Institution, Section, Subject
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def institutions(request):
+
+    queryset = Institution.objects.all()
+
+    queryset = institution_scope_queryset(request.user, queryset)
+
+    data = list(queryset.values("id", "name", "district"))
+
+    return JsonResponse(data, safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
+@require_http_methods(["GET"])
+def sections(request):
+
+    queryset = Section.objects.select_related("classroom", "classroom__institution")
+
+    queryset = institution_scope_queryset(request.user, queryset)
+
+    data = list(
+        queryset.values(
+            "id",
+            "name",
+            "classroom__name",
+            "classroom__institution__name",
+        )
+    )
+
+    return JsonResponse(data, safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
+@require_http_methods(["GET"])
+def subjects(request):
+
+    queryset = Subject.objects.all()
+
+    queryset = institution_scope_queryset(request.user, queryset)
+
+    data = list(queryset.values("id", "name", "institution__name"))
+
+    return JsonResponse(data, safe=False)
+
+
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def teachers(request):
+
+    queryset = User.objects.filter(role="TEACHER")
+
+    queryset = institution_scope_queryset(request.user, queryset)
+
+    data = list(
+        queryset.values(
+            "id",
+            "public_id",
+            "username",
+            "section__name",
+            "institution__name",
         )
     )
 

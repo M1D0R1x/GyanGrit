@@ -8,7 +8,7 @@ from apps.accounts.models import User  # for type hinting
 
 class Course(models.Model):
     """
-    A learning course (e.g., Math Grade 10).
+    A learning course (e.g., Math Grade 10) — universal across institutions.
     """
 
     title = models.CharField(max_length=255)

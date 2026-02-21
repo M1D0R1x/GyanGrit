@@ -6,14 +6,14 @@ import { useAuth } from "../auth/AuthContext";
 type LoginApiResponse =
   | {
       otp_required: true;
-      dev_console?: { username: string; otp: string }; // optional dev field
+      dev_console?: { username: string; otp: string };
     }
   | {
       otp_required: false;
       id: number;
       username: string;
       role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
-      dev_console?: { username: string; otp: string }; // optional dev field
+      dev_console?: { username: string; otp: string };
     };
 
 export default function LoginPage() {
@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -39,11 +39,9 @@ export default function LoginPage() {
         password,
       });
 
-      console.log("Login API response:", response); // ← Debug: check what actually comes back
+      console.log("Login response:", response);
 
-      // OTP required branch
       if (response.otp_required) {
-        console.log("OTP required → navigating to /verify-otp"); // ← Debug
         navigate("/verify-otp", {
           state: { username },
           replace: true,
@@ -51,31 +49,35 @@ export default function LoginPage() {
         return;
       }
 
-      // Dev console leak (remove in production!)
-      if ("dev_console" in response) {
-        console.log("DEV LOGIN INFO:", response.dev_console);
-      }
+      // Clear dev console log in production
+      // if ("dev_console" in response) {
+      //   console.log("DEV LOGIN INFO:", response.dev_console);
+      // }
 
-      // Successful password-only login (no OTP needed)
       await auth.refresh();
 
-      if (response.role === "TEACHER") {
-        navigate("/teacher", { replace: true });
-      } else if (response.role === "OFFICIAL") {
-        navigate("/official", { replace: true });
-      } else if (response.role === "ADMIN") {
-        navigate("/admin-panel", { replace: true });
-      } else {
-        // STUDENT or others
-        navigate(from, { replace: true });
+      // Role-based redirect
+      switch (response.role) {
+        case "TEACHER":
+          navigate("/teacher", { replace: true });
+          break;
+        case "OFFICIAL":
+          navigate("/official", { replace: true });
+          break;
+        case "ADMIN":
+          navigate("/admin-panel", { replace: true });
+          break;
+        default:
+          navigate(from, { replace: true });
       }
-    } catch (err: any) {
-      console.error("Login failed:", err); // ← Debug: see real error
-      setError(err.message || "Invalid credentials or server error");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+      console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div style={{ maxWidth: 360, margin: "80px auto", padding: "20px" }}>
@@ -113,6 +115,7 @@ export default function LoginPage() {
             color: "white",
             border: "none",
             borderRadius: 4,
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "Logging in…" : "Login"}

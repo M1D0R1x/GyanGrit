@@ -1,147 +1,152 @@
 import { useEffect, useState } from "react";
+import {
+  getTeacherCourseAnalytics,
+  getTeacherAssessmentAnalytics,
+  getTeacherClassAnalytics,
+  type TeacherCourseAnalytics,
+  type TeacherAssessmentAnalytics,
+  type TeacherClassAnalytics,
+} from "../services/teacherAnalytics";
 import { useNavigate } from "react-router-dom";
-import { apiGet } from "../services/api";
-import { getCourseProgress } from "../services/courseProgress";
-import LogoutButton from "../components/LogoutButton";
-import { useAuth } from "../auth/AuthContext";
+import TopBar from "../components/TopBar";
 
-type Course = {
-  id: number;
-  title: string;
-  description: string;
-};
-
-type CourseProgress = {
-  completed: number;
-  total: number;
-  percentage: number;
-  resume_lesson_id: number | null;
-};
-
-export default function DashboardPage() {
+export default function TeacherDashboardPage() {
   const navigate = useNavigate();
-  const auth = useAuth();
 
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [progress, setProgress] = useState<Record<number, CourseProgress>>({});
-  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [courses, setCourses] = useState<TeacherCourseAnalytics[]>([]);
+  const [assessments, setAssessments] = useState<TeacherAssessmentAnalytics[]>([]);
+  const [classes, setClasses] = useState<TeacherClassAnalytics[]>([]);
 
-  // --------------------------------------------------
-  // Load all courses
-  // --------------------------------------------------
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    apiGet<Course[]>("/courses/").then(setCourses);
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [courseData, assessmentData, classData] = await Promise.all([
+          getTeacherCourseAnalytics(),
+          getTeacherAssessmentAnalytics(),
+          getTeacherClassAnalytics(),
+        ]);
+
+        setCourses(courseData || []);
+        setAssessments(assessmentData || []);
+        setClasses(classData || []);
+      } catch (err) {
+        console.error("Failed to load teacher analytics:", err);
+        setError("Failed to load dashboard data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // --------------------------------------------------
-  // Load progress for all courses (safe + ordered)
-  // --------------------------------------------------
-  useEffect(() => {
-    if (courses.length === 0) return;
-
-    let cancelled = false;
-    setLoadingProgress(true);
-
-    Promise.all(
-      courses.map(async (course) => ({
-        courseId: course.id,
-        progress: await getCourseProgress(course.id),
-      }))
-    ).then((results) => {
-      if (cancelled) return;
-
-      const map: Record<number, CourseProgress> = {};
-      results.forEach(({ courseId, progress }) => {
-        map[courseId] = progress;
-      });
-
-      setProgress(map);
-      setLoadingProgress(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [courses]);
-
-  // --------------------------------------------------
-  // Auth still loading (extra safety)
-  // --------------------------------------------------
-  if (auth.loading) {
-    return <p>Loading dashboard…</p>;
-  }
-
   return (
-    <div>
-      {/* Top bar */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <h1>Student Dashboard</h1>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
+      {/* Top Bar with username + logout */}
+      <TopBar title="Teacher Dashboard" />
 
-        <div>
-          {auth.username && (
-            <span style={{ marginRight: 12 }}>
-              Logged in as <strong>{auth.username}</strong>
-            </span>
-          )}
-          <LogoutButton />
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <p>Loading dashboard data...</p>
         </div>
-      </div>
-
-      {/* Empty state */}
-      {courses.length === 0 && (
-        <p>No courses available yet.</p>
-      )}
-
-      <ul>
-        {courses.map((course) => {
-          const prog = progress[course.id];
-
-          return (
-            <li key={course.id} style={{ marginBottom: "16px" }}>
-              <h3>{course.title}</h3>
-
-              {loadingProgress && !prog ? (
-                <p>Loading progress…</p>
-              ) : prog ? (
-                <>
-                  <p>
-                    Progress: {prog.percentage}% ({prog.completed}/{prog.total})
+      ) : error ? (
+        <div style={{ color: "red", textAlign: "center", padding: 40 }}>
+          <p>{error}</p>
+        </div>
+      ) : (
+        <>
+          {/* COURSE COMPLETION */}
+          <h2>Course Completion</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr)", gap: 20, marginBottom: 48 }}>
+            {courses.length === 0 ? (
+              <p>No courses available.</p>
+            ) : (
+              courses.map((course) => (
+                <div
+                  key={course.course_id}
+                  style={{
+                    border: "1px solid #ddd",
+                    padding: 20,
+                    borderRadius: 8,
+                    background: "#f9f9f9",
+                  }}
+                >
+                  <h4>{course.title}</h4>
+                  <p style={{ margin: "8px 0" }}>
+                    {course.completed_lessons} / {course.total_lessons}
                   </p>
+                  <p style={{ fontWeight: "bold" }}>{course.percentage}% completion</p>
+                </div>
+              ))
+            )}
+          </div>
 
-                  {prog.resume_lesson_id !== null ? (
-                    <button
-                      onClick={() =>
-                        navigate(`/lessons/${prog.resume_lesson_id}`)
-                      }
-                    >
-                      Resume
-                    </button>
-                  ) : prog.percentage === 100 ? (
-                    <span>✅ Completed</span>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        navigate(`/courses/${course.id}`)
-                      }
-                    >
-                      Start course
-                    </button>
-                  )}
-                </>
-              ) : (
-                <p>Loading progress…</p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+          {/* ASSESSMENT PERFORMANCE */}
+          <h2 style={{ marginTop: 48 }}>Assessment Performance</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr)", gap: 20, marginBottom: 48 }}>
+            {assessments.length === 0 ? (
+              <p>No assessments data available.</p>
+            ) : (
+              assessments.map((a) => (
+                <div
+                  key={a.assessment_id}
+                  style={{
+                    border: "1px solid #ddd",
+                    padding: 20,
+                    borderRadius: 8,
+                    background: "#f9f9f9",
+                  }}
+                >
+                  <h4>{a.title}</h4>
+                  <p style={{ margin: "8px 0" }}>Course: {a.course}</p>
+                  <p>Total Attempts: {a.total_attempts}</p>
+                  <p>Unique Students: {a.unique_students}</p>
+                  <p>Average Score: {a.average_score}</p>
+                  <p>Pass Rate: {a.pass_rate}%</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* CLASS PERFORMANCE */}
+          <h2 style={{ marginTop: 48 }}>Class Performance</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr)", gap: 20 }}>
+            {classes.length === 0 ? (
+              <p>No class data available.</p>
+            ) : (
+              classes.map((c) => (
+                <div
+                  key={c.class_id}
+                  onClick={() => navigate(`/teacher/classes/${c.class_id}`)}
+                  style={{
+                    border: "1px solid #ddd",
+                    padding: 20,
+                    borderRadius: 8,
+                    background: "#f9f9f9",
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <h4 style={{ color: "#1976d2", textDecoration: "underline" }}>
+                    {c.class_name}
+                  </h4>
+                  <p style={{ margin: "8px 0" }}>Institution: {c.institution}</p>
+                  <p>Total Students: {c.total_students}</p>
+                  <p>Total Attempts: {c.total_attempts}</p>
+                  <p>Average Score: {c.average_score}</p>
+                  <p>Pass Rate: {c.pass_rate}%</p>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import {createBrowserRouter} from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../pages/CoursesPage";
@@ -8,23 +8,22 @@ import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
 import ProfilePage from "../pages/ProfilePage";
-
-import {RequireRole} from "../auth/RequireRole";
-import LoginPage from "../pages/LoginPage";
-import RegisterPage from "../pages/RegisterPage";
-import OfficialDashboardPage from "../pages/OfficaialDashboardPage.tsx";
-import AdminDashboardPage from "../pages/AdminDashboardPage.tsx";
-import CourseAssessmentsPage from "../pages/CourseAssessmentsPage.tsx";
-import AssessmentPage from "../pages/AssessmentPage.tsx";
-import AssessmentResultPage from "../pages/AssessmentsResultPage.tsx";
+import OfficialDashboardPage from "../pages/OfficialDashboardPage.tsx"; // fixed typo: Officaial → Official
+import AdminDashboardPage from "../pages/AdminDashboardPage";
+import CourseAssessmentsPage from "../pages/CourseAssessmentsPage";
+import AssessmentPage from "../pages/AssessmentPage";
+import AssessmentResultPage from "../pages/AssessmentsResultPage";
 import AssessmentHistoryPage from "../pages/AssessmentHistoryPage";
 import TeacherClassDetailPage from "../pages/TeacherClassDetailPage";
 import TeacherStudentDetailPage from "../pages/TeacherStudentDetailPage";
+import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
 import VerifyOtpPage from "../pages/VerifyOtpPage";
 
-
+import { RequireRole } from "../auth/RequireRole";
 
 export const router = createBrowserRouter([
+  // Root → Student Dashboard (default after login)
   {
     path: "/",
     element: (
@@ -34,6 +33,7 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Teacher Dashboard
   {
     path: "/teacher",
     element: (
@@ -43,6 +43,7 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Learning Paths (Student)
   {
     path: "/learning",
     element: (
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Courses & Lessons (Student)
   {
     path: "/courses",
     element: <CoursesPage />,
@@ -68,12 +70,12 @@ export const router = createBrowserRouter([
     path: "/courses/:courseId",
     element: <LessonsPage />,
   },
-
   {
     path: "/lessons/:lessonId",
     element: <LessonPage />,
   },
 
+  // Profile (Student)
   {
     path: "/profile",
     element: (
@@ -83,6 +85,7 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // Auth Pages (public)
   {
     path: "/login",
     element: <LoginPage />,
@@ -91,60 +94,70 @@ export const router = createBrowserRouter([
     path: "/register",
     element: <RegisterPage />,
   },
-
-    {
-  path: "/official",
-  element: (
-    <RequireRole role="OFFICIAL">
-      <OfficialDashboardPage />
-    </RequireRole>
-  ),
-},
-{
-  path: "/admin-panel",
-  element: (
-    <RequireRole role="ADMIN">
-      <AdminDashboardPage />
-    </RequireRole>
-  ),
-},
-    {
-  path: "/courses/:courseId/assessments",
-  element: <CourseAssessmentsPage />,
-},
-{
-  path: "/assessments/:assessmentId",
-  element: <AssessmentPage />,
-},
-{
-  path: "/assessment-result",
-  element: <AssessmentResultPage />,
-},
-{
-  path: "/assessments/:assessmentId/history",
-  element: <AssessmentHistoryPage />,
-},
-
-{
-  path: "/teacher/classes/:classId",
-  element: (
-    <RequireRole role="TEACHER">
-      <TeacherClassDetailPage />
-    </RequireRole>
-  ),
-},
-    {
-  path: "/teacher/classes/:classId/students/:studentId",
-  element: (
-    <RequireRole role="TEACHER">
-      <TeacherStudentDetailPage />
-    </RequireRole>
-  ),
-},
-
   {
-  path: "/verify-otp",
-  element: <VerifyOtpPage />,
-}
+    path: "/verify-otp",
+    element: <VerifyOtpPage />,
+  },
 
+  // Official Dashboard
+  {
+    path: "/official",
+    element: (
+      <RequireRole role="OFFICIAL">
+        <OfficialDashboardPage />
+      </RequireRole>
+    ),
+  },
+
+  // Admin Dashboard
+  {
+    path: "/admin-panel",
+    element: (
+      <RequireRole role="ADMIN">
+        <AdminDashboardPage />
+      </RequireRole>
+    ),
+  },
+
+  // Assessments (Student/Teacher)
+  {
+    path: "/courses/:courseId/assessments",
+    element: <CourseAssessmentsPage />,
+  },
+  {
+    path: "/assessments/:assessmentId",
+    element: <AssessmentPage />,
+  },
+  {
+    path: "/assessment-result",
+    element: <AssessmentResultPage />,
+  },
+  {
+    path: "/assessments/:assessmentId/history",
+    element: <AssessmentHistoryPage />,
+  },
+
+  // Teacher Class & Student Detail
+  {
+    path: "/teacher/classes/:classId",
+    element: (
+      <RequireRole role="TEACHER">
+        <TeacherClassDetailPage />
+      </RequireRole>
+    ),
+  },
+  {
+    path: "/teacher/classes/:classId/students/:studentId",
+    element: (
+      <RequireRole role="TEACHER">
+        <TeacherStudentDetailPage />
+      </RequireRole>
+    ),
+  },
+
+  // Catch-all → redirect to dashboard or login
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
+  },
 ]);

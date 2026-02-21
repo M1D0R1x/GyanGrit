@@ -30,7 +30,7 @@ export default function VerifyOtpPage() {
     return <p>Invalid access. Please login again.</p>;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -43,22 +43,26 @@ export default function VerifyOtpPage() {
 
       await auth.refresh();
 
-      if (response.role === "TEACHER") {
-        navigate("/teacher", { replace: true });
-      } else if (response.role === "OFFICIAL") {
-        navigate("/official", { replace: true });
-      } else if (response.role === "ADMIN") {
-        navigate("/admin-panel", { replace: true });
-      } else {
-        navigate("/", { replace: true });
+      switch (response.role) {
+        case "TEACHER":
+          navigate("/teacher", { replace: true });
+          break;
+        case "OFFICIAL":
+          navigate("/official", { replace: true });
+          break;
+        case "ADMIN":
+          navigate("/admin-panel", { replace: true });
+          break;
+        default:
+          navigate("/", { replace: true });
       }
-
-    } catch {
+    } catch (err: unknown) {
       setError("Invalid OTP");
+      console.error("OTP verification failed:", err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div style={{ maxWidth: 360, margin: "80px auto" }}>
@@ -70,14 +74,26 @@ export default function VerifyOtpPage() {
           value={otp}
           onChange={(e) => setOtp(e.target.value)}
           required
+          style={{ width: "100%", padding: 8, marginBottom: 16 }}
         />
 
-        <button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: loading ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+          }}
+        >
           {loading ? "Verifying…" : "Verify"}
         </button>
       </form>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
     </div>
   );
 }

@@ -6,11 +6,31 @@ export default function LogoutButton() {
   const navigate = useNavigate();
   const auth = useAuth();
 
-  async function handleLogout() {
-    await apiLogout();
-    await auth.refresh(); // ✅ clean reset
-    navigate("/login");
-  }
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+      await auth.refresh(); // Reset auth state
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error("Logout failed:", err);
+      // Still redirect even if API fails
+      navigate("/login", { replace: true });
+    }
+  };
 
-  return <button onClick={handleLogout}>Logout</button>;
+  return (
+    <button
+      onClick={handleLogout}
+      style={{
+        padding: "8px 16px",
+        background: "#dc3545",
+        color: "white",
+        border: "none",
+        borderRadius: 4,
+        cursor: "pointer",
+      }}
+    >
+      Logout
+    </button>
+  );
 }

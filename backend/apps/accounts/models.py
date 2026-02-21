@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 import uuid
 import secrets
+from datetime import time
 
 
 # =========================================================
@@ -246,9 +247,11 @@ class OTPVerification(models.Model):
     # Removed: date field and unique_together → we now allow multiple OTPs per user per day
 
     def is_expired(self):
-        # OTP is valid only until the end of the calendar day it was *created*
+        """
+        OTP is valid only until the end of the calendar day it was created.
+        """
         creation_date = self.created_at.date()
-        day_end = timezone.datetime.combine(creation_date, timezone.time(23, 59, 59, 999999))
+        day_end = timezone.datetime.combine(creation_date, time(23, 59, 59, 999999))
         day_end = timezone.make_aware(day_end)  # ensure aware datetime
         return timezone.now() > day_end
 

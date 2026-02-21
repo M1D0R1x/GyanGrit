@@ -108,19 +108,20 @@ def login_view(request):
     )
 
     if not user:
-        return JsonResponse({"error": "Invalid credentials"}, status=401)
+        return JsonResponse({"error": "invalid credentials"}, status=401)
 
-    # STUDENTS → direct login (no OTP)
-    if user.role == "STUDENT":
+    # STUDENTS + ADMINS → direct login (no OTP)
+    if user.role in ["STUDENT", "ADMIN"]:
         login(request, user)
         return JsonResponse({
             "otp_required": False,
             "id": user.id,
             "username": user.username,
             "role": user.role,
+            "name": user.get_full_name() or user.username,  # fallback to username
         })
 
-    # Non-students: One OTP per day — create if not exists, reuse if exists
+    # All other roles (TEACHER, OFFICIAL, PRINCIPAL) → OTP required
     today = timezone.now().date()
 
     otp_record = OTPVerification.objects.filter(
@@ -129,7 +130,6 @@ def login_view(request):
     ).order_by('-created_at').first()
 
     if otp_record is None:
-        # First attempt today → generate new OTP
         otp_code = str(random.randint(100000, 999999))
         otp_record = OTPVerification.objects.create(
             user=user,
@@ -137,12 +137,22 @@ def login_view(request):
             is_verified=False,
             attempt_count=0,
         )
+    else:
+        otp_code = otp_record.otp_code  # reuse existing
 
-    # Always require OTP verification
+    # Debug print to terminal (keep for now)
+    print(f"OTP for {user.username} (dev only): {otp_code}")
+
+    # Return OTP + details in JSON (visible in Network tab)
     return JsonResponse({
         "otp_required": True,
-        # "dev_console": {"otp": otp_record.otp_code}  # DISABLED - do NOT return OTP in production!
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "name": user.get_full_name() or user.username,
+        "otp_code": otp_code,  # ← OTP is here now (remove in production!)
     })
+
 
 
 @require_http_methods(["POST"])

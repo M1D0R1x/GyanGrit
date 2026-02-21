@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from django.db.models import Avg
 
 from .models import Course, Lesson, LessonProgress
 from apps.accounts.models import User
@@ -12,16 +13,30 @@ from apps.accounts.models import User
 
 @login_required
 @require_http_methods(["GET"])
+def health(request):
+    """
+    Simple health check endpoint.
+    """
+    return JsonResponse({
+        "status": "ok",
+        "service": "gyangrit-backend",
+        "timestamp": timezone.now().isoformat(),
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
 def courses(request):
     """
-    List all courses user has access to.
+    List courses the user can access.
     """
     if request.user.role == "STUDENT":
         courses = Course.objects.filter(
             lessons__progress_records__user=request.user
         ).distinct()
     else:
-        courses = Course.objects.all()  # Teachers/Officials see all
+        # Teachers/Officials see courses in their institution
+        courses = Course.objects.filter(institution=request.user.institution)
 
     data = list(
         courses.values(
@@ -37,17 +52,13 @@ def courses(request):
 @login_required
 @require_http_methods(["GET"])
 def course_lessons(request, course_id):
-    """
-    List lessons in a course + user's completion status.
-    """
     course = get_object_or_404(Course, id=course_id)
 
-    # Basic access check (expand later)
-    if request.user.role == "STUDENT":
-        if not LessonProgress.objects.filter(
-            lesson__course=course, user=request.user
-        ).exists():
-            return JsonResponse({"detail": "Not enrolled"}, status=403)
+    # Student access check
+    if request.user.role == "STUDENT" and not LessonProgress.objects.filter(
+        lesson__course=course, user=request.user
+    ).exists():
+        return JsonResponse({"detail": "Not enrolled in this course"}, status=403)
 
     lessons = course.lessons.filter(is_published=True).order_by("order")
 
@@ -71,15 +82,13 @@ def course_lessons(request, course_id):
 @login_required
 @require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
-    """
-    Get lesson content + update progress (last_opened_at).
-    """
     lesson = get_object_or_404(Lesson, id=lesson_id, is_published=True)
 
-    # Access check
-    if request.user.role == "STUDENT":
-        if not lesson.course.lessons.filter(progress_records__user=request.user).exists():
-            return JsonResponse({"detail": "Not authorized"}, status=403)
+    # Student access check
+    if request.user.role == "STUDENT" and not LessonProgress.objects.filter(
+        lesson__course=lesson.course, user=request.user
+    ).exists():
+        return JsonResponse({"detail": "Not authorized for this lesson"}, status=403)
 
     progress, created = LessonProgress.objects.get_or_create(
         lesson=lesson,
@@ -100,10 +109,6 @@ def lesson_detail(request, lesson_id):
 @login_required
 @require_http_methods(["PATCH"])
 def lesson_progress(request, lesson_id):
-    """
-    Update lesson progress (completed, position).
-    PATCH body: {"completed": bool, "last_position": int}
-    """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
     progress = get_object_or_404(
@@ -131,9 +136,6 @@ def lesson_progress(request, lesson_id):
 @login_required
 @require_http_methods(["GET"])
 def course_progress(request, course_id):
-    """
-    Course-level progress + resume suggestion.
-    """
     course = get_object_or_404(Course, id=course_id)
 
     lessons = course.lessons.filter(is_published=True)
@@ -147,7 +149,7 @@ def course_progress(request, course_id):
     completed = progresses.filter(completed=True).count()
     percentage = int((completed / total) * 100) if total else 0
 
-    # Resume: most recent incomplete, or first incomplete
+    # Resume: most recent incomplete or first incomplete
     resume = progresses.filter(completed=False).order_by("-last_opened_at").first()
     if not resume:
         resume = progresses.filter(completed=False).order_by("lesson__order").first()
@@ -161,3 +163,73 @@ def course_progress(request, course_id):
         "percentage": percentage,
         "resume_lesson_id": resume_lesson_id,
     })
+
+
+# ---------------------------------------------------------------------
+# Teacher Analytics (Scoped & Safe)
+# ---------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_course_analytics(request):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    # Scope to institution
+    courses = Course.objects.filter(institution=request.user.institution) if request.user.role == "TEACHER" else Course.objects.all()
+
+    data = []
+
+    for course in courses:
+        total_lessons = course.lessons.count()
+        completed_lessons = LessonProgress.objects.filter(
+            lesson__course=course,
+            completed=True,
+        ).count()
+
+        percentage = int((completed_lessons / total_lessons) * 100) if total_lessons else 0
+
+        data.append({
+            "course_id": course.id,
+            "title": course.title,
+            "total_lessons": total_lessons,
+            "completed_lessons": completed_lessons,
+            "percentage": percentage,
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_lesson_analytics(request):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    # Scope to institution
+    lessons = Lesson.objects.filter(course__institution=request.user.institution) if request.user.role == "TEACHER" else Lesson.objects.all()
+
+    data = []
+
+    for lesson in lessons:
+        progress_qs = LessonProgress.objects.filter(lesson=lesson)
+
+        completed_count = progress_qs.filter(completed=True).count()
+        total_attempts = progress_qs.count()
+
+        avg_position = (
+            progress_qs.exclude(last_position=0)
+            .aggregate(avg=Avg("last_position"))
+            .get("avg")
+        ) or 0
+
+        data.append({
+            "lesson_id": lesson.id,
+            "lesson_title": lesson.title,
+            "course_title": lesson.course.title,
+            "completed_count": completed_count,
+            "total_attempts": total_attempts,
+            "avg_position": int(avg_position),
+        })
+
+    return JsonResponse(data, safe=False)

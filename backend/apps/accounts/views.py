@@ -114,7 +114,7 @@ def login_view(request):
     )
 
     if not user:
-        return JsonResponse({"error": "invalid credentials"}, status=401)
+        return JsonResponse({"error": "Invalid credentials"}, status=401)
 
     # STUDENTS → direct login (no OTP)
     if user.role == "STUDENT":
@@ -144,19 +144,12 @@ def login_view(request):
             attempt_count=0,
         )
 
-    # Always require OTP verification (even if already generated today)
+    # Always require OTP verification
     return JsonResponse({
         "otp_required": True,
-        "dev_console": {  # REMOVE BEFORE PRODUCTION
-            "username": user.username,
-            "otp": otp_record.otp_code,
-        }
+        # "dev_console": {"otp": otp_record.otp_code}  # DISABLED - do NOT return OTP in production!
     })
 
-
-# =========================================================
-# RESEND OTP (Generate / regenerate for today)
-# =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -165,15 +158,15 @@ def resend_otp(request):
     username = body.get("username")
 
     if not username:
-        return JsonResponse({"error": "username required"}, status=400)
+        return JsonResponse({"error": "Invalid request"}, status=400)
 
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
-        return JsonResponse({"error": "invalid user"}, status=400)
+        return JsonResponse({"error": "Invalid request"}, status=400)  # generic to prevent enumeration
 
     if user.role == "STUDENT":
-        return JsonResponse({"error": "OTP not required for students"}, status=400)
+        return JsonResponse({"error": "Invalid request"}, status=400)
 
     today = timezone.now().date()
 
@@ -185,15 +178,16 @@ def resend_otp(request):
     new_otp = str(random.randint(100000, 999999))
 
     if otp_record:
-        # Regenerate existing record
+        # Regenerate code but KEEP original created_at → same day validity
         otp_record.otp_code = new_otp
         otp_record.attempt_count = 0
         otp_record.last_attempt_at = None
-        otp_record.created_at = timezone.now()  # reset expiry
         otp_record.is_verified = False
-        otp_record.save()
+        otp_record.save(update_fields=[
+            "otp_code", "attempt_count", "last_attempt_at", "is_verified"
+        ])
     else:
-        # Create new (should be rare)
+        # Rare: no OTP yet today → create one
         otp_record = OTPVerification.objects.create(
             user=user,
             otp_code=new_otp,
@@ -201,18 +195,14 @@ def resend_otp(request):
             attempt_count=0,
         )
 
-    # In production: send via email/SMS here instead of returning
+    # TODO: In production → send OTP via email/SMS here
+    # send_otp_email(user.email, new_otp)  # or SMS/WhatsApp
+
     return JsonResponse({
         "success": True,
-        "dev_console": {  # REMOVE IN PRODUCTION
-            "otp": otp_record.otp_code,
-        }
+        # "dev_console": {"otp": otp_record.otp_code}  # DISABLED - never expose OTP!
     })
 
-
-# =========================================================
-# VERIFY OTP + SINGLE SESSION ENFORCEMENT
-# =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -228,26 +218,26 @@ def verify_otp(request):
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
-        return JsonResponse({"error": "Invalid user"}, status=400)
+        return JsonResponse({"error": "Invalid credentials"}, status=400)
 
     today = timezone.now().date()
 
-    # Find today's OTP (most recent)
+    # Find the OTP created today (most recent one)
     otp_record = OTPVerification.objects.filter(
         user=user,
         created_at__date=today
     ).order_by('-created_at').first()
 
     if not otp_record:
-        return JsonResponse({"error": "No OTP generated today. Please login again."}, status=400)
+        return JsonResponse({"error": "No valid OTP found. Please login again."}, status=400)
 
-    # Check expiration
+    # Check if still valid for today (day boundary)
     if otp_record.is_expired():
-        return JsonResponse({"error": "OTP has expired. Please resend."}, status=400)
+        return JsonResponse({"error": "OTP has expired. Please request a new one."}, status=400)
 
-    # Check attempts
+    # Check attempt limit
     if otp_record.attempt_count >= 5:
-        return JsonResponse({"error": "Too many attempts. Please resend OTP."}, status=429)
+        return JsonResponse({"error": "Too many attempts. Please request a new OTP."}, status=429)
 
     if otp_record.otp_code != otp_input:
         otp_record.attempt_count += 1
@@ -264,7 +254,7 @@ def verify_otp(request):
             pass
         existing.delete()
 
-    # Log in
+    # Log in the user
     login(request, user)
 
     # Store new session key
@@ -273,7 +263,7 @@ def verify_otp(request):
         device_fingerprint=request.session.session_key,
     )
 
-    # Mark as verified (useful for audit/logging)
+    # Mark as verified (for audit / future checks)
     otp_record.is_verified = True
     otp_record.save(update_fields=["is_verified"])
 
@@ -283,6 +273,7 @@ def verify_otp(request):
         "username": user.username,
         "role": user.role,
     })
+
 
 
 # =========================================================

@@ -309,3 +309,105 @@ def teacher_assessment_analytics(request):
         })
 
     return JsonResponse(data, safe=False)
+
+
+# ---------------------------------------------------------------------
+# Teacher Class Analytics (per class)
+# ---------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_class_analytics(request):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.accounts.models import ClassRoom
+
+    # Scope to teacher's classes
+    if request.user.role == "TEACHER":
+        # Adjust related_name if your TeachingAssignment model uses different name
+        classes = request.user.assignments.values_list(
+            'section__classroom', flat=True
+        ).distinct()
+        classes = ClassRoom.objects.filter(id__in=classes)
+    else:
+        classes = ClassRoom.objects.all()
+
+    data = []
+
+    for classroom in classes:
+        students = classroom.students.all()
+
+        attempts = AssessmentAttempt.objects.filter(
+            user__in=students,
+            submitted_at__isnull=False,
+        )
+
+        total_students = students.count()
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+
+        data.append({
+            "class_id": classroom.id,
+            "class_name": classroom.name,
+            "total_students": total_students,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+# ---------------------------------------------------------------------
+# Teacher Assessment Analytics (per assessment)
+# ---------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_assessment_analytics(request):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    # Scope to courses teacher has access to (via classes/sections)
+    from apps.accounts.models import TeachingAssignment
+
+    if request.user.role == "TEACHER":
+        course_ids = TeachingAssignment.objects.filter(
+            teacher=request.user
+        ).values_list(
+            'section__classroom__course', flat=True
+        ).distinct()
+        assessments = Assessment.objects.filter(course__id__in=course_ids)
+    else:
+        assessments = Assessment.objects.all()
+
+    data = []
+
+    for assessment in assessments:
+        attempts = assessment.attempts.filter(submitted_at__isnull=False)
+
+        total_attempts = attempts.count()
+        unique_students = attempts.values("user").distinct().count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+        fail_count = total_attempts - pass_count
+
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+
+        data.append({
+            "assessment_id": assessment.id,
+            "title": assessment.title,
+            "course": assessment.course.title,
+            "total_attempts": total_attempts,
+            "unique_students": unique_students,
+            "average_score": round(avg_score, 2),
+            "pass_count": pass_count,
+            "fail_count": fail_count,
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)

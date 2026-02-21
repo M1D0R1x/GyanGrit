@@ -288,10 +288,10 @@ def verify_otp(request):
 @csrf_exempt
 def logout_view(request):
     if request.user.is_authenticated:
-        DeviceSession.objects.filter(user=request.user).delete()
+        from apps.accounts.models import DeviceSession
+        DeviceSession.objects.filter(user=request.user).delete()  # clear single-session
     logout(request)
     return JsonResponse({"success": True})
-
 
 # =========================================================
 # ME

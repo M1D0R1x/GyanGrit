@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { apiLogout } from "../services/api";
+import { apiPost } from "../services/api"; // use apiPost for logout (POST request)
 import { useAuth } from "../auth/AuthContext";
 
 export default function LogoutButton() {
@@ -8,12 +8,18 @@ export default function LogoutButton() {
 
   const handleLogout = async () => {
     try {
-      await apiLogout();
-      await auth.refresh(); // Reset auth state
+      // Call backend logout (POST /accounts/logout/)
+      await apiPost("/accounts/logout/", {});
+
+      // Force clear auth state
+      auth.refresh(); // This resets state to unauthenticated
+
+      // Immediately redirect to login
       navigate("/login", { replace: true });
     } catch (err) {
       console.error("Logout failed:", err);
-      // Still redirect even if API fails
+      // Still redirect even if API fails (session might already be dead)
+      auth.refresh();
       navigate("/login", { replace: true });
     }
   };

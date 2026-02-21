@@ -1,15 +1,15 @@
 import json
 
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_http_methods
-from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
-from .models import Course, Lesson, LessonProgress
+from apps.accounts.models import TeachingAssignment
 from apps.assessments.models import Assessment, AssessmentAttempt
-from apps.accounts.models import User, ClassRoom, TeachingAssignment  # ← fixed: added TeachingAssignment import
+from .models import Course, Lesson, LessonProgress
 
 
 @login_required
@@ -148,7 +148,7 @@ def course_progress(request, course_id):
 
 
 # ---------------------------------------------------------------------
-# Teacher Analytics (Safe & No Crash)
+# Teacher Analytics
 # ---------------------------------------------------------------------
 
 @login_required
@@ -224,10 +224,54 @@ def teacher_class_analytics(request):
     from apps.accounts.models import ClassRoom
 
     if request.user.role == "TEACHER":
-        # Use correct related_name from TeachingAssignment model
-        # If related_name is 'assignments' on teacher field, use request.user.assignments
+        # Traverse: teacher → TeachingAssignment (on section) → section → classroom
         classes = ClassRoom.objects.filter(
-            teaching_assignments__teacher=request.user  # adjust if related_name different
+            sections__teaching_assignments__teacher=request.user
+        ).distinct()
+    else:
+        classes = ClassRoom.objects.all()
+
+    data = []
+
+    for classroom in classes:
+        students = classroom.students.all()
+
+        attempts = AssessmentAttempt.objects.filter(
+            user__in=students,
+            submitted_at__isnull=False,
+        )
+
+        total_students = students.count()
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+
+        data.append({
+            "class_id": classroom.id,
+            "class_name": classroom.name,
+            "total_students": total_students,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_class_analytics(request):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.accounts.models import ClassRoom
+
+    if request.user.role == "TEACHER":
+        # Correct traversal: classroom → sections → teaching_assignments → teacher
+        classes = ClassRoom.objects.filter(
+            sections__teaching_assignments__teacher=request.user
         ).distinct()
     else:
         classes = ClassRoom.objects.all()
@@ -267,16 +311,18 @@ def teacher_assessment_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    from apps.accounts.models import TeachingAssignment
-
     if request.user.role == "TEACHER":
-        # Fixed: use correct traversal to course_id
+        # Teacher → TeachingAssignment → Subject → Course
         course_ids = TeachingAssignment.objects.filter(
             teacher=request.user
         ).values_list(
-            'section__classroom__course_id', flat=True  # ← fixed: __course_id
+            "subject__course_id",
+            flat=True,
         ).distinct()
-        assessments = Assessment.objects.filter(course__id__in=course_ids)
+
+        assessments = Assessment.objects.filter(
+            course_id__in=course_ids
+        )
     else:
         assessments = Assessment.objects.all()
 
@@ -291,7 +337,7 @@ def teacher_assessment_analytics(request):
         pass_count = attempts.filter(passed=True).count()
         fail_count = total_attempts - pass_count
 
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
         data.append({
             "assessment_id": assessment.id,

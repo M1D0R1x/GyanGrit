@@ -77,9 +77,16 @@ class Subject(models.Model):
         related_name="subjects",
     )
 
+    course = models.ForeignKey(
+        "content.Course",   # <-- STRING REFERENCE
+        on_delete=models.CASCADE,
+        related_name="subjects",
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return f"{self.name} ({self.institution.name})"
-
 
 # =========================================================
 # USER

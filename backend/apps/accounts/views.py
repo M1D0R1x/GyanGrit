@@ -40,8 +40,8 @@ def register(request):
     role = body.get("role")
     join_code_value = body.get("join_code")
 
-    if not username or not password:
-        return JsonResponse({"error": "username and password required"}, status=400)
+    if not username or not password or not role:
+        return JsonResponse({"error": "username, password, and role required"}, status=400)
 
     if role not in dict(User.ROLE_CHOICES):
         return JsonResponse({"error": "invalid role"}, status=400)
@@ -49,45 +49,39 @@ def register(request):
     if User.objects.filter(username=username).exists():
         return JsonResponse({"error": "username already exists"}, status=400)
 
-    if role == "STUDENT":
-        return JsonResponse(
-            {"error": "students must register using registration code"},
-            status=400,
+    if not join_code_value:
+        return JsonResponse({"error": "join_code required for registration"}, status=400)
+
+    try:
+        join_code = JoinCode.objects.get(code=join_code_value)
+    except JoinCode.DoesNotExist:
+        return JsonResponse({"error": "invalid join_code"}, status=400)
+
+    if not join_code.is_valid():
+        return JsonResponse({"error": "expired or already used join_code"}, status=400)
+
+    if join_code.role != role:
+        return JsonResponse({"error": "role mismatch for join_code"}, status=400)
+
+    institution = join_code.institution
+    section = join_code.section
+    district = join_code.district
+
+    # Create user and mark code used in one transaction
+    with transaction.atomic():
+        user = User.objects.create_user(
+            username=username,
+            password=password,
         )
 
-    institution = None
-    section = None
-    district = None
+        user.role = role
+        user.institution = institution
+        user.section = section
+        user.district = district
+        user.save()
 
-    if role in ["PRINCIPAL", "TEACHER"]:
-        if not join_code_value:
-            return JsonResponse({"error": "join_code required"}, status=400)
-
-        try:
-            join_code = JoinCode.objects.get(code=join_code_value)
-        except JoinCode.DoesNotExist:
-            return JsonResponse({"error": "invalid join_code"}, status=400)
-
-        if not join_code.is_valid():
-            return JsonResponse({"error": "expired or used join_code"}, status=400)
-
-        if join_code.role != role:
-            return JsonResponse({"error": "role mismatch for join_code"}, status=400)
-
-        institution = join_code.institution
-        section = join_code.section
-        district = join_code.district
-
-        join_code.is_used = True
-        join_code.save(update_fields=["is_used"])
-
-    user = User.objects.create_user(username=username, password=password)
-
-    user.role = role
-    user.institution = institution
-    user.section = section
-    user.district = district
-    user.save()
+        # Mark the join code as used (prevents reuse)
+        join_code.mark_as_used()   # Uses the helper method from model
 
     return JsonResponse({
         "id": user.id,

@@ -1,165 +1,125 @@
 import json
+
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from django.db import models
+from django.contrib.auth.decorators import login_required
 
 from .models import Course, Lesson, LessonProgress
-
-"""
-CONTENT APP API (v1)
-
-Design principles:
-- All endpoints are versioned under /api/v1/
-- No auth yet (user=None everywhere)
-- MUST be resilient to duplicate LessonProgress rows
-- Response shapes must remain stable
-"""
+from apps.accounts.models import User
 
 
-# ---------------------------------------------------------------------
-# Health
-# ---------------------------------------------------------------------
-
-def health(request):
-    """
-    Simple health endpoint for frontend / monitoring.
-    """
-    return JsonResponse({
-        "status": "ok",
-        "service": "gyangrit-backend",
-    })
-
-
-# ---------------------------------------------------------------------
-# Courses
-# ---------------------------------------------------------------------
-
+@login_required
+@require_http_methods(["GET"])
 def courses(request):
     """
-    Returns all courses.
+    List all courses user has access to.
     """
+    if request.user.role == "STUDENT":
+        courses = Course.objects.filter(
+            lessons__progress_records__user=request.user
+        ).distinct()
+    else:
+        courses = Course.objects.all()  # Teachers/Officials see all
+
     data = list(
-        Course.objects.all().values(
+        courses.values(
             "id",
             "title",
             "description",
-        )
+        ).order_by("title")
     )
+
     return JsonResponse(data, safe=False)
 
 
-# ---------------------------------------------------------------------
-# Course → Lessons
-# ---------------------------------------------------------------------
-
+@login_required
+@require_http_methods(["GET"])
 def course_lessons(request, course_id):
     """
-    Returns lessons for a course, including completion state.
+    List lessons in a course + user's completion status.
     """
     course = get_object_or_404(Course, id=course_id)
 
-    lessons_data = []
+    # Basic access check (expand later)
+    if request.user.role == "STUDENT":
+        if not LessonProgress.objects.filter(
+            lesson__course=course, user=request.user
+        ).exists():
+            return JsonResponse({"detail": "Not enrolled"}, status=403)
 
-    for lesson in course.lessons.all():
-        completed = LessonProgress.objects.filter(
+    lessons = course.lessons.filter(is_published=True).order_by("order")
+
+    data = []
+    for lesson in lessons:
+        progress = LessonProgress.objects.filter(
             lesson=lesson,
-            user=None,
-            completed=True,
-        ).exists()
+            user=request.user,
+        ).first()
 
-        lessons_data.append({
+        data.append({
             "id": lesson.id,
             "title": lesson.title,
             "order": lesson.order,
-            "completed": completed,
+            "completed": progress.completed if progress else False,
         })
 
-    return JsonResponse(lessons_data, safe=False)
+    return JsonResponse(data, safe=False)
 
 
-# ---------------------------------------------------------------------
-# Lesson detail
-# ---------------------------------------------------------------------
-
+@login_required
+@require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
     """
-    Returns lesson content and updates last_opened_at.
-
-    IMPORTANT:
-    - Must NOT crash if duplicate LessonProgress rows exist
-    - Always pick ONE canonical progress row
+    Get lesson content + update progress (last_opened_at).
     """
-    lesson = get_object_or_404(Lesson, id=lesson_id)
+    lesson = get_object_or_404(Lesson, id=lesson_id, is_published=True)
 
-    progress = (
-        LessonProgress.objects
-        .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at", "-id")
-        .first()
+    # Access check
+    if request.user.role == "STUDENT":
+        if not lesson.course.lessons.filter(progress_records__user=request.user).exists():
+            return JsonResponse({"detail": "Not authorized"}, status=403)
+
+    progress, created = LessonProgress.objects.get_or_create(
+        lesson=lesson,
+        user=request.user,
     )
 
-    if not progress:
-        progress = LessonProgress.objects.create(
-            lesson=lesson,
-            user=None,
-        )
-
-    progress.last_opened_at = timezone.now()
-    progress.save(update_fields=["last_opened_at"])
+    progress.mark_opened()
 
     return JsonResponse({
         "id": lesson.id,
         "title": lesson.title,
         "content": lesson.content,
+        "completed": progress.completed,
+        "last_position": progress.last_position,
     })
 
 
-# ---------------------------------------------------------------------
-# Lesson progress
-# ---------------------------------------------------------------------
-
-@require_http_methods(["GET", "PATCH"])
+@login_required
+@require_http_methods(["PATCH"])
 def lesson_progress(request, lesson_id):
     """
-    Get or update progress for a lesson.
-
-    PATCH body (partial):
-    {
-        "completed": boolean,
-        "last_position": number
-    }
+    Update lesson progress (completed, position).
+    PATCH body: {"completed": bool, "last_position": int}
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    progress = (
-        LessonProgress.objects
-        .filter(lesson=lesson, user=None)
-        .order_by("-last_opened_at", "-id")
-        .first()
+    progress = get_object_or_404(
+        LessonProgress,
+        lesson=lesson,
+        user=request.user,
     )
 
-    if not progress:
-        progress = LessonProgress.objects.create(
-            lesson=lesson,
-            user=None,
-        )
+    body = json.loads(request.body or "{}")
 
-    if request.method == "PATCH":
-        body = json.loads(request.body or "{}")
+    if "completed" in body:
+        progress.completed = body["completed"]
+    if "last_position" in body:
+        progress.last_position = body["last_position"]
 
-        progress.completed = body.get(
-            "completed",
-            progress.completed,
-        )
-
-        progress.last_position = body.get(
-            "last_position",
-            progress.last_position,
-        )
-
-        progress.save()
+    progress.save()
 
     return JsonResponse({
         "lesson_id": lesson.id,
@@ -168,49 +128,31 @@ def lesson_progress(request, lesson_id):
     })
 
 
-# ---------------------------------------------------------------------
-# Course progress (dashboard + resume)
-# ---------------------------------------------------------------------
-
+@login_required
+@require_http_methods(["GET"])
 def course_progress(request, course_id):
     """
-    Returns course-level progress including resume lesson.
+    Course-level progress + resume suggestion.
     """
     course = get_object_or_404(Course, id=course_id)
-    lessons = course.lessons.all()
+
+    lessons = course.lessons.filter(is_published=True)
     total = lessons.count()
 
     progresses = LessonProgress.objects.filter(
         lesson__course=course,
-        user=None,
-    ).select_related("lesson")
-
-    completed_ids = set(
-        progresses.filter(completed=True)
-        .values_list("lesson_id", flat=True)
+        user=request.user,
     )
 
-    incomplete = progresses.filter(completed=False)
-
-    # Resume logic:
-    # 1. Most recently opened incomplete lesson
-    recent = (
-        incomplete.exclude(last_opened_at__isnull=True)
-        .order_by("-last_opened_at")
-        .first()
-    )
-
-    if recent:
-        resume_lesson_id = recent.lesson_id
-    else:
-        # 2. First not-yet-completed lesson
-        next_lesson = lessons.exclude(
-            id__in=completed_ids
-        ).first()
-        resume_lesson_id = next_lesson.id if next_lesson else None
-
-    completed = len(completed_ids)
+    completed = progresses.filter(completed=True).count()
     percentage = int((completed / total) * 100) if total else 0
+
+    # Resume: most recent incomplete, or first incomplete
+    resume = progresses.filter(completed=False).order_by("-last_opened_at").first()
+    if not resume:
+        resume = progresses.filter(completed=False).order_by("lesson__order").first()
+
+    resume_lesson_id = resume.lesson_id if resume else None
 
     return JsonResponse({
         "course_id": course.id,
@@ -219,69 +161,3 @@ def course_progress(request, course_id):
         "percentage": percentage,
         "resume_lesson_id": resume_lesson_id,
     })
-
-
-# ---------------------------------------------------------------------
-# Teacher analytics
-# ---------------------------------------------------------------------
-
-def teacher_course_analytics(request):
-    """
-    Aggregated course-level analytics.
-    """
-    data = []
-
-    for course in Course.objects.all():
-        total_lessons = course.lessons.count()
-        completed_lessons = LessonProgress.objects.filter(
-            lesson__course=course,
-            completed=True,
-        ).count()
-
-        percentage = int(
-            (completed_lessons / total_lessons) * 100
-        ) if total_lessons else 0
-
-        data.append({
-            "course_id": course.id,
-            "title": course.title,
-            "total_lessons": total_lessons,
-            "completed_lessons": completed_lessons,
-            "percentage": percentage,
-        })
-
-    return JsonResponse(data, safe=False)
-
-
-def teacher_lesson_analytics(request):
-    """
-    Lesson-level analytics.
-
-    NOTE:
-    - Aggregated globally
-    - User scoping will be added later
-    """
-    data = []
-
-    for lesson in Lesson.objects.select_related("course"):
-        progress_qs = LessonProgress.objects.filter(lesson=lesson)
-
-        completed_count = progress_qs.filter(completed=True).count()
-        total_attempts = progress_qs.count()
-
-        avg_position = (
-            progress_qs.exclude(last_position=0)
-            .aggregate(avg=models.Avg("last_position"))
-            .get("avg")
-        )
-
-        data.append({
-            "lesson_id": lesson.id,
-            "lesson_title": lesson.title,
-            "course_title": lesson.course.title,
-            "completed_count": completed_count,
-            "total_attempts": total_attempts,
-            "avg_time_spent": int(avg_position or 0),
-        })
-
-    return JsonResponse(data, safe=False)

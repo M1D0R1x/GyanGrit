@@ -39,6 +39,7 @@ class InstitutionFilter(SimpleListFilter):
         return queryset
 
 
+
 @admin.register(Assessment)
 class AssessmentAdmin(admin.ModelAdmin):
     list_display = (

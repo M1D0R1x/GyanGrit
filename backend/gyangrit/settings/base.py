@@ -148,3 +148,5 @@ SESSION_COOKIE_SECURE = False
 
 SESSION_COOKIE_AGE = 600  # 10 minutes
 SESSION_SAVE_EVERY_REQUEST = True  # extend if active
+
+STRICT_SINGLE_CORRECT_MCQS = True   # Set to False to disable the check

@@ -1,17 +1,15 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from apps.content.models import Course
 
 
 class Enrollment(models.Model):
     """
-    Represents a learner being enrolled in a course.
-
-    NOTES:
-    - `user` is nullable for now (no auth yet)
-    - Progress is DERIVED from content app
+    A learner enrolled in a course.
+    Progress is derived from content app (LessonProgress).
     """
 
     STATUS_CHOICES = (
@@ -22,8 +20,6 @@ class Enrollment(models.Model):
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
         on_delete=models.CASCADE,
         related_name="enrollments",
     )
@@ -50,26 +46,28 @@ class Enrollment(models.Model):
                 name="unique_enrollment_per_user_course",
             )
         ]
+        ordering = ["-enrolled_at"]
+
+    def clean(self):
+        if self.status == "completed" and self.completed_at is None:
+            self.completed_at = timezone.now()
 
     def mark_completed(self):
-        """Marks enrollment as completed."""
         self.status = "completed"
         self.completed_at = timezone.now()
         self.save(update_fields=["status", "completed_at"])
 
     def mark_dropped(self):
-        """Marks enrollment as dropped."""
         self.status = "dropped"
         self.save(update_fields=["status"])
 
     def __str__(self):
-        return f"{self.course.title} – {self.status}"
+        return f"{self.user.username} – {self.course.title} ({self.status})"
 
 
 class LearningPath(models.Model):
     """
-    Represents a structured learning path (curriculum).
-    Example: 'Class 10 Science', 'Govt Exam Prep'
+    A structured learning path / curriculum.
     """
 
     name = models.CharField(max_length=255)
@@ -79,16 +77,21 @@ class LearningPath(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Learning Path"
+        verbose_name_plural = "Learning Paths"
+
 
 class LearningPathCourse(models.Model):
     """
-    Orders courses inside a learning path.
+    Courses inside a learning path, with order.
     """
 
     learning_path = models.ForeignKey(
         LearningPath,
         on_delete=models.CASCADE,
-        related_name="courses",
+        related_name="path_courses",
     )
 
     course = models.ForeignKey(
@@ -97,16 +100,24 @@ class LearningPathCourse(models.Model):
         related_name="learning_paths",
     )
 
-    order = models.PositiveIntegerField()
+    order = models.PositiveIntegerField(default=1)
 
     class Meta:
         ordering = ["order"]
         constraints = [
             models.UniqueConstraint(
                 fields=["learning_path", "course"],
-                name="unique_course_per_learning_path",
-            )
+                name="unique_course_in_path",
+            ),
+            models.UniqueConstraint(
+                fields=["learning_path", "order"],
+                name="unique_order_in_path",
+            ),
         ]
 
+    def clean(self):
+        if self.order <= 0:
+            raise ValidationError("Order must be positive.")
+
     def __str__(self):
-        return f"{self.learning_path.name} → {self.course.title}"
+        return f"{self.learning_path.name} → {self.course.title} (Order {self.order})"

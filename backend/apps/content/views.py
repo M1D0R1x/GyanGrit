@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from apps.accounts.models import TeachingAssignment
 from apps.assessments.models import Assessment, AssessmentAttempt
 from .models import Course, Lesson, LessonProgress
+from apps.accounts.models import User
 
 
 @login_required
@@ -279,13 +280,15 @@ def teacher_class_analytics(request):
     data = []
 
     for classroom in classes:
-        students = classroom.students.all()
+        students = User.objects.filter(
+            role="STUDENT",
+            section__classroom=classroom,
+        )
 
         attempts = AssessmentAttempt.objects.filter(
             user__in=students,
             submitted_at__isnull=False,
         )
-
         total_students = students.count()
         total_attempts = attempts.count()
         avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0

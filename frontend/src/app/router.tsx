@@ -8,7 +8,7 @@ import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import LearningPathsPage from "../pages/LearningPathsPage";
 import LearningPathPage from "../pages/LearningPathPage";
 import ProfilePage from "../pages/ProfilePage";
-import OfficialDashboardPage from "../pages/OfficialDashboardPage.tsx"; // fixed typo: Officaial → Official
+import OfficialDashboardPage from "../pages/OfficialDashboardPage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
 import CourseAssessmentsPage from "../pages/CourseAssessmentsPage";
 import AssessmentPage from "../pages/AssessmentPage";
@@ -21,11 +21,21 @@ import RegisterPage from "../pages/RegisterPage";
 import VerifyOtpPage from "../pages/VerifyOtpPage";
 
 import { RequireRole } from "../auth/RequireRole";
+import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 
 export const router = createBrowserRouter([
-  // Root → Student Dashboard (default after login)
+  // Root → Role-based redirect
   {
     path: "/",
+    element: <RoleBasedRedirect />,
+  },
+
+  // ===============================
+  // STUDENT ROUTES
+  // ===============================
+
+  {
+    path: "/dashboard",
     element: (
       <RequireRole role="STUDENT">
         <DashboardPage />
@@ -33,17 +43,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Teacher Dashboard
-  {
-    path: "/teacher",
-    element: (
-      <RequireRole role="TEACHER">
-        <TeacherDashboardPage />
-      </RequireRole>
-    ),
-  },
-
-  // Learning Paths (Student)
   {
     path: "/learning",
     element: (
@@ -61,7 +60,6 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Courses & Lessons (Student)
   {
     path: "/courses",
     element: <CoursesPage />,
@@ -75,7 +73,6 @@ export const router = createBrowserRouter([
     element: <LessonPage />,
   },
 
-  // Profile (Student)
   {
     path: "/profile",
     element: (
@@ -85,59 +82,19 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Auth Pages (public)
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/register",
-    element: <RegisterPage />,
-  },
-  {
-    path: "/verify-otp",
-    element: <VerifyOtpPage />,
-  },
+  // ===============================
+  // TEACHER ROUTES
+  // ===============================
 
-  // Official Dashboard
   {
-    path: "/official",
+    path: "/teacher",
     element: (
-      <RequireRole role="OFFICIAL">
-        <OfficialDashboardPage />
+      <RequireRole role="TEACHER">
+        <TeacherDashboardPage />
       </RequireRole>
     ),
   },
 
-  // Admin Dashboard
-  {
-    path: "/admin-panel",
-    element: (
-      <RequireRole role="ADMIN">
-        <AdminDashboardPage />
-      </RequireRole>
-    ),
-  },
-
-  // Assessments (Student/Teacher)
-  {
-    path: "/courses/:courseId/assessments",
-    element: <CourseAssessmentsPage />,
-  },
-  {
-    path: "/assessments/:assessmentId",
-    element: <AssessmentPage />,
-  },
-  {
-    path: "/assessment-result",
-    element: <AssessmentResultPage />,
-  },
-  {
-    path: "/assessments/:assessmentId/history",
-    element: <AssessmentHistoryPage />,
-  },
-
-  // Teacher Class & Student Detail
   {
     path: "/teacher/classes/:classId",
     element: (
@@ -155,7 +112,74 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Catch-all → redirect to dashboard or login
+  // ===============================
+  // OFFICIAL ROUTES
+  // ===============================
+
+  {
+    path: "/official",
+    element: (
+      <RequireRole role="OFFICIAL">
+        <OfficialDashboardPage />
+      </RequireRole>
+    ),
+  },
+
+  // ===============================
+  // ADMIN ROUTES
+  // ===============================
+
+  {
+    path: "/admin-panel",
+    element: (
+      <RequireRole role="ADMIN">
+        <AdminDashboardPage />
+      </RequireRole>
+    ),
+  },
+
+  // ===============================
+  // ASSESSMENTS (Shared)
+  // ===============================
+
+  {
+    path: "/courses/:courseId/assessments",
+    element: <CourseAssessmentsPage />,
+  },
+  {
+    path: "/assessments/:assessmentId",
+    element: <AssessmentPage />,
+  },
+  {
+    path: "/assessment-result",
+    element: <AssessmentResultPage />,
+  },
+  {
+    path: "/assessments/:assessmentId/history",
+    element: <AssessmentHistoryPage />,
+  },
+
+  // ===============================
+  // AUTH ROUTES
+  // ===============================
+
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
+  },
+  {
+    path: "/verify-otp",
+    element: <VerifyOtpPage />,
+  },
+
+  // ===============================
+  // FALLBACK
+  // ===============================
+
   {
     path: "*",
     element: <Navigate to="/" replace />,

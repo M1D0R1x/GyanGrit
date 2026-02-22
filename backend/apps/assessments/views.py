@@ -1,10 +1,10 @@
 import json
 
+from django.db.models import Avg
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from django.db.models import Avg, Count
+from django.views.decorators.http import require_http_methods
 
 from apps.assessments.models import (
     Assessment,
@@ -12,17 +12,46 @@ from apps.assessments.models import (
     AssessmentAttempt,
 )
 from apps.content.models import Course
-from apps.accounts.models import User, ClassRoom, Section
 
 
 def has_access_to_course(user, course):
-    """Check if user can view/submit this course based on role & institution"""
+    """
+    Strict role-based access control for course visibility.
+    """
+
     if not user.is_authenticated:
         return False
+
+    # ADMIN → Full access
+    if user.role == "ADMIN":
+        return True
+
+    # OFFICIAL → Same district
+    if user.role == "OFFICIAL":
+        return (
+            course.subject.institution.district == user.district
+        )
+
+    # PRINCIPAL → Same institution
+    if user.role == "PRINCIPAL":
+        return (
+            course.subject.institution == user.institution
+        )
+
+    # TEACHER → Must teach this subject
+    if user.role == "TEACHER":
+        return user.assignments.filter(
+            subject=course.subject
+        ).exists()
+
+    # STUDENT → Must belong to same institution
     if user.role == "STUDENT":
-        return user.section and user.section.classroom.institution == course.institution
-    if user.role in ["TEACHER", "OFFICIAL", "ADMIN"]:
-        return user.institution == course.institution
+        return (
+            user.section and
+            user.section.classroom.institution
+            == course.subject.institution
+        )
+
     return False
 
 
@@ -199,16 +228,49 @@ def my_attempts(request, assessment_id):
 
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
-    if not request.user.is_authenticated or request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    # Scope by institution for teachers
-    assessments = Assessment.objects.filter(course__institution=request.user.institution) if request.user.role == "TEACHER" else Assessment.objects.all()
+    # -----------------------------------------
+    # Scope assessments properly
+    # -----------------------------------------
+
+    if request.user.role == "TEACHER":
+        subject_ids = request.user.assignments.values_list(
+            "subject_id", flat=True
+        )
+
+        assessments = Assessment.objects.filter(
+            course__subject_id__in=subject_ids
+        )
+
+    elif request.user.role == "PRINCIPAL":
+        assessments = Assessment.objects.filter(
+            course__subject__institution=request.user.institution
+        )
+
+    elif request.user.role == "OFFICIAL":
+        assessments = Assessment.objects.filter(
+            course__subject__institution__district=request.user.district
+        )
+
+    else:  # ADMIN
+        assessments = Assessment.objects.all()
+
+    # -----------------------------------------
+    # Build analytics
+    # -----------------------------------------
 
     data = []
 
     for assessment in assessments:
-        attempts = assessment.attempts.filter(submitted_at__isnull=False)
+        attempts = assessment.attempts.filter(
+            submitted_at__isnull=False
+        )
 
         total_attempts = attempts.count()
         unique_students = attempts.values("user").distinct().count()
@@ -216,12 +278,17 @@ def teacher_assessment_analytics(request):
         pass_count = attempts.filter(passed=True).count()
         fail_count = total_attempts - pass_count
 
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+        pass_rate = (
+            (pass_count / total_attempts) * 100
+            if total_attempts > 0
+            else 0
+        )
 
         data.append({
             "assessment_id": assessment.id,
             "title": assessment.title,
             "course": assessment.course.title,
+            "subject": assessment.course.subject.name,
             "total_attempts": total_attempts,
             "unique_students": unique_students,
             "average_score": round(avg_score, 2),

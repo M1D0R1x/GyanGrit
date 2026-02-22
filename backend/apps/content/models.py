@@ -6,23 +6,36 @@ from django.core.exceptions import ValidationError
 from apps.accounts.models import User  # for type hinting
 
 
+from apps.accounts.models import Subject
+
+
 class Course(models.Model):
     """
-    A learning course (e.g., Math Grade 10) — universal across institutions.
+    A learning course attached to a subject.
+    Example:
+        Subject: Mathematics (Institution A)
+        Course: Algebra Grade 10
     """
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="courses",
+        null=True,
+        blank=True,
+    )
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.subject.name})"
 
     class Meta:
         ordering = ["title"]
         verbose_name = "Course"
         verbose_name_plural = "Courses"
-
 
 class Lesson(models.Model):
     """

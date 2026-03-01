@@ -6,12 +6,16 @@ from django.core.exceptions import ValidationError
 from apps.accounts.models import Subject
 
 
+from apps.academics.models import Subject
+
 class Course(models.Model):
 
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
-        related_name="courses",
+        related_name="learning_courses",
+        null=True,
+        blank=True,
     )
 
     title = models.CharField(max_length=255)
@@ -19,12 +23,9 @@ class Course(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.title} ({self.subject.name})"
-
-    class Meta:
-        ordering = ["title"]
-        verbose_name = "Course"
-        verbose_name_plural = "Courses"
+        if self.subject:
+            return f"{self.title} ({self.subject.name})"
+        return self.title
 
 class Lesson(models.Model):
     course = models.ForeignKey(

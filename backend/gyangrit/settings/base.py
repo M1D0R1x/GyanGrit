@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.assessments.apps.AssessmentsConfig",
     "apps.accesscontrol.apps.AccesscontrolConfig",
     "apps.roster.apps.RosterConfig",
+    "apps.academics.apps.AcademicsConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

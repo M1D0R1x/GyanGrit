@@ -3,22 +3,22 @@ import json
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
-from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 
 from .models import Enrollment, LearningPath, LearningPathCourse
-from apps.content.models import Course
+from apps.content.models import Course, LessonProgress
 
+
+# -------------------------------------------------------
+# USER ENROLLMENTS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
 def enrollments(request):
-    """
-    List current user's active enrollments.
-    """
     enrollments = Enrollment.objects.filter(
         user=request.user,
-        status__in=["enrolled", "completed"]
+        status__in=["enrolled", "completed"],
     ).select_related("course")
 
     data = list(
@@ -35,23 +35,20 @@ def enrollments(request):
     return JsonResponse(data, safe=False)
 
 
+# -------------------------------------------------------
+# ENROLL IN COURSE
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["POST"])
 def enroll_course(request):
-    """
-    Enroll in a course (idempotent).
-    """
-    body = json.loads(request.body)
+    body = json.loads(request.body or "{}")
     course_id = body.get("course_id")
 
     if not course_id:
         return JsonResponse({"error": "course_id required"}, status=400)
 
     course = get_object_or_404(Course, id=course_id)
-
-    # Optional: check if user has access (expand later)
-    # if request.user.role == "STUDENT" and not course.is_accessible_to(request.user):
-    #     return JsonResponse({"error": "Not authorized"}, status=403)
 
     enrollment, created = Enrollment.objects.get_or_create(
         user=request.user,
@@ -67,19 +64,20 @@ def enroll_course(request):
     })
 
 
+# -------------------------------------------------------
+# UPDATE ENROLLMENT
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["PATCH"])
 def update_enrollment(request, enrollment_id):
-    """
-    Update enrollment status (e.g. mark completed/dropped).
-    """
     enrollment = get_object_or_404(
         Enrollment,
         id=enrollment_id,
         user=request.user,
     )
 
-    body = json.loads(request.body)
+    body = json.loads(request.body or "{}")
     status = body.get("status")
 
     if status not in ["completed", "dropped"]:
@@ -87,7 +85,7 @@ def update_enrollment(request, enrollment_id):
 
     if status == "completed":
         enrollment.mark_completed()
-    elif status == "dropped":
+    else:
         enrollment.mark_dropped()
 
     return JsonResponse({
@@ -97,20 +95,21 @@ def update_enrollment(request, enrollment_id):
     })
 
 
+# -------------------------------------------------------
+# LEARNING PATHS
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["GET"])
 def learning_paths(request):
-    """
-    List all learning paths.
-    """
-    paths = LearningPath.objects.all()
+    paths = LearningPath.objects.all().order_by("name")
 
     data = list(
         paths.values(
             "id",
             "name",
             "description",
-        ).order_by("name")
+        )
     )
 
     return JsonResponse(data, safe=False)
@@ -119,9 +118,6 @@ def learning_paths(request):
 @login_required
 @require_http_methods(["GET"])
 def learning_path_detail(request, path_id):
-    """
-    Get learning path with ordered courses.
-    """
     path = get_object_or_404(LearningPath, id=path_id)
 
     courses = (
@@ -151,9 +147,6 @@ def learning_path_detail(request, path_id):
 @login_required
 @require_http_methods(["GET"])
 def learning_path_progress(request, path_id):
-    """
-    Derived progress for a learning path.
-    """
     path = get_object_or_404(LearningPath, id=path_id)
 
     course_ids = list(
@@ -183,9 +176,6 @@ def learning_path_progress(request, path_id):
 @login_required
 @require_http_methods(["POST"])
 def enroll_learning_path(request, path_id):
-    """
-    Enroll in ALL courses of a learning path (idempotent).
-    """
     path = get_object_or_404(LearningPath, id=path_id)
 
     courses = LearningPathCourse.objects.filter(
@@ -209,20 +199,20 @@ def enroll_learning_path(request, path_id):
         "total_courses": courses.count(),
     })
 
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from apps.learning.models import Enrollment
-from apps.content.models import LessonProgress
 
+# -------------------------------------------------------
+# STUDENT DASHBOARD
+# -------------------------------------------------------
 
 @login_required
+@require_http_methods(["GET"])
 def student_dashboard(request):
     if request.user.role != "STUDENT":
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     enrollments = Enrollment.objects.filter(
         user=request.user,
-        status__in=["enrolled", "completed"]
+        status__in=["enrolled", "completed"],
     ).select_related("course")
 
     courses_data = []
@@ -236,7 +226,7 @@ def student_dashboard(request):
         completed = LessonProgress.objects.filter(
             lesson__course=course,
             user=request.user,
-            completed=True
+            completed=True,
         ).count()
 
         percentage = int((completed / total) * 100) if total else 0

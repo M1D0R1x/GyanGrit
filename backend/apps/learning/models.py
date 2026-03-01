@@ -6,11 +6,11 @@ from django.core.exceptions import ValidationError
 from apps.content.models import Course
 
 
+# -------------------------------------------------------
+# ENROLLMENT
+# -------------------------------------------------------
+
 class Enrollment(models.Model):
-    """
-    A learner enrolled in a course.
-    Progress is derived from content app (LessonProgress).
-    """
 
     STATUS_CHOICES = (
         ("enrolled", "Enrolled"),
@@ -49,7 +49,7 @@ class Enrollment(models.Model):
         ordering = ["-enrolled_at"]
 
     def clean(self):
-        if self.status == "completed" and self.completed_at is None:
+        if self.status == "completed" and not self.completed_at:
             self.completed_at = timezone.now()
 
     def mark_completed(self):
@@ -65,28 +65,28 @@ class Enrollment(models.Model):
         return f"{self.user.username} – {self.course.title} ({self.status})"
 
 
+# -------------------------------------------------------
+# LEARNING PATH
+# -------------------------------------------------------
+
 class LearningPath(models.Model):
-    """
-    A structured learning path / curriculum.
-    """
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["name"]
+
     def __str__(self):
         return self.name
 
-    class Meta:
-        ordering = ["name"]
-        verbose_name = "Learning Path"
-        verbose_name_plural = "Learning Paths"
 
+# -------------------------------------------------------
+# LEARNING PATH COURSE
+# -------------------------------------------------------
 
 class LearningPathCourse(models.Model):
-    """
-    Courses inside a learning path, with order.
-    """
 
     learning_path = models.ForeignKey(
         LearningPath,

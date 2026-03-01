@@ -51,7 +51,6 @@ def courses(request):
 # COURSE LESSONS
 # -------------------------------------------------------
 
-
 @login_required
 @require_http_methods(["GET"])
 def course_lessons(request, course_id):

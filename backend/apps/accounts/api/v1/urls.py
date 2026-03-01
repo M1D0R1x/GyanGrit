@@ -8,11 +8,6 @@ urlpatterns = [
     path("me/", views.me),
 
     path("users/", views.users),
-    path("institutions/", views.institutions),
-    path("sections/", views.sections),
-    path("subjects/", views.subjects),
-    path("teachers/", views.teachers),
-
     path("student-register/", views.student_register),
     path("verify-otp/", views.verify_otp),
 ]

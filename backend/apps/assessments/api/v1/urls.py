@@ -7,8 +7,9 @@ urlpatterns = [
     path("<int:assessment_id>/start/", views.start_assessment),
     path("<int:assessment_id>/submit/", views.submit_assessment),
     path("<int:assessment_id>/my-attempts/", views.my_attempts),
-    path("teacher/analytics/classes/", views.teacher_class_analytics,),
-    path("teacher/analytics/classes/<int:class_id>/students/", views.teacher_class_students,),
-    path("teacher/analytics/classes/<int:class_id>/students/<int:student_id>/", views.teacher_student_assessments,),
 
+    # Teacher analytics
+    path("teacher/analytics/classes/", views.teacher_class_analytics),
+    path("teacher/analytics/classes/<int:class_id>/students/", views.teacher_class_students),
+    path("teacher/analytics/classes/<int:class_id>/students/<int:student_id>/", views.teacher_student_assessments),
 ]

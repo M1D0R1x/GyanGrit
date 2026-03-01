@@ -20,17 +20,33 @@ from django.urls import path, include
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # Accounts (already correct)
+    # --------------------------------------------------
+    # ACCOUNTS (authentication & identity only)
+    # --------------------------------------------------
     path("api/v1/accounts/", include("apps.accounts.api.v1.urls")),
 
-    # 🔴 FIX: mount content at /api/v1/ (NOT /content/)
+    # --------------------------------------------------
+    # ACADEMICS (institutional structure)
+    # --------------------------------------------------
+    path("api/v1/academics/", include("apps.academics.api.v1.urls")),
+
+    # --------------------------------------------------
+    # CONTENT (mounted at /api/v1/ because it's core)
+    # --------------------------------------------------
     path("api/v1/", include("apps.content.api.v1.urls")),
 
-    # Learning stays namespaced
+    # --------------------------------------------------
+    # LEARNING (enrollments & learning paths)
+    # --------------------------------------------------
     path("api/v1/learning/", include("apps.learning.api.v1.urls")),
 
-    # Assessments stays namespaced
+    # --------------------------------------------------
+    # ASSESSMENTS
+    # --------------------------------------------------
     path("api/v1/assessments/", include("apps.assessments.api.v1.urls")),
 
+    # --------------------------------------------------
+    # ROSTER (student registration records)
+    # --------------------------------------------------
     path("api/v1/roster/", include("apps.roster.api.v1.urls")),
 ]

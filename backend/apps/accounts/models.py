@@ -6,90 +6,12 @@ import uuid
 import secrets
 from datetime import time
 
-
-# =========================================================
-# INSTITUTION
-# =========================================================
-
-class Institution(models.Model):
-    name = models.CharField(max_length=255)
-    district = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.name
+# Import academic models
+from apps.academics.models import Institution, Section
 
 
 # =========================================================
-# CLASS (e.g., Grade 10)
-# =========================================================
-
-class ClassRoom(models.Model):
-    name = models.CharField(max_length=100)
-
-    institution = models.ForeignKey(
-        Institution,
-        on_delete=models.CASCADE,
-        related_name="classes",
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("name", "institution")
-        verbose_name = "Class"
-        verbose_name_plural = "Classes"
-
-    def __str__(self):
-        return f"{self.name} - {self.institution.name}"
-
-
-# =========================================================
-# SECTION (e.g., 10A, 10B)
-# =========================================================
-
-class Section(models.Model):
-    name = models.CharField(max_length=20)
-
-    classroom = models.ForeignKey(
-        ClassRoom,
-        on_delete=models.CASCADE,
-        related_name="sections",
-    )
-
-    class Meta:
-        unique_together = ("name", "classroom")
-
-    def __str__(self):
-        return f"{self.classroom.name} {self.name}"
-
-
-# =========================================================
-# SUBJECT
-# =========================================================
-
-class Subject(models.Model):
-    name = models.CharField(max_length=100)
-
-    institution = models.ForeignKey(
-        Institution,
-        on_delete=models.CASCADE,
-        related_name="subjects",
-    )
-
-    course = models.ForeignKey(
-        "content.Course",   # <-- STRING REFERENCE
-        on_delete=models.CASCADE,
-        related_name="subjects",
-        null=True,
-        blank=True,
-    )
-
-    def __str__(self):
-        return f"{self.name} ({self.institution.name})"
-
-# =========================================================
-# USER
+# USER (IDENTITY ONLY)
 # =========================================================
 
 class User(AbstractUser):
@@ -167,41 +89,6 @@ class User(AbstractUser):
 
 
 # =========================================================
-# TEACHING ASSIGNMENT
-# =========================================================
-
-class TeachingAssignment(models.Model):
-    teacher = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        limit_choices_to={"role": "TEACHER"},
-        related_name="assignments",
-    )
-
-    section = models.ForeignKey(
-        Section,
-        on_delete=models.CASCADE,
-        related_name="teaching_assignments",
-    )
-
-    subject = models.ForeignKey(
-        Subject,
-        on_delete=models.CASCADE,
-        related_name="teaching_assignments",
-    )
-
-    class Meta:
-        unique_together = ("teacher", "section", "subject")
-
-    def clean(self):
-        if self.teacher.institution != self.section.classroom.institution:
-            raise ValidationError("Teacher must belong to same institution as section.")
-
-    def __str__(self):
-        return f"{self.teacher.username} - {self.subject.name} - {self.section}"
-
-
-# =========================================================
 # STUDENT REGISTRATION RECORD
 # =========================================================
 
@@ -240,7 +127,7 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTP VERIFICATION (updated: no per-day uniqueness)
+# OTP VERIFICATION
 # =========================================================
 
 class OTPVerification(models.Model):
@@ -251,15 +138,10 @@ class OTPVerification(models.Model):
     last_attempt_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Removed: date field and unique_together → we now allow multiple OTPs per user per day
-
     def is_expired(self):
-        """
-        OTP is valid only until the end of the calendar day it was created.
-        """
         creation_date = self.created_at.date()
         day_end = timezone.datetime.combine(creation_date, time(23, 59, 59, 999999))
-        day_end = timezone.make_aware(day_end)  # ensure aware datetime
+        day_end = timezone.make_aware(day_end)
         return timezone.now() > day_end
 
     def can_attempt(self):
@@ -267,8 +149,6 @@ class OTPVerification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "OTP Verification"
-        verbose_name_plural = "OTP Verifications"
 
     def __str__(self):
         status = "Verified" if self.is_verified else f"{self.attempt_count} attempts"
@@ -276,12 +156,12 @@ class OTPVerification(models.Model):
 
 
 # =========================================================
-# DEVICE SESSION (Single Session Enforcement)
+# DEVICE SESSION
 # =========================================================
 
 class DeviceSession(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="device_session")
-    device_fingerprint = models.CharField(max_length=255)  # currently stores session_key
+    device_fingerprint = models.CharField(max_length=255)
     last_login = models.DateTimeField(auto_now=True)
 
     def __str__(self):

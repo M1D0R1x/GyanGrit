@@ -1,6 +1,5 @@
 import json
 import random
-import hashlib
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
@@ -15,10 +14,11 @@ from apps.accesscontrol.models import JoinCode
 from apps.accesscontrol.permissions import require_roles
 from apps.accesscontrol.scoping import institution_scope_queryset
 
+# 🔥 MOVED TO academics
+from apps.academics.models import Institution, Section, Subject
+
+# 🔥 REMAIN IN accounts
 from .models import (
-    Institution,
-    Section,
-    Subject,
     StudentRegistrationRecord,
     OTPVerification,
     DeviceSession,
@@ -26,8 +26,9 @@ from .models import (
 
 User = get_user_model()
 
+
 # =========================================================
-# REGISTER (PRINCIPAL / TEACHER via JOIN CODE)
+# REGISTER
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -67,7 +68,6 @@ def register(request):
     section = join_code.section
     district = join_code.district
 
-    # Create user and mark code used in one transaction
     with transaction.atomic():
         user = User.objects.create_user(
             username=username,
@@ -80,8 +80,7 @@ def register(request):
         user.district = district
         user.save()
 
-        # Mark the join code as used (prevents reuse)
-        join_code.mark_as_used()   # Uses the helper method from model
+        join_code.mark_as_used()
 
     return JsonResponse({
         "id": user.id,
@@ -94,7 +93,7 @@ def register(request):
 
 
 # =========================================================
-# LOGIN (PASSWORD STAGE ONLY)
+# LOGIN
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -110,7 +109,6 @@ def login_view(request):
     if not user:
         return JsonResponse({"error": "invalid credentials"}, status=401)
 
-    # STUDENTS + ADMINS → direct login (no OTP)
     if user.role in ["STUDENT", "ADMIN"]:
         login(request, user)
         return JsonResponse({
@@ -118,10 +116,9 @@ def login_view(request):
             "id": user.id,
             "username": user.username,
             "role": user.role,
-            "name": user.get_full_name() or user.username,  # fallback to username
+            "name": user.get_full_name() or user.username,
         })
 
-    # All other roles (TEACHER, OFFICIAL, PRINCIPAL) → OTP required
     today = timezone.now().date()
 
     otp_record = OTPVerification.objects.filter(
@@ -138,22 +135,23 @@ def login_view(request):
             attempt_count=0,
         )
     else:
-        otp_code = otp_record.otp_code  # reuse existing
+        otp_code = otp_record.otp_code
 
-    # Debug print to terminal (keep for now)
     print(f"OTP for {user.username} (dev only): {otp_code}")
 
-    # Return OTP + details in JSON (visible in Network tab)
     return JsonResponse({
         "otp_required": True,
         "id": user.id,
         "username": user.username,
         "role": user.role,
         "name": user.get_full_name() or user.username,
-        "otp_code": otp_code,  # ← OTP is here now (remove in production!)
+        "otp_code": otp_code,  # REMOVE IN PRODUCTION
     })
 
 
+# =========================================================
+# RESEND OTP
+# =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -167,7 +165,7 @@ def resend_otp(request):
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
-        return JsonResponse({"error": "Invalid request"}, status=400)  # generic to prevent enumeration
+        return JsonResponse({"error": "Invalid request"}, status=400)
 
     if user.role == "STUDENT":
         return JsonResponse({"error": "Invalid request"}, status=400)
@@ -182,7 +180,6 @@ def resend_otp(request):
     new_otp = str(random.randint(100000, 999999))
 
     if otp_record:
-        # Regenerate code but KEEP original created_at → same day validity
         otp_record.otp_code = new_otp
         otp_record.attempt_count = 0
         otp_record.last_attempt_at = None
@@ -191,22 +188,19 @@ def resend_otp(request):
             "otp_code", "attempt_count", "last_attempt_at", "is_verified"
         ])
     else:
-        # Rare: no OTP yet today → create one
-        otp_record = OTPVerification.objects.create(
+        OTPVerification.objects.create(
             user=user,
             otp_code=new_otp,
             is_verified=False,
             attempt_count=0,
         )
 
-    # TODO: In production → send OTP via email/SMS here
-    # send_otp_email(user.email, new_otp)  # or SMS/WhatsApp
+    return JsonResponse({"success": True})
 
-    return JsonResponse({
-        "success": True,
-        # "dev_console": {"otp": otp_record.otp_code}  # DISABLED - never expose OTP!
-    })
 
+# =========================================================
+# VERIFY OTP
+# =========================================================
 
 @require_http_methods(["POST"])
 @csrf_exempt
@@ -226,22 +220,19 @@ def verify_otp(request):
 
     today = timezone.now().date()
 
-    # Find the OTP created today (most recent one)
     otp_record = OTPVerification.objects.filter(
         user=user,
         created_at__date=today
     ).order_by('-created_at').first()
 
     if not otp_record:
-        return JsonResponse({"error": "No valid OTP found. Please login again."}, status=400)
+        return JsonResponse({"error": "No valid OTP found."}, status=400)
 
-    # Check if still valid for today (day boundary)
     if otp_record.is_expired():
-        return JsonResponse({"error": "OTP has expired. Please request a new one."}, status=400)
+        return JsonResponse({"error": "OTP expired."}, status=400)
 
-    # Check attempt limit
     if otp_record.attempt_count >= 5:
-        return JsonResponse({"error": "Too many attempts. Please request a new OTP."}, status=429)
+        return JsonResponse({"error": "Too many attempts."}, status=429)
 
     if otp_record.otp_code != otp_input:
         otp_record.attempt_count += 1
@@ -249,25 +240,18 @@ def verify_otp(request):
         otp_record.save(update_fields=["attempt_count", "last_attempt_at"])
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
-    # OTP correct → enforce single active session
     existing = DeviceSession.objects.filter(user=user).first()
     if existing:
-        try:
-            Session.objects.filter(session_key=existing.device_fingerprint).delete()
-        except Exception:
-            pass
+        Session.objects.filter(session_key=existing.device_fingerprint).delete()
         existing.delete()
 
-    # Log in the user
     login(request, user)
 
-    # Store new session key
     DeviceSession.objects.create(
         user=user,
         device_fingerprint=request.session.session_key,
     )
 
-    # Mark as verified (for audit / future checks)
     otp_record.is_verified = True
     otp_record.save(update_fields=["is_verified"])
 
@@ -279,7 +263,6 @@ def verify_otp(request):
     })
 
 
-
 # =========================================================
 # LOGOUT
 # =========================================================
@@ -288,10 +271,10 @@ def verify_otp(request):
 @csrf_exempt
 def logout_view(request):
     if request.user.is_authenticated:
-        from apps.accounts.models import DeviceSession
-        DeviceSession.objects.filter(user=request.user).delete()  # clear single-session
+        DeviceSession.objects.filter(user=request.user).delete()
     logout(request)
     return JsonResponse({"success": True})
+
 
 # =========================================================
 # ME
@@ -320,8 +303,7 @@ def me(request):
 @require_http_methods(["GET"])
 def users(request):
     queryset = institution_scope_queryset(request.user, User.objects.all())
-    data = list(queryset.values("id", "username", "role"))
-    return JsonResponse(data, safe=False)
+    return JsonResponse(list(queryset.values("id", "username", "role")), safe=False)
 
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
@@ -385,10 +367,10 @@ def student_register(request):
         return JsonResponse({"error": "Code already used"}, status=400)
 
     if str(record.dob) != str(dob):
-        return JsonResponse({"error": "DOB does not match school record"}, status=400)
+        return JsonResponse({"error": "DOB mismatch"}, status=400)
 
     if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "Username already exists"}, status=400)
+        return JsonResponse({"error": "Username exists"}, status=400)
 
     with transaction.atomic():
         user = User.objects.create_user(

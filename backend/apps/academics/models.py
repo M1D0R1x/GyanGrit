@@ -7,18 +7,19 @@ from django.core.exceptions import ValidationError
 # =========================================================
 
 class Institution(models.Model):
-    class Meta:
-        db_table = "accounts_institution"
     name = models.CharField(max_length=255)
     district = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "accounts_institution"  # preserve existing table
 
     def __str__(self):
         return self.name
 
 
 # =========================================================
-# CLASS (e.g., Grade 10)
+# CLASSROOM
 # =========================================================
 
 class ClassRoom(models.Model):
@@ -33,6 +34,7 @@ class ClassRoom(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "accounts_classroom"
         unique_together = ("name", "institution")
         verbose_name = "Class"
         verbose_name_plural = "Classes"
@@ -42,7 +44,7 @@ class ClassRoom(models.Model):
 
 
 # =========================================================
-# SECTION (e.g., 10A, 10B)
+# SECTION
 # =========================================================
 
 class Section(models.Model):
@@ -55,6 +57,7 @@ class Section(models.Model):
     )
 
     class Meta:
+        db_table = "accounts_section"
         unique_together = ("name", "classroom")
 
     def __str__(self):
@@ -62,7 +65,7 @@ class Section(models.Model):
 
 
 # =========================================================
-# SUBJECT (Core Academic Subject)
+# SUBJECT
 # =========================================================
 
 class Subject(models.Model):
@@ -73,6 +76,9 @@ class Subject(models.Model):
         on_delete=models.CASCADE,
         related_name="subjects",
     )
+
+    class Meta:
+        db_table = "accounts_subject"
 
     def __str__(self):
         return f"{self.name} ({self.institution.name})"
@@ -103,6 +109,7 @@ class TeachingAssignment(models.Model):
     )
 
     class Meta:
+        db_table = "accounts_teachingassignment"
         unique_together = ("teacher", "section", "subject")
 
     def clean(self):

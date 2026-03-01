@@ -3,6 +3,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.accesscontrol.permissions import require_roles
 from .services import (
@@ -13,32 +14,54 @@ from .services import (
 
 
 # =========================================================
-# UPLOAD ROSTER (CSV/Excel file upload)
+# UPLOAD ROSTER
 # =========================================================
 
 @require_roles(["TEACHER"])
 @require_http_methods(["POST"])
+@csrf_exempt
 def upload_roster(request):
     """
     Upload a roster file (CSV/Excel) to create StudentRegistrationRecord entries.
-    Only TEACHERS can upload.
     """
-    if 'file' not in request.FILES:
-        return JsonResponse({"success": False, "error": "No file provided"}, status=400)
 
-    file = request.FILES['file']
+    uploaded_file = request.FILES.get("file")
+
+    if not uploaded_file:
+        return JsonResponse(
+            {"success": False, "error": "No file provided"},
+            status=400,
+        )
 
     try:
-        created_records = process_roster_upload(file, request.user)
+        created_records = process_roster_upload(
+            uploaded_file,
+            request.user,
+        )
+
         return JsonResponse({
             "success": True,
             "created_count": len(created_records),
             "students": created_records,
         })
-    except ValueError as ve:
-        return JsonResponse({"success": False, "error": str(ve)}, status=400)
-    except Exception as e:
-        return JsonResponse({"success": False, "error": "Server error during upload"}, status=500)
+
+    except ValueError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=400,
+        )
+
+    except PermissionError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=403,
+        )
+
+    except Exception:
+        return JsonResponse(
+            {"success": False, "error": "Server error during upload"},
+            status=500,
+        )
 
 
 # =========================================================
@@ -47,29 +70,56 @@ def upload_roster(request):
 
 @require_roles(["TEACHER", "PRINCIPAL"])
 @require_http_methods(["POST"])
+@csrf_exempt
 def regenerate_code(request):
     """
-    Regenerate the registration code for a specific StudentRegistrationRecord.
-    Only TEACHER/PRINCIPAL can do this.
+    Regenerate the registration code for a StudentRegistrationRecord.
     """
-    body = json.loads(request.body)
+
+    try:
+        body = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"success": False, "error": "Invalid JSON"},
+            status=400,
+        )
+
     record_id = body.get("record_id")
 
     if not record_id:
-        return JsonResponse({"success": False, "error": "record_id is required"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "record_id is required"},
+            status=400,
+        )
 
     try:
-        result = regenerate_student_code(record_id, request.user)
+        result = regenerate_student_code(
+            record_id,
+            request.user,
+        )
+
         return JsonResponse({
             "success": True,
-            **result  # includes new_code, record_id, etc.
+            **result,
         })
-    except ValueError as ve:
-        return JsonResponse({"success": False, "error": str(ve)}, status=400)
-    except PermissionError as pe:
-        return JsonResponse({"success": False, "error": str(pe)}, status=403)
-    except Exception as e:
-        return JsonResponse({"success": False, "error": "Server error"}, status=500)
+
+    except ValueError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=400,
+        )
+
+    except PermissionError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=403,
+        )
+
+    except Exception:
+        return JsonResponse(
+            {"success": False, "error": "Server error"},
+            status=500,
+        )
 
 
 # =========================================================
@@ -81,28 +131,56 @@ def regenerate_code(request):
 def list_records(request):
     """
     List StudentRegistrationRecord entries.
-    Optional query param: ?section_id=123&page=1&limit=20
+
+    Optional query params:
+    ?section_id=123&page=1&limit=20
     """
+
     section_id = request.GET.get("section_id")
     page = request.GET.get("page", 1)
-    limit = int(request.GET.get("limit", 20))  # default 20 per page
+
+    try:
+        limit = int(request.GET.get("limit", 20))
+        if limit <= 0:
+            raise ValueError
+    except ValueError:
+        return JsonResponse(
+            {"success": False, "error": "Invalid limit value"},
+            status=400,
+        )
 
     try:
         records = list_registration_records(
             request.user,
             section_id=section_id,
         )
-    except ValueError as ve:
-        return JsonResponse({"success": False, "error": str(ve)}, status=400)
-    except Exception as e:
-        return JsonResponse({"success": False, "error": "Server error"}, status=500)
 
-    # Paginate results
+    except ValueError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=400,
+        )
+
+    except PermissionError as e:
+        return JsonResponse(
+            {"success": False, "error": str(e)},
+            status=403,
+        )
+
+    except Exception:
+        return JsonResponse(
+            {"success": False, "error": "Server error"},
+            status=500,
+        )
+
     paginator = Paginator(records, limit)
+
     try:
         page_obj = paginator.page(page)
+
     except PageNotAnInteger:
         page_obj = paginator.page(1)
+
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages)
 
@@ -111,5 +189,5 @@ def list_records(request):
         "count": paginator.count,
         "total_pages": paginator.num_pages,
         "current_page": page_obj.number,
-        "records": page_obj.object_list,
+        "records": list(page_obj.object_list),
     })

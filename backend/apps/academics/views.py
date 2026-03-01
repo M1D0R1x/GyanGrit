@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
 
 from .models import (
     Institution,
@@ -29,11 +30,10 @@ def institutions(request):
     if request.user.role == "PRINCIPAL":
         queryset = queryset.filter(id=request.user.institution_id)
 
-    data = list(
-        queryset.values("id", "name", "district")
+    return JsonResponse(
+        list(queryset.values("id", "name", "district")),
+        safe=False
     )
-
-    return JsonResponse(data, safe=False)
 
 
 # =========================================================
@@ -51,7 +51,7 @@ def classes(request):
     )
 
     return JsonResponse(
-        list(queryset.values("id", "name")),
+        list(queryset.values("id", "name", "institution_id")),
         safe=False
     )
 
@@ -75,6 +75,11 @@ def sections(request):
             classroom__institution=request.user.institution
         )
 
+    if request.user.role == "OFFICIAL":
+        queryset = queryset.filter(
+            classroom__institution__district=request.user.district
+        )
+
     return JsonResponse(
         list(queryset.values("id", "name", "classroom_id")),
         safe=False
@@ -93,17 +98,17 @@ def subjects(request):
     if request.user.role == "PRINCIPAL":
         queryset = queryset.filter(institution=request.user.institution)
 
-    if request.user.role == "OFFICIAL":
+    elif request.user.role == "OFFICIAL":
         queryset = queryset.filter(
             institution__district=request.user.district
         )
 
-    if request.user.role == "TEACHER":
+    elif request.user.role == "TEACHER":
         queryset = queryset.filter(
             teaching_assignments__teacher=request.user
         ).distinct()
 
-    if request.user.role == "STUDENT":
+    elif request.user.role == "STUDENT":
         queryset = queryset.filter(
             institution=request.user.institution
         )
@@ -115,7 +120,51 @@ def subjects(request):
 
 
 # =========================================================
-# TEACHING ASSIGNMENTS
+# TEACHING ASSIGNMENTS (ADMIN / OFFICIAL / PRINCIPAL)
+# =========================================================
+
+@login_required
+@require_http_methods(["GET"])
+def teaching_assignments(request):
+    if request.user.role not in ["ADMIN", "OFFICIAL", "PRINCIPAL"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    queryset = TeachingAssignment.objects.select_related(
+        "teacher",
+        "subject",
+        "section",
+        "section__classroom",
+    )
+
+    if request.user.role == "PRINCIPAL":
+        queryset = queryset.filter(
+            section__classroom__institution=request.user.institution
+        )
+
+    elif request.user.role == "OFFICIAL":
+        queryset = queryset.filter(
+            section__classroom__institution__district=request.user.district
+        )
+
+    data = []
+
+    for a in queryset:
+        data.append({
+            "id": a.id,
+            "teacher_id": a.teacher.id,
+            "teacher_username": a.teacher.username,
+            "subject_id": a.subject.id,
+            "subject_name": a.subject.name,
+            "section_id": a.section.id,
+            "section_name": a.section.name,
+            "class_name": a.section.classroom.name,
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+# =========================================================
+# MY ASSIGNMENTS (TEACHER ONLY)
 # =========================================================
 
 @login_required
@@ -126,7 +175,7 @@ def my_assignments(request):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=request.user
-    ).select_related("subject", "section")
+    ).select_related("subject", "section", "section__classroom")
 
     data = []
 

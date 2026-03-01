@@ -12,7 +12,10 @@ from apps.assessments.models import (
     AssessmentAttempt,
 )
 from apps.content.models import Course
-from apps.accounts.models import ClassRoom, User
+from apps.academics.models import ClassRoom
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 # =====================================================
@@ -347,3 +350,101 @@ def teacher_class_analytics(request):
         })
 
     return JsonResponse(data, safe=False)
+
+# =========================================================
+# TEACHER CLASS STUDENTS ANALYTICS
+# =========================================================
+
+@require_http_methods(["GET"])
+def teacher_class_students(request, class_id):
+    if not request.user.is_authenticated or request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.academics.models import ClassRoom
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+
+    classroom = get_object_or_404(ClassRoom, id=class_id)
+
+    # Access control
+    if request.user.role == "TEACHER":
+        if not request.user.assignments.filter(section__classroom=classroom).exists():
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    if request.user.role == "OFFICIAL":
+        if classroom.institution.district != request.user.district:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    students = User.objects.filter(
+        role="STUDENT",
+        section__classroom=classroom,
+    )
+
+    data = []
+
+    for student in students:
+        attempts = AssessmentAttempt.objects.filter(
+            user=student,
+            submitted_at__isnull=False,
+        )
+
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
+
+        data.append({
+            "student_id": student.id,
+            "username": student.username,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)
+
+# =========================================================
+# TEACHER STUDENT ASSESSMENT DETAILS
+# =========================================================
+
+@require_http_methods(["GET"])
+def teacher_student_assessments(request, class_id, student_id):
+    if not request.user.is_authenticated or request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    from apps.academics.models import ClassRoom
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+
+    classroom = get_object_or_404(ClassRoom, id=class_id)
+    student = get_object_or_404(User, id=student_id, role="STUDENT")
+
+    if student.section.classroom != classroom:
+        return JsonResponse({"detail": "Student not in this class"}, status=400)
+
+    attempts = (
+        AssessmentAttempt.objects
+        .filter(user=student, submitted_at__isnull=False)
+        .select_related("assessment")
+        .order_by("-submitted_at")
+    )
+
+    data = []
+
+    for attempt in attempts:
+        data.append({
+            "assessment_id": attempt.assessment.id,
+            "assessment_title": attempt.assessment.title,
+            "score": attempt.score,
+            "passed": attempt.passed,
+            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+        })
+
+    return JsonResponse({
+        "student_id": student.id,
+        "username": student.username,
+        "attempts": data,
+    })

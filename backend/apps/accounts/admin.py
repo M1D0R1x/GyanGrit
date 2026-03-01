@@ -9,14 +9,6 @@ from .models import (
     AuditLog,
 )
 
-from apps.academics.models import (
-    Institution,
-    ClassRoom,
-    Section,
-    Subject,
-    TeachingAssignment,
-)
-
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
@@ -25,8 +17,14 @@ class UserAdmin(DjangoUserAdmin):
     )
 
     list_display = (
-        "username", "role", "institution", "section",
-        "public_id", "is_staff", "is_active", "date_joined"
+        "username",
+        "role",
+        "institution",
+        "section",
+        "public_id",
+        "is_staff",
+        "is_active",
+        "date_joined",
     )
 
     list_filter = ("role", "institution", "section", "is_staff", "is_active")
@@ -34,11 +32,6 @@ class UserAdmin(DjangoUserAdmin):
     ordering = ("-date_joined",)
 
 
-admin.site.register(Institution)
-admin.site.register(ClassRoom)
-admin.site.register(Section)
-admin.site.register(Subject)
-admin.site.register(TeachingAssignment)
 admin.site.register(StudentRegistrationRecord)
 admin.site.register(OTPVerification)
 admin.site.register(DeviceSession)

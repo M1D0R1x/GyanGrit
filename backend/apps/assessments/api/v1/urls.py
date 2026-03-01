@@ -11,6 +11,4 @@ urlpatterns = [
     path("teacher/analytics/classes/<int:class_id>/students/", views.teacher_class_students,),
     path("teacher/analytics/classes/<int:class_id>/students/<int:student_id>/", views.teacher_student_assessments,),
 
-
-
 ]

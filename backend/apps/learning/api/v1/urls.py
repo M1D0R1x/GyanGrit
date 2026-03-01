@@ -10,4 +10,5 @@ urlpatterns = [
     path("enrollments/", views.enrollments),
     path("enroll/", views.enroll_course),
     path("enrollments/<int:enrollment_id>/", views.update_enrollment),
+    path("student/dashboard/", views.student_dashboard),
 ]

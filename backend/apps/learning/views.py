@@ -208,3 +208,47 @@ def enroll_learning_path(request, path_id):
         "enrolled_courses": enrolled_count,
         "total_courses": courses.count(),
     })
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from apps.learning.models import Enrollment
+from apps.content.models import LessonProgress
+
+
+@login_required
+def student_dashboard(request):
+    if request.user.role != "STUDENT":
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    enrollments = Enrollment.objects.filter(
+        user=request.user,
+        status__in=["enrolled", "completed"]
+    ).select_related("course")
+
+    courses_data = []
+
+    for e in enrollments:
+        course = e.course
+
+        lessons = course.lessons.filter(is_published=True)
+        total = lessons.count()
+
+        completed = LessonProgress.objects.filter(
+            lesson__course=course,
+            user=request.user,
+            completed=True
+        ).count()
+
+        percentage = int((completed / total) * 100) if total else 0
+
+        courses_data.append({
+            "id": course.id,
+            "title": course.title,
+            "total_lessons": total,
+            "completed_lessons": completed,
+            "progress": percentage,
+        })
+
+    return JsonResponse({
+        "courses": courses_data
+    })

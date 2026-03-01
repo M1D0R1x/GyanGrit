@@ -3,10 +3,8 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from apps.accounts.models import Subject
-
-
 from apps.academics.models import Subject
+
 
 class Course(models.Model):
 
@@ -22,10 +20,14 @@ class Course(models.Model):
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["title"]
+
     def __str__(self):
         if self.subject:
             return f"{self.title} ({self.subject.name})"
         return self.title
+
 
 class Lesson(models.Model):
     course = models.ForeignKey(

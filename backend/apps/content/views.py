@@ -7,18 +7,19 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from apps.accounts.models import TeachingAssignment
+from apps.academics.models import TeachingAssignment, ClassRoom
+from apps.accounts.models import User
 from apps.assessments.models import Assessment, AssessmentAttempt
 from .models import Course, Lesson, LessonProgress
-from apps.accounts.models import User
 
+
+# -------------------------------------------------------
+# HEALTH
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
 def health(request):
-    """
-    Simple health check endpoint.
-    """
     return JsonResponse({
         "status": "ok",
         "service": "gyangrit-backend",
@@ -26,24 +27,29 @@ def health(request):
     })
 
 
+# -------------------------------------------------------
+# COURSES
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["GET"])
 def courses(request):
-    """
-    List all courses (universal for now).
-    """
-    courses = Course.objects.all()
+    courses = Course.objects.all().order_by("title")
 
     data = list(
         courses.values(
             "id",
             "title",
             "description",
-        ).order_by("title")
+        )
     )
 
     return JsonResponse(data, safe=False)
 
+
+# -------------------------------------------------------
+# COURSE LESSONS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
@@ -69,12 +75,16 @@ def course_lessons(request, course_id):
     return JsonResponse(data, safe=False)
 
 
+# -------------------------------------------------------
+# LESSON DETAIL
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
     lesson = get_object_or_404(Lesson, id=lesson_id, is_published=True)
 
-    progress, created = LessonProgress.objects.get_or_create(
+    progress, _ = LessonProgress.objects.get_or_create(
         lesson=lesson,
         user=request.user,
     )
@@ -89,6 +99,10 @@ def lesson_detail(request, lesson_id):
         "last_position": progress.last_position,
     })
 
+
+# -------------------------------------------------------
+# LESSON PROGRESS UPDATE
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["PATCH"])
@@ -105,6 +119,7 @@ def lesson_progress(request, lesson_id):
 
     if "completed" in body:
         progress.completed = body["completed"]
+
     if "last_position" in body:
         progress.last_position = body["last_position"]
 
@@ -116,6 +131,10 @@ def lesson_progress(request, lesson_id):
         "last_position": progress.last_position,
     })
 
+
+# -------------------------------------------------------
+# COURSE PROGRESS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
@@ -148,9 +167,9 @@ def course_progress(request, course_id):
     })
 
 
-# ---------------------------------------------------------------------
-# Teacher Analytics
-# ---------------------------------------------------------------------
+# -------------------------------------------------------
+# TEACHER COURSE ANALYTICS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
@@ -181,6 +200,10 @@ def teacher_course_analytics(request):
 
     return JsonResponse(data, safe=False)
 
+
+# -------------------------------------------------------
+# TEACHER LESSON ANALYTICS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
@@ -216,50 +239,9 @@ def teacher_lesson_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
-@require_http_methods(["GET"])
-def teacher_class_analytics(request):
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    from apps.accounts.models import ClassRoom
-
-    if request.user.role == "TEACHER":
-        # Traverse: teacher → TeachingAssignment (on section) → section → classroom
-        classes = ClassRoom.objects.filter(
-            sections__teaching_assignments__teacher=request.user
-        ).distinct()
-    else:
-        classes = ClassRoom.objects.all()
-
-    data = []
-
-    for classroom in classes:
-        students = classroom.students.all()
-
-        attempts = AssessmentAttempt.objects.filter(
-            user__in=students,
-            submitted_at__isnull=False,
-        )
-
-        total_students = students.count()
-        total_attempts = attempts.count()
-        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
-        pass_count = attempts.filter(passed=True).count()
-
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
-
-        data.append({
-            "class_id": classroom.id,
-            "class_name": classroom.name,
-            "total_students": total_students,
-            "total_attempts": total_attempts,
-            "average_score": round(avg_score, 2),
-            "pass_rate": round(pass_rate, 2),
-        })
-
-    return JsonResponse(data, safe=False)
-
+# -------------------------------------------------------
+# TEACHER CLASS ANALYTICS
+# -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
@@ -267,10 +249,7 @@ def teacher_class_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    from apps.accounts.models import ClassRoom
-
     if request.user.role == "TEACHER":
-        # Correct traversal: classroom → sections → teaching_assignments → teacher
         classes = ClassRoom.objects.filter(
             sections__teaching_assignments__teacher=request.user
         ).distinct()
@@ -289,12 +268,13 @@ def teacher_class_analytics(request):
             user__in=students,
             submitted_at__isnull=False,
         )
+
         total_students = students.count()
         total_attempts = attempts.count()
         avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
         pass_count = attempts.filter(passed=True).count()
 
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts > 0 else 0
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
         data.append({
             "class_id": classroom.id,
@@ -308,6 +288,10 @@ def teacher_class_analytics(request):
     return JsonResponse(data, safe=False)
 
 
+# -------------------------------------------------------
+# TEACHER ASSESSMENT ANALYTICS
+# -------------------------------------------------------
+
 @login_required
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
@@ -315,16 +299,12 @@ def teacher_assessment_analytics(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     if request.user.role == "TEACHER":
-        # Teacher → TeachingAssignment → Subject → Course
-        course_ids = TeachingAssignment.objects.filter(
+        subject_ids = TeachingAssignment.objects.filter(
             teacher=request.user
-        ).values_list(
-            "subject__course_id",
-            flat=True,
-        ).distinct()
+        ).values_list("subject_id", flat=True)
 
         assessments = Assessment.objects.filter(
-            course_id__in=course_ids
+            course__subject_id__in=subject_ids
         )
     else:
         assessments = Assessment.objects.all()
@@ -338,7 +318,6 @@ def teacher_assessment_analytics(request):
         unique_students = attempts.values("user").distinct().count()
         avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
         pass_count = attempts.filter(passed=True).count()
-        fail_count = total_attempts - pass_count
 
         pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
@@ -350,7 +329,7 @@ def teacher_assessment_analytics(request):
             "unique_students": unique_students,
             "average_score": round(avg_score, 2),
             "pass_count": pass_count,
-            "fail_count": fail_count,
+            "fail_count": total_attempts - pass_count,
             "pass_rate": round(pass_rate, 2),
         })
 

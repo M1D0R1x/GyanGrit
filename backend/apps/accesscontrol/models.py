@@ -1,10 +1,12 @@
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from apps.accounts.models import Institution, Section, User
 import secrets
 
 
 class JoinCode(models.Model):
+
     ROLE_CHOICES = (
         ("PRINCIPAL", "Principal"),
         ("TEACHER", "Teacher"),
@@ -14,7 +16,7 @@ class JoinCode(models.Model):
     code = models.CharField(
         max_length=32,
         unique=True,
-        editable=False,           # Prevent changing code after creation
+        editable=False,
     )
 
     role = models.CharField(
@@ -53,7 +55,7 @@ class JoinCode(models.Model):
 
     is_used = models.BooleanField(
         default=False,
-        editable=False,           # Prevent manual toggle in admin
+        editable=False,
     )
 
     created_at = models.DateTimeField(
@@ -65,21 +67,55 @@ class JoinCode(models.Model):
         editable=False,
     )
 
+    # -------------------------------------------------
+    # VALIDATION
+    # -------------------------------------------------
+
+    def clean(self):
+        """
+        Enforce logical scoping rules.
+        """
+
+        # PRINCIPAL must have institution
+        if self.role == "PRINCIPAL" and not self.institution:
+            raise ValidationError("Principal join code requires institution.")
+
+        # TEACHER must have institution
+        if self.role == "TEACHER" and not self.institution:
+            raise ValidationError("Teacher join code requires institution.")
+
+        # STUDENT must have section
+        if self.role == "STUDENT" and not self.section:
+            raise ValidationError("Student join code requires section.")
+
+        # Section must belong to institution if both provided
+        if self.section and self.institution:
+            if self.section.classroom.institution != self.institution:
+                raise ValidationError("Section does not belong to selected institution.")
+
+    # -------------------------------------------------
+    # SAVE
+    # -------------------------------------------------
+
     def save(self, *args, **kwargs):
+
         if not self.code:
             self.code = secrets.token_hex(8)
 
         if not self.expires_at:
             self.expires_at = timezone.now() + timezone.timedelta(days=3)
 
+        self.full_clean()
         super().save(*args, **kwargs)
 
+    # -------------------------------------------------
+    # HELPERS
+    # -------------------------------------------------
+
     def is_valid(self):
-        """Check if code is still usable"""
         return not self.is_used and timezone.now() < self.expires_at
 
     def mark_as_used(self):
-        """Mark code as used after successful registration"""
         if not self.is_used:
             self.is_used = True
             self.save(update_fields=["is_used"])
@@ -92,5 +128,3 @@ class JoinCode(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Join Code"
         verbose_name_plural = "Join Codes"
-        # Optional: uncomment if you want one code per role + scope
-        # unique_together = ("role", "institution", "section")

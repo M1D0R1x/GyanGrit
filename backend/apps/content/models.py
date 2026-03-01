@@ -3,26 +3,15 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from apps.accounts.models import User  # for type hinting
-
-
 from apps.accounts.models import Subject
 
 
 class Course(models.Model):
-    """
-    A learning course attached to a subject.
-    Example:
-        Subject: Mathematics (Institution A)
-        Course: Algebra Grade 10
-    """
 
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
         related_name="courses",
-        null=True,
-        blank=True,
     )
 
     title = models.CharField(max_length=255)
@@ -38,11 +27,6 @@ class Course(models.Model):
         verbose_name_plural = "Courses"
 
 class Lesson(models.Model):
-    """
-    A single lesson inside a course.
-    Ordered within the course.
-    """
-
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,
@@ -51,14 +35,14 @@ class Lesson(models.Model):
 
     title = models.CharField(max_length=255)
     order = models.PositiveIntegerField(default=1)
-    content = models.TextField(blank=True)  # Markdown/HTML/text content
+    content = models.TextField(blank=True)
 
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["order"]
-        unique_together = ["course", "order"]  # No duplicate order per course
+        unique_together = ["course", "order"]
 
     def __str__(self):
         return f"{self.course.title} – {self.title} (Order {self.order})"
@@ -69,11 +53,6 @@ class Lesson(models.Model):
 
 
 class LessonProgress(models.Model):
-    """
-    Tracks a user's progress on a specific lesson.
-    One row per user per lesson.
-    """
-
     lesson = models.ForeignKey(
         Lesson,
         on_delete=models.CASCADE,
@@ -87,7 +66,7 @@ class LessonProgress(models.Model):
     )
 
     completed = models.BooleanField(default=False)
-    last_position = models.IntegerField(default=0)  # e.g., video seconds or scroll %
+    last_position = models.IntegerField(default=0)
     last_opened_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

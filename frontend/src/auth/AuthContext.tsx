@@ -1,77 +1,52 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { apiGet } from "../services/api"; // Adjust path if needed; assuming this handles GET requests with auth
 
-import { apiGet } from "../services/api";
-import type { AuthState, MeResponse } from "./authTypes";
+import type { AuthState, MeResponse, Role } from "./authTypes";
 
-// ─────────────────────────────────────────────────────────────
-// Internal context value type (not exported directly)
-// ─────────────────────────────────────────────────────────────
-type AuthContextValue = AuthState;
+/* eslint-disable react-refresh/only-export-components */
 
-// ─────────────────────────────────────────────────────────────
-// Context itself (only used inside provider)
-// ─────────────────────────────────────────────────────────────
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthState>(null!);
 
-// ─────────────────────────────────────────────────────────────
-// Provider component (this is the only thing we export as component)
-// ─────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Omit<AuthContextValue, "refresh">>({
-    loading: true,
-    authenticated: false,
-    role: "STUDENT" as const,
-    username: undefined,
-  });
+  const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [role, setRole] = useState<Role>("STUDENT");
+  const [username, setUsername] = useState<string | undefined>(undefined);
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
+    setLoading(true);
     try {
-      const me = await apiGet<MeResponse>("/accounts/me/");
-      setState({
-        loading: false,
-        authenticated: me.authenticated,
-        role: me.role,
-        username: me.username,
-      });
+      const data: MeResponse = await apiGet("/accounts/me/");
+      setAuthenticated(data.authenticated);
+      if (data.authenticated) {
+        setRole(data.role);
+        setUsername(data.username);
+      } else {
+        setRole("STUDENT");
+        setUsername(undefined);
+      }
     } catch (err) {
-      console.error("Auth refresh failed:", err);
-      setState({
-        loading: false,
-        authenticated: false,
-        role: "STUDENT" as const,
-        username: undefined,
-      });
+      console.error(err);
+      setAuthenticated(false);
+      setRole("STUDENT");
+      setUsername(undefined);
+    } finally {
+      setLoading(false);
     }
-  }, []); // ← stable, no deps → no re-creation
+  };
 
   useEffect(() => {
     refresh();
-  }, [refresh]); // ← depends on stable refresh
+  }, []);
 
-  // Value object is recreated only when state changes
-  const value: AuthContextValue = {
-    ...state,
-    refresh,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ loading, authenticated, role, username, refresh }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Hook (exported for consumption)
-// ─────────────────────────────────────────────────────────────
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
+export function useAuth() {
+  return useContext(AuthContext);
 }

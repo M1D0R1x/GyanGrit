@@ -113,13 +113,13 @@ export const router = createBrowserRouter([
   },
 
   // ===============================
-  // OFFICIAL ROUTES
+  // OFFICIAL / PRINCIPAL ROUTES (shared for now; split if needed)
   // ===============================
 
   {
     path: "/official",
     element: (
-      <RequireRole role="OFFICIAL">
+      <RequireRole role="PRINCIPAL">
         <OfficialDashboardPage />
       </RequireRole>
     ),

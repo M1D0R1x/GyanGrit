@@ -1,5 +1,5 @@
 // auth/authTypes.ts
-export type Role = "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+export type Role = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
 
 export type MeResponse = {
   authenticated: boolean;

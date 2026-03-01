@@ -63,7 +63,7 @@ export default function TeacherDashboardPage() {
         <>
           {/* COURSE COMPLETION */}
           <h2>Course Completion</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr)", gap: 20, marginBottom: 48 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 48 }}>
             {courses.length === 0 ? (
               <p>No courses available.</p>
             ) : (
@@ -89,7 +89,7 @@ export default function TeacherDashboardPage() {
 
           {/* ASSESSMENT PERFORMANCE */}
           <h2 style={{ marginTop: 48 }}>Assessment Performance</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr)", gap: 20, marginBottom: 48 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginBottom: 48 }}>
             {assessments.length === 0 ? (
               <p>No assessments data available.</p>
             ) : (
@@ -116,7 +116,7 @@ export default function TeacherDashboardPage() {
 
           {/* CLASS PERFORMANCE */}
           <h2 style={{ marginTop: 48 }}>Class Performance</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr)", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
             {classes.length === 0 ? (
               <p>No class data available.</p>
             ) : (

@@ -11,7 +11,7 @@ type VerifyOtpResponse = {
   success: true;
   id: number;
   username: string;
-  role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+  role: "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
 };
 
 export default function VerifyOtpPage() {
@@ -44,8 +44,14 @@ export default function VerifyOtpPage() {
       await auth.refresh();
 
       switch (response.role) {
+        case "STUDENT":
+          navigate("/dashboard", { replace: true });
+          break;
         case "TEACHER":
           navigate("/teacher", { replace: true });
+          break;
+        case "PRINCIPAL":
+          navigate("/official", { replace: true });
           break;
         case "OFFICIAL":
           navigate("/official", { replace: true });
@@ -54,7 +60,7 @@ export default function VerifyOtpPage() {
           navigate("/admin-panel", { replace: true });
           break;
         default:
-          navigate("/", { replace: true });
+          navigate("/login", { replace: true });
       }
     } catch (err: unknown) {
       setError("Invalid OTP");

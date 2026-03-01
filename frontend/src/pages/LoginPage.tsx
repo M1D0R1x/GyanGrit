@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
@@ -12,16 +12,13 @@ type LoginApiResponse =
       otp_required: false;
       id: number;
       username: string;
-      role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+      role: "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
       dev_console?: { username: string; otp: string };
     };
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const auth = useAuth();
-
-  const from = (location.state as { from?: string })?.from || "/";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -58,8 +55,14 @@ export default function LoginPage() {
 
       // Role-based redirect
       switch (response.role) {
+        case "STUDENT":
+          navigate("/dashboard", { replace: true });
+          break;
         case "TEACHER":
           navigate("/teacher", { replace: true });
+          break;
+        case "PRINCIPAL":
+          navigate("/official", { replace: true });
           break;
         case "OFFICIAL":
           navigate("/official", { replace: true });
@@ -68,7 +71,7 @@ export default function LoginPage() {
           navigate("/admin-panel", { replace: true });
           break;
         default:
-          navigate(from, { replace: true });
+          navigate("/login", { replace: true });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";

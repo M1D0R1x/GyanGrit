@@ -21,13 +21,13 @@ class DistrictAdmin(admin.ModelAdmin):
 @admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "district", "created_at")
-    search_fields = ("name", "district__name")  # ← FIXED (was broken)
+    search_fields = ("name", "district__name")
     ordering = ("-created_at",)
 
 
 @admin.register(ClassRoom)
 class ClassRoomAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "institution", "created_at")
+    list_display = ("id", "name", "institution")          # ← removed created_at
     list_filter = ("institution",)
     search_fields = ("name", "institution__name")
     ordering = ("institution", "name")

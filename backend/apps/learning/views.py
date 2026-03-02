@@ -12,7 +12,7 @@ from apps.content.models import Course, LessonProgress
 
 
 # -------------------------------------------------------
-# ACCESS CONTROL HELPER (consistent with content app)
+# ACCESS CONTROL HELPER
 # -------------------------------------------------------
 
 def can_access_course(user, course):
@@ -56,7 +56,7 @@ def enrollments(request):
 
 
 # -------------------------------------------------------
-# ENROLL IN COURSE (now secured)
+# ENROLL IN COURSE
 # -------------------------------------------------------
 
 @login_required
@@ -119,7 +119,7 @@ def update_enrollment(request, enrollment_id):
 
 
 # -------------------------------------------------------
-# LEARNING PATHS (global - visible to everyone)
+# LEARNING PATHS
 # -------------------------------------------------------
 
 @login_required
@@ -218,13 +218,14 @@ def enroll_learning_path(request, path_id):
 
 
 # -------------------------------------------------------
-# STUDENT DASHBOARD
+# STUDENT DASHBOARD — NOW SUPPORTS ADMIN (for testing)
 # -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
 def student_dashboard(request):
-    if request.user.role != "STUDENT":
+    # ADMIN can now access for testing (shows courses admin is enrolled in)
+    if request.user.role not in ["STUDENT", "ADMIN"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     enrollments = Enrollment.objects.filter(

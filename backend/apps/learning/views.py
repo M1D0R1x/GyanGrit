@@ -5,8 +5,29 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 
+from apps.accesscontrol.scoped_service import scope_queryset
+from apps.academics.models import StudentSubject
 from .models import Enrollment, LearningPath, LearningPathCourse
 from apps.content.models import Course, LessonProgress
+
+
+# -------------------------------------------------------
+# ACCESS CONTROL HELPER (consistent with content app)
+# -------------------------------------------------------
+
+def can_access_course(user, course):
+    """Student can only enroll/access courses they are supposed to study."""
+    if user.role == "ADMIN":
+        return True
+
+    if user.role == "STUDENT":
+        return StudentSubject.objects.filter(
+            student=user,
+            subject=course.subject
+        ).exists()
+
+    # Teachers/Principals/Officials can enroll in anything (for testing/demo)
+    return user.role in ["TEACHER", "PRINCIPAL", "OFFICIAL"]
 
 
 # -------------------------------------------------------
@@ -31,12 +52,11 @@ def enrollments(request):
             "completed_at",
         ).order_by("-enrolled_at")
     )
-
     return JsonResponse(data, safe=False)
 
 
 # -------------------------------------------------------
-# ENROLL IN COURSE
+# ENROLL IN COURSE (now secured)
 # -------------------------------------------------------
 
 @login_required
@@ -49,6 +69,9 @@ def enroll_course(request):
         return JsonResponse({"error": "course_id required"}, status=400)
 
     course = get_object_or_404(Course, id=course_id)
+
+    if not can_access_course(request.user, course):
+        return JsonResponse({"error": "You are not allowed to enroll in this course"}, status=403)
 
     enrollment, created = Enrollment.objects.get_or_create(
         user=request.user,
@@ -96,7 +119,7 @@ def update_enrollment(request, enrollment_id):
 
 
 # -------------------------------------------------------
-# LEARNING PATHS
+# LEARNING PATHS (global - visible to everyone)
 # -------------------------------------------------------
 
 @login_required
@@ -105,13 +128,8 @@ def learning_paths(request):
     paths = LearningPath.objects.all().order_by("name")
 
     data = list(
-        paths.values(
-            "id",
-            "name",
-            "description",
-        )
+        paths.values("id", "name", "description")
     )
-
     return JsonResponse(data, safe=False)
 
 
@@ -140,7 +158,6 @@ def learning_path_detail(request, path_id):
             for c in courses
         ],
     }
-
     return JsonResponse(data)
 
 
@@ -156,7 +173,6 @@ def learning_path_progress(request, path_id):
     )
 
     total = len(course_ids)
-
     completed = Enrollment.objects.filter(
         user=request.user,
         course_id__in=course_ids,
@@ -185,13 +201,14 @@ def enroll_learning_path(request, path_id):
     enrolled_count = 0
 
     for item in courses:
-        _, created = Enrollment.objects.get_or_create(
-            user=request.user,
-            course=item.course,
-            defaults={"status": "enrolled"},
-        )
-        if created:
-            enrolled_count += 1
+        if can_access_course(request.user, item.course):
+            _, created = Enrollment.objects.get_or_create(
+                user=request.user,
+                course=item.course,
+                defaults={"status": "enrolled"},
+            )
+            if created:
+                enrolled_count += 1
 
     return JsonResponse({
         "path_id": path.id,
@@ -219,7 +236,6 @@ def student_dashboard(request):
 
     for e in enrollments:
         course = e.course
-
         lessons = course.lessons.filter(is_published=True)
         total = lessons.count()
 
@@ -239,6 +255,4 @@ def student_dashboard(request):
             "progress": percentage,
         })
 
-    return JsonResponse({
-        "courses": courses_data
-    })
+    return JsonResponse({"courses": courses_data})

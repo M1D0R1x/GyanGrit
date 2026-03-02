@@ -6,13 +6,12 @@ from .base import *
 DEBUG = False
 
 # -------------------------------------------------
-# Hosts (REQUIRED)
-# Replace with actual domain / IP when deployed
+# Hosts (update with your actual domain)
 # -------------------------------------------------
 ALLOWED_HOSTS = [
-    "gyangrit.com",          # example domain
+    "gyangrit.com",
     "www.gyangrit.com",
-    "127.0.0.1",             # optional (remove later)
+    # Add your Supabase / Vercel / Railway domain here when deployed
 ]
 
 # -------------------------------------------------
@@ -20,10 +19,6 @@ ALLOWED_HOSTS = [
 # -------------------------------------------------
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
-
-CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SAMESITE = "Lax"
-
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
@@ -33,6 +28,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 CORS_ALLOWED_ORIGINS = [
     "https://gyangrit.com",
     "https://www.gyangrit.com",
+    # Add your frontend domain (Vercel/Netlify) here
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -43,12 +39,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # -------------------------------------------------
-# Database
-# (SQLite ok for capstone; swap later if needed)
+# DATABASE → KEEP Supabase (DO NOT override to SQLite)
 # -------------------------------------------------
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# Base.py already handles DATABASE_URL from .env
+# Supabase connection string works perfectly here.

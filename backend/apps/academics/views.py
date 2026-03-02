@@ -1,7 +1,6 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404
 
 from .models import (
     Institution,
@@ -9,6 +8,7 @@ from .models import (
     Section,
     Subject,
     TeachingAssignment,
+    District,
 )
 
 
@@ -27,11 +27,14 @@ def institutions(request):
     if request.user.role == "OFFICIAL":
         queryset = queryset.filter(district__name=request.user.district)
 
-    if request.user.role == "PRINCIPAL":
-        queryset = queryset.filter(district__name=request.user.district)
+    elif request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        queryset = queryset.filter(id=request.user.institution.id)
 
+    # ADMIN → all institutions
     return JsonResponse(
-        list(queryset.values("id", "name", "district")),
+        list(queryset.values("id", "name", "district__name")),
         safe=False
     )
 
@@ -43,13 +46,19 @@ def institutions(request):
 @login_required
 @require_http_methods(["GET"])
 def classes(request):
-    if not request.user.institution:
-        return JsonResponse({"detail": "No institution assigned"}, status=400)
+    queryset = ClassRoom.objects.all()
 
-    queryset = ClassRoom.objects.filter(
-        institution=request.user.institution
-    )
+    if request.user.role in ["PRINCIPAL", "TEACHER", "STUDENT"]:
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        queryset = queryset.filter(institution=request.user.institution)
 
+    elif request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
+        queryset = queryset.filter(institution__district__name=request.user.district)
+
+    # ADMIN → all classes
     return JsonResponse(
         list(queryset.values("id", "name", "institution_id")),
         safe=False
@@ -75,9 +84,9 @@ def sections(request):
             classroom__institution=request.user.institution
         )
 
-    if request.user.role == "OFFICIAL":
+    elif request.user.role == "OFFICIAL":
         queryset = queryset.filter(
-            classroom__institution__district=request.user.district
+            classroom__institution__district__name=request.user.district   # ← FIXED
         )
 
     return JsonResponse(
@@ -86,17 +95,19 @@ def sections(request):
     )
 
 
+# =========================================================
+# SUBJECTS
+# =========================================================
+
 @login_required
 @require_http_methods(["GET"])
 def subjects(request):
-
     # STUDENT → subjects assigned to their class
     if request.user.role == "STUDENT":
         if not request.user.section:
             return JsonResponse([], safe=False)
 
         classroom = request.user.section.classroom
-
         queryset = Subject.objects.filter(
             classrooms__classroom=classroom
         ).distinct()
@@ -117,7 +128,6 @@ def subjects(request):
     )
 
 
-
 # =========================================================
 # TEACHING ASSIGNMENTS (ADMIN / OFFICIAL / PRINCIPAL)
 # =========================================================
@@ -129,10 +139,7 @@ def teaching_assignments(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     queryset = TeachingAssignment.objects.select_related(
-        "teacher",
-        "subject",
-        "section",
-        "section__classroom",
+        "teacher", "subject", "section", "section__classroom"
     )
 
     if request.user.role == "PRINCIPAL":
@@ -142,11 +149,10 @@ def teaching_assignments(request):
 
     elif request.user.role == "OFFICIAL":
         queryset = queryset.filter(
-            section__classroom__institution__district=request.user.district
+            section__classroom__institution__district__name=request.user.district  # ← FIXED
         )
 
     data = []
-
     for a in queryset:
         data.append({
             "id": a.id,
@@ -177,7 +183,6 @@ def my_assignments(request):
     ).select_related("subject", "section", "section__classroom")
 
     data = []
-
     for a in assignments:
         data.append({
             "subject_id": a.subject.id,
@@ -189,11 +194,10 @@ def my_assignments(request):
 
     return JsonResponse(data, safe=False)
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.db.models import Q
-from .models import District, Institution
 
+# =========================================================
+# PUBLIC HELPERS (used in registration forms etc.)
+# =========================================================
 
 @require_http_methods(["GET"])
 def districts(request):

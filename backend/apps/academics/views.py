@@ -25,10 +25,10 @@ def institutions(request):
     queryset = Institution.objects.all()
 
     if request.user.role == "OFFICIAL":
-        queryset = queryset.filter(district=request.user.district)
+        queryset = queryset.filter(district__name=request.user.district)
 
     if request.user.role == "PRINCIPAL":
-        queryset = queryset.filter(id=request.user.institution_id)
+        queryset = queryset.filter(district__name=request.user.district)
 
     return JsonResponse(
         list(queryset.values("id", "name", "district")),
@@ -86,37 +86,36 @@ def sections(request):
     )
 
 
-# =========================================================
-# SUBJECTS
-# =========================================================
-
 @login_required
 @require_http_methods(["GET"])
 def subjects(request):
-    queryset = Subject.objects.all()
 
-    if request.user.role == "PRINCIPAL":
-        queryset = queryset.filter(institution=request.user.institution)
+    # STUDENT → subjects assigned to their class
+    if request.user.role == "STUDENT":
+        if not request.user.section:
+            return JsonResponse([], safe=False)
 
-    elif request.user.role == "OFFICIAL":
-        queryset = queryset.filter(
-            institution__district=request.user.district
-        )
+        classroom = request.user.section.classroom
 
+        queryset = Subject.objects.filter(
+            classrooms__classroom=classroom
+        ).distinct()
+
+    # TEACHER → subjects they teach
     elif request.user.role == "TEACHER":
-        queryset = queryset.filter(
+        queryset = Subject.objects.filter(
             teaching_assignments__teacher=request.user
         ).distinct()
 
-    elif request.user.role == "STUDENT":
-        queryset = queryset.filter(
-            institution=request.user.institution
-        )
+    # PRINCIPAL / OFFICIAL / ADMIN → all subjects
+    else:
+        queryset = Subject.objects.all()
 
     return JsonResponse(
-        list(queryset.values("id", "name", "institution_id")),
+        list(queryset.values("id", "name")),
         safe=False
     )
+
 
 
 # =========================================================

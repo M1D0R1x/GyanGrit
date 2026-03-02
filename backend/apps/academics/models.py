@@ -137,3 +137,43 @@ class StudentSubject(models.Model):
 
     def __str__(self):
         return f"{self.student.username} - {self.subject.name}"
+
+
+# =========================================================
+# TEACHING ASSIGNMENT
+# =========================================================
+
+from django.core.exceptions import ValidationError
+
+
+class TeachingAssignment(models.Model):
+    teacher = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        limit_choices_to={"role": "TEACHER"},
+        related_name="teaching_assignments",
+    )
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="teaching_assignments",
+    )
+
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="teaching_assignments",
+    )
+
+    class Meta:
+        unique_together = ("teacher", "subject", "section")
+
+    def clean(self):
+        if self.teacher.institution != self.section.classroom.institution:
+            raise ValidationError(
+                "Teacher must belong to same institution as section."
+            )
+
+    def __str__(self):
+        return f"{self.teacher.username} - {self.subject.name} - {self.section}"

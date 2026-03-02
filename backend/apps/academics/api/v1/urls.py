@@ -1,6 +1,6 @@
 from django.urls import path
 from apps.academics import views
-
+from apps.academics.views import *
 
 urlpatterns = [
     path("institutions/", views.institutions),

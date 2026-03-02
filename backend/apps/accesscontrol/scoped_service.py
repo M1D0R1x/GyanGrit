@@ -4,7 +4,8 @@ from django.shortcuts import get_object_or_404
 
 def scope_queryset(user, queryset):
     """
-    Centralized institutional scoping.
+    Centralized institutional + district scoping.
+    Use this everywhere going forward.
     """
 
     if not user.is_authenticated:
@@ -14,21 +15,19 @@ def scope_queryset(user, queryset):
     if user.role == "ADMIN":
         return queryset
 
-    # OFFICIAL sees all institutions (change later if district-based)
+    # OFFICIAL sees only their district (consistent with academics app)
     if user.role == "OFFICIAL":
-        return queryset
+        district_name = getattr(user, "district", None)
+        if district_name:
+            return queryset.filter(institution__district__name=district_name)
+        return queryset.none()
 
-    # PRINCIPAL limited to own institution
-    if user.role == "PRINCIPAL":
-        return queryset.filter(institution=user.institution)
-
-    # TEACHER limited to own institution
-    if user.role == "TEACHER":
-        return queryset.filter(institution=user.institution)
-
-    # STUDENT limited to own institution
-    if user.role == "STUDENT":
-        return queryset.filter(institution=user.institution)
+    # PRINCIPAL / TEACHER / STUDENT limited to own institution
+    if user.role in ["PRINCIPAL", "TEACHER", "STUDENT"]:
+        institution = getattr(user, "institution", None)
+        if institution:
+            return queryset.filter(institution=institution)
+        return queryset.none()
 
     return queryset.none()
 
@@ -36,12 +35,7 @@ def scope_queryset(user, queryset):
 def get_scoped_object_or_403(user, queryset, **lookup):
     """
     Safe object fetch with automatic scoping.
+    Returns 404 if not found or not in user's scope (security best practice).
     """
-
     scoped_qs = scope_queryset(user, queryset)
-    obj = get_object_or_404(scoped_qs, **lookup)
-
-    if not obj:
-        raise PermissionDenied("Access denied.")
-
-    return obj
+    return get_object_or_404(scoped_qs, **lookup)

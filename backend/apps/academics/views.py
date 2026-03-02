@@ -189,3 +189,45 @@ def my_assignments(request):
         })
 
     return JsonResponse(data, safe=False)
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+from .models import District, Institution
+
+
+@require_http_methods(["GET"])
+def districts(request):
+    query = request.GET.get("q", "")
+
+    districts = District.objects.filter(
+        name__icontains=query
+    ).order_by("name")
+
+    data = list(districts.values("id", "name"))
+    return JsonResponse(data, safe=False)
+
+
+@require_http_methods(["GET"])
+def schools(request):
+    district_id = request.GET.get("district_id")
+    query = request.GET.get("q", "")
+
+    schools = Institution.objects.all()
+
+    if district_id:
+        schools = schools.filter(district_id=district_id)
+
+    if query:
+        schools = schools.filter(name__icontains=query)
+
+    data = list(
+        schools.values(
+            "id",
+            "name",
+            "district__name",
+            "is_government",
+        ).order_by("name")
+    )
+
+    return JsonResponse(data, safe=False)

@@ -1,0 +1,30 @@
+TODO
+subject should be global
+like, englihs, hindhi and all
+
+lets say a institue is registered with us, and then there are classes lets suppose class 6, 7, 8, 9, 10
+since almost all the subjects are common in all classes, we can add them as global subjects
+so that they will be allocated to every class and then every student in the class
+and also lets say for students in class 10 wants to otp for sanskrit since there will be 2 subjects so for that they will be added
+or else we can add class wise data like for class 6 these are the subjects which will be automatically alloted and for class 8 these and so on
+and also we will provide them with choice subjects for suppose telugu 1 and telugu 2 are there
+but people can choose telugu 1 and telugu 2 or telugu 1 and sanskrit or telugu 2 and sanskrit
+so we will make accordingly
+and also all lessons are same for every class in diff institutes so we also need to make global syllabus like that which can be alloted
+to every class
+
+and also in enrollment from admin portal i can only be enrolled in course
+for suppose math olympiad which is being provided for maths subject
+
+student in class should automatically be enrolled in the subjects
+and in enrollments i cant choose completed at time stamp for the course whose statuse is completed by student its blocked
+
+when logged in as admin the dashboard (student dashboard for admin ) is not accessible, this is the
+response i got
+{"detail": "Forbidden"}
+
+
+and in enrollments courses and learning paths should come
+and in join code at created by option student1, teacher1, admin options are coming
+it should just be admin or teacher or official or principal only right
+student dont have that kind of access

@@ -6,27 +6,33 @@ from django.core.exceptions import ValidationError
 from apps.academics.models import Subject
 
 
+from django.db import models
+from apps.academics.models import Subject
+
+
 class Course(models.Model):
 
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
-        related_name="learning_courses",
-        null=True,
-        blank=True,
+        related_name="courses",
     )
+
+    grade = models.IntegerField()  # 6,7,8,9,10
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+
+    is_core = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["title"]
+        ordering = ["grade", "title"]
 
     def __str__(self):
-        if self.subject:
-            return f"{self.title} ({self.subject.name})"
-        return self.title
+        return f"{self.title} (Class {self.grade} - {self.subject.name})"
+
 
 
 class Lesson(models.Model):

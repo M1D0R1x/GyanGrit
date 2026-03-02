@@ -7,7 +7,6 @@ export default function RegisterPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN">("STUDENT");
   const [joinCode, setJoinCode] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -15,7 +14,7 @@ export default function RegisterPage() {
 
   const handleRegister = async () => {
     if (!username || !password || !joinCode) {
-      setError("Username, password and join_code are required");
+      setError("Username, password and join code are required");
       return;
     }
 
@@ -27,16 +26,20 @@ export default function RegisterPage() {
       await apiPost("/accounts/register/", {
         username,
         password,
-        role,
         join_code: joinCode,
+        // No role sent → backend will take it from join_code
       });
 
-      setMsg("✅ User created successfully! You can now login.");
-      // Optional: auto redirect to login after success
-      setTimeout(() => navigate("/login"), 1500);
-    } catch (err: any) {
-      const errorMsg = err?.message || "Registration failed";
-      setError(errorMsg);
+      setMsg("✅ Registration successful! You can now login.");
+      setTimeout(() => navigate("/login"), 1800);
+    } catch (err: unknown) {
+      // Fixed: no more "any" → clean TypeScript
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Registration failed. Check your join code.";
+
+      setError(message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -45,7 +48,10 @@ export default function RegisterPage() {
 
   return (
     <div style={{ maxWidth: 400, margin: "80px auto", padding: "20px" }}>
-      <h2>Register (Dev Only)</h2>
+      <h2>Register</h2>
+      <p style={{ opacity: 0.7 }}>
+        Role is automatically set by the join code
+      </p>
 
       <div style={{ marginBottom: 12 }}>
         <input
@@ -66,29 +72,15 @@ export default function RegisterPage() {
         />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as any)}
-          style={{ width: "100%", padding: 10 }}
-        >
-          <option value="STUDENT">STUDENT</option>
-          <option value="TEACHER">TEACHER</option>
-          <option value="PRINCIPAL">PRINCIPAL</option>
-          <option value="OFFICIAL">OFFICIAL</option>
-          <option value="ADMIN">ADMIN</option>
-        </select>
-      </div>
-
       <div style={{ marginBottom: 16 }}>
         <input
-          placeholder="Join Code (required)"
+          placeholder="Join Code"
           value={joinCode}
           onChange={(e) => setJoinCode(e.target.value)}
           style={{ width: "100%", padding: 10 }}
         />
-        <small style={{ color: "#666" }}>
-          Get this from teacher/principal roster or admin
+        <small style={{ color: "#666", display: "block", marginTop: 4 }}>
+          Paste the code you received from teacher / principal / roster
         </small>
       </div>
 
@@ -106,19 +98,24 @@ export default function RegisterPage() {
           cursor: loading ? "not-allowed" : "pointer",
         }}
       >
-        {loading ? "Creating User..." : "Register"}
+        {loading ? "Creating Account..." : "Register"}
       </button>
 
-      {msg && <p style={{ color: "green", marginTop: 16 }}>{msg}</p>}
+      {msg && <p style={{ color: "green", marginTop: 16, fontWeight: "bold" }}>{msg}</p>}
       {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
 
-      <p style={{ marginTop: 20, textAlign: "center" }}>
-        Already have account?{" "}
+      <p style={{ marginTop: 24, textAlign: "center" }}>
+        Already have an account?{" "}
         <button
           onClick={() => navigate("/login")}
-          style={{ color: "#007bff", background: "none", border: "none" }}
+          style={{
+            color: "#007bff",
+            background: "none",
+            border: "none",
+            textDecoration: "underline",
+          }}
         >
-          Go to Login
+          Login here
         </button>
       </p>
     </div>

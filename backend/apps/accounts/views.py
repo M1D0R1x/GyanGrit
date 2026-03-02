@@ -36,17 +36,14 @@ def register(request):
 
     username = body.get("username")
     password = body.get("password")
-    role = body.get("role")
+    role_from_frontend = body.get("role")          # ← optional now
     join_code_value = body.get("join_code")
 
-    if not username or not password or not role or not join_code_value:
-        return JsonResponse({"error": "username, password, role, join_code required"}, status=400)
-
-    if role not in dict(User.ROLE_CHOICES):
-        return JsonResponse({"error": "invalid role"}, status=400)
-
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "username already exists"}, status=400)
+    if not username or not password or not join_code_value:
+        return JsonResponse(
+            {"error": "username, password and join_code are required"},
+            status=400
+        )
 
     try:
         join_code = JoinCode.objects.get(code=join_code_value)
@@ -56,8 +53,18 @@ def register(request):
     if not join_code.is_valid():
         return JsonResponse({"error": "expired or already used join_code"}, status=400)
 
-    if join_code.role != role:
-        return JsonResponse({"error": "role mismatch for join_code"}, status=400)
+    # ============== ROLE LOGIC (Backend decides) ==============
+    role = role_from_frontend or join_code.role
+
+    if role not in dict(User.ROLE_CHOICES):
+        return JsonResponse({"error": "invalid role"}, status=400)
+
+    # Safety: frontend role (if sent) must match join_code
+    if role_from_frontend and role_from_frontend != join_code.role:
+        return JsonResponse({"error": "role mismatch with join_code"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"error": "username already exists"}, status=400)
 
     institution = join_code.institution
     section = join_code.section
@@ -88,7 +95,6 @@ def register(request):
         "institution": user.institution.name if user.institution else None,
         "section": user.section.name if user.section else None,
     })
-
 
 # =========================================================
 # LOGIN + OTP FLOW (unchanged except imports)

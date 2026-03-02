@@ -6,12 +6,7 @@ from django.core.exceptions import ValidationError
 from apps.academics.models import Subject
 
 
-from django.db import models
-from apps.academics.models import Subject
-
-
 class Course(models.Model):
-
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -32,7 +27,6 @@ class Course(models.Model):
 
     def __str__(self):
         return f"{self.title} (Class {self.grade} - {self.subject.name})"
-
 
 
 class Lesson(models.Model):

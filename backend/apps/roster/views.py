@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import ValidationError
 
 from apps.accesscontrol.permissions import require_roles
 from .services import (
@@ -21,10 +22,6 @@ from .services import (
 @require_http_methods(["POST"])
 @csrf_exempt
 def upload_roster(request):
-    """
-    Upload a roster file (CSV/Excel) to create StudentRegistrationRecord entries.
-    """
-
     uploaded_file = request.FILES.get("file")
 
     if not uploaded_file:
@@ -45,16 +42,10 @@ def upload_roster(request):
             "students": created_records,
         })
 
-    except ValueError as e:
+    except ValidationError as e:
         return JsonResponse(
             {"success": False, "error": str(e)},
             status=400,
-        )
-
-    except PermissionError as e:
-        return JsonResponse(
-            {"success": False, "error": str(e)},
-            status=403,
         )
 
     except Exception:
@@ -72,10 +63,6 @@ def upload_roster(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def regenerate_code(request):
-    """
-    Regenerate the registration code for a StudentRegistrationRecord.
-    """
-
     try:
         body = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -103,16 +90,10 @@ def regenerate_code(request):
             **result,
         })
 
-    except ValueError as e:
+    except ValidationError as e:
         return JsonResponse(
             {"success": False, "error": str(e)},
             status=400,
-        )
-
-    except PermissionError as e:
-        return JsonResponse(
-            {"success": False, "error": str(e)},
-            status=403,
         )
 
     except Exception:
@@ -129,13 +110,6 @@ def regenerate_code(request):
 @require_roles(["TEACHER", "PRINCIPAL"])
 @require_http_methods(["GET"])
 def list_records(request):
-    """
-    List StudentRegistrationRecord entries.
-
-    Optional query params:
-    ?section_id=123&page=1&limit=20
-    """
-
     section_id = request.GET.get("section_id")
     page = request.GET.get("page", 1)
 
@@ -155,16 +129,10 @@ def list_records(request):
             section_id=section_id,
         )
 
-    except ValueError as e:
+    except ValidationError as e:
         return JsonResponse(
             {"success": False, "error": str(e)},
             status=400,
-        )
-
-    except PermissionError as e:
-        return JsonResponse(
-            {"success": False, "error": str(e)},
-            status=403,
         )
 
     except Exception:
@@ -177,10 +145,8 @@ def list_records(request):
 
     try:
         page_obj = paginator.page(page)
-
     except PageNotAnInteger:
         page_obj = paginator.page(1)
-
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages)
 

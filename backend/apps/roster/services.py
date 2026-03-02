@@ -6,9 +6,9 @@ from django.utils import timezone
 
 from apps.accounts.models import (
     StudentRegistrationRecord,
-    Section,
     AuditLog,
 )
+from apps.academics.models import Section
 
 
 # =========================================================
@@ -25,12 +25,9 @@ def process_roster_upload(file, teacher):
 
     created_records = []
 
-    # Expected columns:
-    # Name | DOB | Section_ID
-
+    # Expected columns: Name | DOB | Section_ID
     for row in sheet.iter_rows(min_row=2, values_only=True):
-
-        name, dob, section_id = row
+        name, dob, section_id = row[:3]  # safe in case extra columns
 
         if not all([name, dob, section_id]):
             continue
@@ -43,7 +40,7 @@ def process_roster_upload(file, teacher):
             continue
 
         # Ensure teacher is assigned to this section
-        if not teacher.assignments.filter(section=section).exists():
+        if not teacher.teaching_assignments.filter(section=section).exists():
             continue
 
         record = StudentRegistrationRecord.objects.create(
@@ -78,7 +75,7 @@ def regenerate_student_code(record_id, actor):
 
     # Permission logic
     if actor.role == "TEACHER":
-        if not actor.assignments.filter(section=record.section).exists():
+        if not actor.teaching_assignments.filter(section=record.section).exists():
             raise ValidationError("You cannot modify this section.")
 
     elif actor.role == "PRINCIPAL":
@@ -108,6 +105,7 @@ def regenerate_student_code(record_id, actor):
         "name": record.name,
     }
 
+
 # =========================================================
 # LIST REGISTRATION RECORDS
 # =========================================================
@@ -123,7 +121,7 @@ def list_registration_records(actor, section_id=None):
     # Role-based scoping
     if actor.role == "TEACHER":
         queryset = queryset.filter(
-            section__in=actor.assignments.values_list("section", flat=True)
+            section__in=actor.teaching_assignments.values_list("section", flat=True)
         )
 
     elif actor.role == "PRINCIPAL":

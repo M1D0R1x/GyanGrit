@@ -33,7 +33,6 @@ export const router = createBrowserRouter([
   // ===============================
   // STUDENT ROUTES
   // ===============================
-
   {
     path: "/dashboard",
     element: (
@@ -85,7 +84,6 @@ export const router = createBrowserRouter([
   // ===============================
   // TEACHER ROUTES
   // ===============================
-
   {
     path: "/teacher",
     element: (
@@ -113,9 +111,8 @@ export const router = createBrowserRouter([
   },
 
   // ===============================
-  // OFFICIAL / PRINCIPAL ROUTES (shared for now; split if needed)
+  // OFFICIAL / PRINCIPAL ROUTES
   // ===============================
-
   {
     path: "/official",
     element: (
@@ -128,7 +125,6 @@ export const router = createBrowserRouter([
   // ===============================
   // ADMIN ROUTES
   // ===============================
-
   {
     path: "/admin-panel",
     element: (
@@ -141,7 +137,6 @@ export const router = createBrowserRouter([
   // ===============================
   // ASSESSMENTS (Shared)
   // ===============================
-
   {
     path: "/courses/:courseId/assessments",
     element: <CourseAssessmentsPage />,
@@ -162,7 +157,6 @@ export const router = createBrowserRouter([
   // ===============================
   // AUTH ROUTES
   // ===============================
-
   {
     path: "/login",
     element: <LoginPage />,
@@ -179,7 +173,6 @@ export const router = createBrowserRouter([
   // ===============================
   // FALLBACK
   // ===============================
-
   {
     path: "*",
     element: <Navigate to="/" replace />,

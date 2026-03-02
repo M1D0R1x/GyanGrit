@@ -46,15 +46,12 @@ export default function AssessmentPage() {
 
     async function init() {
       try {
-        const assessmentData =
-          await getAssessment(Number(assessmentId));
-
+        const assessmentData = await getAssessment(Number(assessmentId));
         setAssessment(assessmentData);
 
-        const attempt =
-          (await startAssessment(
-            Number(assessmentId)
-          )) as StartAssessmentResponse;
+        const attempt = (await startAssessment(
+          Number(assessmentId)
+        )) as StartAssessmentResponse;
 
         setAttemptId(attempt.attempt_id);
       } catch (err) {
@@ -67,46 +64,32 @@ export default function AssessmentPage() {
     init();
   }, [assessmentId]);
 
-  /* -----------------------------
-     Loading guards
-  ----------------------------- */
-
-  if (loading) {
-    return <p>Loading assessment…</p>;
-  }
-
-  if (!assessment) {
-    return <p>Assessment not found.</p>;
-  }
-
-  if (!attemptId) {
-    return <p>Preparing attempt…</p>;
-  }
+  if (loading) return <p>Loading assessment…</p>;
+  if (!assessment) return <p>Assessment not found.</p>;
+  if (!attemptId) return <p>Preparing attempt…</p>;
 
   /* -----------------------------
      Submit
   ----------------------------- */
-async function handleSubmit() {
-  if (!assessment || !attemptId) return;
+  async function handleSubmit() {
+    if (!assessment || !attemptId) return;
 
-  try {
-    const result =
-      (await submitAssessment(
-        assessment.id,
-        {
-          attempt_id: attemptId,
-          answers,
-        }
-      )) as SubmitResponse;
+    try {
+      const result = (await submitAssessment(assessment.id, {
+        attempt_id: attemptId,
+        answers,
+      })) as SubmitResponse;
 
-    navigate("/assessment-result", {
-      state: result,
-    });
-  } catch (err) {
-    console.error("Submit failed", err);
+      navigate("/assessment-result", {
+        state: {
+          ...result,
+          assessment_id: assessment.id,   // ← FIXED (history button now works)
+        },
+      });
+    } catch (err) {
+      console.error("Submit failed", err);
+    }
   }
-}
-
 
   /* -----------------------------
      Render
@@ -141,9 +124,7 @@ async function handleSubmit() {
         </div>
       ))}
 
-      <button onClick={handleSubmit}>
-        Submit Assessment
-      </button>
+      <button onClick={handleSubmit}>Submit Assessment</button>
     </div>
   );
 }

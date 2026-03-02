@@ -36,24 +36,13 @@ export default function LoginPage() {
         password,
       });
 
-      console.log("Login response:", response);
-
       if (response.otp_required) {
-        navigate("/verify-otp", {
-          state: { username },
-          replace: true,
-        });
+        navigate("/verify-otp", { state: { username }, replace: true });
         return;
       }
 
-      // Clear dev console log in production
-      // if ("dev_console" in response) {
-      //   console.log("DEV LOGIN INFO:", response.dev_console);
-      // }
-
       await auth.refresh();
 
-      // Role-based redirect
       switch (response.role) {
         case "STUDENT":
           navigate("/dashboard", { replace: true });
@@ -62,8 +51,6 @@ export default function LoginPage() {
           navigate("/teacher", { replace: true });
           break;
         case "PRINCIPAL":
-          navigate("/official", { replace: true });
-          break;
         case "OFFICIAL":
           navigate("/official", { replace: true });
           break;
@@ -76,7 +63,6 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
-      console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
@@ -96,7 +82,6 @@ export default function LoginPage() {
             style={{ width: "100%", padding: 8 }}
           />
         </div>
-
         <div style={{ marginBottom: 16 }}>
           <input
             type="password"
@@ -124,6 +109,24 @@ export default function LoginPage() {
           {loading ? "Logging in…" : "Login"}
         </button>
       </form>
+
+      {/* REGISTER LINK (Dev convenience) */}
+      <p style={{ textAlign: "center", marginTop: 16 }}>
+        Don't have an account?{" "}
+        <button
+          onClick={() => navigate("/register")}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#007bff",
+            textDecoration: "underline",
+            cursor: "pointer",
+            fontSize: "1rem",
+          }}
+        >
+          Register here
+        </button>
+      </p>
 
       {error && (
         <p style={{ color: "red", marginTop: 16, textAlign: "center" }}>

@@ -1,109 +1,108 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  getLearningPath,
-  type LearningPathDetail,
-} from "../services/learningPaths";
-import {
-  getEnrollments,
-  enrollCourse,
-  type Enrollment,
-} from "../services/learningEnrollments";
+import { useParams, useNavigate } from "react-router-dom";
+import { apiGet } from "../services/api";
+import TopBar from "../components/TopBar";
+
+type LearningPathDetail = {
+  id: number;
+  name: string;
+  description: string;
+  courses: {
+    course_id: number;
+    title: string;
+    order: number;
+  }[];
+};
+
+type LearningPathProgress = {
+  path_id: number;
+  total_courses: number;
+  completed_courses: number;
+  percentage: number;
+};
 
 export default function LearningPathPage() {
   const { pathId } = useParams();
   const navigate = useNavigate();
 
   const [path, setPath] = useState<LearningPathDetail | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [progress, setProgress] = useState<LearningPathProgress | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --------------------------------------------------
-  // Load learning path + enrollments
-  // --------------------------------------------------
   useEffect(() => {
     if (!pathId) return;
 
-    setLoading(true);
+    const load = async () => {
+      try {
+        const [pathData, progressData] = await Promise.all([
+          apiGet<LearningPathDetail>(`/learning/paths/${pathId}/`),
+          apiGet<LearningPathProgress>(`/learning/paths/${pathId}/progress/`),
+        ]);
+        setPath(pathData);
+        setProgress(progressData);
+      } catch (err) {
+        console.error("Failed to load learning path", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    Promise.all([
-      getLearningPath(Number(pathId)),
-      getEnrollments(),
-    ]).then(([pathData, enrollmentData]) => {
-      setPath(pathData);
-      setEnrollments(enrollmentData);
-      setLoading(false);
-    });
+    load();
   }, [pathId]);
 
-  // --------------------------------------------------
-  // Enrollment helpers
-  // --------------------------------------------------
-  function isEnrolled(courseId: number) {
-    return enrollments.some(
-      (e) =>
-        e.course__id === courseId &&
-        e.status === "enrolled" // ✅ lowercase (matches backend)
-    );
-  }
-
-  async function handleEnroll(courseId: number) {
-    await enrollCourse(courseId);
-    const updated = await getEnrollments();
-    setEnrollments(updated);
-  }
-
-  if (loading || !path) {
-    return <p style={{ padding: 24 }}>Loading learning path…</p>;
-  }
+  if (loading) return <p>Loading path...</p>;
+  if (!path) return <p>Path not found.</p>;
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: 24 }}>
-      <button onClick={() => navigate(-1)}>← Back</button>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <TopBar title={path.name} />
 
-      <h1 style={{ marginTop: 16 }}>{path.name}</h1>
-      <p style={{ opacity: 0.7 }}>
-        {path.description || "No description"}
+      <p style={{ opacity: 0.7, marginBottom: 24 }}>
+        {path.description || "No description available."}
       </p>
 
-      <ul style={{ marginTop: 24, paddingLeft: 0 }}>
-        {path.courses.map((course) => {
-          const enrolled = isEnrolled(course.course_id);
+      {progress && (
+        <div
+          style={{
+            background: "#f0f0f0",
+            padding: 16,
+            borderRadius: 8,
+            marginBottom: 24,
+          }}
+        >
+          <strong>Progress: {progress.percentage}%</strong> —{" "}
+          {progress.completed_courses}/{progress.total_courses} courses completed
+        </div>
+      )}
 
-          return (
-            <li
-              key={course.course_id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 0",
-                borderBottom: "1px solid #eee",
-              }}
+      <h3>Courses in this path</h3>
+      <ul style={{ paddingLeft: 0 }}>
+        {path.courses.map((c) => (
+          <li
+            key={c.course_id}
+            style={{
+              padding: 12,
+              border: "1px solid #ddd",
+              marginBottom: 8,
+              borderRadius: 6,
+            }}
+          >
+            <button
+              onClick={() => navigate(`/courses/${c.course_id}`)}
+              style={{ fontSize: "1.1rem" }}
             >
-              <span>
-                {course.order}. {course.title}
-              </span>
-
-              {enrolled ? (
-                <button
-                  onClick={() =>
-                    navigate(`/courses/${course.course_id}`)
-                  }
-                >
-                  Go to course
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleEnroll(course.course_id)}
-                >
-                  Enroll
-                </button>
-              )}
-            </li>
-          );
-        })}
+              {c.order}. {c.title}
+            </button>
+          </li>
+        ))}
       </ul>
+
+      <button
+        onClick={() => navigate("/learning")}
+        style={{ marginTop: 24 }}
+      >
+        ← Back to All Paths
+      </button>
     </div>
   );
 }

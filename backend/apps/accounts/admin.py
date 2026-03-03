@@ -13,8 +13,12 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    autocomplete_fields = ("institution", "section")   # ← Lightning fast search
+    """Super optimized - fast autocomplete + readonly district"""
 
+    # Lightning fast searchable dropdowns
+    autocomplete_fields = ("institution", "section")
+
+    # Performance improvements
     list_select_related = ("institution", "section")
     list_per_page = 50
 
@@ -39,6 +43,9 @@ class UserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
 
+    # District is auto-filled from institution, so make it readonly
+    readonly_fields = ("district",)
+
 
 @admin.register(JoinCode)
 class JoinCodeAdmin(admin.ModelAdmin):
@@ -58,6 +65,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
     readonly_fields = ("code", "created_at", "expires_at", "is_used")
     ordering = ("-created_at",)
 
+    # Fast autocomplete for all foreign keys
     autocomplete_fields = ("institution", "section", "created_by")
 
 

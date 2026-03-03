@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 
 class District(models.Model):
@@ -31,6 +32,7 @@ class Institution(models.Model):
     def __str__(self):
         return f"{self.name} ({self.district.name})"
 
+
 # =========================================================
 # CLASSROOM
 # =========================================================
@@ -53,7 +55,11 @@ class ClassRoom(models.Model):
 
 
 # =========================================================
-# SECTION
+# SECTION  ← UPDATED FOR BETTER ADMIN POPUP
+# =========================================================
+
+# =========================================================
+# SECTION (Only 1 section per class now)
 # =========================================================
 
 class Section(models.Model):
@@ -69,8 +75,8 @@ class Section(models.Model):
         unique_together = ("name", "classroom")
 
     def __str__(self):
-        return f"{self.classroom.name} {self.name}"
-
+        # Clean format: "10 - Government Senior Secondary School Amritsar"
+        return f"{self.classroom.name} - {self.classroom.institution.name}"
 
 # =========================================================
 # SUBJECT (GLOBAL)
@@ -142,9 +148,6 @@ class StudentSubject(models.Model):
 # =========================================================
 # TEACHING ASSIGNMENT
 # =========================================================
-
-from django.core.exceptions import ValidationError
-
 
 class TeachingAssignment(models.Model):
     teacher = models.ForeignKey(

@@ -218,20 +218,23 @@ def enroll_learning_path(request, path_id):
 
 
 # -------------------------------------------------------
-# STUDENT DASHBOARD — NOW SUPPORTS ADMIN (for testing)
+# STUDENT DASHBOARD — OPTIMIZED (NO MORE N+1)
 # -------------------------------------------------------
 
 @login_required
 @require_http_methods(["GET"])
 def student_dashboard(request):
-    # ADMIN can now access for testing (shows courses admin is enrolled in)
     if request.user.role not in ["STUDENT", "ADMIN"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
+    # Single optimized query with prefetch
     enrollments = Enrollment.objects.filter(
         user=request.user,
         status__in=["enrolled", "completed"],
-    ).select_related("course")
+    ).select_related("course").prefetch_related(
+        "course__lessons",                    # prefetch all lessons
+        "course__lessons__progress_records"   # prefetch progress
+    )
 
     courses_data = []
 
@@ -240,11 +243,11 @@ def student_dashboard(request):
         lessons = course.lessons.filter(is_published=True)
         total = lessons.count()
 
-        completed = LessonProgress.objects.filter(
-            lesson__course=course,
-            user=request.user,
-            completed=True,
-        ).count()
+        # Count completed in one go from prefetched data
+        completed = sum(
+            1 for lesson in lessons
+            if any(p.completed for p in lesson.progress_records.all() if p.user_id == request.user.id)
+        )
 
         percentage = int((completed / total) * 100) if total else 0
 

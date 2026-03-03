@@ -13,6 +13,11 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    autocomplete_fields = ("institution", "section")   # ← Lightning fast search
+
+    list_select_related = ("institution", "section")
+    list_per_page = 50
+
     fieldsets = DjangoUserAdmin.fieldsets + (
         ("Custom Fields", {
             "fields": ("role", "institution", "section", "public_id", "district")
@@ -30,7 +35,7 @@ class UserAdmin(DjangoUserAdmin):
         "date_joined",
     )
 
-    list_filter = ("role", "institution", "section", "is_staff", "is_active")
+    list_filter = ("role", "is_staff", "is_active")
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
 
@@ -48,12 +53,15 @@ class JoinCodeAdmin(admin.ModelAdmin):
         "created_at",
     )
 
-    list_filter = ("role", "is_used", "institution")
+    list_filter = ("role", "is_used")
     search_fields = ("code", "created_by__username", "institution__name")
     readonly_fields = ("code", "created_at", "expires_at", "is_used")
     ordering = ("-created_at",)
 
+    autocomplete_fields = ("institution", "section", "created_by")
 
+
+# Simple models
 admin.site.register(StudentRegistrationRecord)
 admin.site.register(OTPVerification)
 admin.site.register(DeviceSession)

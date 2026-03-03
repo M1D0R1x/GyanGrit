@@ -37,23 +37,14 @@ export default function LoginPage() {
         return;
       }
 
-      // Success → refresh auth and redirect
       await auth.refresh();
 
       switch (response.role) {
-        case "STUDENT":
-          navigate("/dashboard", { replace: true });
-          break;
-        case "TEACHER":
-          navigate("/teacher", { replace: true });
-          break;
+        case "STUDENT": navigate("/dashboard", { replace: true }); break;
+        case "TEACHER": navigate("/teacher", { replace: true }); break;
         case "PRINCIPAL":
-        case "OFFICIAL":
-          navigate("/official", { replace: true });
-          break;
-        case "ADMIN":
-          navigate("/admin-panel", { replace: true });
-          break;
+        case "OFFICIAL": navigate("/official", { replace: true }); break;
+        case "ADMIN": navigate("/admin-panel", { replace: true }); break;
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
@@ -99,7 +90,6 @@ export default function LoginPage() {
             border: "none",
             borderRadius: 6,
             fontSize: "1.1rem",
-            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "Logging in..." : "Login"}
@@ -108,10 +98,7 @@ export default function LoginPage() {
 
       <p style={{ textAlign: "center", marginTop: 20 }}>
         Don't have an account?{" "}
-        <button
-          onClick={() => navigate("/register")}
-          style={{ color: "#007bff", background: "none", border: "none", textDecoration: "underline" }}
-        >
+        <button onClick={() => navigate("/register")} style={{ color: "#007bff", background: "none", border: "none", textDecoration: "underline" }}>
           Register here
         </button>
       </p>

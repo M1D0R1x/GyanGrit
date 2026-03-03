@@ -24,9 +24,7 @@ export default function VerifyOtpPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (!username) {
-    return <p>Invalid access. Please login again.</p>;
-  }
+  if (!username) return <p>Invalid access. Please login again.</p>;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,29 +32,17 @@ export default function VerifyOtpPage() {
     setError(null);
 
     try {
-      const response = await apiPost<VerifyOtpResponse>("/accounts/verify-otp/", {
-        username,
-        otp,
-      });
+      const response = await apiPost<VerifyOtpResponse>("/accounts/verify-otp/", { username, otp });
 
       await auth.refresh();
 
       switch (response.role) {
-        case "STUDENT":
-          navigate("/dashboard", { replace: true });
-          break;
-        case "TEACHER":
-          navigate("/teacher", { replace: true });
-          break;
+        case "STUDENT": navigate("/dashboard", { replace: true }); break;
+        case "TEACHER": navigate("/teacher", { replace: true }); break;
         case "PRINCIPAL":
-        case "OFFICIAL":
-          navigate("/official", { replace: true });
-          break;
-        case "ADMIN":
-          navigate("/admin-panel", { replace: true });
-          break;
+        case "OFFICIAL": navigate("/official", { replace: true }); break;
+        case "ADMIN": navigate("/admin-panel", { replace: true }); break;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
       setError("Invalid OTP. Please try again.");
     } finally {
@@ -67,11 +53,11 @@ export default function VerifyOtpPage() {
   return (
     <div style={{ maxWidth: 360, margin: "80px auto", padding: "20px" }}>
       <h2>Verify OTP</h2>
-      <p style={{ opacity: 0.7 }}>Enter the OTP sent to your account</p>
+      <p style={{ opacity: 0.7 }}>Enter the 6-digit code sent to your account</p>
 
       <form onSubmit={handleSubmit}>
         <input
-          placeholder="Enter 6-digit OTP"
+          placeholder="Enter OTP"
           value={otp}
           onChange={(e) => setOtp(e.target.value)}
           required
@@ -89,7 +75,6 @@ export default function VerifyOtpPage() {
             color: "white",
             border: "none",
             borderRadius: 6,
-            fontSize: "1.1rem",
           }}
         >
           {loading ? "Verifying OTP..." : "Verify OTP"}

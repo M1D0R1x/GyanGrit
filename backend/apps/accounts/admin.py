@@ -13,12 +13,11 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    """Super optimized - fast autocomplete + readonly district"""
+    """Stable + Fast version for Supabase"""
 
-    # Lightning fast searchable dropdowns
+    # Fast searchable dropdowns (AJAX) - reliable with Supabase
     autocomplete_fields = ("institution", "section")
 
-    # Performance improvements
     list_select_related = ("institution", "section")
     list_per_page = 50
 
@@ -43,7 +42,6 @@ class UserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
 
-    # District is auto-filled from institution, so make it readonly
     readonly_fields = ("district",)
 
 
@@ -65,7 +63,6 @@ class JoinCodeAdmin(admin.ModelAdmin):
     readonly_fields = ("code", "created_at", "expires_at", "is_used")
     ordering = ("-created_at",)
 
-    # Fast autocomplete for all foreign keys
     autocomplete_fields = ("institution", "section", "created_by")
 
 

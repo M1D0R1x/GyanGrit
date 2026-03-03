@@ -1,42 +1,51 @@
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "../services/api"; // use apiPost for logout (POST request)
+import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
+import { useState } from "react";
 
 export default function LogoutButton() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
+
     try {
-      // Call backend logout (POST /accounts/logout/)
+      // Step 1: Call backend logout first
       await apiPost("/accounts/logout/", {});
 
-      // Force clear auth state
-      auth.refresh(); // This resets state to unauthenticated
+      // Step 2: Clear frontend state
+      auth.refresh();
 
-      // Immediately redirect to login
+      // Step 3: Redirect immediately
       navigate("/login", { replace: true });
     } catch (err) {
-      console.error("Logout failed:", err);
-      // Still redirect even if API fails (session might already be dead)
+      console.error("Logout API failed:", err);
+      // Even if API fails, we still clear and redirect
       auth.refresh();
       navigate("/login", { replace: true });
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
   return (
     <button
       onClick={handleLogout}
+      disabled={isLoggingOut}
       style={{
-        padding: "8px 16px",
-        background: "#dc3545",
+        padding: "10px 20px",
+        background: isLoggingOut ? "#6c757d" : "#dc3545",
         color: "white",
         border: "none",
-        borderRadius: 4,
-        cursor: "pointer",
+        borderRadius: 6,
+        cursor: isLoggingOut ? "not-allowed" : "pointer",
+        fontSize: "1rem",
+        minWidth: "110px",
       }}
     >
-      Logout
+      {isLoggingOut ? "Logging out..." : "Logout"}
     </button>
   );
 }

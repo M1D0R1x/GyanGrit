@@ -13,9 +13,9 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    """Stable + Fast version for Supabase"""
+    """Stable & Fast version - No dynamic filtering"""
 
-    # Fast searchable dropdowns (AJAX) - reliable with Supabase
+    # Fast autocomplete search (this is reliable with Supabase)
     autocomplete_fields = ("institution", "section")
 
     list_select_related = ("institution", "section")
@@ -42,6 +42,7 @@ class UserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
 
+    # District auto-filled from school
     readonly_fields = ("district",)
 
 

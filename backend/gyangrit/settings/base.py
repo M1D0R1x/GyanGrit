@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 # -------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Load environment variables FIRST
 load_dotenv()
 
 # -------------------------------------------------
@@ -16,7 +15,7 @@ load_dotenv()
 # -------------------------------------------------
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-change-this")
 
-DEBUG = True
+DEBUG = False
 ALLOWED_HOSTS = []
 
 # -------------------------------------------------
@@ -51,7 +50,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",  # only once
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.accounts.middleware.SingleActiveSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -82,7 +81,7 @@ TEMPLATES = [
 ]
 
 # -------------------------------------------------
-# Database (SINGLE CLEAN VERSION)
+# Database
 # -------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -134,20 +133,24 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -------------------------------------------------
-# Default CORS / CSRF (safe defaults)
+# REST Framework
+# -------------------------------------------------
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}
+
+# -------------------------------------------------
+# CORS / SESSION DEFAULTS (SAFE)
 # -------------------------------------------------
 CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_SAMESITE = "Lax"
+
 SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = "Lax"
+
 SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
-
-# =================================================
-# SESSION SECURITY (Teachers / Officials)
-# =================================================
-
-SESSION_COOKIE_AGE = 600  # 10 minutes
-SESSION_SAVE_EVERY_REQUEST = True  # extend if active
-
-STRICT_SINGLE_CORRECT_MCQS = True   # Set to False to disable the check
+SESSION_COOKIE_AGE = 600
+SESSION_SAVE_EVERY_REQUEST = True

@@ -22,7 +22,7 @@ def institutions(request):
     if request.user.role not in ["ADMIN", "OFFICIAL", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    queryset = Institution.objects.all()
+    queryset = Institution.objects.select_related("district")
 
     if request.user.role == "OFFICIAL":
         queryset = queryset.filter(district__name=request.user.district)
@@ -32,7 +32,6 @@ def institutions(request):
             return JsonResponse({"detail": "No institution assigned"}, status=400)
         queryset = queryset.filter(id=request.user.institution.id)
 
-    # ADMIN → all institutions
     return JsonResponse(
         list(queryset.values("id", "name", "district__name")),
         safe=False
@@ -40,13 +39,13 @@ def institutions(request):
 
 
 # =========================================================
-# CLASSES
+# CLASSES (was one of the slowest)
 # =========================================================
 
 @login_required
 @require_http_methods(["GET"])
 def classes(request):
-    queryset = ClassRoom.objects.all()
+    queryset = ClassRoom.objects.select_related("institution")
 
     if request.user.role in ["PRINCIPAL", "TEACHER", "STUDENT"]:
         if not request.user.institution:
@@ -58,7 +57,6 @@ def classes(request):
             return JsonResponse({"detail": "No district assigned"}, status=400)
         queryset = queryset.filter(institution__district__name=request.user.district)
 
-    # ADMIN → all classes
     return JsonResponse(
         list(queryset.values("id", "name", "institution_id")),
         safe=False
@@ -66,7 +64,7 @@ def classes(request):
 
 
 # =========================================================
-# SECTIONS
+# SECTIONS (was also very slow)
 # =========================================================
 
 @login_required
@@ -74,20 +72,18 @@ def classes(request):
 def sections(request):
     classroom_id = request.GET.get("classroom_id")
 
-    queryset = Section.objects.all()
+    queryset = Section.objects.select_related("classroom", "classroom__institution")
 
     if classroom_id:
         queryset = queryset.filter(classroom_id=classroom_id)
 
     if request.user.role in ["PRINCIPAL", "TEACHER", "STUDENT"]:
-        queryset = queryset.filter(
-            classroom__institution=request.user.institution
-        )
+        if request.user.institution:
+            queryset = queryset.filter(classroom__institution=request.user.institution)
 
     elif request.user.role == "OFFICIAL":
-        queryset = queryset.filter(
-            classroom__institution__district__name=request.user.district   # ← FIXED
-        )
+        if request.user.district:
+            queryset = queryset.filter(classroom__institution__district__name=request.user.district)
 
     return JsonResponse(
         list(queryset.values("id", "name", "classroom_id")),
@@ -102,23 +98,19 @@ def sections(request):
 @login_required
 @require_http_methods(["GET"])
 def subjects(request):
-    # STUDENT → subjects assigned to their class
     if request.user.role == "STUDENT":
         if not request.user.section:
             return JsonResponse([], safe=False)
 
-        classroom = request.user.section.classroom
         queryset = Subject.objects.filter(
-            classrooms__classroom=classroom
+            classrooms__classroom=request.user.section.classroom
         ).distinct()
 
-    # TEACHER → subjects they teach
     elif request.user.role == "TEACHER":
         queryset = Subject.objects.filter(
             teaching_assignments__teacher=request.user
         ).distinct()
 
-    # PRINCIPAL / OFFICIAL / ADMIN → all subjects
     else:
         queryset = Subject.objects.all()
 
@@ -129,7 +121,7 @@ def subjects(request):
 
 
 # =========================================================
-# TEACHING ASSIGNMENTS (ADMIN / OFFICIAL / PRINCIPAL)
+# TEACHING ASSIGNMENTS
 # =========================================================
 
 @login_required
@@ -139,18 +131,14 @@ def teaching_assignments(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     queryset = TeachingAssignment.objects.select_related(
-        "teacher", "subject", "section", "section__classroom"
+        "teacher", "subject", "section", "section__classroom", "section__classroom__institution"
     )
 
     if request.user.role == "PRINCIPAL":
-        queryset = queryset.filter(
-            section__classroom__institution=request.user.institution
-        )
+        queryset = queryset.filter(section__classroom__institution=request.user.institution)
 
     elif request.user.role == "OFFICIAL":
-        queryset = queryset.filter(
-            section__classroom__institution__district__name=request.user.district  # ← FIXED
-        )
+        queryset = queryset.filter(section__classroom__institution__district__name=request.user.district)
 
     data = []
     for a in queryset:
@@ -180,7 +168,7 @@ def my_assignments(request):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=request.user
-    ).select_related("subject", "section", "section__classroom")
+    ).select_related("subject", "section", "section__classroom", "section__classroom__institution")
 
     data = []
     for a in assignments:
@@ -196,19 +184,14 @@ def my_assignments(request):
 
 
 # =========================================================
-# PUBLIC HELPERS (used in registration forms etc.)
+# PUBLIC HELPERS
 # =========================================================
 
 @require_http_methods(["GET"])
 def districts(request):
     query = request.GET.get("q", "")
-
-    districts = District.objects.filter(
-        name__icontains=query
-    ).order_by("name")
-
-    data = list(districts.values("id", "name"))
-    return JsonResponse(data, safe=False)
+    districts = District.objects.filter(name__icontains=query).order_by("name")
+    return JsonResponse(list(districts.values("id", "name")), safe=False)
 
 
 @require_http_methods(["GET"])
@@ -216,11 +199,10 @@ def schools(request):
     district_id = request.GET.get("district_id")
     query = request.GET.get("q", "")
 
-    schools = Institution.objects.all()
+    schools = Institution.objects.select_related("district")
 
     if district_id:
         schools = schools.filter(district_id=district_id)
-
     if query:
         schools = schools.filter(name__icontains=query)
 

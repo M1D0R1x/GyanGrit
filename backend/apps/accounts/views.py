@@ -10,7 +10,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.accesscontrol.permissions import require_roles
-# NEW: updated import (old scoping.py can now be deleted)
 from apps.accesscontrol.scoped_service import scope_queryset as institution_scope_queryset
 
 # Models
@@ -26,7 +25,7 @@ User = get_user_model()
 
 
 # =========================================================
-# REGISTER (JoinCode flow - STAFF + STUDENTS)
+# REGISTER
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -36,14 +35,10 @@ def register(request):
 
     username = body.get("username")
     password = body.get("password")
-    role_from_frontend = body.get("role")          # ← optional now
     join_code_value = body.get("join_code")
 
     if not username or not password or not join_code_value:
-        return JsonResponse(
-            {"error": "username, password and join_code are required"},
-            status=400
-        )
+        return JsonResponse({"error": "username, password and join_code are required"}, status=400)
 
     try:
         join_code = JoinCode.objects.get(code=join_code_value)
@@ -53,15 +48,7 @@ def register(request):
     if not join_code.is_valid():
         return JsonResponse({"error": "expired or already used join_code"}, status=400)
 
-    # ============== ROLE LOGIC (Backend decides) ==============
-    role = role_from_frontend or join_code.role
-
-    if role not in dict(User.ROLE_CHOICES):
-        return JsonResponse({"error": "invalid role"}, status=400)
-
-    # Safety: frontend role (if sent) must match join_code
-    if role_from_frontend and role_from_frontend != join_code.role:
-        return JsonResponse({"error": "role mismatch with join_code"}, status=400)
+    role = join_code.role
 
     if User.objects.filter(username=username).exists():
         return JsonResponse({"error": "username already exists"}, status=400)
@@ -69,7 +56,6 @@ def register(request):
     institution = join_code.institution
     section = join_code.section
 
-    # FIXED: district was crashing (JoinCode has no .district field)
     district = None
     if institution:
         district = institution.district.name
@@ -78,7 +64,6 @@ def register(request):
 
     with transaction.atomic():
         user = User.objects.create_user(username=username, password=password)
-
         user.role = role
         user.institution = institution
         user.section = section
@@ -96,8 +81,9 @@ def register(request):
         "section": user.section.name if user.section else None,
     })
 
+
 # =========================================================
-# LOGIN + OTP FLOW
+# LOGIN + OTP FLOW (OPTIMIZED)
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -118,21 +104,20 @@ def login_view(request):
             "role": user.role,
         })
 
-    # === OTP for TEACHER / PRINCIPAL / OFFICIAL ===
-    # Always generate a NEW OTP on every login attempt (better security + UX)
+    # Always generate fresh OTP
     otp_code = str(random.randint(100000, 999999))
 
-    # Delete old OTPs for this user
+    # Delete old OTPs
     OTPVerification.objects.filter(user=user).delete()
 
-    otp_record = OTPVerification.objects.create(
+    OTPVerification.objects.create(
         user=user,
         otp_code=otp_code,
         is_verified=False,
         attempt_count=0,
     )
 
-    print(f"OTP for {user.username} (dev only): {otp_code}")  # REMOVE IN PRODUCTION
+    print(f"OTP for {user.username} (dev only): {otp_code}")
 
     return JsonResponse({
         "otp_required": True,
@@ -141,41 +126,6 @@ def login_view(request):
         "role": user.role,
         "otp_code": otp_code,   # Remove in production
     })
-
-
-@require_http_methods(["POST"])
-@csrf_exempt
-def resend_otp(request):
-    body = json.loads(request.body)
-    username = body.get("username")
-    if not username:
-        return JsonResponse({"error": "Invalid request"}, status=400)
-
-    try:
-        user = User.objects.get(username=username)
-    except User.DoesNotExist:
-        return JsonResponse({"error": "Invalid request"}, status=400)
-
-    if user.role == "STUDENT":
-        return JsonResponse({"error": "Invalid request"}, status=400)
-
-    today = timezone.now().date()
-    otp_record = OTPVerification.objects.filter(
-        user=user, created_at__date=today
-    ).order_by('-created_at').first()
-
-    new_otp = str(random.randint(100000, 999999))
-
-    if otp_record:
-        otp_record.otp_code = new_otp
-        otp_record.attempt_count = 0
-        otp_record.last_attempt_at = None
-        otp_record.is_verified = False
-        otp_record.save(update_fields=["otp_code", "attempt_count", "last_attempt_at", "is_verified"])
-    else:
-        OTPVerification.objects.create(user=user, otp_code=new_otp, is_verified=False, attempt_count=0)
-
-    return JsonResponse({"success": True})
 
 
 @require_http_methods(["POST"])
@@ -195,11 +145,8 @@ def verify_otp(request):
 
     otp_record = OTPVerification.objects.filter(user=user).order_by('-created_at').first()
 
-    if not otp_record:
-        return JsonResponse({"error": "No OTP found. Please login again."}, status=400)
-
-    if otp_record.is_expired():
-        return JsonResponse({"error": "OTP expired. Please login again."}, status=400)
+    if not otp_record or otp_record.is_expired():
+        return JsonResponse({"error": "OTP expired or not found. Please login again."}, status=400)
 
     if otp_record.attempt_count >= 5:
         return JsonResponse({"error": "Too many attempts. Please login again."}, status=429)
@@ -229,6 +176,7 @@ def verify_otp(request):
         "role": user.role,
     })
 
+
 @require_http_methods(["POST"])
 @csrf_exempt
 def logout_view(request):
@@ -243,18 +191,21 @@ def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"authenticated": False})
 
+    # Optimized with select_related
+    user = User.objects.select_related("institution", "section").get(id=request.user.id)
+
     return JsonResponse({
         "authenticated": True,
-        "id": request.user.id,
-        "username": request.user.username,
-        "role": request.user.role,
-        "institution": request.user.institution.name if request.user.institution else None,
-        "section": request.user.section.name if request.user.section else None,
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "institution": user.institution.name if user.institution else None,
+        "section": user.section.name if user.section else None,
     })
 
 
 # =========================================================
-# SCOPED ENDPOINTS (kept for safety - now robust)
+# SCOPED ENDPOINTS (kept for safety)
 # =========================================================
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
@@ -268,10 +219,7 @@ def users(request):
 @require_http_methods(["GET"])
 def institutions(request):
     queryset = institution_scope_queryset(request.user, Institution.objects.all())
-    return JsonResponse(
-        list(queryset.values("id", "name", "district__name")),  # consistent with academics
-        safe=False
-    )
+    return JsonResponse(list(queryset.values("id", "name", "district__name")), safe=False)
 
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])

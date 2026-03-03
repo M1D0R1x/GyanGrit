@@ -1,14 +1,11 @@
 from .base import *
 
-# -------------------------------------------------
-# Development flags
-# -------------------------------------------------
 DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # -------------------------------------------------
-# CORS (Frontend → Backend)
+# CORS
 # -------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -20,11 +17,14 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:5174",   # fixed typo
+    "http://localhost:5174",
     "http://127.0.0.1:5174",
 ]
 
-# ---- CSRF / Session (DEV) ----
+# Explicit localhost cookie handling
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
+
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 

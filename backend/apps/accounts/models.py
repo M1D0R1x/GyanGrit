@@ -126,10 +126,6 @@ class StudentRegistrationRecord(models.Model):
         return f"{self.name} ({self.section})"
 
 
-# =========================================================
-# OTP VERIFICATION
-# =========================================================
-
 class OTPVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
     otp_code = models.CharField(max_length=6)
@@ -139,10 +135,8 @@ class OTPVerification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):
-        creation_date = self.created_at.date()
-        day_end = timezone.datetime.combine(creation_date, time(23, 59, 59, 999999))
-        day_end = timezone.make_aware(day_end)
-        return timezone.now() > day_end
+        # Changed to 10 minutes expiry (much better UX than end of day)
+        return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
 
     def can_attempt(self):
         return self.attempt_count < 5
@@ -152,8 +146,7 @@ class OTPVerification(models.Model):
 
     def __str__(self):
         status = "Verified" if self.is_verified else f"{self.attempt_count} attempts"
-        return f"OTP for {self.user.username} - {status} ({self.created_at.date()})"
-
+        return f"OTP for {self.user.username} - {status}"
 
 # =========================================================
 # DEVICE SESSION

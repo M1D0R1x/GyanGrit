@@ -3,9 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
-type OtpLocationState = {
-  username: string;
-};
+type OtpLocationState = { username: string };
 
 type VerifyOtpResponse = {
   success: true;
@@ -36,10 +34,10 @@ export default function VerifyOtpPage() {
     setError(null);
 
     try {
-      const response = await apiPost<VerifyOtpResponse>(
-        "/accounts/verify-otp/",
-        { username, otp }
-      );
+      const response = await apiPost<VerifyOtpResponse>("/accounts/verify-otp/", {
+        username,
+        otp,
+      });
 
       await auth.refresh();
 
@@ -51,36 +49,34 @@ export default function VerifyOtpPage() {
           navigate("/teacher", { replace: true });
           break;
         case "PRINCIPAL":
-          navigate("/official", { replace: true });
-          break;
         case "OFFICIAL":
           navigate("/official", { replace: true });
           break;
         case "ADMIN":
           navigate("/admin-panel", { replace: true });
           break;
-        default:
-          navigate("/login", { replace: true });
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      setError("Invalid OTP");
-      console.error("OTP verification failed:", err);
+      setError("Invalid OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto" }}>
+    <div style={{ maxWidth: 360, margin: "80px auto", padding: "20px" }}>
       <h2>Verify OTP</h2>
+      <p style={{ opacity: 0.7 }}>Enter the OTP sent to your account</p>
 
       <form onSubmit={handleSubmit}>
         <input
-          placeholder="Enter OTP"
+          placeholder="Enter 6-digit OTP"
           value={otp}
           onChange={(e) => setOtp(e.target.value)}
           required
-          style={{ width: "100%", padding: 8, marginBottom: 16 }}
+          maxLength={6}
+          style={{ width: "100%", padding: 12, fontSize: "1.2rem", textAlign: "center", marginBottom: 16 }}
         />
 
         <button
@@ -88,18 +84,19 @@ export default function VerifyOtpPage() {
           disabled={loading}
           style={{
             width: "100%",
-            padding: "10px",
-            background: loading ? "#ccc" : "#007bff",
+            padding: "12px",
+            background: loading ? "#6c757d" : "#007bff",
             color: "white",
             border: "none",
-            borderRadius: 4,
+            borderRadius: 6,
+            fontSize: "1.1rem",
           }}
         >
-          {loading ? "Verifying…" : "Verify"}
+          {loading ? "Verifying OTP..." : "Verify OTP"}
         </button>
       </form>
 
-      {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
+      {error && <p style={{ color: "red", marginTop: 16, textAlign: "center" }}>{error}</p>}
     </div>
   );
 }

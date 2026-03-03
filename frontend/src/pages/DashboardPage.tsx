@@ -28,7 +28,6 @@ export default function DashboardPage() {
         const data = await apiGet<StudentDashboardResponse>(
           "/learning/student/dashboard/"
         );
-
         setCourses(data?.courses || []);
       } catch (err) {
         console.error("Failed to load student dashboard:", err);
@@ -46,8 +45,18 @@ export default function DashboardPage() {
       <TopBar title="Student Dashboard" />
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <p>Loading dashboard data...</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              style={{
+                height: 160,
+                background: "#f0f0f0",
+                borderRadius: 8,
+                animation: "pulse 1.5s infinite",
+              }}
+            />
+          ))}
         </div>
       ) : error ? (
         <div style={{ color: "red", textAlign: "center", padding: 40 }}>
@@ -56,16 +65,9 @@ export default function DashboardPage() {
       ) : (
         <>
           <h2>Your Courses</h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 20,
-            }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
             {courses.length === 0 ? (
-              <p>No courses enrolled.</p>
+              <p>No courses enrolled yet.</p>
             ) : (
               courses.map((course) => (
                 <div
@@ -78,12 +80,9 @@ export default function DashboardPage() {
                   }}
                 >
                   <h4>{course.title}</h4>
-
                   <p style={{ margin: "8px 0" }}>
-                    {course.completed_lessons} / {course.total_lessons} lessons
-                    completed
+                    {course.completed_lessons} / {course.total_lessons} lessons completed
                   </p>
-
                   <p style={{ fontWeight: "bold" }}>
                     {course.progress}% progress
                   </p>

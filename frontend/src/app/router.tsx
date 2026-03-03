@@ -27,6 +27,7 @@ const AssessmentResultPage = lazy(() => import("../pages/AssessmentsResultPage")
 const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
 const TeacherClassDetailPage = lazy(() => import("../pages/TeacherClassDetailPage"));
 const TeacherStudentDetailPage = lazy(() => import("../pages/TeacherStudentDetailPage"));
+const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
 
 // Loading fallback
 const PageLoader = () => (
@@ -179,6 +180,17 @@ export const router = createBrowserRouter([
       </RequireRole>
     ),
   },
+
+    {
+  path: "/official",
+  element: (
+    <RequireRole role="PRINCIPAL">
+      <Suspense fallback={<PageLoader />}>
+        <PrincipalDashboardPage />
+      </Suspense>
+    </RequireRole>
+  ),
+},
 
   // Auth
   { path: "/login", element: <LoginPage /> },

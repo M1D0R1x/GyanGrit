@@ -4,16 +4,12 @@ import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 
 type LoginApiResponse =
-  | {
-      otp_required: true;
-      dev_console?: { username: string; otp: string };
-    }
+  | { otp_required: true }
   | {
       otp_required: false;
       id: number;
       username: string;
       role: "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
-      dev_console?: { username: string; otp: string };
     };
 
 export default function LoginPage() {
@@ -41,6 +37,7 @@ export default function LoginPage() {
         return;
       }
 
+      // Success → refresh auth and redirect
       await auth.refresh();
 
       switch (response.role) {
@@ -57,8 +54,6 @@ export default function LoginPage() {
         case "ADMIN":
           navigate("/admin-panel", { replace: true });
           break;
-        default:
-          navigate("/login", { replace: true });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
@@ -79,7 +74,7 @@ export default function LoginPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            style={{ width: "100%", padding: 8 }}
+            style={{ width: "100%", padding: 10 }}
           />
         </div>
         <div style={{ marginBottom: 16 }}>
@@ -89,7 +84,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: "100%", padding: 8 }}
+            style={{ width: "100%", padding: 10 }}
           />
         </div>
 
@@ -98,41 +93,30 @@ export default function LoginPage() {
           disabled={loading}
           style={{
             width: "100%",
-            padding: "10px",
-            background: loading ? "#ccc" : "#007bff",
+            padding: "12px",
+            background: loading ? "#6c757d" : "#007bff",
             color: "white",
             border: "none",
-            borderRadius: 4,
+            borderRadius: 6,
+            fontSize: "1.1rem",
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "Logging in…" : "Login"}
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
 
-      {/* REGISTER LINK (Dev convenience) */}
-      <p style={{ textAlign: "center", marginTop: 16 }}>
+      <p style={{ textAlign: "center", marginTop: 20 }}>
         Don't have an account?{" "}
         <button
           onClick={() => navigate("/register")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#007bff",
-            textDecoration: "underline",
-            cursor: "pointer",
-            fontSize: "1rem",
-          }}
+          style={{ color: "#007bff", background: "none", border: "none", textDecoration: "underline" }}
         >
           Register here
         </button>
       </p>
 
-      {error && (
-        <p style={{ color: "red", marginTop: 16, textAlign: "center" }}>
-          {error}
-        </p>
-      )}
+      {error && <p style={{ color: "red", marginTop: 16, textAlign: "center" }}>{error}</p>}
     </div>
   );
 }

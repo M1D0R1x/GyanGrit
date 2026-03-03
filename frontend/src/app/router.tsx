@@ -1,21 +1,12 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../pages/CoursesPage";
 import LessonsPage from "../pages/LessonsPage";
 import LessonPage from "../pages/LessonPage";
-import TeacherDashboardPage from "../pages/TeacherDashboardPage";
-import LearningPathsPage from "../pages/LearningPathsPage";
-import LearningPathPage from "../pages/LearningPathPage";
-import ProfilePage from "../pages/ProfilePage";
-import OfficialDashboardPage from "../pages/OfficialDashboardPage";
-import AdminDashboardPage from "../pages/AdminDashboardPage";
-import CourseAssessmentsPage from "../pages/CourseAssessmentsPage";
-import AssessmentPage from "../pages/AssessmentPage";
-import AssessmentResultPage from "../pages/AssessmentsResultPage";
-import AssessmentHistoryPage from "../pages/AssessmentHistoryPage";
-import TeacherClassDetailPage from "../pages/TeacherClassDetailPage";
-import TeacherStudentDetailPage from "../pages/TeacherStudentDetailPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import VerifyOtpPage from "../pages/VerifyOtpPage";
@@ -23,16 +14,34 @@ import VerifyOtpPage from "../pages/VerifyOtpPage";
 import { RequireRole } from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 
+// Lazy load heavy pages
+const TeacherDashboardPage = lazy(() => import("../pages/TeacherDashboardPage"));
+const OfficialDashboardPage = lazy(() => import("../pages/OfficialDashboardPage"));
+const AdminDashboardPage = lazy(() => import("../pages/AdminDashboardPage"));
+const LearningPathsPage = lazy(() => import("../pages/LearningPathsPage"));
+const LearningPathPage = lazy(() => import("../pages/LearningPathPage"));
+const ProfilePage = lazy(() => import("../pages/ProfilePage"));
+const CourseAssessmentsPage = lazy(() => import("../pages/CourseAssessmentsPage"));
+const AssessmentPage = lazy(() => import("../pages/AssessmentPage"));
+const AssessmentResultPage = lazy(() => import("../pages/AssessmentsResultPage"));
+const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
+const TeacherClassDetailPage = lazy(() => import("../pages/TeacherClassDetailPage"));
+const TeacherStudentDetailPage = lazy(() => import("../pages/TeacherStudentDetailPage"));
+
+// Loading fallback
+const PageLoader = () => (
+  <div style={{ textAlign: "center", padding: "100px 20px", fontSize: "1.1rem" }}>
+    Loading...
+  </div>
+);
+
 export const router = createBrowserRouter([
-  // Root → Role-based redirect
   {
     path: "/",
     element: <RoleBasedRedirect />,
   },
 
-  // ===============================
-  // STUDENT ROUTES
-  // ===============================
+  // STUDENT ROUTES (eager loaded)
   {
     path: "/dashboard",
     element: (
@@ -41,24 +50,6 @@ export const router = createBrowserRouter([
       </RequireRole>
     ),
   },
-
-  {
-    path: "/learning",
-    element: (
-      <RequireRole role="STUDENT">
-        <LearningPathsPage />
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/learning/:pathId",
-    element: (
-      <RequireRole role="STUDENT">
-        <LearningPathPage />
-      </RequireRole>
-    ),
-  },
-
   {
     path: "/courses",
     element: <CoursesPage />,
@@ -72,78 +63,87 @@ export const router = createBrowserRouter([
     element: <LessonPage />,
   },
 
+  // Lazy loaded routes
+  {
+    path: "/learning",
+    element: (
+      <RequireRole role="STUDENT">
+        <Suspense fallback={<PageLoader />}>
+          <LearningPathsPage />
+        </Suspense>
+      </RequireRole>
+    ),
+  },
+  {
+    path: "/learning/:pathId",
+    element: (
+      <RequireRole role="STUDENT">
+        <Suspense fallback={<PageLoader />}>
+          <LearningPathPage />
+        </Suspense>
+      </RequireRole>
+    ),
+  },
   {
     path: "/profile",
     element: (
       <RequireRole role="STUDENT">
-        <ProfilePage />
+        <Suspense fallback={<PageLoader />}>
+          <ProfilePage />
+        </Suspense>
       </RequireRole>
     ),
   },
 
-  // ===============================
-  // TEACHER ROUTES
-  // ===============================
   {
     path: "/teacher",
     element: (
       <RequireRole role="TEACHER">
-        <TeacherDashboardPage />
+        <Suspense fallback={<PageLoader />}>
+          <TeacherDashboardPage />
+        </Suspense>
       </RequireRole>
     ),
   },
 
-  {
-    path: "/teacher/classes/:classId",
-    element: (
-      <RequireRole role="TEACHER">
-        <TeacherClassDetailPage />
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/teacher/classes/:classId/students/:studentId",
-    element: (
-      <RequireRole role="TEACHER">
-        <TeacherStudentDetailPage />
-      </RequireRole>
-    ),
-  },
-
-  // ===============================
-  // OFFICIAL / PRINCIPAL ROUTES
-  // ===============================
   {
     path: "/official",
     element: (
       <RequireRole role="PRINCIPAL">
-        <OfficialDashboardPage />
+        <Suspense fallback={<PageLoader />}>
+          <OfficialDashboardPage />
+        </Suspense>
       </RequireRole>
     ),
   },
 
-  // ===============================
-  // ADMIN ROUTES
-  // ===============================
   {
     path: "/admin-panel",
     element: (
       <RequireRole role="ADMIN">
-        <AdminDashboardPage />
+        <Suspense fallback={<PageLoader />}>
+          <AdminDashboardPage />
+        </Suspense>
       </RequireRole>
     ),
   },
 
-  // ===============================
-  // ASSESSMENTS (Shared)
-  // ===============================
+  // Assessments
   {
     path: "/courses/:courseId/assessments",
-    element: <CourseAssessmentsPage />,
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <CourseAssessmentsPage />
+      </Suspense>
+    ),
   },
   {
     path: "/assessments/:assessmentId",
-    element: <AssessmentPage />,
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <AssessmentPage />
+      </Suspense>
+    ),
   },
   {
     path: "/assessment-result",
@@ -151,30 +151,39 @@ export const router = createBrowserRouter([
   },
   {
     path: "/assessments/:assessmentId/history",
-    element: <AssessmentHistoryPage />,
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <AssessmentHistoryPage />
+      </Suspense>
+    ),
   },
 
-  // ===============================
-  // AUTH ROUTES
-  // ===============================
+  // Teacher sub-pages
   {
-    path: "/login",
-    element: <LoginPage />,
+    path: "/teacher/classes/:classId",
+    element: (
+      <RequireRole role="TEACHER">
+        <Suspense fallback={<PageLoader />}>
+          <TeacherClassDetailPage />
+        </Suspense>
+      </RequireRole>
+    ),
   },
   {
-    path: "/register",
-    element: <RegisterPage />,
-  },
-  {
-    path: "/verify-otp",
-    element: <VerifyOtpPage />,
+    path: "/teacher/classes/:classId/students/:studentId",
+    element: (
+      <RequireRole role="TEACHER">
+        <Suspense fallback={<PageLoader />}>
+          <TeacherStudentDetailPage />
+        </Suspense>
+      </RequireRole>
+    ),
   },
 
-  // ===============================
-  // FALLBACK
-  // ===============================
-  {
-    path: "*",
-    element: <Navigate to="/" replace />,
-  },
+  // Auth
+  { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
+  { path: "/verify-otp", element: <VerifyOtpPage /> },
+
+  { path: "*", element: <Navigate to="/" replace /> },
 ]);

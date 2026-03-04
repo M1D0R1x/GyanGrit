@@ -10,10 +10,6 @@ from datetime import time
 from apps.academics.models import Institution, Section
 
 
-# =========================================================
-# USER (IDENTITY ONLY)
-# =========================================================
-
 class User(AbstractUser):
 
     ROLE_CHOICES = (
@@ -61,17 +57,14 @@ class User(AbstractUser):
 
     def generate_public_id(self):
         year = timezone.now().year
-        if self.role == "STUDENT":
-            return f"S-{year}-{secrets.token_hex(4)}"
-        elif self.role == "TEACHER":
-            return f"T-{secrets.token_hex(6)}"
-        elif self.role == "PRINCIPAL":
-            return f"P-{secrets.token_hex(6)}"
-        elif self.role == "OFFICIAL":
-            return f"O-{secrets.token_hex(6)}"
-        elif self.role == "ADMIN":
-            return f"A-{secrets.token_hex(6)}"
-        return secrets.token_hex(8)
+        prefix = {
+            "STUDENT": "S",
+            "TEACHER": "T",
+            "PRINCIPAL": "P",
+            "OFFICIAL": "O",
+            "ADMIN": "A",
+        }.get(self.role, "X")
+        return f"{prefix}-{year}-{secrets.token_hex(4)}"
 
     def clean(self):
         if self.section and not self.institution:
@@ -135,7 +128,6 @@ class OTPVerification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):
-        # Changed to 10 minutes expiry (much better UX than end of day)
         return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
 
     def can_attempt(self):
@@ -148,9 +140,6 @@ class OTPVerification(models.Model):
         status = "Verified" if self.is_verified else f"{self.attempt_count} attempts"
         return f"OTP for {self.user.username} - {status}"
 
-# =========================================================
-# DEVICE SESSION
-# =========================================================
 
 class DeviceSession(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="device_session")
@@ -160,10 +149,6 @@ class DeviceSession(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.device_fingerprint[:16]}..."
 
-
-# =========================================================
-# AUDIT LOG
-# =========================================================
 
 class AuditLog(models.Model):
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="audit_logs")
@@ -176,16 +161,8 @@ class AuditLog(models.Model):
         return f"{self.actor} - {self.action}"
 
 
-from django.db import models
-from django.utils import timezone
-from django.core.exceptions import ValidationError
-from apps.academics.models import Institution, Section
-from apps.accounts.models import User
-import secrets
-
-
 # =========================================================
-# JOIN CODE
+# JOIN CODE (UPDATED)
 # =========================================================
 
 class JoinCode(models.Model):
@@ -194,6 +171,7 @@ class JoinCode(models.Model):
         ("PRINCIPAL", "Principal"),
         ("TEACHER", "Teacher"),
         ("STUDENT", "Student"),
+        ("OFFICIAL", "Official"),          # ← ADDED
     )
 
     code = models.CharField(max_length=32, unique=True, editable=False)
@@ -233,11 +211,11 @@ class JoinCode(models.Model):
         verbose_name_plural = "Join Codes"
 
     def clean(self):
-        if self.role in ["PRINCIPAL", "TEACHER"] and not self.institution:
-            raise ValidationError("Institution required.")
+        if self.role in ["PRINCIPAL", "TEACHER", "OFFICIAL"] and not self.institution:
+            raise ValidationError("Institution required for this role.")
 
         if self.role == "STUDENT" and not self.section:
-            raise ValidationError("Section required.")
+            raise ValidationError("Section required for student.")
 
         if self.section and self.institution:
             if self.section.classroom.institution != self.institution:

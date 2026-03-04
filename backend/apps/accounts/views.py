@@ -12,7 +12,6 @@ from django.views.decorators.http import require_http_methods
 from apps.accesscontrol.permissions import require_roles
 from apps.accesscontrol.scoped_service import scope_queryset as institution_scope_queryset
 
-# Models
 from apps.academics.models import Institution, Section, Subject
 from .models import (
     StudentRegistrationRecord,
@@ -25,7 +24,7 @@ User = get_user_model()
 
 
 # =========================================================
-# REGISTER
+# REGISTER (Fixed public_id generation)
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -64,6 +63,8 @@ def register(request):
 
     with transaction.atomic():
         user = User.objects.create_user(username=username, password=password)
+
+        # CRITICAL: Set role BEFORE save so generate_public_id() works correctly
         user.role = role
         user.institution = institution
         user.section = section
@@ -83,7 +84,7 @@ def register(request):
 
 
 # =========================================================
-# LOGIN + OTP FLOW (OPTIMIZED)
+# LOGIN + OTP FLOW (Already optimized)
 # =========================================================
 
 @require_http_methods(["POST"])
@@ -104,10 +105,7 @@ def login_view(request):
             "role": user.role,
         })
 
-    # Always generate fresh OTP
     otp_code = str(random.randint(100000, 999999))
-
-    # Delete old OTPs
     OTPVerification.objects.filter(user=user).delete()
 
     OTPVerification.objects.create(
@@ -124,7 +122,7 @@ def login_view(request):
         "id": user.id,
         "username": user.username,
         "role": user.role,
-        "otp_code": otp_code,   # Remove in production
+        "otp_code": otp_code,
     })
 
 
@@ -157,7 +155,6 @@ def verify_otp(request):
         otp_record.save(update_fields=["attempt_count", "last_attempt_at"])
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
-    # Success
     DeviceSession.objects.filter(user=user).delete()
     login(request, user)
 
@@ -191,7 +188,6 @@ def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"authenticated": False})
 
-    # Optimized with select_related
     user = User.objects.select_related("institution", "section").get(id=request.user.id)
 
     return JsonResponse({
@@ -205,7 +201,7 @@ def me(request):
 
 
 # =========================================================
-# SCOPED ENDPOINTS (kept for safety)
+# SCOPED ENDPOINTS
 # =========================================================
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])

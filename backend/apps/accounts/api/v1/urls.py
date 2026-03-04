@@ -10,4 +10,7 @@ urlpatterns = [
     path("users/", views.users),
     path("student-register/", views.student_register),
     path("verify-otp/", views.verify_otp),
+
+    # NEW: Required for Principal Dashboard
+    path("teachers/", views.teachers),
 ]

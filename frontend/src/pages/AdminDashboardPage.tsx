@@ -4,7 +4,7 @@ import { apiGet } from "../services/api";
 type UserRow = {
   id: number;
   username: string;
-  role: "STUDENT" | "TEACHER" | "OFFICIAL" | "ADMIN";
+  role: "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
   is_active: boolean;
 };
 
@@ -31,6 +31,7 @@ export default function AdminDashboardPage() {
         <StatBox label="Total Users" value={users.length} />
         <StatBox label="Admins" value={users.filter((u) => u.role === "ADMIN").length} />
         <StatBox label="Officials" value={users.filter((u) => u.role === "OFFICIAL").length} />
+        <StatBox label="Principals" value={users.filter((u) => u.role === "PRINCIPAL").length} />
         <StatBox label="Teachers" value={users.filter((u) => u.role === "TEACHER").length} />
         <StatBox label="Students" value={users.filter((u) => u.role === "STUDENT").length} />
       </div>

@@ -4,14 +4,12 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 import uuid
 import secrets
-from datetime import time
 
 # Import academic models
-from apps.academics.models import Institution, Section
+from apps.academics.models import Institution, Section, District   # ← District added
 
 
 class User(AbstractUser):
-
     ROLE_CHOICES = (
         ("STUDENT", "Student"),
         ("TEACHER", "Teacher"),
@@ -82,24 +80,19 @@ class User(AbstractUser):
 
 
 # =========================================================
-# STUDENT REGISTRATION RECORD
+# STUDENT REGISTRATION RECORD (unchanged)
 # =========================================================
-
 class StudentRegistrationRecord(models.Model):
     student_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     registration_code = models.CharField(max_length=32, unique=True)
-
     name = models.CharField(max_length=255)
     dob = models.DateField()
-
     section = models.ForeignKey(
         Section,
         on_delete=models.CASCADE,
         related_name="registration_records",
     )
-
     is_registered = models.BooleanField(default=False)
-
     linked_user = models.OneToOneField(
         User,
         null=True,
@@ -107,7 +100,6 @@ class StudentRegistrationRecord(models.Model):
         on_delete=models.SET_NULL,
         related_name="registration_record",
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -119,6 +111,9 @@ class StudentRegistrationRecord(models.Model):
         return f"{self.name} ({self.section})"
 
 
+# =========================================================
+# OTP, DeviceSession, AuditLog (unchanged)
+# =========================================================
 class OTPVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
     otp_code = models.CharField(max_length=6)
@@ -162,31 +157,37 @@ class AuditLog(models.Model):
 
 
 # =========================================================
-# JOIN CODE (UPDATED)
+# JOIN CODE – NOW PROPERLY SUPPORTS OFFICIAL (DISTRICT LEVEL)
 # =========================================================
-
 class JoinCode(models.Model):
-
     ROLE_CHOICES = (
         ("PRINCIPAL", "Principal"),
         ("TEACHER", "Teacher"),
         ("STUDENT", "Student"),
-        ("OFFICIAL", "Official"),          # ← ADDED
+        ("OFFICIAL", "Official"),
     )
 
     code = models.CharField(max_length=32, unique=True, editable=False)
 
     role = models.CharField(max_length=16, choices=ROLE_CHOICES)
 
+    # School level (for Principal, Teacher, Student)
     institution = models.ForeignKey(
         Institution,
         null=True,
         blank=True,
         on_delete=models.CASCADE,
     )
-
     section = models.ForeignKey(
         Section,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+
+    # District level (ONLY for Official)
+    district = models.ForeignKey(
+        District,
         null=True,
         blank=True,
         on_delete=models.CASCADE,
@@ -200,9 +201,7 @@ class JoinCode(models.Model):
     )
 
     is_used = models.BooleanField(default=False)
-
     expires_at = models.DateTimeField()
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -211,11 +210,12 @@ class JoinCode(models.Model):
         verbose_name_plural = "Join Codes"
 
     def clean(self):
-        if self.role in ["PRINCIPAL", "TEACHER", "OFFICIAL"] and not self.institution:
-            raise ValidationError("Institution required for this role.")
-
+        if self.role in ["PRINCIPAL", "TEACHER"] and not self.institution:
+            raise ValidationError("Institution is required for this role.")
         if self.role == "STUDENT" and not self.section:
-            raise ValidationError("Section required for student.")
+            raise ValidationError("Section is required for Student.")
+        if self.role == "OFFICIAL" and not self.district:
+            raise ValidationError("District is required for Official.")
 
         if self.section and self.institution:
             if self.section.classroom.institution != self.institution:
@@ -224,7 +224,6 @@ class JoinCode(models.Model):
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = secrets.token_hex(8)
-
         if not self.expires_at:
             self.expires_at = timezone.now() + timezone.timedelta(days=3)
 

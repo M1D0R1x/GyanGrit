@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django import forms
 
 from .models import (
     User,
@@ -15,9 +16,7 @@ from .models import (
 class UserAdmin(DjangoUserAdmin):
     """Stable & Fast version - No dynamic filtering"""
 
-    # Fast autocomplete search (this is reliable with Supabase)
     autocomplete_fields = ("institution", "section")
-
     list_select_related = ("institution", "section")
     list_per_page = 50
 
@@ -42,17 +41,41 @@ class UserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
 
-    # District auto-filled from school
     readonly_fields = ("district",)
+
+
+# ==================== DYNAMIC FORM FOR JOINCODE ====================
+class JoinCodeForm(forms.ModelForm):
+    class Meta:
+        model = JoinCode
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        role = self.initial.get("role") or (self.instance.role if self.instance.pk else None)
+
+        if role == "OFFICIAL":
+            # Hide school & section for Official
+            self.fields["institution"].widget = forms.HiddenInput()
+            self.fields["section"].widget = forms.HiddenInput()
+            self.fields["district"].required = True
+        else:
+            # Hide district for everyone else
+            self.fields["district"].widget = forms.HiddenInput()
+            if role == "STUDENT":
+                self.fields["institution"].widget = forms.HiddenInput()
 
 
 @admin.register(JoinCode)
 class JoinCodeAdmin(admin.ModelAdmin):
+    form = JoinCodeForm
+
     list_display = (
         "code",
         "role",
         "institution",
         "section",
+        "district",          # ← now visible
         "created_by",
         "is_used",
         "expires_at",
@@ -60,11 +83,11 @@ class JoinCodeAdmin(admin.ModelAdmin):
     )
 
     list_filter = ("role", "is_used")
-    search_fields = ("code", "created_by__username", "institution__name")
+    search_fields = ("code", "created_by__username", "institution__name", "district__name")
     readonly_fields = ("code", "created_at", "expires_at", "is_used")
     ordering = ("-created_at",)
 
-    autocomplete_fields = ("institution", "section", "created_by")
+    autocomplete_fields = ("institution", "section", "district", "created_by")
 
 
 # Simple models

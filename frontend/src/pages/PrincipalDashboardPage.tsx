@@ -20,17 +20,39 @@ export default function PrincipalDashboardPage() {
 
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [loadingTeachers, setLoadingTeachers] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([
-      apiGet<ClassData[]>("/academics/sections/").then((d) => { setClasses(d || []); setLoadingClasses(false); }),
-      apiGet<TeacherData[]>("/accounts/teachers/").then((d) => { setTeachers(d || []); setLoadingTeachers(false); }),
-    ]);
+    const loadData = async () => {
+      try {
+        const [classData, teacherData] = await Promise.allSettled([
+          apiGet<ClassData[]>("/academics/sections/"),
+          apiGet<TeacherData[]>("/accounts/teachers/"),
+        ]);
+
+        if (classData.status === "fulfilled") {
+          setClasses(classData.value || []);
+        }
+        if (teacherData.status === "fulfilled") {
+          setTeachers(teacherData.value || []);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load some data");
+      } finally {
+        setLoadingClasses(false);
+        setLoadingTeachers(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
       <TopBar title="Principal Dashboard" />
+
+      {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
 
       <h2>Your Classes</h2>
       {loadingClasses ? (
@@ -39,13 +61,17 @@ export default function PrincipalDashboardPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-          {classes.map((c) => (
-            <div key={c.id} style={{ border: "1px solid #ddd", padding: 20, borderRadius: 8 }}>
-              <h4>Class {c.name}</h4>
-              <p>Students: {c.total_students}</p>
-              <p>Pass Rate: {c.pass_rate}%</p>
-            </div>
-          ))}
+          {classes.length === 0 ? (
+            <p>No classes found.</p>
+          ) : (
+            classes.map((c) => (
+              <div key={c.id} style={{ border: "1px solid #ddd", padding: 20, borderRadius: 8 }}>
+                <h4>Class {c.name}</h4>
+                <p>Students: {c.total_students}</p>
+                <p>Pass Rate: {c.pass_rate}%</p>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -56,11 +82,15 @@ export default function PrincipalDashboardPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-          {teachers.map((t) => (
-            <div key={t.id} style={{ border: "1px solid #ddd", padding: 20, borderRadius: 8 }}>
-              <h4>{t.username}</h4>
-            </div>
-          ))}
+          {teachers.length === 0 ? (
+            <p>No teachers found.</p>
+          ) : (
+            teachers.map((t) => (
+              <div key={t.id} style={{ border: "1px solid #ddd", padding: 20, borderRadius: 8 }}>
+                <h4>{t.username}</h4>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

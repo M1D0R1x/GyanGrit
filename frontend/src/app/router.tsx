@@ -18,6 +18,7 @@ import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 const TeacherDashboardPage = lazy(() => import("../pages/TeacherDashboardPage"));
 const OfficialDashboardPage = lazy(() => import("../pages/OfficialDashboardPage"));
 const AdminDashboardPage = lazy(() => import("../pages/AdminDashboardPage"));
+const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
 const LearningPathsPage = lazy(() => import("../pages/LearningPathsPage"));
 const LearningPathPage = lazy(() => import("../pages/LearningPathPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
@@ -27,7 +28,6 @@ const AssessmentResultPage = lazy(() => import("../pages/AssessmentsResultPage")
 const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
 const TeacherClassDetailPage = lazy(() => import("../pages/TeacherClassDetailPage"));
 const TeacherStudentDetailPage = lazy(() => import("../pages/TeacherStudentDetailPage"));
-const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
 
 // Loading fallback
 const PageLoader = () => (
@@ -37,160 +37,40 @@ const PageLoader = () => (
 );
 
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <RoleBasedRedirect />,
-  },
+  { path: "/", element: <RoleBasedRedirect /> },
 
-  // STUDENT ROUTES (eager loaded)
-  {
-    path: "/dashboard",
-    element: (
-      <RequireRole role="STUDENT">
-        <DashboardPage />
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/courses",
-    element: <CoursesPage />,
-  },
-  {
-    path: "/courses/:courseId",
-    element: <LessonsPage />,
-  },
-  {
-    path: "/lessons/:lessonId",
-    element: <LessonPage />,
-  },
+  // STUDENT ROUTES (eager loaded - fastest for students)
+  { path: "/dashboard", element: <RequireRole role="STUDENT"><DashboardPage /></RequireRole> },
+  { path: "/courses", element: <CoursesPage /> },
+  { path: "/courses/:courseId", element: <LessonsPage /> },
+  { path: "/lessons/:lessonId", element: <LessonPage /> },
 
   // Lazy loaded routes
-  {
-    path: "/learning",
-    element: (
-      <RequireRole role="STUDENT">
-        <Suspense fallback={<PageLoader />}>
-          <LearningPathsPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/learning/:pathId",
-    element: (
-      <RequireRole role="STUDENT">
-        <Suspense fallback={<PageLoader />}>
-          <LearningPathPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/profile",
-    element: (
-      <RequireRole role="STUDENT">
-        <Suspense fallback={<PageLoader />}>
-          <ProfilePage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
+  { path: "/learning", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathsPage /></Suspense></RequireRole> },
+  { path: "/learning/:pathId", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathPage /></Suspense></RequireRole> },
+  { path: "/profile", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><ProfilePage /></Suspense></RequireRole> },
 
-  {
-    path: "/teacher",
-    element: (
-      <RequireRole role="TEACHER">
-        <Suspense fallback={<PageLoader />}>
-          <TeacherDashboardPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
+  // TEACHER
+  { path: "/teacher", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherDashboardPage /></Suspense></RequireRole> },
 
-  {
-    path: "/official",
-    element: (
-      <RequireRole role="PRINCIPAL">
-        <Suspense fallback={<PageLoader />}>
-          <OfficialDashboardPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
+  // PRINCIPAL → New Principal Dashboard
+  { path: "/official", element: <RequireRole role="PRINCIPAL"><Suspense fallback={<PageLoader />}><PrincipalDashboardPage /></Suspense></RequireRole> },
 
-  {
-    path: "/admin-panel",
-    element: (
-      <RequireRole role="ADMIN">
-        <Suspense fallback={<PageLoader />}>
-          <AdminDashboardPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
+  // OFFICIAL (if needed later)
+  { path: "/official-dashboard", element: <RequireRole role="OFFICIAL"><Suspense fallback={<PageLoader />}><OfficialDashboardPage /></Suspense></RequireRole> },
+
+  // ADMIN
+  { path: "/admin-panel", element: <RequireRole role="ADMIN"><Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense></RequireRole> },
 
   // Assessments
-  {
-    path: "/courses/:courseId/assessments",
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <CourseAssessmentsPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/assessments/:assessmentId",
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <AssessmentPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/assessment-result",
-    element: <AssessmentResultPage />,
-  },
-  {
-    path: "/assessments/:assessmentId/history",
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <AssessmentHistoryPage />
-      </Suspense>
-    ),
-  },
+  { path: "/courses/:courseId/assessments", element: <Suspense fallback={<PageLoader />}><CourseAssessmentsPage /></Suspense> },
+  { path: "/assessments/:assessmentId", element: <Suspense fallback={<PageLoader />}><AssessmentPage /></Suspense> },
+  { path: "/assessment-result", element: <AssessmentResultPage /> },
+  { path: "/assessments/:assessmentId/history", element: <Suspense fallback={<PageLoader />}><AssessmentHistoryPage /></Suspense> },
 
   // Teacher sub-pages
-  {
-    path: "/teacher/classes/:classId",
-    element: (
-      <RequireRole role="TEACHER">
-        <Suspense fallback={<PageLoader />}>
-          <TeacherClassDetailPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
-  {
-    path: "/teacher/classes/:classId/students/:studentId",
-    element: (
-      <RequireRole role="TEACHER">
-        <Suspense fallback={<PageLoader />}>
-          <TeacherStudentDetailPage />
-        </Suspense>
-      </RequireRole>
-    ),
-  },
-
-    {
-  path: "/official",
-  element: (
-    <RequireRole role="PRINCIPAL">
-      <Suspense fallback={<PageLoader />}>
-        <PrincipalDashboardPage />
-      </Suspense>
-    </RequireRole>
-  ),
-},
+  { path: "/teacher/classes/:classId", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherClassDetailPage /></Suspense></RequireRole> },
+  { path: "/teacher/classes/:classId/students/:studentId", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherStudentDetailPage /></Suspense></RequireRole> },
 
   // Auth
   { path: "/login", element: <LoginPage /> },

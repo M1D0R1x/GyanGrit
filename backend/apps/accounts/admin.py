@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
-from django.utils.html import format_html
 
 from .models import (
     User, StudentRegistrationRecord, OTPVerification,
@@ -47,7 +46,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
     autocomplete_fields = ("institution", "section", "district", "created_by")
 
     class Media:
-        js = ('admin/js/joincode_dynamic.js',)   # ← We will create this file next
+        js = ('admin/js/joincode_dynamic.js',)
 
 
 # Simple registrations

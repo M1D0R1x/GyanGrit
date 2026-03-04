@@ -10,19 +10,25 @@ document.addEventListener('DOMContentLoaded', function () {
         const role = roleSelect.value;
 
         if (role === 'OFFICIAL') {
+            // Official → only District
             institutionRow.style.display = 'none';
             sectionRow.style.display = 'none';
             districtRow.style.display = 'table-row';
-        } else {
+        }
+        else if (role === 'PRINCIPAL') {
+            // Principal → only Institution (no Section)
+            institutionRow.style.display = 'table-row';
+            sectionRow.style.display = 'none';
+            districtRow.style.display = 'none';
+        }
+        else {
+            // Teacher / Student → Institution + Section
             institutionRow.style.display = 'table-row';
             sectionRow.style.display = 'table-row';
             districtRow.style.display = 'none';
         }
     }
 
-    // Initial load
     toggleFields();
-
-    // On change
     roleSelect.addEventListener('change', toggleFields);
 });

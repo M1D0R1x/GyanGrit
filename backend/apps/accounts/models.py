@@ -18,50 +18,15 @@ class User(AbstractUser):
         ("ADMIN", "Admin"),
     )
 
-    role = models.CharField(
-        max_length=16,
-        choices=ROLE_CHOICES,
-        default="STUDENT",
-    )
-
-    institution = models.ForeignKey(
-        Institution,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="users",
-    )
-
-    section = models.ForeignKey(
-        Section,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="students",
-    )
-
-    public_id = models.CharField(
-        max_length=32,
-        unique=True,
-        blank=True,
-        null=True,
-    )
-
-    district = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default="STUDENT")
+    institution = models.ForeignKey(Institution, null=True, blank=True, on_delete=models.SET_NULL, related_name="users")
+    section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, related_name="students")
+    public_id = models.CharField(max_length=32, unique=True, blank=True, null=True)
+    district = models.CharField(max_length=255, blank=True, null=True)
 
     def generate_public_id(self):
         year = timezone.now().year
-        prefix = {
-            "STUDENT": "S",
-            "TEACHER": "T",
-            "PRINCIPAL": "P",
-            "OFFICIAL": "O",
-            "ADMIN": "A",
-        }.get(self.role, "X")
+        prefix = {"STUDENT": "S", "TEACHER": "T", "PRINCIPAL": "P", "OFFICIAL": "O", "ADMIN": "A"}.get(self.role, "X")
         return f"{prefix}-{year}-{secrets.token_hex(4)}"
 
     def clean(self):
@@ -87,19 +52,9 @@ class StudentRegistrationRecord(models.Model):
     registration_code = models.CharField(max_length=32, unique=True)
     name = models.CharField(max_length=255)
     dob = models.DateField()
-    section = models.ForeignKey(
-        Section,
-        on_delete=models.CASCADE,
-        related_name="registration_records",
-    )
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="registration_records")
     is_registered = models.BooleanField(default=False)
-    linked_user = models.OneToOneField(
-        User,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="registration_record",
-    )
+    linked_user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="registration_record")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -112,7 +67,7 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTPVerification, DeviceSession, AuditLog
+# OTP, DeviceSession, AuditLog (unchanged)
 # =========================================================
 class OTPVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
@@ -131,18 +86,11 @@ class OTPVerification(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-    def __str__(self):
-        status = "Verified" if self.is_verified else f"{self.attempt_count} attempts"
-        return f"OTP for {self.user.username} - {status}"
-
 
 class DeviceSession(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="device_session")
     device_fingerprint = models.CharField(max_length=255)
     last_login = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.user.username} - {self.device_fingerprint[:16]}..."
 
 
 class AuditLog(models.Model):
@@ -152,12 +100,9 @@ class AuditLog(models.Model):
     target_id = models.CharField(max_length=255)
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.actor} - {self.action}"
-
 
 # =========================================================
-# JOIN CODE – FULLY SUPPORTS OFFICIAL (District only)
+# JOIN CODE – Principal (no section) + Official (district only)
 # =========================================================
 class JoinCode(models.Model):
     ROLE_CHOICES = (
@@ -170,33 +115,13 @@ class JoinCode(models.Model):
     code = models.CharField(max_length=32, unique=True, editable=False)
     role = models.CharField(max_length=16, choices=ROLE_CHOICES)
 
-    # School level fields
-    institution = models.ForeignKey(
-        Institution,
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-    )
-    section = models.ForeignKey(
-        Section,
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-    )
-
-    # District level field (ONLY for Official)
-    district = models.ForeignKey(
-        District,
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-    )
+    institution = models.ForeignKey(Institution, null=True, blank=True, on_delete=models.CASCADE)
+    section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.CASCADE)
+    district = models.ForeignKey(District, null=True, blank=True, on_delete=models.CASCADE)
 
     created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        limit_choices_to={"role__in": ["ADMIN", "PRINCIPAL", "OFFICIAL", "TEACHER"]},
+        User, on_delete=models.SET_NULL, null=True,
+        limit_choices_to={"role__in": ["ADMIN", "PRINCIPAL", "OFFICIAL", "TEACHER"]}
     )
 
     is_used = models.BooleanField(default=False)
@@ -215,6 +140,10 @@ class JoinCode(models.Model):
             raise ValidationError("Section is required for Student.")
         if self.role == "OFFICIAL" and not self.district:
             raise ValidationError("District is required for Official.")
+
+        # NEW: Principal cannot be assigned a section
+        if self.role == "PRINCIPAL" and self.section:
+            raise ValidationError("Principal cannot be assigned to a specific section.")
 
         if self.section and self.institution:
             if self.section.classroom.institution != self.institution:

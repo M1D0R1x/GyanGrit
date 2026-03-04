@@ -6,7 +6,7 @@ import uuid
 import secrets
 
 # Import academic models
-from apps.academics.models import Institution, Section, District   # ← District added
+from apps.academics.models import Institution, Section, District
 
 
 class User(AbstractUser):
@@ -80,7 +80,7 @@ class User(AbstractUser):
 
 
 # =========================================================
-# STUDENT REGISTRATION RECORD (unchanged)
+# STUDENT REGISTRATION RECORD
 # =========================================================
 class StudentRegistrationRecord(models.Model):
     student_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -112,7 +112,7 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTP, DeviceSession, AuditLog (unchanged)
+# OTPVerification, DeviceSession, AuditLog
 # =========================================================
 class OTPVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
@@ -157,7 +157,7 @@ class AuditLog(models.Model):
 
 
 # =========================================================
-# JOIN CODE – NOW PROPERLY SUPPORTS OFFICIAL (DISTRICT LEVEL)
+# JOIN CODE – FULLY SUPPORTS OFFICIAL (District only)
 # =========================================================
 class JoinCode(models.Model):
     ROLE_CHOICES = (
@@ -168,10 +168,9 @@ class JoinCode(models.Model):
     )
 
     code = models.CharField(max_length=32, unique=True, editable=False)
-
     role = models.CharField(max_length=16, choices=ROLE_CHOICES)
 
-    # School level (for Principal, Teacher, Student)
+    # School level fields
     institution = models.ForeignKey(
         Institution,
         null=True,
@@ -185,7 +184,7 @@ class JoinCode(models.Model):
         on_delete=models.CASCADE,
     )
 
-    # District level (ONLY for Official)
+    # District level field (ONLY for Official)
     district = models.ForeignKey(
         District,
         null=True,

@@ -1,21 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
+from django.utils.html import format_html
 
 from .models import (
-    User,
-    StudentRegistrationRecord,
-    OTPVerification,
-    DeviceSession,
-    AuditLog,
-    JoinCode,
+    User, StudentRegistrationRecord, OTPVerification,
+    DeviceSession, AuditLog, JoinCode,
 )
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    """Stable & Fast version - No dynamic filtering"""
-
     autocomplete_fields = ("institution", "section")
     list_select_related = ("institution", "section")
     list_per_page = 50
@@ -26,71 +21,36 @@ class UserAdmin(DjangoUserAdmin):
         }),
     )
 
-    list_display = (
-        "username",
-        "role",
-        "institution",
-        "section",
-        "public_id",
-        "is_staff",
-        "is_active",
-        "date_joined",
-    )
-
+    list_display = ("username", "role", "institution", "section", "public_id", "is_staff", "is_active", "date_joined")
     list_filter = ("role", "is_staff", "is_active")
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
-
     readonly_fields = ("district",)
 
 
-# ==================== DYNAMIC FORM FOR JOINCODE ====================
+# ===================== DYNAMIC JOIN CODE FORM =====================
 class JoinCodeForm(forms.ModelForm):
     class Meta:
         model = JoinCode
         fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        role = self.initial.get("role") or (self.instance.role if self.instance.pk else None)
-
-        if role == "OFFICIAL":
-            # Hide school & section for Official
-            self.fields["institution"].widget = forms.HiddenInput()
-            self.fields["section"].widget = forms.HiddenInput()
-            self.fields["district"].required = True
-        else:
-            # Hide district for everyone else
-            self.fields["district"].widget = forms.HiddenInput()
-            if role == "STUDENT":
-                self.fields["institution"].widget = forms.HiddenInput()
 
 
 @admin.register(JoinCode)
 class JoinCodeAdmin(admin.ModelAdmin):
     form = JoinCodeForm
 
-    list_display = (
-        "code",
-        "role",
-        "institution",
-        "section",
-        "district",          # ← now visible
-        "created_by",
-        "is_used",
-        "expires_at",
-        "created_at",
-    )
-
+    list_display = ("code", "role", "institution", "section", "district", "created_by", "is_used", "expires_at")
     list_filter = ("role", "is_used")
     search_fields = ("code", "created_by__username", "institution__name", "district__name")
     readonly_fields = ("code", "created_at", "expires_at", "is_used")
     ordering = ("-created_at",)
-
     autocomplete_fields = ("institution", "section", "district", "created_by")
 
+    class Media:
+        js = ('admin/js/joincode_dynamic.js',)   # ← We will create this file next
 
-# Simple models
+
+# Simple registrations
 admin.site.register(StudentRegistrationRecord)
 admin.site.register(OTPVerification)
 admin.site.register(DeviceSession)

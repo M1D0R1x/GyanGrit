@@ -45,7 +45,7 @@ export const router = createBrowserRouter([
   { path: "/courses/:courseId", element: <LessonsPage /> },
   { path: "/lessons/:lessonId", element: <LessonPage /> },
 
-  // Lazy loaded routes
+  // Lazy loaded student routes
   { path: "/learning", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathsPage /></Suspense></RequireRole> },
   { path: "/learning/:pathId", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathPage /></Suspense></RequireRole> },
   { path: "/profile", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><ProfilePage /></Suspense></RequireRole> },
@@ -53,16 +53,16 @@ export const router = createBrowserRouter([
   // TEACHER
   { path: "/teacher", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherDashboardPage /></Suspense></RequireRole> },
 
-  // PRINCIPAL → New Principal Dashboard
-  { path: "/official", element: <RequireRole role="PRINCIPAL"><Suspense fallback={<PageLoader />}><PrincipalDashboardPage /></Suspense></RequireRole> },
+  // PRINCIPAL (new clean path)
+  { path: "/principal", element: <RequireRole role="PRINCIPAL"><Suspense fallback={<PageLoader />}><PrincipalDashboardPage /></Suspense></RequireRole> },
 
-  // OFFICIAL (if needed later)
-  { path: "/official-dashboard", element: <RequireRole role="OFFICIAL"><Suspense fallback={<PageLoader />}><OfficialDashboardPage /></Suspense></RequireRole> },
+  // OFFICIAL (fixed - was wrongly pointing to Principal)
+  { path: "/official", element: <RequireRole role="OFFICIAL"><Suspense fallback={<PageLoader />}><OfficialDashboardPage /></Suspense></RequireRole> },
 
   // ADMIN
   { path: "/admin-panel", element: <RequireRole role="ADMIN"><Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense></RequireRole> },
 
-  // Assessments
+  // Assessments (shared)
   { path: "/courses/:courseId/assessments", element: <Suspense fallback={<PageLoader />}><CourseAssessmentsPage /></Suspense> },
   { path: "/assessments/:assessmentId", element: <Suspense fallback={<PageLoader />}><AssessmentPage /></Suspense> },
   { path: "/assessment-result", element: <AssessmentResultPage /> },

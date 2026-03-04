@@ -36,6 +36,10 @@ class User(AbstractUser):
             raise ValidationError("Section institution must match user's institution.")
 
     def save(self, *args, **kwargs):
+        # AUTO DISTRICT for Student/Teacher/Principal (when institution is selected)
+        if self.institution and not self.district:
+            self.district = self.institution.district.name
+
         if not self.public_id:
             self.public_id = self.generate_public_id()
         super().save(*args, **kwargs)
@@ -67,7 +71,7 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTP, DeviceSession, AuditLog (unchanged)
+# OTP, DeviceSession, AuditLog
 # =========================================================
 class OTPVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
@@ -102,7 +106,7 @@ class AuditLog(models.Model):
 
 
 # =========================================================
-# JOIN CODE – Principal (no section) + Official (district only)
+# JOIN CODE – District visible for all + auto-fill
 # =========================================================
 class JoinCode(models.Model):
     ROLE_CHOICES = (
@@ -141,7 +145,6 @@ class JoinCode(models.Model):
         if self.role == "OFFICIAL" and not self.district:
             raise ValidationError("District is required for Official.")
 
-        # NEW: Principal cannot be assigned a section
         if self.role == "PRINCIPAL" and self.section:
             raise ValidationError("Principal cannot be assigned to a specific section.")
 
@@ -154,6 +157,10 @@ class JoinCode(models.Model):
             self.code = secrets.token_hex(8)
         if not self.expires_at:
             self.expires_at = timezone.now() + timezone.timedelta(days=3)
+
+        # AUTO DISTRICT for Student/Teacher/Principal
+        if self.institution and not self.district:
+            self.district = self.institution.district
 
         self.full_clean()
         super().save(*args, **kwargs)

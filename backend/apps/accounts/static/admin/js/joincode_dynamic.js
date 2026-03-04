@@ -16,16 +16,16 @@ document.addEventListener('DOMContentLoaded', function () {
             districtRow.style.display = 'table-row';
         }
         else if (role === 'PRINCIPAL') {
-            // Principal → only Institution (no Section)
+            // Principal → Institution + District (no Section)
             institutionRow.style.display = 'table-row';
             sectionRow.style.display = 'none';
-            districtRow.style.display = 'none';
+            districtRow.style.display = 'table-row';
         }
         else {
-            // Teacher / Student → Institution + Section
+            // Teacher / Student → Institution + Section + District
             institutionRow.style.display = 'table-row';
             sectionRow.style.display = 'table-row';
-            districtRow.style.display = 'none';
+            districtRow.style.display = 'table-row';
         }
     }
 

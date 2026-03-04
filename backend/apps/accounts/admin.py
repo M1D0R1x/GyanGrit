@@ -27,7 +27,6 @@ class UserAdmin(DjangoUserAdmin):
     readonly_fields = ("district",)
 
 
-# ===================== DYNAMIC JOIN CODE FORM =====================
 class JoinCodeForm(forms.ModelForm):
     class Meta:
         model = JoinCode
@@ -49,7 +48,6 @@ class JoinCodeAdmin(admin.ModelAdmin):
         js = ('admin/js/joincode_dynamic.js',)
 
 
-# Simple registrations
 admin.site.register(StudentRegistrationRecord)
 admin.site.register(OTPVerification)
 admin.site.register(DeviceSession)

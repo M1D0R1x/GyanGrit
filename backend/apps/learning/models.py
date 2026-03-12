@@ -47,6 +47,7 @@ class Enrollment(models.Model):
             )
         ]
         ordering = ["-enrolled_at"]
+        indexes = [models.Index(fields=['user', 'course'])]
 
     def clean(self):
         if self.status == "completed" and not self.completed_at:
@@ -77,6 +78,7 @@ class LearningPath(models.Model):
 
     class Meta:
         ordering = ["name"]
+        indexes = [models.Index(fields=['name'])]
 
     def __str__(self):
         return self.name
@@ -114,6 +116,7 @@ class LearningPathCourse(models.Model):
                 name="unique_order_in_path",
             ),
         ]
+        indexes = [models.Index(fields=['learning_path', 'order'])]
 
     def clean(self):
         if self.order <= 0:

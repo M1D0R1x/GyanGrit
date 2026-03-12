@@ -19,7 +19,7 @@ export default function RoleBasedRedirect() {
     case "TEACHER":
       return <Navigate to="/teacher" replace />;
     case "PRINCIPAL":
-      return <Navigate to="/official" replace />; // Redirecting to /official; add dedicated route if needed
+      return <Navigate to="/principal" replace />;
     case "OFFICIAL":
       return <Navigate to="/official" replace />;
     case "ADMIN":

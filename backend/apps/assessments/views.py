@@ -1,21 +1,19 @@
 import json
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.db.models import Avg
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
 
+from apps.academics.models import ClassRoom
+from apps.accesscontrol.scoped_service import scope_queryset, get_scoped_object_or_403
 from apps.assessments.models import (
     Assessment,
     AssessmentAttempt,
 )
 from apps.content.models import Course
-from apps.academics.models import ClassRoom
-from apps.accesscontrol.scoped_service import scope_queryset, get_scoped_object_or_403
-from apps.accesscontrol.permissions import require_roles  # not used here but available
 
 User = get_user_model()
 

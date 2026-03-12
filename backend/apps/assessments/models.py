@@ -29,6 +29,7 @@ class Assessment(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [models.Index(fields=['course', 'is_published'])]
 
     def clean(self):
         if self.pass_marks > self.total_marks:
@@ -59,6 +60,7 @@ class Question(models.Model):
     class Meta:
         ordering = ["order"]
         unique_together = ["assessment", "order"]
+        indexes = [models.Index(fields=['assessment', 'order'])]
 
     def clean(self):
         if self.marks <= 0:
@@ -85,6 +87,7 @@ class QuestionOption(models.Model):
 
     class Meta:
         ordering = ["id"]
+        indexes = [models.Index(fields=['question'])]
 
     def clean(self):
         if self.is_correct:
@@ -128,6 +131,10 @@ class AssessmentAttempt(models.Model):
 
     class Meta:
         ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=['user', 'assessment']),
+            models.Index(fields=['assessment', 'submitted_at'])
+        ]
 
     def calculate_score_and_pass(self):
         score = 0

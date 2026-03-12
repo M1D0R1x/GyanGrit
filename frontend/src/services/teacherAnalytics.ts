@@ -13,7 +13,7 @@ export type TeacherCourseAnalytics = {
 };
 
 export function getTeacherCourseAnalytics() {
-  return apiGet<TeacherCourseAnalytics[]>("/teacher/analytics/courses/");
+  return apiGet<TeacherCourseAnalytics[]>("/content/teacher/analytics/courses/");
 }
 
 /* =========================
@@ -26,11 +26,11 @@ export type TeacherLessonAnalytics = {
   course_title: string;
   completed_count: number;
   total_attempts: number;
-  avg_time_spent: number;
+  avg_position: number;
 };
 
 export function getTeacherLessonAnalytics() {
-  return apiGet<TeacherLessonAnalytics[]>("/teacher/analytics/lessons/");
+  return apiGet<TeacherLessonAnalytics[]>("/content/teacher/analytics/lessons/");
 }
 
 /* =========================
@@ -50,7 +50,7 @@ export type TeacherAssessmentAnalytics = {
 };
 
 export function getTeacherAssessmentAnalytics() {
-  return apiGet<TeacherAssessmentAnalytics[]>("/teacher/analytics/assessments/");
+  return apiGet<TeacherAssessmentAnalytics[]>("/content/teacher/analytics/assessments/");
 }
 
 /* =========================
@@ -68,7 +68,7 @@ export type TeacherClassAnalytics = {
 };
 
 export function getTeacherClassAnalytics() {
-  return apiGet<TeacherClassAnalytics[]>("/teacher/analytics/classes/");
+  return apiGet<TeacherClassAnalytics[]>("/content/teacher/analytics/classes/");
 }
 
 export type TeacherClassStudentAnalytics = {
@@ -81,7 +81,7 @@ export type TeacherClassStudentAnalytics = {
 
 export function getTeacherClassStudents(classId: number) {
   return apiGet<TeacherClassStudentAnalytics[]>(
-    `/teacher/analytics/classes/${classId}/students/`
+    `/content/teacher/analytics/classes/${classId}/students/`
   );
 }
 
@@ -101,6 +101,6 @@ export type TeacherStudentDetailResponse = {
 
 export function getTeacherStudentAssessments(classId: number, studentId: number) {
   return apiGet<TeacherStudentDetailResponse>(
-    `/teacher/analytics/classes/${classId}/students/${studentId}/`
+    `/content/teacher/analytics/classes/${classId}/students/${studentId}/`
   );
 }

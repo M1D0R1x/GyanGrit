@@ -29,7 +29,7 @@ export default function PrincipalDashboardPage() {
     const loadData = async () => {
       try {
         const [classData, teacherData] = await Promise.allSettled([
-          apiGet<ClassData[]>("/academics/sections/"),
+          apiGet<ClassData[]>("/academics/classes/"),
           apiGet<TeacherData[]>("/accounts/teachers/"),
         ]);
 
@@ -79,7 +79,7 @@ export default function PrincipalDashboardPage() {
             ) : (
               visibleClasses.map((c) => (
                 <div key={c.id} style={{ border: "1px solid #ddd", padding: 20, borderRadius: 8 }}>
-                  <h4>Class {c.name}</h4>
+                  <h4>{c.name}</h4>
                   <p>Students: {c.total_students}</p>
                   <p>Pass Rate: {c.pass_rate}%</p>
                 </div>

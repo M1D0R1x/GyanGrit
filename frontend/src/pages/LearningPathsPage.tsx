@@ -1,3 +1,4 @@
+// src/pages/LearningPathsPage.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,34 +25,36 @@ export default function LearningPathsPage() {
   }, []);
 
   // --------------------------------------------------
-  // Load progress safely (Promise.all)
+  // Load progress safely (async/await to avoid ESLint warning)
   // --------------------------------------------------
   useEffect(() => {
-    if (paths.length === 0) return;
+    async function loadProgress() {
+      if (paths.length === 0) return;
 
-    let cancelled = false;
-    setLoadingProgress(true);
+      setLoadingProgress(true);
 
-    Promise.all(
-      paths.map(async (path) => ({
-        pathId: path.id,
-        progress: await getLearningPathProgress(path.id),
-      }))
-    ).then((results) => {
-      if (cancelled) return;
+      try {
+        const results = await Promise.all(
+          paths.map(async (path) => ({
+            pathId: path.id,
+            progress: await getLearningPathProgress(path.id),
+          }))
+        );
 
-      const map: Record<number, LearningPathProgress> = {};
-      results.forEach(({ pathId, progress }) => {
-        map[pathId] = progress;
-      });
+        const map: Record<number, LearningPathProgress> = {};
+        results.forEach(({ pathId, progress }) => {
+          map[pathId] = progress;
+        });
 
-      setProgress(map);
-      setLoadingProgress(false);
-    });
+        setProgress(map);
+      } catch (err) {
+        console.error("Failed to load progress", err);
+      } finally {
+        setLoadingProgress(false);
+      }
+    }
 
-    return () => {
-      cancelled = true;
-    };
+    loadProgress();
   }, [paths]);
 
   return (

@@ -7,6 +7,7 @@ class District(models.Model):
 
     class Meta:
         ordering = ["name"]
+        indexes = [models.Index(fields=['name'])]
 
     def __str__(self):
         return self.name
@@ -28,6 +29,7 @@ class Institution(models.Model):
     class Meta:
         unique_together = ("name", "district")
         ordering = ["name"]
+        indexes = [models.Index(fields=['name', 'district'])]
 
     def __str__(self):
         return f"{self.name} ({self.district.name})"
@@ -49,6 +51,7 @@ class ClassRoom(models.Model):
     class Meta:
         unique_together = ("name", "institution")
         ordering = ["name"]
+        indexes = [models.Index(fields=['institution', 'name'])]
 
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
@@ -73,10 +76,11 @@ class Section(models.Model):
 
     class Meta:
         unique_together = ("name", "classroom")
+        indexes = [models.Index(fields=['classroom', 'name'])]
 
     def __str__(self):
-        # Clean format: "10 - Government Senior Secondary School Amritsar"
-        return f"{self.classroom.name} - {self.classroom.institution.name}"
+        # Updated format: "10 A - Government Senior Secondary School Amritsar"
+        return f"{self.classroom.name} {self.name} - {self.classroom.institution.name}"
 
 # =========================================================
 # SUBJECT (GLOBAL)
@@ -87,6 +91,7 @@ class Subject(models.Model):
 
     class Meta:
         ordering = ["name"]
+        indexes = [models.Index(fields=['name'])]
 
     def __str__(self):
         return self.name
@@ -111,6 +116,7 @@ class ClassSubject(models.Model):
 
     class Meta:
         unique_together = ("classroom", "subject")
+        indexes = [models.Index(fields=['classroom', 'subject'])]
 
     def __str__(self):
         return f"{self.classroom.name} - {self.subject.name}"
@@ -140,6 +146,7 @@ class StudentSubject(models.Model):
 
     class Meta:
         unique_together = ("student", "subject")
+        indexes = [models.Index(fields=['student', 'subject'])]
 
     def __str__(self):
         return f"{self.student.username} - {self.subject.name}"
@@ -171,6 +178,7 @@ class TeachingAssignment(models.Model):
 
     class Meta:
         unique_together = ("teacher", "subject", "section")
+        indexes = [models.Index(fields=['teacher', 'subject', 'section'])]
 
     def clean(self):
         if self.teacher.institution != self.section.classroom.institution:

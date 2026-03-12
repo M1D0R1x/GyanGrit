@@ -11,7 +11,7 @@ def scope_queryset(user, queryset):
     if not user.is_authenticated:
         return queryset.none()
 
-    if user.role == "ADMIN":
+    if user.role == "ADMIN" or user.is_superuser:
         return queryset
 
     model = queryset.model

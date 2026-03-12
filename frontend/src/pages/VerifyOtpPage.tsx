@@ -39,11 +39,11 @@ export default function VerifyOtpPage() {
       switch (response.role) {
         case "STUDENT": navigate("/dashboard", { replace: true }); break;
         case "TEACHER": navigate("/teacher", { replace: true }); break;
-        case "PRINCIPAL":
+        case "PRINCIPAL": navigate("/principal", { replace: true }); break;
         case "OFFICIAL": navigate("/official", { replace: true }); break;
         case "ADMIN": navigate("/admin-panel", { replace: true }); break;
       }
-    } catch (err: unknown) {
+    } catch {
       setError("Invalid OTP. Please try again.");
     } finally {
       setLoading(false);

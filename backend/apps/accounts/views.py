@@ -61,14 +61,14 @@ def register(request):
         district = section.classroom.institution.district.name
 
     with transaction.atomic():
-        user = User.objects.create_user(username=username, password=password)
-
-        # CRITICAL FIX: Set role BEFORE any save() so generate_public_id works
-        user.role = role
-        user.institution = institution
-        user.section = section
-        user.district = district
-        user.save()                     # ← public_id now correctly generated
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            role=role,
+            institution=institution,
+            section=section,
+            district=district
+        )
 
         join_code.mark_as_used()
 
@@ -116,13 +116,13 @@ def student_register(request):
         return JsonResponse({"error": "Username exists"}, status=400)
 
     with transaction.atomic():
-        user = User.objects.create_user(username=username, password=password)
-
-        # CRITICAL FIX: Set role BEFORE save
-        user.role = "STUDENT"
-        user.institution = record.section.classroom.institution
-        user.section = record.section
-        user.save()
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            role="STUDENT",
+            institution=record.section.classroom.institution,
+            section=record.section
+        )
 
         record.is_registered = True
         record.linked_user = user
@@ -278,52 +278,29 @@ def teachers(request):
 
 
 # =========================================================
-# STUDENT SELF REGISTRATION
+# VALIDATE JOIN CODE (new: for frontend to lock role after code entry)
 # =========================================================
 @require_http_methods(["POST"])
 @csrf_exempt
-def student_register(request):
+def validate_join_code(request):
     body = json.loads(request.body)
+    join_code_value = body.get("join_code")
 
-    code = body.get("registration_code")
-    username = body.get("username")
-    password = body.get("password")
-    dob = body.get("dob")
-
-    if not all([code, username, password, dob]):
-        return JsonResponse({"error": "Missing required fields"}, status=400)
+    if not join_code_value:
+        return JsonResponse({"error": "join_code is required"}, status=400)
 
     try:
-        record = StudentRegistrationRecord.objects.select_related(
-            "section", "section__classroom", "section__classroom__institution"
-        ).get(registration_code=code)
-    except StudentRegistrationRecord.DoesNotExist:
-        return JsonResponse({"error": "Invalid registration code"}, status=400)
+        join_code = JoinCode.objects.get(code=join_code_value)
+    except JoinCode.DoesNotExist:
+        return JsonResponse({"error": "invalid join_code"}, status=400)
 
-    if record.is_registered:
-        return JsonResponse({"error": "Code already used"}, status=400)
-
-    if str(record.dob) != str(dob):
-        return JsonResponse({"error": "DOB mismatch"}, status=400)
-
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "Username exists"}, status=400)
-
-    with transaction.atomic():
-        user = User.objects.create_user(username=username, password=password)
-        user.role = "STUDENT"
-        user.institution = record.section.classroom.institution
-        user.section = record.section
-        user.save()
-
-        record.is_registered = True
-        record.linked_user = user
-        record.save()
+    if not join_code.is_valid():
+        return JsonResponse({"error": "expired or already used join_code"}, status=400)
 
     return JsonResponse({
-        "id": user.id,
-        "public_id": user.public_id,
-        "username": user.username,
-        "section": user.section.name,
-        "institution": user.institution.name,
+        "valid": True,
+        "role": join_code.role,
+        "institution": join_code.institution.name if join_code.institution else None,
+        "section": join_code.section.name if join_code.section else None,
+        "district": join_code.district.name if join_code.district else None,
     })

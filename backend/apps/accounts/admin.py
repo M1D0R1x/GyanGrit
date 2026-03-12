@@ -26,6 +26,11 @@ class UserAdmin(DjangoUserAdmin):
     ordering = ("-date_joined",)
     readonly_fields = ("district",)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.defer("password")  # Skip heavy fields
+        return qs
+
 
 class JoinCodeForm(forms.ModelForm):
     class Meta:

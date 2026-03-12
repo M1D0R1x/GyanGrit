@@ -1,5 +1,6 @@
 import openpyxl
 import secrets
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -12,7 +13,7 @@ from apps.academics.models import Section
 
 
 # =========================================================
-# PROCESS ROSTER UPLOAD
+# PROCESS ROSTER UPLOAD (Improved DOB parsing + better validation)
 # =========================================================
 
 def process_roster_upload(file, teacher):
@@ -20,17 +21,29 @@ def process_roster_upload(file, teacher):
     if teacher.role != "TEACHER":
         raise ValidationError("Only teachers can upload rosters.")
 
-    workbook = openpyxl.load_workbook(file)
-    sheet = workbook.active
+    try:
+        workbook = openpyxl.load_workbook(file)
+        sheet = workbook.active
+    except Exception:
+        raise ValidationError("Invalid Excel file. Please upload a valid .xlsx file.")
 
     created_records = []
 
-    # Expected columns: Name | DOB | Section_ID
+    # Expected columns: Name | DOB (YYYY-MM-DD) | Section_ID
     for row in sheet.iter_rows(min_row=2, values_only=True):
-        name, dob, section_id = row[:3]  # safe in case extra columns
+        name, dob_raw, section_id = row[:3]
 
-        if not all([name, dob, section_id]):
+        if not all([name, dob_raw, section_id]):
             continue
+
+        # Robust DOB parsing
+        try:
+            if isinstance(dob_raw, datetime):
+                dob = dob_raw.date()
+            else:
+                dob = datetime.strptime(str(dob_raw).strip(), "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue  # skip invalid date
 
         try:
             section = Section.objects.select_related(
@@ -39,12 +52,12 @@ def process_roster_upload(file, teacher):
         except Section.DoesNotExist:
             continue
 
-        # Ensure teacher is assigned to this section
+        # Teacher must be assigned to this section
         if not teacher.teaching_assignments.filter(section=section).exists():
             continue
 
         record = StudentRegistrationRecord.objects.create(
-            name=name,
+            name=str(name).strip(),
             dob=dob,
             section=section,
         )
@@ -59,7 +72,7 @@ def process_roster_upload(file, teacher):
 
 
 # =========================================================
-# REGENERATE CODE
+# REGENERATE CODE (unchanged - already solid)
 # =========================================================
 
 def regenerate_student_code(record_id, actor):
@@ -107,7 +120,7 @@ def regenerate_student_code(record_id, actor):
 
 
 # =========================================================
-# LIST REGISTRATION RECORDS
+# LIST REGISTRATION RECORDS (unchanged - already good)
 # =========================================================
 
 def list_registration_records(actor, section_id=None):

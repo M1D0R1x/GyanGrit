@@ -15,7 +15,7 @@ from .services import (
 
 
 # =========================================================
-# UPLOAD ROSTER
+# UPLOAD ROSTER (Improved file size + type check)
 # =========================================================
 
 @require_roles(["TEACHER"])
@@ -27,6 +27,19 @@ def upload_roster(request):
     if not uploaded_file:
         return JsonResponse(
             {"success": False, "error": "No file provided"},
+            status=400,
+        )
+
+    # Basic security: limit file size (max 5MB)
+    if uploaded_file.size > 5 * 1024 * 1024:
+        return JsonResponse(
+            {"success": False, "error": "File too large. Max 5MB allowed."},
+            status=400,
+        )
+
+    if not uploaded_file.name.lower().endswith(('.xlsx', '.xls')):
+        return JsonResponse(
+            {"success": False, "error": "Only .xlsx or .xls files allowed"},
             status=400,
         )
 
@@ -56,7 +69,7 @@ def upload_roster(request):
 
 
 # =========================================================
-# REGENERATE REGISTRATION CODE
+# REGENERATE REGISTRATION CODE (unchanged)
 # =========================================================
 
 @require_roles(["TEACHER", "PRINCIPAL"])
@@ -104,7 +117,7 @@ def regenerate_code(request):
 
 
 # =========================================================
-# LIST REGISTRATION RECORDS
+# LIST REGISTRATION RECORDS (unchanged)
 # =========================================================
 
 @require_roles(["TEACHER", "PRINCIPAL"])

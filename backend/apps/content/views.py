@@ -151,6 +151,9 @@ def lesson_detail(request, lesson_id):
         "id": lesson.id,
         "title": lesson.title,
         "content": lesson.content,
+        "video_url": lesson.video_url,
+        "hls_manifest_url": lesson.hls_manifest_url,
+        "thumbnail_url": lesson.thumbnail_url,
         "completed": progress.completed,
         "last_position": progress.last_position,
     })

@@ -24,6 +24,7 @@ class Course(models.Model):
 
     class Meta:
         ordering = ["grade", "title"]
+        indexes = [models.Index(fields=['subject', 'grade'])]
 
     def __str__(self):
         return f"{self.title} (Class {self.grade} - {self.subject.name})"
@@ -38,7 +39,12 @@ class Lesson(models.Model):
 
     title = models.CharField(max_length=255)
     order = models.PositiveIntegerField(default=1)
-    content = models.TextField(blank=True)
+    content = models.TextField(blank=True)  # For text-based content
+
+    # New: Video fields for HLS/adaptive streaming
+    video_url = models.URLField(blank=True, null=True)  # Raw video (fallback)
+    hls_manifest_url = models.URLField(blank=True, null=True)  # HLS for adaptive
+    thumbnail_url = models.URLField(blank=True, null=True)  # Preview image
 
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,13 +52,14 @@ class Lesson(models.Model):
     class Meta:
         ordering = ["order"]
         unique_together = ["course", "order"]
-
-    def __str__(self):
-        return f"{self.course.title} – {self.title} (Order {self.order})"
+        indexes = [models.Index(fields=['course', 'order'])]
 
     def clean(self):
         if self.order <= 0:
             raise ValidationError("Order must be positive.")
+
+    def __str__(self):
+        return f"{self.course.title} – {self.title} (Order {self.order})"
 
 
 class LessonProgress(models.Model):
@@ -80,6 +87,7 @@ class LessonProgress(models.Model):
             )
         ]
         ordering = ["-last_opened_at"]
+        indexes = [models.Index(fields=['lesson', 'user'])]
 
     def __str__(self):
         status = "Completed" if self.completed else "In Progress"

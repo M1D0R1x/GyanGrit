@@ -145,3 +145,5 @@ htmlcov/
 # Ignore EVERYTHING inside infra secrets
 ############################################
 infra/**/secrets/
+
+*.dump

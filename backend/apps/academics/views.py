@@ -10,6 +10,7 @@ from .models import (
     TeachingAssignment,
     District,
 )
+from ..content.models import Lesson, LessonProgress, Course
 
 
 # =========================================================
@@ -95,30 +96,78 @@ def sections(request):
 # SUBJECTS
 # =========================================================
 
+from .models import StudentSubject
+from ..content.models import Lesson, LessonProgress, Course
+
+
 @login_required
 @require_http_methods(["GET"])
 def subjects(request):
-    if request.user.role == "STUDENT":
-        if not request.user.section:
-            return JsonResponse([], safe=False)
 
-        queryset = Subject.objects.filter(
-            classrooms__classroom=request.user.section.classroom
-        ).distinct()
+    if request.user.role == "STUDENT":
+
+        student_subjects = (
+            StudentSubject.objects
+            .select_related("subject", "classroom")
+            .filter(student=request.user)
+        )
+
+        data = []
+
+        for ss in student_subjects:
+            subject = ss.subject
+            classroom = ss.classroom
+
+            # courses for this subject + class
+            courses = Course.objects.filter(
+                subject=subject,
+                grade=int(classroom.name)
+            )
+
+            total_lessons = Lesson.objects.filter(
+                course__in=courses,
+                is_published=True
+            ).count()
+
+            completed_lessons = LessonProgress.objects.filter(
+                lesson__course__in=courses,
+                user=request.user,
+                completed=True
+            ).count()
+
+            progress = int((completed_lessons / total_lessons) * 100) if total_lessons else 0
+
+            data.append({
+                "id": subject.id,
+                "name": subject.name,
+                "total_lessons": total_lessons,
+                "completed_lessons": completed_lessons,
+                "progress": progress,
+            })
+
+        return JsonResponse(data, safe=False)
+
 
     elif request.user.role == "TEACHER":
+
         queryset = Subject.objects.filter(
             teaching_assignments__teacher=request.user
         ).distinct()
 
+        return JsonResponse(
+            list(queryset.values("id", "name")),
+            safe=False
+        )
+
+
     else:
+
         queryset = Subject.objects.all()
 
-    return JsonResponse(
-        list(queryset.values("id", "name")),
-        safe=False
-    )
-
+        return JsonResponse(
+            list(queryset.values("id", "name")),
+            safe=False
+        )
 
 # =========================================================
 # TEACHING ASSIGNMENTS

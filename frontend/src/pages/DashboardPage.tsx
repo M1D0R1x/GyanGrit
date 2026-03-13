@@ -2,20 +2,16 @@ import { useEffect, useState } from "react";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 
-type StudentCourse = {
+type StudentSubject = {
   id: number;
-  title: string;
-  progress: number;
+  name: string;
   total_lessons: number;
   completed_lessons: number;
-};
-
-type StudentDashboardResponse = {
-  courses: StudentCourse[];
+  progress: number;
 };
 
 export default function DashboardPage() {
-  const [courses, setCourses] = useState<StudentCourse[]>([]);
+  const [subjects, setSubjects] = useState<StudentSubject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,12 +21,12 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const data = await apiGet<StudentDashboardResponse>(
-          "/learning/student/dashboard/"
+        const data = await apiGet<StudentSubject[]>(
+          "/academics/subjects/"
         );
-        setCourses(data?.courses || []);
+        setSubjects(data || []);
       } catch (err) {
-        console.error("Failed to load student dashboard:", err);
+        console.error("Failed to load student subjects:", err);
         setError("Failed to load dashboard data. Please try again later.");
       } finally {
         setLoading(false);
@@ -64,14 +60,14 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <h2>Your Courses</h2>
+          <h2>Your Subjects</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-            {courses.length === 0 ? (
-              <p>No courses enrolled yet.</p>
+            {subjects.length === 0 ? (
+              <p>No subjects enrolled yet.</p>
             ) : (
-              courses.map((course) => (
+              subjects.map((subject) => (
                 <div
-                  key={course.id}
+                  key={subject.id}
                   style={{
                     border: "1px solid #ddd",
                     padding: 20,
@@ -79,12 +75,12 @@ export default function DashboardPage() {
                     background: "#f9f9f9",
                   }}
                 >
-                  <h4>{course.title}</h4>
+                  <h4>{subject.name}</h4>
                   <p style={{ margin: "8px 0" }}>
-                    {course.completed_lessons} / {course.total_lessons} lessons completed
+                    {subject.completed_lessons} / {subject.total_lessons} lessons completed
                   </p>
                   <p style={{ fontWeight: "bold" }}>
-                    {course.progress}% progress
+                    {subject.progress}% progress
                   </p>
                 </div>
               ))

@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods
 from apps.accesscontrol.permissions import require_roles
 from apps.accesscontrol.scoped_service import scope_queryset as institution_scope_queryset
 
-from apps.academics.models import Institution, Section, Subject
+from apps.academics.models import Institution, Section, Subject, ClassRoom, TeachingAssignment  # NEW: TeachingAssignment, ClassRoom
 from .models import (
     StudentRegistrationRecord,
     OTPVerification,
@@ -69,6 +69,21 @@ def register(request):
             section=section,
             district=district
         )
+
+        # NEW: For Teacher, auto-assign to 6-10 classes with selected subject
+        if role == "TEACHER" and join_code.subject and institution:
+            classrooms = ClassRoom.objects.filter(
+                institution=institution,
+                name__in=["6", "7", "8", "9", "10"]
+            )
+            for classroom in classrooms:
+                sections = Section.objects.filter(classroom=classroom)
+                for sec in sections:
+                    TeachingAssignment.objects.get_or_create(
+                        teacher=user,
+                        subject=join_code.subject,
+                        section=sec
+                    )
 
         join_code.mark_as_used()
 
@@ -303,4 +318,5 @@ def validate_join_code(request):
         "institution": join_code.institution.name if join_code.institution else None,
         "section": join_code.section.name if join_code.section else None,
         "district": join_code.district.name if join_code.district else None,
+        "subject": join_code.subject.name if join_code.subject else None,  # NEW
     })

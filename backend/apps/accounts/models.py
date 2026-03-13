@@ -6,7 +6,7 @@ import uuid
 import secrets
 
 # Import academic models
-from apps.academics.models import Institution, Section, District
+from apps.academics.models import Institution, Section, District, Subject  # NEW: Subject
 
 
 class User(AbstractUser):
@@ -122,6 +122,7 @@ class JoinCode(models.Model):
     institution = models.ForeignKey(Institution, null=True, blank=True, on_delete=models.CASCADE)
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.CASCADE)
     district = models.ForeignKey(District, null=True, blank=True, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, null=True, blank=True, on_delete=models.SET_NULL)  # NEW: for Teacher
 
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
@@ -144,6 +145,8 @@ class JoinCode(models.Model):
             raise ValidationError("Section is required for Student.")
         if self.role == "OFFICIAL" and not self.district:
             raise ValidationError("District is required for Official.")
+        if self.role == "TEACHER" and not self.subject:
+            raise ValidationError("Subject is required for Teacher.")  # NEW
 
         if self.role == "PRINCIPAL" and self.section:
             raise ValidationError("Principal cannot be assigned to a specific section.")

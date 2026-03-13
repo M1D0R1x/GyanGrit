@@ -117,14 +117,25 @@ class UserAdmin(DjangoUserAdmin):
 
 
 # =========================================================
-# JOIN CODE ADMIN
+# JOIN CODE FORM WITH SUBJECT
 # =========================================================
 
 class JoinCodeForm(forms.ModelForm):
+
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.all(),
+        required=False,
+        help_text="Required for Teacher (auto assigns to 6–10)"
+    )
+
     class Meta:
         model = JoinCode
         fields = "__all__"
 
+
+# =========================================================
+# JOIN CODE ADMIN
+# =========================================================
 
 @admin.register(JoinCode)
 class JoinCodeAdmin(admin.ModelAdmin):
@@ -137,6 +148,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
         "institution",
         "section",
         "district",
+        "subject",  # NEW
         "created_by",
         "is_used",
         "expires_at",
@@ -165,6 +177,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
         "section",
         "district",
         "created_by",
+        "subject",  # NEW
     )
 
     class Media:

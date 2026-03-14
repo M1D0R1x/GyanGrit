@@ -1,87 +1,80 @@
 # GyanGrit
 
-GyanGrit is an education-focused SaaS platform designed to deliver structured learning content through a modern, scalable web architecture.
+**Empowering rural students, one lesson at a time.**
 
-The long-term goal is to support offline-first learning, government-curated content delivery, and administrative oversight.  
-This repository currently contains the **foundational architecture and integration setup**.
+A role-based digital learning platform for government schools in Punjab, India. Built for low-bandwidth environments and shared devices, GyanGrit delivers government-curated content with session-controlled access, teacher dashboards, and district-level analytics.
 
 ---
 
-## Repository Structure
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, TypeScript |
+| Backend | Django, Python 3.11+ |
+| Database | PostgreSQL (Supabase) / SQLite (dev) |
+| Auth | Django session-based, single-device enforcement |
+| API | REST, versioned under `/api/v1/` |
+| Styling | Custom CSS design system — no UI library |
+
+---
+
+## Architecture
 
 ```
-GyanGrit/
-├── backend/     # Django + DRF backend (API, admin, business logic)
-├── frontend/    # React frontend (student-facing UI)
-├── docs/        # Architecture, API, and planning documentation
-├── infra/       # Infrastructure and deployment-related files
-├── scripts/     # Utility and maintenance scripts
-└── README.md
+Browser (React SPA)
+        │
+        │  HTTPS + Session Cookie + CSRF Token
+        ▼
+  REST API  /api/v1/
+        │
+        ▼
+  Django Backend
+  ┌─────────────────────────────────────────────────┐
+  │  accounts      users, auth, OTP, join codes     │
+  │  academics     districts, schools, subjects      │
+  │  accesscontrol role decorators, query scoping   │
+  │  content       courses, lessons, progress        │
+  │  learning      enrollments, learning paths       │
+  │  assessments   quizzes, scoring, attempts        │
+  │  roster        bulk student pre-registration     │
+  └─────────────────────────────────────────────────┘
+        │
+        ▼
+  PostgreSQL
 ```
 
 ---
 
-## Tech Stack
+## Roles
 
-### Backend
-- Python
-- Django
-- Django REST Framework
-- SQLite (development)
-- CORS configured for frontend integration
+| Role | Access Scope | Login |
+|---|---|---|
+| STUDENT | Own courses, lessons, assessments | Password only |
+| TEACHER | Class analytics, roster management | Password + OTP |
+| PRINCIPAL | Institution overview | Password + OTP |
+| OFFICIAL | District-level analytics | Password + OTP |
+| ADMIN | Full system | Password only |
 
-### Frontend
-- React
-- Vite
-- TypeScript
-- Fetch-based API layer
+Registration is join-code-based. Admins generate time-limited codes that lock the user's role, institution, and section — users cannot choose their own role.
 
 ---
 
-## Current Status
-
-### Implemented
-- Clean backend–frontend separation
-- Django settings split (`base`, `dev`, `prod`)
-- React app scaffolded with domain-ready structure
-- Backend health API (`/api/health/`)
-- Frontend ↔ backend integration verified
-- CORS correctly configured for development
-
-### Not Implemented Yet
-- Authentication
-- Database-backed domain models
-- Role-based access (student/teacher/admin)
-- Offline/PWA features
-- Media streaming
-- Analytics
-- Deployment automation
-
----
-
-## Running the Project (Development)
+## Running Locally
 
 ### Backend
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements/dev.txt
+python manage.py migrate
+python manage.py seed_punjab
 python manage.py runserver
 ```
 
-Backend runs at:
-```
-http://127.0.0.1:8000
-```
-
-Health check:
-```
-http://127.0.0.1:8000/api/health/
-```
-
----
+Runs at `http://127.0.0.1:8000`
 
 ### Frontend
 
@@ -91,34 +84,66 @@ npm install
 npm run dev
 ```
 
-Frontend runs at:
+Runs at `http://localhost:5173`
+
+### Environment
+
+Create `backend/.env`:
+
+```env
+SECRET_KEY=your-secret-key-here
+DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
 ```
-http://localhost:5173 (or next available port)
+
+Leave `DATABASE_URL` unset to use SQLite in development.
+
+---
+
+## Repository Structure
+
+```
+GyanGrit/
+├── backend/
+│   ├── apps/
+│   │   ├── accounts/        user model, auth, OTP, join codes, sessions
+│   │   ├── academics/       districts, schools, classrooms, subjects
+│   │   ├── accesscontrol/   permission decorators, queryset scoping
+│   │   ├── content/         courses, lessons, progress tracking
+│   │   ├── learning/        enrollments, learning paths
+│   │   ├── assessments/     quizzes, scoring, attempt history
+│   │   └── roster/          Excel-based bulk student registration
+│   ├── gyangrit/
+│   │   └── settings/        base.py, dev.py, prod.py
+│   └── manage.py
+├── frontend/
+│   └── src/
+│       ├── auth/            AuthContext, role guards, types
+│       ├── components/      TopBar, LessonItem, LogoutButton
+│       ├── pages/           one file per route (20 pages)
+│       ├── services/        api.ts and per-domain service files
+│       └── app/             router.tsx
+└── docs/
+    ├── API_AND_FRONTEND_END_POINTS.md
+    ├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
+    ├── LEARNING_LOOP.md
+    ├── SIGNAL_CHAIN.md
+    └── DEPLOYMENT.md
 ```
 
 ---
 
-## Development Philosophy
+## Documentation
 
-- API-first backend
-- Frontend and backend deployed independently
-- Django templates reserved for admin/internal use only
-- Clear separation of concerns
-- Avoid premature optimization
-
----
-
-## Roadmap (High-Level)
-
-1. Static domain APIs (courses, lessons)
-2. Database-backed models and migrations
-3. Authentication and role management
-4. Offline-first frontend (PWA)
-5. Content delivery and analytics
-6. Deployment and scaling
+| Document | Description |
+|---|---|
+| [API & Endpoints](docs/API_AND_FRONTEND_END_POINTS.md) | Full API reference — all 7 apps, request/response shapes, role restrictions |
+| [Architecture](docs/SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md) | System design, models, data scoping, security, frontend structure |
+| [Learning Loop](docs/LEARNING_LOOP.md) | How the content loop, assessment loop, and learning paths connect |
+| [Signal Chain](docs/SIGNAL_CHAIN.md) | Auto-enrollment and auto-assignment signal architecture |
+| [Deployment](docs/DEPLOYMENT.md) | Production setup, environment config, database backup |
 
 ---
 
-## Notes
+## License
 
-This README reflects the **current state of the project** and will evolve as the platform matures.
+Academic capstone project — Lovely Professional University, 2026.

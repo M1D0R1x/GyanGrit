@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../services/api";
+import TopBar from "../components/TopBar"; // ✅ add this import
 
 type UserRow = {
   id: number;
@@ -24,9 +25,12 @@ export default function AdminDashboardPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: 24 }}>
-      <h1>Admin Dashboard</h1>
+      {/* ✅ add this */}
+      <TopBar title="Admin Dashboard" />
+
       <p style={{ opacity: 0.7 }}>System-level user overview (read-only)</p>
 
+      {/* rest stays exactly the same */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginTop: 24, marginBottom: 32 }}>
         <StatBox label="Total Users" value={users.length} />
         <StatBox label="Admins" value={users.filter((u) => u.role === "ADMIN").length} />

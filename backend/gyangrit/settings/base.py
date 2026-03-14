@@ -95,7 +95,11 @@ if DATABASE_URL:
             "PASSWORD": url.password,
             "HOST": url.hostname,
             "PORT": url.port,
-            "OPTIONS": {"sslmode": "require"},
+            "OPTIONS": {
+                "sslmode": "require",
+                # ✅ removed server_side_cursors from here
+            },
+            "DISABLE_SERVER_SIDE_CURSORS": True,  # ✅ this is the only correct setting
         }
     }
 else:

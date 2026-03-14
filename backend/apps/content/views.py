@@ -347,3 +347,84 @@ def teacher_assessment_analytics(request):
         })
 
     return JsonResponse(data, safe=False)
+
+from django.contrib.auth import get_user_model
+from django.db.models import Avg
+from apps.academics.models import ClassRoom
+from apps.assessments.models import AssessmentAttempt
+from apps.accesscontrol.scoped_service import scope_queryset, get_scoped_object_or_403
+
+User = get_user_model()
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_class_students(request, class_id):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
+
+    if request.user.role == "TEACHER":
+        if not request.user.teaching_assignments.filter(
+            section__classroom=classroom
+        ).exists():
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    students = User.objects.filter(role="STUDENT", section__classroom=classroom)
+
+    data = []
+    for student in students:
+        attempts = AssessmentAttempt.objects.filter(
+            user=student, submitted_at__isnull=False
+        )
+        total_attempts = attempts.count()
+        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
+        pass_count = attempts.filter(passed=True).count()
+        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
+
+        data.append({
+            "student_id": student.id,
+            "username": student.username,
+            "total_attempts": total_attempts,
+            "average_score": round(avg_score, 2),
+            "pass_rate": round(pass_rate, 2),
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+@require_http_methods(["GET"])
+def teacher_student_assessments(request, class_id, student_id):
+    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
+    student_qs = scope_queryset(request.user, User.objects.filter(role="STUDENT"))
+    student = get_object_or_404(student_qs, id=student_id)
+
+    if student.section and student.section.classroom != classroom:
+        return JsonResponse({"detail": "Student not in this class"}, status=400)
+
+    attempts = (
+        AssessmentAttempt.objects
+        .filter(user=student, submitted_at__isnull=False)
+        .select_related("assessment")
+        .order_by("-submitted_at")
+    )
+
+    data = []
+    for attempt in attempts:
+        data.append({
+            "assessment_id": attempt.assessment.id,
+            "assessment_title": attempt.assessment.title,
+            "score": attempt.score,
+            "passed": attempt.passed,
+            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+        })
+
+    return JsonResponse({
+        "student_id": student.id,
+        "username": student.username,
+        "attempts": data,
+    })

@@ -1,32 +1,27 @@
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "../services/api";
-import { useAuth } from "../auth/AuthContext";
 import { useState } from "react";
 
 export default function LogoutButton() {
   const navigate = useNavigate();
-  const auth = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
 
     try {
-      // Step 1: Call backend logout first
       await apiPost("/accounts/logout/", {});
-
-      // Step 2: Clear frontend state
-      auth.refresh();
-
-      // Step 3: Redirect immediately
-      navigate("/login", { replace: true });
     } catch (err) {
-      console.error("Logout API failed:", err);
-      // Even if API fails, we still clear and redirect
-      auth.refresh();
-      navigate("/login", { replace: true });
+      // Backend logout failure should not block client-side logout.
+      // Session will expire naturally via SESSION_COOKIE_AGE.
+      console.warn("[LogoutButton] Backend logout failed:", err);
     } finally {
+      // Always redirect — do not call auth.refresh() since we are
+      // leaving the app entirely. The AuthContext will reset on
+      // next mount when the user returns to /login.
       setIsLoggingOut(false);
+      navigate("/login", { replace: true });
     }
   };
 
@@ -34,18 +29,34 @@ export default function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={isLoggingOut}
-      style={{
-        padding: "10px 20px",
-        background: isLoggingOut ? "#6c757d" : "#dc3545",
-        color: "white",
-        border: "none",
-        borderRadius: 6,
-        cursor: isLoggingOut ? "not-allowed" : "pointer",
-        fontSize: "1rem",
-        minWidth: "110px",
-      }}
+      className="logout-btn"
+      aria-label="Log out of GyanGrit"
     >
-      {isLoggingOut ? "Logging out..." : "Logout"}
+      {isLoggingOut ? (
+        <>
+          <span className="logout-btn__spinner" aria-hidden="true" />
+          Logging out
+        </>
+      ) : (
+        <>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Logout
+        </>
+      )}
     </button>
   );
 }

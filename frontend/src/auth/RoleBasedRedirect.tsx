@@ -1,14 +1,25 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
+function AuthLoadingScreen() {
+  return (
+    <div className="auth-loading">
+      <div className="auth-loading__logo">
+        Gyan<span>Grit</span>
+      </div>
+      <div className="auth-loading__spinner" />
+      <p className="auth-loading__text">Loading</p>
+    </div>
+  );
+}
+
 export default function RoleBasedRedirect() {
   const auth = useAuth();
 
   if (auth.loading) {
-    return <p>Loading...</p>;
+    return <AuthLoadingScreen />;
   }
 
-  // If not authenticated → login
   if (!auth.authenticated) {
     return <Navigate to="/login" replace />;
   }

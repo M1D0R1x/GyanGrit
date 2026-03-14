@@ -3,79 +3,242 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
-import DashboardPage from "../pages/DashboardPage";
-import CoursesPage from "../pages/CoursesPage";
-import LessonsPage from "../pages/LessonsPage";
-import LessonPage from "../pages/LessonPage";
-import LoginPage from "../pages/LoginPage";
-import RegisterPage from "../pages/RegisterPage";
+// Eager-loaded pages — critical path, load immediately
+import LoginPage     from "../pages/LoginPage";
+import RegisterPage  from "../pages/RegisterPage";
 import VerifyOtpPage from "../pages/VerifyOtpPage";
 
 import { RequireRole } from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 
-// Lazy load heavy pages
-const TeacherDashboardPage = lazy(() => import("../pages/TeacherDashboardPage"));
-const OfficialDashboardPage = lazy(() => import("../pages/OfficialDashboardPage"));
-const AdminDashboardPage = lazy(() => import("../pages/AdminDashboardPage"));
-const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
-const LearningPathsPage = lazy(() => import("../pages/LearningPathsPage"));
-const LearningPathPage = lazy(() => import("../pages/LearningPathPage"));
-const ProfilePage = lazy(() => import("../pages/ProfilePage"));
+// ----------------------------------------------------------------
+// LAZY-LOADED PAGES
+// Grouped by role to make bundle analysis easier.
+// Each role's pages are in the same dynamic chunk.
+// ----------------------------------------------------------------
+
+// Student
+const DashboardPage      = lazy(() => import("../pages/DashboardPage"));
+const CoursesPage        = lazy(() => import("../pages/CoursesPage"));
+const LessonsPage        = lazy(() => import("../pages/LessonsPage"));
+const LessonPage         = lazy(() => import("../pages/LessonPage"));
+const LearningPathsPage  = lazy(() => import("../pages/LearningPathsPage"));
+const LearningPathPage   = lazy(() => import("../pages/LearningPathPage"));
+const ProfilePage        = lazy(() => import("../pages/ProfilePage"));
+
+// Assessments (shared across roles)
 const CourseAssessmentsPage = lazy(() => import("../pages/CourseAssessmentsPage"));
-const AssessmentPage = lazy(() => import("../pages/AssessmentPage"));
-const AssessmentResultPage = lazy(() => import("../pages/AssessmentsResultPage"));
+const AssessmentPage        = lazy(() => import("../pages/AssessmentPage"));
+const AssessmentResultPage  = lazy(() => import("../pages/AssessmentsResultPage"));
 const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
-const TeacherClassDetailPage = lazy(() => import("../pages/TeacherClassDetailPage"));
+
+// Teacher
+const TeacherDashboardPage     = lazy(() => import("../pages/TeacherDashboardPage"));
+const TeacherClassDetailPage   = lazy(() => import("../pages/TeacherClassDetailPage"));
 const TeacherStudentDetailPage = lazy(() => import("../pages/TeacherStudentDetailPage"));
 
-// Loading fallback
-const PageLoader = () => (
-  <div style={{ textAlign: "center", padding: "100px 20px", fontSize: "1.1rem" }}>
-    Loading...
-  </div>
-);
+// Other roles
+const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
+const OfficialDashboardPage  = lazy(() => import("../pages/OfficialDashboardPage"));
+const AdminDashboardPage     = lazy(() => import("../pages/AdminDashboardPage"));
 
+// ----------------------------------------------------------------
+// PAGE LOADER
+// Shown during lazy chunk download. Uses the same design
+// system as auth loading so there is no visual flash.
+// ----------------------------------------------------------------
+function PageLoader() {
+  return (
+    <div className="auth-loading">
+      <div className="auth-loading__logo">
+        Gyan<span>Grit</span>
+      </div>
+      <div className="auth-loading__spinner" />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
+// ROUTE WRAPPER
+// Combines RequireRole + Suspense in one component
+// to reduce boilerplate in the route table below.
+// ----------------------------------------------------------------
+function Protected({
+  role,
+  children,
+}: {
+  role: Parameters<typeof RequireRole>[0]["role"];
+  children: React.ReactNode;
+}) {
+  return (
+    <RequireRole role={role}>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </RequireRole>
+  );
+}
+
+// ----------------------------------------------------------------
+// ROUTER
+// ----------------------------------------------------------------
 export const router = createBrowserRouter([
+  // Root redirect — goes to role-appropriate dashboard
   { path: "/", element: <RoleBasedRedirect /> },
 
-  // STUDENT ROUTES (eager loaded - fastest for students)
-  { path: "/dashboard", element: <RequireRole role="STUDENT"><DashboardPage /></RequireRole> },
-  { path: "/courses", element: <CoursesPage /> },
-  { path: "/courses/:courseId", element: <LessonsPage /> },
-  { path: "/lessons/:lessonId", element: <LessonPage /> },
-
-  // Lazy loaded student routes
-  { path: "/learning", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathsPage /></Suspense></RequireRole> },
-  { path: "/learning/:pathId", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><LearningPathPage /></Suspense></RequireRole> },
-  { path: "/profile", element: <RequireRole role="STUDENT"><Suspense fallback={<PageLoader />}><ProfilePage /></Suspense></RequireRole> },
-
-  // TEACHER
-  { path: "/teacher", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherDashboardPage /></Suspense></RequireRole> },
-
-  // PRINCIPAL (new clean path)
-  { path: "/principal", element: <RequireRole role="PRINCIPAL"><Suspense fallback={<PageLoader />}><PrincipalDashboardPage /></Suspense></RequireRole> },
-
-  // OFFICIAL (fixed - was wrongly pointing to Principal)
-  { path: "/official", element: <RequireRole role="OFFICIAL"><Suspense fallback={<PageLoader />}><OfficialDashboardPage /></Suspense></RequireRole> },
-
-  // ADMIN
-  { path: "/admin-panel", element: <RequireRole role="ADMIN"><Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense></RequireRole> },
-
-  // Assessments (shared)
-  { path: "/courses/:courseId/assessments", element: <Suspense fallback={<PageLoader />}><CourseAssessmentsPage /></Suspense> },
-  { path: "/assessments/:assessmentId", element: <Suspense fallback={<PageLoader />}><AssessmentPage /></Suspense> },
-  { path: "/assessment-result", element: <AssessmentResultPage /> },
-  { path: "/assessments/:assessmentId/history", element: <Suspense fallback={<PageLoader />}><AssessmentHistoryPage /></Suspense> },
-
-  // Teacher sub-pages
-  { path: "/teacher/classes/:classId", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherClassDetailPage /></Suspense></RequireRole> },
-  { path: "/teacher/classes/:classId/students/:studentId", element: <RequireRole role="TEACHER"><Suspense fallback={<PageLoader />}><TeacherStudentDetailPage /></Suspense></RequireRole> },
-
-  // Auth
-  { path: "/login", element: <LoginPage /> },
-  { path: "/register", element: <RegisterPage /> },
+  // ---- AUTH (no protection required) --------------------------
+  { path: "/login",      element: <LoginPage /> },
+  { path: "/register",   element: <RegisterPage /> },
   { path: "/verify-otp", element: <VerifyOtpPage /> },
 
+  // ---- STUDENT ------------------------------------------------
+  {
+    path: "/dashboard",
+    element: (
+      <Protected role="STUDENT">
+        <DashboardPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/courses",
+    element: (
+      <Protected role="STUDENT">
+        <CoursesPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/courses/:courseId",
+    element: (
+      <Protected role="STUDENT">
+        <LessonsPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/lessons/:lessonId",
+    element: (
+      <Protected role="STUDENT">
+        <LessonPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/learning",
+    element: (
+      <Protected role="STUDENT">
+        <LearningPathsPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/learning/:pathId",
+    element: (
+      <Protected role="STUDENT">
+        <LearningPathPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/profile",
+    element: (
+      <Protected role="STUDENT">
+        <ProfilePage />
+      </Protected>
+    ),
+  },
+
+  // ---- ASSESSMENTS (STUDENT minimum — teachers/admins also access) --
+  {
+    path: "/courses/:courseId/assessments",
+    element: (
+      <Protected role="STUDENT">
+        <CourseAssessmentsPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/assessments/:assessmentId",
+    element: (
+      <Protected role="STUDENT">
+        <AssessmentPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/assessment-result",
+    element: (
+      <Protected role="STUDENT">
+        <AssessmentResultPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/assessments/:assessmentId/history",
+    element: (
+      <Protected role="STUDENT">
+        <AssessmentHistoryPage />
+      </Protected>
+    ),
+  },
+
+  // ---- TEACHER ------------------------------------------------
+  {
+    path: "/teacher",
+    element: (
+      <Protected role="TEACHER">
+        <TeacherDashboardPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/teacher/classes/:classId",
+    element: (
+      <Protected role="TEACHER">
+        <TeacherClassDetailPage />
+      </Protected>
+    ),
+  },
+  {
+    path: "/teacher/classes/:classId/students/:studentId",
+    element: (
+      <Protected role="TEACHER">
+        <TeacherStudentDetailPage />
+      </Protected>
+    ),
+  },
+
+  // ---- PRINCIPAL ----------------------------------------------
+  {
+    path: "/principal",
+    element: (
+      <Protected role="PRINCIPAL">
+        <PrincipalDashboardPage />
+      </Protected>
+    ),
+  },
+
+  // ---- OFFICIAL -----------------------------------------------
+  {
+    path: "/official",
+    element: (
+      <Protected role="OFFICIAL">
+        <OfficialDashboardPage />
+      </Protected>
+    ),
+  },
+
+  // ---- ADMIN --------------------------------------------------
+  {
+    path: "/admin-panel",
+    element: (
+      <Protected role="ADMIN">
+        <AdminDashboardPage />
+      </Protected>
+    ),
+  },
+
+  // ---- CATCH-ALL ----------------------------------------------
   { path: "*", element: <Navigate to="/" replace /> },
 ]);

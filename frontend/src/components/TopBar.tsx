@@ -1,40 +1,73 @@
 import { useAuth } from "../auth/AuthContext";
 import LogoutButton from "./LogoutButton";
+import type { Role } from "../auth/authTypes";
 
-export default function TopBar({ title }: { title: string }) {
+type Props = {
+  title: string;
+};
+
+function roleBadgeClass(role: Role): string {
+  return `topbar__role-badge topbar__role-badge--${role.toLowerCase()}`;
+}
+
+function getInitials(username: string): string {
+  return username.slice(0, 2).toUpperCase();
+}
+
+function TopBarSkeleton() {
+  return (
+    <header className="topbar" aria-busy="true" aria-label="Loading navigation">
+      <div className="topbar__brand">
+        Gyan<span>Grit</span>
+      </div>
+      <div className="topbar__right">
+        <div className="skeleton topbar__skeleton-user" />
+      </div>
+    </header>
+  );
+}
+
+export default function TopBar({ title }: Props) {
   const auth = useAuth();
 
   if (auth.loading) {
-    return <div>Loading...</div>;
+    return <TopBarSkeleton />;
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 32,
-        paddingBottom: 16,
-        borderBottom: "1px solid #eee",
-        background: "#fff",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: "1.8rem" }}>{title}</h1>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        {auth.authenticated && auth.username ? (
-          <span style={{ fontWeight: 500 }}>
-            Logged in as <strong>{auth.username}</strong>
-          </span>
-        ) : (
-          <span>Not logged in</span>
+    <header className="topbar" role="banner">
+      <div className="topbar__brand">
+        Gyan<span>Grit</span>
+        {title && (
+          <>
+            <span style={{ color: "var(--border-strong)", margin: "0 10px" }}>
+              /
+            </span>
+            <span className="topbar__title">{title}</span>
+          </>
         )}
-        {auth.authenticated && <LogoutButton />}
       </div>
-    </div>
+
+      <div className="topbar__right">
+        {auth.authenticated && auth.user ? (
+          <>
+            <div className="topbar__user" aria-label={`Logged in as ${auth.user.username}`}>
+              <div className="topbar__avatar" aria-hidden="true">
+                {getInitials(auth.user.username)}
+              </div>
+              <span className="topbar__username">{auth.user.username}</span>
+              <span className={roleBadgeClass(auth.user.role)}>
+                {auth.user.role}
+              </span>
+            </div>
+            <LogoutButton />
+          </>
+        ) : (
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+            Not signed in
+          </span>
+        )}
+      </div>
+    </header>
   );
 }

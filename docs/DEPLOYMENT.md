@@ -33,23 +33,24 @@ DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
 
 Never commit `.env` to version control. Confirm it is in `.gitignore`.
 
+`python-dotenv` is loaded in `base.py` via `load_dotenv()`. If `.env` is missing,
+Django will still start — environment variables can also be set directly on the host.
+
 ### 3. Run Migrations
 
 ```bash
 DJANGO_SETTINGS_MODULE=gyangrit.settings.prod python manage.py migrate
 ```
 
-This will also trigger the `post_migrate` signal that seeds Punjab districts, schools, and subjects automatically.
+This also triggers the `post_migrate` signal that seeds Punjab districts, schools, and subjects automatically.
 
 ### 4. Seed Classrooms and Sections
-
-After migrations, run the management command to create classrooms (grades 6–10) and sections for each school:
 
 ```bash
 python manage.py seed_punjab
 ```
 
-This command is idempotent — safe to run multiple times.
+Creates classrooms (grades 6–10) and sections for each seeded school. Idempotent — safe to run multiple times.
 
 ### 5. Create Admin User
 
@@ -57,7 +58,7 @@ This command is idempotent — safe to run multiple times.
 python manage.py createsuperuser
 ```
 
-Then log into `/admin/` and create `JoinCode` records for your initial users.
+Log into `/admin/` and create `JoinCode` records for your initial users.
 
 ### 6. Collect Static Files
 
@@ -65,9 +66,19 @@ Then log into `/admin/` and create `JoinCode` records for your initial users.
 python manage.py collectstatic --noinput
 ```
 
-### 7. Run Production Server
+Static files are served by `whitenoise` in production (included in `requirements/prod.txt`).
 
-Using gunicorn:
+Add to `prod.py` settings after `SecurityMiddleware`:
+```python
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",   # ← add here
+    ...
+]
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+```
+
+### 7. Run Production Server
 
 ```bash
 gunicorn gyangrit.wsgi:application \
@@ -80,7 +91,26 @@ gunicorn gyangrit.wsgi:application \
 
 ## Frontend Setup
 
-### 1. Install and Build
+### 1. Set API Base URL
+
+Before building, set the production API URL. Either update `src/services/api.ts` directly:
+
+```ts
+const API_BASE_URL = "https://your-backend-domain.com/api/v1";
+```
+
+Or use a Vite environment variable. Create `frontend/.env.production`:
+
+```env
+VITE_API_BASE_URL=https://your-backend-domain.com/api/v1
+```
+
+And update `api.ts`:
+```ts
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+```
+
+### 2. Build
 
 ```bash
 cd frontend
@@ -88,29 +118,13 @@ npm install
 npm run build
 ```
 
-Output is in `frontend/dist/`.
+Output in `frontend/dist/`.
 
-### 2. Update API Base URL
+### 3. Serve
 
-Before building for production, update `src/services/api.ts`:
+Deploy `frontend/dist/` to Vercel, Netlify, Cloudflare Pages, or serve via nginx.
 
-```ts
-const API_BASE_URL = "https://your-backend-domain.com/api/v1";
-```
-
-Or use an environment variable:
-
-```ts
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-```
-
-And set `VITE_API_BASE_URL=https://your-backend-domain.com/api/v1` in `frontend/.env.production`.
-
-### 3. Serve the Build
-
-Serve `frontend/dist/` via a static host (Vercel, Netlify, Cloudflare Pages) or via nginx.
-
-Nginx config for SPA routing:
+nginx config for SPA routing:
 
 ```nginx
 location / {
@@ -123,11 +137,11 @@ location / {
 
 ## Production Settings Checklist
 
-Before going live, verify `backend/gyangrit/settings/prod.py`:
+Verify `backend/gyangrit/settings/prod.py` before going live:
 
 ```python
 DEBUG = False
-ALLOWED_HOSTS = ["your-domain.com", "www.your-domain.com"]
+ALLOWED_HOSTS = ["your-backend-domain.com"]
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 SECURE_SSL_REDIRECT = True
@@ -143,14 +157,15 @@ CSRF_COOKIE_NAME = "gyangrit_csrftoken"
 
 ## OTP in Production
 
-The current `login_view` returns `otp_code` in the response body when `DEBUG=True`. This is intentional for development.
+The login endpoint returns `otp_code` in the response body only when `DEBUG=True`.
+This is handled automatically by the `if settings.DEBUG` guard in `accounts/views.py`.
 
 Before production:
-1. Remove the OTP from the response body (the `if settings.DEBUG` block handles this automatically)
-2. Integrate an SMS provider (e.g., Twilio, MSG91) to send OTPs to the user's registered mobile number
-3. Store the mobile number on the `User` model
+1. Integrate an SMS provider (Twilio, MSG91, or equivalent)
+2. Replace the OTP creation block in `login_view` with an SMS dispatch call
+3. Store the user's mobile number on the `User` model
 
-The OTP generation and verification logic in `accounts/views.py` does not need to change — only the delivery mechanism.
+The OTP generation, attempt limiting, and expiry logic does not need to change — only the delivery mechanism.
 
 ---
 
@@ -186,11 +201,11 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements/dev.txt
 python manage.py migrate
-python manage.py seed_punjab    # populate schools/classes
+python manage.py seed_punjab
 python manage.py runserver
 ```
 
-Backend runs at `http://127.0.0.1:8000`
+Backend: `http://127.0.0.1:8000`
 
 ### Frontend
 
@@ -200,20 +215,30 @@ npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`
+Frontend: `http://localhost:5173`
 
 ---
 
 ## Common Issues
 
 **`python-dotenv could not parse statement`**
-Your `.env` file has inline comments or unsupported syntax. Each line must be exactly `KEY=value` with no comments, no `export` prefix, no trailing spaces.
-
-**`ImportError: cannot import name X from scoped_service`**
-The function was renamed. Check `accesscontrol/scoped_service.py` for the current name. The backward-compatible alias `get_scoped_object_or_403` is kept until all imports are updated.
+Your `.env` file has inline comments or unsupported syntax. Each line must be exactly
+`KEY=value` — no comments, no `export` prefix, no trailing spaces.
 
 **CSRF token mismatch on POST**
-The frontend reads `gyangrit_csrftoken` cookie. Confirm `CSRF_COOKIE_NAME = "gyangrit_csrftoken"` is set in your settings file and that `initCsrf()` is called on app mount.
+The frontend reads `gyangrit_csrftoken` cookie. Confirm `CSRF_COOKIE_NAME = "gyangrit_csrftoken"`
+is set in your settings file and that `initCsrf()` is called on app mount before any POST.
 
 **Session expires mid-lesson**
-`SESSION_COOKIE_AGE = 600` (10 minutes) with `SESSION_SAVE_EVERY_REQUEST = True`. Any API call resets the timer. If students are idle for 10+ minutes without any API call, they will be logged out. Increase `SESSION_COOKIE_AGE` in `dev.py` for testing, or add a keepalive ping in the frontend for long lessons.
+`SESSION_COOKIE_AGE = 600` (10 minutes) with `SESSION_SAVE_EVERY_REQUEST = True`.
+Any API call resets the timer. If a student is idle for 10+ minutes without an API call
+(e.g. watching a video), they may be logged out. Increase `SESSION_COOKIE_AGE` in `dev.py`
+for testing long lessons.
+
+**`ImportError: cannot import name 'get_scoped_object_or_403'`**
+The function was renamed to `get_scoped_object_or_404`. A backward-compatible alias is kept
+in `accesscontrol/scoped_service.py` until all call sites are updated.
+
+**PostgreSQL connection errors with Supabase pooler**
+Ensure `DISABLE_SERVER_SIDE_CURSORS = True` is set at the database level (not inside `OPTIONS`).
+This is required for pgBouncer transaction-mode pooling used by Supabase.

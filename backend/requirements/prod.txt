@@ -1,2 +1,12 @@
+# GyanGrit — Production Requirements
+# Extends base.txt
+
 -r base.txt
-gunicorn
+
+gunicorn>=21.0                  # WSGI server for production
+whitenoise>=6.6                 # Serves Django static files without a separate nginx config
+                                # Add MIDDLEWARE: 'whitenoise.middleware.WhiteNoiseMiddleware'
+                                # after SecurityMiddleware in prod settings
+
+# Optional — uncomment to enable production error tracking
+# sentry-sdk[django]>=1.40

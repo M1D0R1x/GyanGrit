@@ -19,15 +19,15 @@ logger = logging.getLogger(__name__)
 
 # model_name -> ORM filter kwarg for institution-level scoping
 INSTITUTION_SCOPE_MAP = {
-    "Institution": "id",                                  # filter by institution.id
+    "Institution": "id",                                        # filter by institution.id
     "ClassRoom": "institution",
     "Section": "classroom__institution",
     "TeachingAssignment": "section__classroom__institution",
     "StudentSubject": "classroom__institution",
     "ClassSubject": "classroom__institution",
     "User": "institution",
-    "Enrollment": "course__institution",                  # if applicable
-    "LessonProgress": "lesson__course__institution",      # if applicable
+    "Enrollment": "course__institution",
+    "LessonProgress": "lesson__course__institution",
     "AssessmentAttempt": "assessment__course__institution",
 }
 
@@ -77,7 +77,8 @@ def scope_queryset(user, queryset):
 
         if not district_name:
             logger.warning(
-                "OFFICIAL user id=%s has no district assigned — returning empty queryset.",
+                "OFFICIAL user id=%s has no district assigned — "
+                "returning empty queryset.",
                 user.id,
             )
             return queryset.none()
@@ -98,7 +99,8 @@ def scope_queryset(user, queryset):
 
         if not institution:
             logger.warning(
-                "User id=%s role=%s has no institution assigned — returning empty queryset.",
+                "User id=%s role=%s has no institution assigned — "
+                "returning empty queryset.",
                 user.id,
                 user.role,
             )
@@ -133,3 +135,11 @@ def get_scoped_object_or_404(user, queryset, **lookup):
     """
     scoped_qs = scope_queryset(user, queryset)
     return get_object_or_404(scoped_qs, **lookup)
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible alias.
+# content/views.py imports this name. It will be cleaned up when the
+# content app is reviewed and replaced with get_scoped_object_or_404.
+# ---------------------------------------------------------------------------
+get_scoped_object_or_403 = get_scoped_object_or_404

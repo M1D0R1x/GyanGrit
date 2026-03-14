@@ -1,33 +1,46 @@
+import logging
+from typing import Any
+
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django import forms
+from django.http import HttpRequest
 
 from .models import (
-    User,
-    StudentRegistrationRecord,
-    OTPVerification,
-    DeviceSession,
     AuditLog,
+    DeviceSession,
     JoinCode,
+    OTPVerification,
+    StudentRegistrationRecord,
+    User,
 )
+from apps.academics.models import Subject
+from .services import assign_teacher_to_classes
 
-from apps.academics.models import (
-    Subject,
-    TeachingAssignment,
-    ClassRoom,
-    Section,
-)
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# CUSTOM FORM FOR TEACHER SUBJECT SELECTION
+# USER ADMIN FORM
 # =========================================================
 
 class TeacherUserForm(forms.ModelForm):
+    """
+    Adds a transient 'subject' field to the User admin form.
+
+    IMPORTANT: 'subject' is NOT a field on the User model.
+    It is a workflow-only field that triggers TeachingAssignment
+    creation inside save_model() via assign_teacher_to_classes().
+    It must NOT be listed alongside real model fields in fieldsets.
+    """
     subject = forms.ModelChoiceField(
         queryset=Subject.objects.all(),
         required=False,
-        help_text="Select subject taught by teacher (auto assigns to classes 6–10)"
+        help_text=(
+            "Select subject taught by this teacher. "
+            "Auto-creates TeachingAssignments for grades 6–10 "
+            "in their institution."
+        ),
     )
 
     class Meta:
@@ -39,29 +52,55 @@ class TeacherUserForm(forms.ModelForm):
 # USER ADMIN
 # =========================================================
 
+# PyCharm cannot infer the correct type for DjangoUserAdmin.fieldsets
+# concatenation. We build the extra fieldsets separately and annotate
+# the final assignment explicitly to silence the type warning.
+_GYANGRIT_PROFILE_FIELDSET: tuple = (
+    "GyanGrit Profile",
+    {
+        "fields": (
+            "role",
+            "institution",
+            "section",
+            "public_id",
+            "district",
+        ),
+    },
+)
+
+# subject is a form-only field — not on the User model.
+# PyCharm warns "Cannot resolve admin field 'subject'" because it checks
+# fieldsets against model fields. Keeping this in a separate variable with
+# a comment makes the intent explicit and keeps the warning localised.
+_TEACHER_ASSIGNMENT_FIELDSET: tuple = (
+    "Teacher Assignment (workflow only — not stored on User)",
+    {
+        # noinspection PyUnresolvedReferences
+        # 'subject' is declared on TeacherUserForm, not on User model.
+        # This is intentional — it triggers TeachingAssignment creation.
+        "fields": ("subject",),
+        "description": (
+            "Selecting a subject here will auto-create TeachingAssignment "
+            "records for this teacher across all sections of grades 6–10 "
+            "in their institution. This field is not stored on the User model."
+        ),
+    },
+)
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
 
     form = TeacherUserForm
-
     autocomplete_fields = ("institution", "section")
     list_select_related = ("institution", "section")
     list_per_page = 50
 
-    fieldsets = DjangoUserAdmin.fieldsets + (
-        (
-            "Custom Fields",
-            {
-                "fields": (
-                    "role",
-                    "institution",
-                    "section",
-                    "subject",   # NEW
-                    "public_id",
-                    "district",
-                )
-            },
-        ),
+    # Explicitly typed to satisfy PyCharm's type checker for fieldsets
+    fieldsets = (  # type: ignore[assignment]
+        *DjangoUserAdmin.fieldsets,
+        _GYANGRIT_PROFILE_FIELDSET,
+        _TEACHER_ASSIGNMENT_FIELDSET,
     )
 
     list_display = (
@@ -78,56 +117,34 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ("role", "is_staff", "is_active")
     search_fields = ("username", "email", "public_id")
     ordering = ("-date_joined",)
-
     readonly_fields = ("district",)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        qs = qs.defer("password")
-        return qs
+    def get_queryset(self, request: HttpRequest):
+        return super().get_queryset(request).defer("password")
 
-    # =========================================================
-    # AUTO CREATE TEACHING ASSIGNMENTS
-    # =========================================================
-
-    def save_model(self, request, obj, form, change):
-
+    def save_model(
+        self,
+        request: HttpRequest,
+        obj: Any,
+        form: TeacherUserForm,
+        change: bool,
+    ) -> None:
         super().save_model(request, obj, form, change)
+
+        # Explicitly cast to User so PyCharm resolves .role and .institution
+        user: User = obj  # type: ignore[assignment]
 
         subject = form.cleaned_data.get("subject")
 
-        if obj.role == "TEACHER" and subject and obj.institution:
-
-            classrooms = ClassRoom.objects.filter(
-                institution=obj.institution,
-                name__in=["6", "7", "8", "9", "10"]
-            )
-
-            for classroom in classrooms:
-
-                sections = Section.objects.filter(classroom=classroom)
-
-                for section in sections:
-
-                    TeachingAssignment.objects.get_or_create(
-                        teacher=obj,
-                        subject=subject,
-                        section=section
-                    )
+        if user.role == "TEACHER" and subject and user.institution:
+            assign_teacher_to_classes(user, subject, user.institution)
 
 
 # =========================================================
-# JOIN CODE FORM WITH SUBJECT
+# JOIN CODE ADMIN FORM
 # =========================================================
 
 class JoinCodeForm(forms.ModelForm):
-
-    subject = forms.ModelChoiceField(
-        queryset=Subject.objects.all(),
-        required=False,
-        help_text="Required for Teacher (auto assigns to 6–10)"
-    )
-
     class Meta:
         model = JoinCode
         fields = "__all__"
@@ -148,7 +165,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
         "institution",
         "section",
         "district",
-        "subject",  # NEW
+        "subject",
         "created_by",
         "is_used",
         "expires_at",
@@ -177,7 +194,7 @@ class JoinCodeAdmin(admin.ModelAdmin):
         "section",
         "district",
         "created_by",
-        "subject",  # NEW
+        "subject",
     )
 
     class Media:

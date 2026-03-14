@@ -1,12 +1,15 @@
-from django.db import models
+import logging
+import secrets
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.utils import timezone
-import uuid
-import secrets
 
-# Import academic models
-from apps.academics.models import Institution, Section, District, Subject  # NEW: Subject
+from apps.academics.models import District, Institution, Section, Subject
+
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -19,29 +22,59 @@ class User(AbstractUser):
     )
 
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, default="STUDENT")
-    institution = models.ForeignKey(Institution, null=True, blank=True, on_delete=models.SET_NULL, related_name="users")
-    section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, related_name="students")
+    institution = models.ForeignKey(
+        Institution,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="users",
+    )
+    section = models.ForeignKey(
+        Section,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="students",
+    )
     public_id = models.CharField(max_length=32, unique=True, blank=True, null=True)
+    # district is denormalised as a string for fast filtering without joins.
+    # It is always kept in sync with institution.district.name in save().
     district = models.CharField(max_length=255, blank=True, null=True)
 
     def generate_public_id(self):
         year = timezone.now().year
-        prefix = {"STUDENT": "S", "TEACHER": "T", "PRINCIPAL": "P", "OFFICIAL": "O", "ADMIN": "A"}.get(self.role, "X")
+        prefix = {
+            "STUDENT": "S",
+            "TEACHER": "T",
+            "PRINCIPAL": "P",
+            "OFFICIAL": "O",
+            "ADMIN": "A",
+        }.get(self.role, "X")
         return f"{prefix}-{year}-{secrets.token_hex(4)}"
 
     def clean(self):
         if self.section and not self.institution:
-            raise ValidationError("User must belong to an institution if assigned to a section.")
-        if self.section and self.section.classroom.institution != self.institution:
-            raise ValidationError("Section institution must match user's institution.")
+            raise ValidationError(
+                "User must belong to an institution if assigned to a section."
+            )
+        if (
+            self.section
+            and self.institution
+            and self.section.classroom.institution != self.institution
+        ):
+            raise ValidationError(
+                "Section institution must match user's institution."
+            )
 
     def save(self, *args, **kwargs):
-        # AUTO DISTRICT for Student/Teacher/Principal (when institution is selected)
-        if self.institution and not self.district:
+        # Always sync district from institution when institution is set.
+        # This handles both initial creation AND institution transfers.
+        if self.institution:
             self.district = self.institution.district.name
 
         if not self.public_id:
             self.public_id = self.generate_public_id()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -51,14 +84,25 @@ class User(AbstractUser):
 # =========================================================
 # STUDENT REGISTRATION RECORD
 # =========================================================
+
 class StudentRegistrationRecord(models.Model):
     student_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     registration_code = models.CharField(max_length=32, unique=True)
     name = models.CharField(max_length=255)
     dob = models.DateField()
-    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="registration_records")
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="registration_records",
+    )
     is_registered = models.BooleanField(default=False)
-    linked_user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="registration_record")
+    linked_user = models.OneToOneField(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="registration_record",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -71,10 +115,15 @@ class StudentRegistrationRecord(models.Model):
 
 
 # =========================================================
-# OTP, DeviceSession, AuditLog
+# OTP VERIFICATION
 # =========================================================
+
 class OTPVerification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_records")
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="otp_records",
+    )
     otp_code = models.CharField(max_length=6)
     is_verified = models.BooleanField(default=False)
     attempt_count = models.IntegerField(default=0)
@@ -91,14 +140,31 @@ class OTPVerification(models.Model):
         ordering = ["-created_at"]
 
 
+# =========================================================
+# DEVICE SESSION
+# =========================================================
+
 class DeviceSession(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="device_session")
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="device_session",
+    )
     device_fingerprint = models.CharField(max_length=255)
     last_login = models.DateTimeField(auto_now=True)
 
 
+# =========================================================
+# AUDIT LOG
+# =========================================================
+
 class AuditLog(models.Model):
-    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="audit_logs")
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="audit_logs",
+    )
     action = models.CharField(max_length=255)
     target_model = models.CharField(max_length=255)
     target_id = models.CharField(max_length=255)
@@ -106,8 +172,9 @@ class AuditLog(models.Model):
 
 
 # =========================================================
-# JOIN CODE – District visible for all + auto-fill
+# JOIN CODE
 # =========================================================
+
 class JoinCode(models.Model):
     ROLE_CHOICES = (
         ("PRINCIPAL", "Principal"),
@@ -119,14 +186,36 @@ class JoinCode(models.Model):
     code = models.CharField(max_length=32, unique=True, editable=False)
     role = models.CharField(max_length=16, choices=ROLE_CHOICES)
 
-    institution = models.ForeignKey(Institution, null=True, blank=True, on_delete=models.CASCADE)
-    section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.CASCADE)
-    district = models.ForeignKey(District, null=True, blank=True, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, null=True, blank=True, on_delete=models.SET_NULL)  # NEW: for Teacher
+    institution = models.ForeignKey(
+        Institution,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+    section = models.ForeignKey(
+        Section,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+    district = models.ForeignKey(
+        District,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+    subject = models.ForeignKey(
+        Subject,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
 
     created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True,
-        limit_choices_to={"role__in": ["ADMIN", "PRINCIPAL", "OFFICIAL", "TEACHER"]}
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        limit_choices_to={"role__in": ["ADMIN", "PRINCIPAL", "OFFICIAL", "TEACHER"]},
     )
 
     is_used = models.BooleanField(default=False)
@@ -146,14 +235,14 @@ class JoinCode(models.Model):
         if self.role == "OFFICIAL" and not self.district:
             raise ValidationError("District is required for Official.")
         if self.role == "TEACHER" and not self.subject:
-            raise ValidationError("Subject is required for Teacher.")  # NEW
-
+            raise ValidationError("Subject is required for Teacher.")
         if self.role == "PRINCIPAL" and self.section:
             raise ValidationError("Principal cannot be assigned to a specific section.")
-
         if self.section and self.institution:
             if self.section.classroom.institution != self.institution:
-                raise ValidationError("Section does not belong to selected institution.")
+                raise ValidationError(
+                    "Section does not belong to the selected institution."
+                )
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -161,20 +250,33 @@ class JoinCode(models.Model):
         if not self.expires_at:
             self.expires_at = timezone.now() + timezone.timedelta(days=3)
 
-        # AUTO DISTRICT for Student/Teacher/Principal
-        if self.institution and not self.district:
-            self.district = self.institution.district
+        # Auto-assign district FK from institution
+        if self.institution and not self.district_id:
+            # district on Institution is a FK to District model
+            try:
+                self.district = District.objects.get(
+                    name=self.institution.district.name
+                )
+            except District.DoesNotExist:
+                pass
 
-        self.full_clean()
+        # Only run full_clean on full saves, not field-specific updates
+        update_fields = kwargs.get("update_fields")
+        if not update_fields:
+            self.full_clean()
+
         super().save(*args, **kwargs)
 
     def is_valid(self):
         return not self.is_used and timezone.now() < self.expires_at
 
     def mark_as_used(self):
-        if not self.is_used:
-            self.is_used = True
-            self.save(update_fields=["is_used"])
+        """
+        Use queryset update() to avoid triggering full_clean()
+        on a high-frequency operation.
+        """
+        JoinCode.objects.filter(pk=self.pk).update(is_used=True)
+        self.is_used = True  # keep in-memory object consistent
 
     def __str__(self):
         status = "Used" if self.is_used else f"Expires {self.expires_at.date()}"

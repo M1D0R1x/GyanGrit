@@ -7,13 +7,23 @@ class LessonInline(admin.TabularInline):
     extra = 1
     fields = ("title", "order", "is_published")
     ordering = ["order"]
+    show_change_link = True
 
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "lesson_count", "created_at")
-    search_fields = ("title", "description")
-    ordering = ("-created_at",)
+    list_display = (
+        "id",
+        "title",
+        "subject",
+        "grade",
+        "is_core",
+        "lesson_count",
+        "created_at",
+    )
+    list_filter = ("grade", "is_core", "subject")
+    search_fields = ("title", "description", "subject__name")
+    ordering = ("grade", "subject", "title")
     inlines = [LessonInline]
 
     def lesson_count(self, obj):
@@ -23,7 +33,14 @@ class CourseAdmin(admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "course", "order", "is_published", "created_at")
+    list_display = (
+        "id",
+        "title",
+        "course",
+        "order",
+        "is_published",
+        "created_at",
+    )
     list_filter = ("course", "is_published")
     search_fields = ("title", "course__title")
     ordering = ("course", "order")

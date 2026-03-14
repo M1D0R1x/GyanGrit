@@ -7,15 +7,16 @@ type UserRow = {
   id: number;
   username: string;
   role: Role;
-  // Note: /accounts/users/ returns id, username, role only
-  // is_active is NOT returned by this endpoint
 };
 
+// Each role maps to a distinct badge class.
+// PRINCIPAL → warning (amber)
+// OFFICIAL  → purple (violet) — distinct from principal
 const ROLE_COLORS: Record<Role, string> = {
   STUDENT:   "badge--info",
   TEACHER:   "badge--success",
   PRINCIPAL: "badge--warning",
-  OFFICIAL:  "badge--warning",
+  OFFICIAL:  "badge--purple",
   ADMIN:     "badge--error",
 };
 
@@ -48,9 +49,9 @@ function TableSkeleton() {
 }
 
 export default function AdminDashboardPage() {
-  const [users, setUsers]   = useState<UserRow[]>([]);
+  const [users, setUsers]     = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   useEffect(() => {
     apiGet<UserRow[]>("/accounts/users/")
@@ -79,12 +80,17 @@ export default function AdminDashboardPage() {
 
         {/* Stat cards */}
         <div className="stat-grid" style={{ marginBottom: "var(--space-8)" }}>
-          <StatCard label="Total Users" value={users.length} />
-          <StatCard label="Students"   value={countByRole("STUDENT")}   accent="var(--role-student)" />
-          <StatCard label="Teachers"   value={countByRole("TEACHER")}   accent="var(--role-teacher)" />
-          <StatCard label="Principals" value={countByRole("PRINCIPAL")} accent="var(--role-principal)" />
-          <StatCard label="Officials"  value={countByRole("OFFICIAL")}  accent="var(--role-official)" />
-          <StatCard label="Admins"     value={countByRole("ADMIN")}     accent="var(--role-admin)" />
+          <StatCard label="Total Users"  value={users.length} />
+          <StatCard label="Students"     value={countByRole("STUDENT")}
+            accent="var(--role-student)" />
+          <StatCard label="Teachers"     value={countByRole("TEACHER")}
+            accent="var(--role-teacher)" />
+          <StatCard label="Principals"   value={countByRole("PRINCIPAL")}
+            accent="var(--role-principal)" />
+          <StatCard label="Officials"    value={countByRole("OFFICIAL")}
+            accent="var(--role-official)" />
+          <StatCard label="Admins"       value={countByRole("ADMIN")}
+            accent="var(--role-admin)" />
         </div>
 
         {/* User table */}
@@ -114,7 +120,11 @@ export default function AdminDashboardPage() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
-                    <td style={{ color: "var(--text-muted)", fontFamily: "var(--font-display)", fontSize: "var(--text-xs)" }}>
+                    <td style={{
+                      color: "var(--text-muted)",
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-xs)",
+                    }}>
                       #{u.id}
                     </td>
                     <td style={{ fontWeight: 500, color: "var(--text-primary)" }}>

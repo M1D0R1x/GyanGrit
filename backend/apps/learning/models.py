@@ -1,9 +1,13 @@
-from django.db import models
+import logging
+
 from django.conf import settings
-from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
 
 from apps.content.models import Course
+
+logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------
@@ -47,11 +51,7 @@ class Enrollment(models.Model):
             )
         ]
         ordering = ["-enrolled_at"]
-        indexes = [models.Index(fields=['user', 'course'])]
-
-    def clean(self):
-        if self.status == "completed" and not self.completed_at:
-            self.completed_at = timezone.now()
+        indexes = [models.Index(fields=["user", "course"])]
 
     def mark_completed(self):
         self.status = "completed"
@@ -78,7 +78,7 @@ class LearningPath(models.Model):
 
     class Meta:
         ordering = ["name"]
-        indexes = [models.Index(fields=['name'])]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
@@ -116,11 +116,14 @@ class LearningPathCourse(models.Model):
                 name="unique_order_in_path",
             ),
         ]
-        indexes = [models.Index(fields=['learning_path', 'order'])]
+        indexes = [models.Index(fields=["learning_path", "order"])]
 
     def clean(self):
         if self.order <= 0:
             raise ValidationError("Order must be positive.")
 
     def __str__(self):
-        return f"{self.learning_path.name} → {self.course.title} (Order {self.order})"
+        return (
+            f"{self.learning_path.name} → "
+            f"{self.course.title} (Order {self.order})"
+        )

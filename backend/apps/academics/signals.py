@@ -1,22 +1,35 @@
+"""
+academics/signals.py
+
+Responsibilities:
+- Auto-assign StudentSubject records when a new student is created.
+- Auto-assign StudentSubject when a new ClassSubject is added.
+
+Enrollment creation is NOT done here — it is handled by
+learning/signals.py via the StudentSubject post_save signal.
+This keeps each app responsible for its own domain:
+  academics → subject assignment
+  learning  → course enrollment
+"""
 import logging
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.accounts.models import User
-from apps.content.models import Course
-from apps.learning.models import Enrollment
 from .models import ClassSubject, StudentSubject
 
 logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=User)
-def auto_assign_subjects_and_courses(sender, instance, created, **kwargs):
+def auto_assign_subjects(sender, instance, created, **kwargs):
     """
     On new student creation:
-    1. Assign StudentSubject records for each ClassSubject in their classroom.
-    2. Enroll in all courses matching their grade.
+    Assign StudentSubject records for each ClassSubject in their classroom.
+
+    Enrollment in courses is triggered automatically downstream via
+    learning/signals.py when each StudentSubject is created.
 
     Guards:
     - Only fires for new STUDENT accounts.
@@ -28,28 +41,29 @@ def auto_assign_subjects_and_courses(sender, instance, created, **kwargs):
 
     if not instance.section or not instance.section.classroom:
         logger.warning(
-            "Student %s created without a valid section/classroom — "
-            "skipping subject and course auto-assignment.",
+            "Student id=%s created without a valid section/classroom — "
+            "skipping subject auto-assignment.",
             instance.id,
         )
         return
 
     classroom = instance.section.classroom
 
+    # Validate classroom name is a parseable grade
     try:
-        student_grade = int(classroom.name.strip())
+        int(classroom.name.strip())
     except (ValueError, AttributeError):
         logger.error(
-            "Cannot auto-assign courses for student %s: "
+            "Cannot auto-assign subjects for student id=%s: "
             "classroom name '%s' is not a valid integer grade.",
             instance.id,
             classroom.name,
         )
         return
 
-    # 1. Assign subjects
     class_subjects = ClassSubject.objects.filter(classroom=classroom)
-    assigned_subjects = 0
+    assigned_count = 0
+
     for cs in class_subjects:
         _, created_ss = StudentSubject.objects.get_or_create(
             student=instance,
@@ -57,26 +71,16 @@ def auto_assign_subjects_and_courses(sender, instance, created, **kwargs):
             classroom=classroom,
         )
         if created_ss:
-            assigned_subjects += 1
-
-    # 2. Enroll in matching grade courses
-    matching_courses = Course.objects.filter(grade=student_grade)
-    enrolled_courses = 0
-    for course in matching_courses:
-        _, created_enrollment = Enrollment.objects.get_or_create(
-            user=instance,
-            course=course,
-            defaults={"status": "enrolled"},
-        )
-        if created_enrollment:
-            enrolled_courses += 1
+            assigned_count += 1
+            # Each new StudentSubject triggers learning/signals.py
+            # auto_enroll_core_courses automatically via post_save.
 
     logger.info(
-        "Student %s (id=%s): assigned %d subjects, enrolled in %d courses.",
-        instance.username,
+        "Student id=%s (%s): assigned %d subjects. "
+        "Enrollment triggered per subject via learning signals.",
         instance.id,
-        assigned_subjects,
-        enrolled_courses,
+        instance.username,
+        assigned_count,
     )
 
 
@@ -85,9 +89,16 @@ def auto_assign_students_for_new_class_subject(sender, instance, **kwargs):
     """
     When a new ClassSubject is added to a classroom,
     retroactively assign it to all existing students in that classroom.
+
+    Each new StudentSubject created here will also trigger
+    learning/signals.py to enroll those students in the new subject's
+    core courses.
     """
     classroom = instance.classroom
-    students = User.objects.filter(role="STUDENT", section__classroom=classroom)
+    students = User.objects.filter(
+        role="STUDENT",
+        section__classroom=classroom,
+    )
 
     assigned = 0
     for student in students:
@@ -101,7 +112,9 @@ def auto_assign_students_for_new_class_subject(sender, instance, **kwargs):
 
     if assigned:
         logger.info(
-            "ClassSubject added: assigned subject '%s' to %d existing students in classroom '%s'.",
+            "ClassSubject added: assigned subject '%s' to %d existing "
+            "students in classroom '%s'. Enrollment triggered via "
+            "learning signals.",
             instance.subject.name,
             assigned,
             classroom.name,

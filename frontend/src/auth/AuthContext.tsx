@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { apiGet } from "../services/api"; // Adjust path if needed; assuming this handles GET requests with auth
-
+import { apiGet, initCsrf } from "../services/api";
 import type { AuthState, MeResponse, Role } from "./authTypes";
 
 /* eslint-disable react-refresh/only-export-components */
@@ -37,7 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    refresh();
+    // ✅ Seed CSRF cookie first, then check auth state
+    initCsrf().then(() => refresh());
   }, []);
 
   return (

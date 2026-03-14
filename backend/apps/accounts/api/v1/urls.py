@@ -6,6 +6,7 @@ urlpatterns = [
     path("login/", views.login_view),
     path("logout/", views.logout_view),
     path("me/", views.me),
+    path("csrf/", views.csrf_token_view),
 
     path("users/", views.users),
     path("student-register/", views.student_register),

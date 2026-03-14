@@ -15,11 +15,21 @@ const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
  * Required for POST/PATCH with Django CSRF protection.
  */
 function getCsrfToken(): string | undefined {
+  // ✅ Match the renamed cookie from dev.py
   const match = document.cookie.match(
-    new RegExp("(^| )csrftoken=([^;]+)")
+    new RegExp("(^| )gyangrit_csrftoken=([^;]+)")
   );
   return match ? match[2] : undefined;
 }
+
+
+// Add this to api.ts
+export async function initCsrf(): Promise<void> {
+  await fetch(`${API_BASE_URL}/accounts/csrf/`, {
+    credentials: "include",
+  });
+}
+
 
 /**
  * GET helper.

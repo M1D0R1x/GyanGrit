@@ -167,6 +167,12 @@ def login_view(request):
 
     if user.role in ["STUDENT", "ADMIN"]:
         login(request, user)
+        # ✅ Create DeviceSession for all roles that bypass OTP
+        DeviceSession.objects.filter(user=user).delete()
+        DeviceSession.objects.create(
+            user=user,
+            device_fingerprint=request.session.session_key
+        )
         return JsonResponse({
             "otp_required": False,
             "id": user.id,
@@ -247,6 +253,7 @@ def me(request):
     return JsonResponse({
         "authenticated": True,
         "id": user.id,
+        "public_id": user.public_id,  # ✅ added
         "username": user.username,
         "role": user.role,
         "institution": user.institution.name if user.institution else None,
@@ -320,3 +327,10 @@ def validate_join_code(request):
         "district": join_code.district.name if join_code.district else None,
         "subject": join_code.subject.name if join_code.subject else None,  # NEW
     })
+
+# accounts/views.py
+from django.middleware.csrf import get_token
+
+@require_http_methods(["GET"])
+def csrf_token_view(request):
+    return JsonResponse({"csrfToken": get_token(request)})

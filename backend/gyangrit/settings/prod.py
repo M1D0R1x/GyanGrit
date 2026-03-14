@@ -37,9 +37,3 @@ CSRF_TRUSTED_ORIGINS = [
     "https://gyangrit.com",
     "https://www.gyangrit.com",
 ]
-
-# -------------------------------------------------
-# DATABASE → KEEP Supabase (DO NOT override to SQLite)
-# -------------------------------------------------
-# Base.py already handles DATABASE_URL from .env
-# Supabase connection string works perfectly here.

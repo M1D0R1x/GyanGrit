@@ -1,9 +1,13 @@
-from django.db import models
+import logging
+
 from django.conf import settings
-from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
 
 from apps.content.models import Course
+
+logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------
@@ -21,6 +25,8 @@ class Assessment(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
+    # total_marks is computed from sum of Question.marks via recalculate_total_marks().
+    # It is editable=False to prevent manual override — always derived from questions.
     total_marks = models.PositiveIntegerField(default=0, editable=False)
     pass_marks = models.PositiveIntegerField(default=0)
 
@@ -29,13 +35,24 @@ class Assessment(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=['course', 'is_published'])]
+        indexes = [models.Index(fields=["course", "is_published"])]
+
+    def recalculate_total_marks(self):
+        """
+        Recomputes total_marks from the sum of all question marks.
+        Called by Question post_save and post_delete signals.
+        Uses update() to avoid triggering full model validation.
+        """
+        from django.db.models import Sum
+        total = self.questions.aggregate(total=Sum("marks"))["total"] or 0
+        Assessment.objects.filter(pk=self.pk).update(total_marks=total)
+        self.total_marks = total  # keep in-memory object consistent
 
     def clean(self):
-        if self.pass_marks > self.total_marks:
+        # Defer total_marks check to after questions are saved.
+        # Only validate pass_marks vs total_marks when total_marks > 0.
+        if self.total_marks > 0 and self.pass_marks > self.total_marks:
             raise ValidationError("Pass marks cannot exceed total marks.")
-        if self.total_marks <= 0:
-            raise ValidationError("Total marks must be greater than zero.")
 
     def __str__(self):
         return f"{self.course.title} – {self.title}"
@@ -60,7 +77,7 @@ class Question(models.Model):
     class Meta:
         ordering = ["order"]
         unique_together = ["assessment", "order"]
-        indexes = [models.Index(fields=['assessment', 'order'])]
+        indexes = [models.Index(fields=["assessment", "order"])]
 
     def clean(self):
         if self.marks <= 0:
@@ -87,17 +104,19 @@ class QuestionOption(models.Model):
 
     class Meta:
         ordering = ["id"]
-        indexes = [models.Index(fields=['question'])]
+        indexes = [models.Index(fields=["question"])]
 
     def clean(self):
         if self.is_correct:
             existing_correct = QuestionOption.objects.filter(
                 question=self.question,
-                is_correct=True
+                is_correct=True,
             ).exclude(id=self.id)
 
             if existing_correct.exists():
-                raise ValidationError("Only one correct option allowed per question.")
+                raise ValidationError(
+                    "Only one correct option is allowed per question."
+                )
 
     def __str__(self):
         return f"Option for Q{self.question.id}"
@@ -124,6 +143,8 @@ class AssessmentAttempt(models.Model):
     started_at = models.DateTimeField(default=timezone.now)
     submitted_at = models.DateTimeField(null=True, blank=True)
 
+    # Keys are question IDs (str), values are selected option IDs (int).
+    # Example: {"1": 3, "2": 7}
     selected_options = models.JSONField(default=dict, blank=True)
 
     score = models.PositiveIntegerField(default=0)
@@ -132,36 +153,58 @@ class AssessmentAttempt(models.Model):
     class Meta:
         ordering = ["-started_at"]
         indexes = [
-            models.Index(fields=['user', 'assessment']),
-            models.Index(fields=['assessment', 'submitted_at'])
+            models.Index(fields=["user", "assessment"]),
+            models.Index(fields=["assessment", "submitted_at"]),
         ]
 
     def calculate_score_and_pass(self):
-        score = 0
+        """
+        Scores the attempt by looking up selected options.
 
-        for question_id, option_id in self.selected_options.items():
-            try:
-                option = QuestionOption.objects.get(
-                    id=option_id,
-                    question_id=question_id,
-                    question__assessment=self.assessment,
-                )
-                if option.is_correct:
-                    score += option.question.marks
-            except QuestionOption.DoesNotExist:
-                continue
+        Performance: fetches all relevant QuestionOptions in a single query
+        instead of one query per answer (avoids N+1).
+        """
+        if not self.selected_options:
+            self.score = 0
+            self.passed = False
+            return
+
+        # Collect all option IDs the student selected
+        selected_option_ids = list(self.selected_options.values())
+
+        # Single query: fetch all selected options that belong to this assessment
+        correct_options = QuestionOption.objects.filter(
+            id__in=selected_option_ids,
+            is_correct=True,
+            question__assessment=self.assessment,
+        ).select_related("question")
+
+        score = sum(opt.question.marks for opt in correct_options)
 
         self.score = score
         self.passed = score >= self.assessment.pass_marks
 
-    def submit(self, selected_options):
+    def submit(self, selected_options: dict):
+        """
+        Finalises the attempt: scores it and records submission time.
+        Uses update_fields to avoid a full model save.
+        """
         if self.submitted_at:
             raise ValidationError("Attempt already submitted.")
 
         self.selected_options = selected_options
         self.calculate_score_and_pass()
         self.submitted_at = timezone.now()
-        self.save()
+        self.save(update_fields=[
+            "selected_options",
+            "score",
+            "passed",
+            "submitted_at",
+        ])
 
     def __str__(self):
-        return f"Attempt {self.id} – {self.assessment.title} – {self.user.username}"
+        return (
+            f"Attempt {self.id} – "
+            f"{self.assessment.title} – "
+            f"{self.user.username}"
+        )

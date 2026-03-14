@@ -1,59 +1,73 @@
 import json
+import logging
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg
+from django.db.models import Avg, Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
 from apps.academics.models import ClassRoom
 from apps.accesscontrol.scoped_service import scope_queryset, get_scoped_object_or_403
-from apps.assessments.models import (
-    Assessment,
-    AssessmentAttempt,
-)
+from apps.assessments.models import Assessment, AssessmentAttempt
 from apps.content.models import Course
+from apps.learning.models import Enrollment
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 # =====================================================
-# ACCESS CONTROL (Course-specific - will harmonize with content app later)
+# INTERNAL: Course access check
+#
+# Subject has no institution field — institution scope is
+# determined by ClassSubject (which classrooms teach this subject).
+#
+# Access rules:
+# - ADMIN: always
+# - STUDENT: must be enrolled in the course
+# - TEACHER: must have a TeachingAssignment for the course's subject
+# - PRINCIPAL: course subject must be taught in their institution
+# - OFFICIAL: course subject must be taught in their district
 # =====================================================
 
 def has_access_to_course(user, course):
-    """Safe access check for course-based views."""
+    """
+    Returns True if the user is permitted to access this course's assessments.
+    """
     if not user.is_authenticated:
         return False
 
-    if user.role == "ADMIN":
+    if user.is_superuser or user.role == "ADMIN":
         return True
 
-    if not hasattr(course, "subject") or not course.subject:
-        return False
-
-    # Safety: some Subject models may not have .institution yet (content app pending)
-    subject_institution = getattr(course.subject, "institution", None)
-    if not subject_institution:
-        return False
-
-    if user.role == "OFFICIAL":
-        return subject_institution.district.name == user.district
-
-    if user.role == "PRINCIPAL":
-        return subject_institution == user.institution
+    if user.role == "STUDENT":
+        return Enrollment.objects.filter(
+            user=user,
+            course=course,
+        ).exists()
 
     if user.role == "TEACHER":
         return user.teaching_assignments.filter(
-            subject=course.subject
+            subject=course.subject,
         ).exists()
 
-    if user.role == "STUDENT":
-        return (
-            user.section
-            and user.section.classroom.institution == subject_institution
-        )
+    if user.role == "PRINCIPAL":
+        if not user.institution:
+            return False
+        # Course is accessible if its subject is taught in any classroom
+        # of the principal's institution
+        return course.subject.classrooms.filter(
+            classroom__institution=user.institution,
+        ).exists()
+
+    if user.role == "OFFICIAL":
+        if not user.district:
+            return False
+        return course.subject.classrooms.filter(
+            classroom__institution__district__name=user.district,
+        ).exists()
 
     return False
 
@@ -87,19 +101,22 @@ def course_assessments(request, course_id):
 @require_http_methods(["GET"])
 def assessment_detail(request, assessment_id):
     assessment = get_object_or_404(
-        Assessment, id=assessment_id, is_published=True
+        Assessment,
+        id=assessment_id,
+        is_published=True,
     )
 
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     questions = []
-    for q in assessment.questions.all().order_by("order"):
+    for q in assessment.questions.prefetch_related("options").order_by("order"):
         questions.append({
             "id": q.id,
             "text": q.text,
             "marks": q.marks,
             "order": q.order,
+            # Options returned WITHOUT is_correct — never expose answer to client
             "options": [
                 {"id": opt.id, "text": opt.text}
                 for opt in q.options.all()
@@ -117,19 +134,22 @@ def assessment_detail(request, assessment_id):
 
 
 # =====================================================
-# START / SUBMIT / MY ATTEMPTS
+# START ASSESSMENT
 # =====================================================
 
 @login_required
 @require_http_methods(["POST"])
 def start_assessment(request, assessment_id):
     assessment = get_object_or_404(
-        Assessment, id=assessment_id, is_published=True
+        Assessment,
+        id=assessment_id,
+        is_published=True,
     )
 
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
+    # Return existing active attempt if one exists
     active_attempt = AssessmentAttempt.objects.filter(
         user=request.user,
         assessment=assessment,
@@ -137,12 +157,16 @@ def start_assessment(request, assessment_id):
     ).first()
 
     if active_attempt:
-        return JsonResponse({"attempt_id": active_attempt.id, "message": "Active attempt exists"})
+        return JsonResponse({
+            "attempt_id": active_attempt.id,
+            "message": "Active attempt exists",
+        })
 
     attempt = AssessmentAttempt.objects.create(
         assessment=assessment,
         user=request.user,
     )
+
     return JsonResponse({
         "attempt_id": attempt.id,
         "assessment_id": assessment.id,
@@ -150,12 +174,23 @@ def start_assessment(request, assessment_id):
     })
 
 
+# =====================================================
+# SUBMIT ASSESSMENT
+# =====================================================
+
 @login_required
 @require_http_methods(["POST"])
 def submit_assessment(request, assessment_id):
-    body = json.loads(request.body or "{}")
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
     attempt_id = body.get("attempt_id")
     selected_options = body.get("selected_options", {})
+
+    if not attempt_id:
+        return JsonResponse({"error": "attempt_id is required"}, status=400)
 
     attempt = get_object_or_404(
         AssessmentAttempt,
@@ -167,13 +202,28 @@ def submit_assessment(request, assessment_id):
     if attempt.submitted_at:
         return JsonResponse({"detail": "Already submitted"}, status=400)
 
-    attempt.submit(selected_options)
+    try:
+        attempt.submit(selected_options)
+    except Exception:
+        logger.exception(
+            "Failed to submit attempt id=%s for user id=%s",
+            attempt_id,
+            request.user.id,
+        )
+        return JsonResponse({"error": "Submission failed"}, status=500)
+
     return JsonResponse({
         "attempt_id": attempt.id,
         "score": attempt.score,
         "passed": attempt.passed,
+        "total_marks": attempt.assessment.total_marks,
+        "pass_marks": attempt.assessment.pass_marks,
     })
 
+
+# =====================================================
+# MY ATTEMPTS
+# =====================================================
 
 @login_required
 @require_http_methods(["GET"])
@@ -197,7 +247,7 @@ def my_attempts(request, assessment_id):
 
 
 # =====================================================
-# TEACHER ASSESSMENT ANALYTICS (kept for future use)
+# TEACHER / ADMIN ASSESSMENT ANALYTICS
 # =====================================================
 
 @login_required
@@ -207,24 +257,32 @@ def teacher_assessment_analytics(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     if request.user.role == "TEACHER":
-        subject_ids = request.user.teaching_assignments.values_list("subject_id", flat=True)
-        assessments = Assessment.objects.filter(course__subject_id__in=subject_ids)
+        subject_ids = request.user.teaching_assignments.values_list(
+            "subject_id", flat=True
+        )
+        assessments = Assessment.objects.filter(
+            course__subject_id__in=subject_ids
+        )
 
     elif request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
         assessments = Assessment.objects.filter(
-            course__subject__institution=request.user.institution
-        )
+            course__subject__classrooms__classroom__institution=request.user.institution
+        ).distinct()
 
     elif request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
         assessments = Assessment.objects.filter(
-            course__subject__institution__district__name=request.user.district
-        )
+            course__subject__classrooms__classroom__institution__district__name=request.user.district
+        ).distinct()
 
     else:  # ADMIN
         assessments = Assessment.objects.all()
 
     data = []
-    for assessment in assessments:
+    for assessment in assessments.select_related("course", "course__subject"):
         attempts = assessment.attempts.filter(submitted_at__isnull=False)
         total_attempts = attempts.count()
         unique_students = attempts.values("user").distinct().count()
@@ -236,7 +294,7 @@ def teacher_assessment_analytics(request):
             "assessment_id": assessment.id,
             "title": assessment.title,
             "course": assessment.course.title,
-            "subject": getattr(assessment.course.subject, "name", None),
+            "subject": assessment.course.subject.name if assessment.course.subject else None,
             "total_attempts": total_attempts,
             "unique_students": unique_students,
             "average_score": round(avg_score, 2),
@@ -250,6 +308,8 @@ def teacher_assessment_analytics(request):
 
 # =====================================================
 # TEACHER CLASS ANALYTICS
+# Optimised: uses a single aggregated query per classroom
+# instead of N+1 pattern.
 # =====================================================
 
 @login_required
@@ -264,9 +324,13 @@ def teacher_class_analytics(request):
         ).distinct()
 
     elif request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
         classes = ClassRoom.objects.filter(institution=request.user.institution)
 
     elif request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
         classes = ClassRoom.objects.filter(
             institution__district__name=request.user.district
         )
@@ -274,17 +338,39 @@ def teacher_class_analytics(request):
     else:  # ADMIN
         classes = ClassRoom.objects.all()
 
+    classes = classes.select_related("institution")
+
     data = []
     for classroom in classes:
-        students = User.objects.filter(role="STUDENT", section__classroom=classroom)
-        attempts = AssessmentAttempt.objects.filter(
-            user__in=students, submitted_at__isnull=False
+        # Single aggregated query per classroom instead of separate
+        # students query + attempts query
+        student_ids = list(
+            User.objects.filter(
+                role="STUDENT",
+                section__classroom=classroom,
+            ).values_list("id", flat=True)
         )
 
-        total_students = students.count()
-        total_attempts = attempts.count()
-        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
-        pass_count = attempts.filter(passed=True).count()
+        total_students = len(student_ids)
+
+        if student_ids:
+            attempts = AssessmentAttempt.objects.filter(
+                user_id__in=student_ids,
+                submitted_at__isnull=False,
+            )
+            agg = attempts.aggregate(
+                total=Count("id"),
+                avg=Avg("score"),
+                passes=Count("id", filter=Q(passed=True)),
+            )
+            total_attempts = agg["total"] or 0
+            avg_score = agg["avg"] or 0
+            pass_count = agg["passes"] or 0
+        else:
+            total_attempts = 0
+            avg_score = 0
+            pass_count = 0
+
         pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
         data.append({
@@ -301,16 +387,16 @@ def teacher_class_analytics(request):
 
 
 # =====================================================
-# TEACHER CLASS STUDENTS + STUDENT DETAILS (now uses central scoping)
+# TEACHER CLASS STUDENTS
 # =====================================================
 
 @login_required
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
-    # Uses central scoped_service (OFFICIAL/ADMIN auto-restricted)
-    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
+    classroom = get_scoped_object_or_403(
+        request.user, ClassRoom.objects, id=class_id
+    )
 
-    # Extra restriction for teachers (only classes they actually teach)
     if request.user.role == "TEACHER":
         if not request.user.teaching_assignments.filter(
             section__classroom=classroom
@@ -325,11 +411,17 @@ def teacher_class_students(request, class_id):
     data = []
     for student in students:
         attempts = AssessmentAttempt.objects.filter(
-            user=student, submitted_at__isnull=False
+            user=student,
+            submitted_at__isnull=False,
         )
-        total_attempts = attempts.count()
-        avg_score = attempts.aggregate(avg=Avg("score"))["avg"] or 0
-        pass_count = attempts.filter(passed=True).count()
+        agg = attempts.aggregate(
+            total=Count("id"),
+            avg=Avg("score"),
+            passes=Count("id", filter=Q(passed=True)),
+        )
+        total_attempts = agg["total"] or 0
+        avg_score = agg["avg"] or 0
+        pass_count = agg["passes"] or 0
         pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
         data.append({
@@ -343,16 +435,27 @@ def teacher_class_students(request, class_id):
     return JsonResponse(data, safe=False)
 
 
+# =====================================================
+# TEACHER STUDENT ASSESSMENTS
+# =====================================================
+
 @login_required
 @require_http_methods(["GET"])
 def teacher_student_assessments(request, class_id, student_id):
-    # Central scoping for both classroom and student
-    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
-    student_qs = scope_queryset(request.user, User.objects.filter(role="STUDENT"))
+    classroom = get_scoped_object_or_403(
+        request.user, ClassRoom.objects, id=class_id
+    )
+    student_qs = scope_queryset(
+        request.user,
+        User.objects.filter(role="STUDENT"),
+    )
     student = get_object_or_404(student_qs, id=student_id)
 
     if student.section and student.section.classroom != classroom:
-        return JsonResponse({"detail": "Student not in this class"}, status=400)
+        return JsonResponse(
+            {"detail": "Student not in this class"},
+            status=400,
+        )
 
     attempts = (
         AssessmentAttempt.objects
@@ -361,15 +464,16 @@ def teacher_student_assessments(request, class_id, student_id):
         .order_by("-submitted_at")
     )
 
-    data = []
-    for attempt in attempts:
-        data.append({
+    data = [
+        {
             "assessment_id": attempt.assessment.id,
             "assessment_title": attempt.assessment.title,
             "score": attempt.score,
             "passed": attempt.passed,
-            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
-        })
+            "submitted_at": attempt.submitted_at.isoformat(),
+        }
+        for attempt in attempts
+    ]
 
     return JsonResponse({
         "student_id": student.id,

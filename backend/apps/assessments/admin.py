@@ -1,9 +1,9 @@
 from django.contrib import admin
 from .models import (
     Assessment,
+    AssessmentAttempt,
     Question,
     QuestionOption,
-    AssessmentAttempt,
 )
 
 
@@ -13,10 +13,17 @@ class QuestionOptionInline(admin.TabularInline):
     fields = ("text", "is_correct")
 
 
-class QuestionInline(admin.TabularInline):
+class QuestionInline(admin.StackedInline):
+    """
+    StackedInline (instead of Tabular) gives enough vertical space
+    to also embed the option inline below each question.
+    Note: nested inlines are not natively supported in Django admin.
+    Options must be added via the QuestionAdmin separately.
+    """
     model = Question
     extra = 1
     fields = ("text", "marks", "order")
+    show_change_link = True  # links to QuestionAdmin where options can be added
 
 
 @admin.register(Assessment)
@@ -42,12 +49,12 @@ class QuestionAdmin(admin.ModelAdmin):
     list_filter = ("assessment",)
     search_fields = ("text",)
     ordering = ("assessment", "order")
-    inlines = [QuestionOptionInline]
+    inlines = [QuestionOptionInline]  # add options here
 
 
 @admin.register(QuestionOption)
 class QuestionOptionAdmin(admin.ModelAdmin):
-    list_display = ("id", "question", "is_correct")
+    list_display = ("id", "question", "text", "is_correct")
     list_filter = ("is_correct",)
     search_fields = ("text",)
     ordering = ("question", "id")

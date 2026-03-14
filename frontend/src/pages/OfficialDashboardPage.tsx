@@ -10,6 +10,7 @@ type TeacherCourseAnalytics = {
   total_lessons: number;
   completed_lessons: number;
   percentage: number;
+
 };
 
 export default function OfficialDashboardPage() {

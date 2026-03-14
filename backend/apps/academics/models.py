@@ -7,7 +7,7 @@ class District(models.Model):
 
     class Meta:
         ordering = ["name"]
-        indexes = [models.Index(fields=['name'])]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
@@ -29,7 +29,7 @@ class Institution(models.Model):
     class Meta:
         unique_together = ("name", "district")
         ordering = ["name"]
-        indexes = [models.Index(fields=['name', 'district'])]
+        indexes = [models.Index(fields=["name", "district"])]
 
     def __str__(self):
         return f"{self.name} ({self.district.name})"
@@ -51,18 +51,14 @@ class ClassRoom(models.Model):
     class Meta:
         unique_together = ("name", "institution")
         ordering = ["name"]
-        indexes = [models.Index(fields=['institution', 'name'])]
+        indexes = [models.Index(fields=["institution", "name"])]
 
     def __str__(self):
         return f"{self.name} - {self.institution.name}"
 
 
 # =========================================================
-# SECTION  ← UPDATED FOR BETTER ADMIN POPUP
-# =========================================================
-
-# =========================================================
-# SECTION (Only 1 section per class now)
+# SECTION
 # =========================================================
 
 class Section(models.Model):
@@ -76,11 +72,11 @@ class Section(models.Model):
 
     class Meta:
         unique_together = ("name", "classroom")
-        indexes = [models.Index(fields=['classroom', 'name'])]
+        indexes = [models.Index(fields=["classroom", "name"])]
 
     def __str__(self):
-        # Updated format: "10 A - Government Senior Secondary School Amritsar"
         return f"{self.classroom.name} {self.name} - {self.classroom.institution.name}"
+
 
 # =========================================================
 # SUBJECT (GLOBAL)
@@ -91,7 +87,7 @@ class Subject(models.Model):
 
     class Meta:
         ordering = ["name"]
-        indexes = [models.Index(fields=['name'])]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
@@ -116,7 +112,7 @@ class ClassSubject(models.Model):
 
     class Meta:
         unique_together = ("classroom", "subject")
-        indexes = [models.Index(fields=['classroom', 'subject'])]
+        indexes = [models.Index(fields=["classroom", "subject"])]
 
     def __str__(self):
         return f"{self.classroom.name} - {self.subject.name}"
@@ -146,7 +142,7 @@ class StudentSubject(models.Model):
 
     class Meta:
         unique_together = ("student", "subject")
-        indexes = [models.Index(fields=['student', 'subject'])]
+        indexes = [models.Index(fields=["student", "subject"])]
 
     def __str__(self):
         return f"{self.student.username} - {self.subject.name}"
@@ -178,12 +174,30 @@ class TeachingAssignment(models.Model):
 
     class Meta:
         unique_together = ("teacher", "subject", "section")
-        indexes = [models.Index(fields=['teacher', 'subject', 'section'])]
+        indexes = [models.Index(fields=["teacher", "subject", "section"])]
 
     def clean(self):
-        if self.teacher.institution != self.section.classroom.institution:
+        # Guard: teacher must have an institution before we compare
+        teacher_institution = getattr(self.teacher, "institution", None)
+        section_institution = (
+            self.section.classroom.institution
+            if self.section and self.section.classroom
+            else None
+        )
+
+        if teacher_institution is None:
             raise ValidationError(
-                "Teacher must belong to same institution as section."
+                "Teacher does not have an institution assigned."
+            )
+
+        if section_institution is None:
+            raise ValidationError(
+                "Section is not linked to a valid institution."
+            )
+
+        if teacher_institution != section_institution:
+            raise ValidationError(
+                "Teacher must belong to the same institution as the section."
             )
 
     def __str__(self):

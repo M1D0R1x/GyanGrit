@@ -1,6 +1,8 @@
+import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 
 from .models import (
     Institution,
@@ -9,8 +11,11 @@ from .models import (
     Subject,
     TeachingAssignment,
     District,
+    StudentSubject,
 )
 from ..content.models import Lesson, LessonProgress, Course
+
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
@@ -26,6 +31,8 @@ def institutions(request):
     queryset = Institution.objects.select_related("district")
 
     if request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
         queryset = queryset.filter(district__name=request.user.district)
 
     elif request.user.role == "PRINCIPAL":
@@ -40,7 +47,7 @@ def institutions(request):
 
 
 # =========================================================
-# CLASSES (was one of the slowest)
+# CLASSES
 # =========================================================
 
 @login_required
@@ -65,7 +72,7 @@ def classes(request):
 
 
 # =========================================================
-# SECTIONS (was also very slow)
+# SECTIONS
 # =========================================================
 
 @login_required
@@ -84,7 +91,9 @@ def sections(request):
 
     elif request.user.role == "OFFICIAL":
         if request.user.district:
-            queryset = queryset.filter(classroom__institution__district__name=request.user.district)
+            queryset = queryset.filter(
+                classroom__institution__district__name=request.user.district
+            )
 
     return JsonResponse(
         list(queryset.values("id", "name", "classroom_id")),
@@ -96,78 +105,132 @@ def sections(request):
 # SUBJECTS
 # =========================================================
 
-from .models import StudentSubject
-from ..content.models import Lesson, LessonProgress, Course
-
-
 @login_required
 @require_http_methods(["GET"])
 def subjects(request):
 
     if request.user.role == "STUDENT":
-
-        student_subjects = (
-            StudentSubject.objects
-            .select_related("subject", "classroom")
-            .filter(student=request.user)
-        )
-
-        data = []
-
-        for ss in student_subjects:
-            subject = ss.subject
-            classroom = ss.classroom
-
-            # courses for this subject + class
-            courses = Course.objects.filter(
-                subject=subject,
-                grade=int(classroom.name)
-            )
-
-            total_lessons = Lesson.objects.filter(
-                course__in=courses,
-                is_published=True
-            ).count()
-
-            completed_lessons = LessonProgress.objects.filter(
-                lesson__course__in=courses,
-                user=request.user,
-                completed=True
-            ).count()
-
-            progress = int((completed_lessons / total_lessons) * 100) if total_lessons else 0
-
-            data.append({
-                "id": subject.id,
-                "name": subject.name,
-                "total_lessons": total_lessons,
-                "completed_lessons": completed_lessons,
-                "progress": progress,
-            })
-
-        return JsonResponse(data, safe=False)
-
+        return _subjects_for_student(request)
 
     elif request.user.role == "TEACHER":
-
         queryset = Subject.objects.filter(
             teaching_assignments__teacher=request.user
         ).distinct()
+        return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
-        return JsonResponse(
-            list(queryset.values("id", "name")),
-            safe=False
-        )
+    elif request.user.role == "PRINCIPAL":
+        # Principal sees subjects taught in their institution only
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        queryset = Subject.objects.filter(
+            classrooms__classroom__institution=request.user.institution
+        ).distinct()
+        return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
+    elif request.user.role == "OFFICIAL":
+        # Official sees subjects across their district
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
+        queryset = Subject.objects.filter(
+            classrooms__classroom__institution__district__name=request.user.district
+        ).distinct()
+        return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
-    else:
-
+    elif request.user.role == "ADMIN":
         queryset = Subject.objects.all()
+        return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
-        return JsonResponse(
-            list(queryset.values("id", "name")),
-            safe=False
+    return JsonResponse({"detail": "Forbidden"}, status=403)
+
+
+def _subjects_for_student(request):
+    """
+    Optimised subject+progress query for a student.
+    Avoids N+1 by computing progress in a single annotated queryset
+    per subject, then assembling the response.
+    """
+    student = request.user
+
+    student_subjects = (
+        StudentSubject.objects
+        .select_related("subject", "classroom")
+        .filter(student=student)
+    )
+
+    if not student_subjects.exists():
+        return JsonResponse([], safe=False)
+
+    data = []
+
+    for ss in student_subjects:
+        subject = ss.subject
+        classroom = ss.classroom
+
+        # Safely parse grade — guard against non-numeric classroom names
+        try:
+            grade = int(classroom.name.strip())
+        except (ValueError, AttributeError):
+            logger.warning(
+                "Student %s has classroom with non-numeric name: %s",
+                student.id,
+                classroom.name,
+            )
+            grade = None
+
+        if grade is None:
+            data.append({
+                "id": subject.id,
+                "name": subject.name,
+                "total_lessons": 0,
+                "completed_lessons": 0,
+                "progress": 0,
+            })
+            continue
+
+        # Single query: get all course IDs for this subject+grade
+        course_ids = list(
+            Course.objects
+            .filter(subject=subject, grade=grade)
+            .values_list("id", flat=True)
         )
+
+        if not course_ids:
+            data.append({
+                "id": subject.id,
+                "name": subject.name,
+                "total_lessons": 0,
+                "completed_lessons": 0,
+                "progress": 0,
+            })
+            continue
+
+        # Two targeted aggregate queries instead of per-lesson loops
+        total_lessons = Lesson.objects.filter(
+            course_id__in=course_ids,
+            is_published=True
+        ).count()
+
+        completed_lessons = LessonProgress.objects.filter(
+            lesson__course_id__in=course_ids,
+            user=student,
+            completed=True
+        ).count()
+
+        progress = (
+            int((completed_lessons / total_lessons) * 100)
+            if total_lessons else 0
+        )
+
+        data.append({
+            "id": subject.id,
+            "name": subject.name,
+            "total_lessons": total_lessons,
+            "completed_lessons": completed_lessons,
+            "progress": progress,
+        })
+
+    return JsonResponse(data, safe=False)
+
 
 # =========================================================
 # TEACHING ASSIGNMENTS
@@ -180,18 +243,29 @@ def teaching_assignments(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     queryset = TeachingAssignment.objects.select_related(
-        "teacher", "subject", "section", "section__classroom", "section__classroom__institution"
+        "teacher",
+        "subject",
+        "section",
+        "section__classroom",
+        "section__classroom__institution",
     )
 
     if request.user.role == "PRINCIPAL":
-        queryset = queryset.filter(section__classroom__institution=request.user.institution)
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        queryset = queryset.filter(
+            section__classroom__institution=request.user.institution
+        )
 
     elif request.user.role == "OFFICIAL":
-        queryset = queryset.filter(section__classroom__institution__district__name=request.user.district)
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
+        queryset = queryset.filter(
+            section__classroom__institution__district__name=request.user.district
+        )
 
-    data = []
-    for a in queryset:
-        data.append({
+    data = [
+        {
             "id": a.id,
             "teacher_id": a.teacher.id,
             "teacher_username": a.teacher.username,
@@ -200,7 +274,9 @@ def teaching_assignments(request):
             "section_id": a.section.id,
             "section_name": a.section.name,
             "class_name": a.section.classroom.name,
-        })
+        }
+        for a in queryset
+    ]
 
     return JsonResponse(data, safe=False)
 
@@ -217,30 +293,36 @@ def my_assignments(request):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=request.user
-    ).select_related("subject", "section", "section__classroom", "section__classroom__institution")
+    ).select_related(
+        "subject",
+        "section",
+        "section__classroom",
+        "section__classroom__institution",
+    )
 
-    data = []
-    for a in assignments:
-        data.append({
+    data = [
+        {
             "subject_id": a.subject.id,
             "subject_name": a.subject.name,
             "section_id": a.section.id,
             "section_name": a.section.name,
             "class_name": a.section.classroom.name,
-        })
+        }
+        for a in assignments
+    ]
 
     return JsonResponse(data, safe=False)
 
 
 # =========================================================
-# PUBLIC HELPERS
+# PUBLIC HELPERS (used during registration — no login required)
 # =========================================================
 
 @require_http_methods(["GET"])
 def districts(request):
     query = request.GET.get("q", "")
-    districts = District.objects.filter(name__icontains=query).order_by("name")
-    return JsonResponse(list(districts.values("id", "name")), safe=False)
+    qs = District.objects.filter(name__icontains=query).order_by("name")
+    return JsonResponse(list(qs.values("id", "name")), safe=False)
 
 
 @require_http_methods(["GET"])
@@ -248,20 +330,15 @@ def schools(request):
     district_id = request.GET.get("district_id")
     query = request.GET.get("q", "")
 
-    schools = Institution.objects.select_related("district")
+    qs = Institution.objects.select_related("district")
 
     if district_id:
-        schools = schools.filter(district_id=district_id)
+        qs = qs.filter(district_id=district_id)
     if query:
-        schools = schools.filter(name__icontains=query)
+        qs = qs.filter(name__icontains=query)
 
     data = list(
-        schools.values(
-            "id",
-            "name",
-            "district__name",
-            "is_government",
-        ).order_by("name")
+        qs.values("id", "name", "district__name", "is_government").order_by("name")
     )
 
     return JsonResponse(data, safe=False)

@@ -1,4 +1,3 @@
-// src/pages/LearningPathsPage.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,129 +6,140 @@ import {
   type LearningPath,
   type LearningPathProgress,
 } from "../services/learningPaths";
+import TopBar from "../components/TopBar";
+
+function PathSkeleton() {
+  return (
+    <div className="skeleton-card">
+      <div className="skeleton skeleton-line skeleton-line--title" />
+      <div className="skeleton skeleton-line skeleton-line--long" style={{ marginTop: "var(--space-3)" }} />
+      <div className="skeleton" style={{ height: 6, borderRadius: "var(--radius-full)", marginTop: "var(--space-5)" }} />
+    </div>
+  );
+}
 
 export default function LearningPathsPage() {
   const navigate = useNavigate();
 
-  const [paths, setPaths] = useState<LearningPath[]>([]);
-  const [progress, setProgress] = useState<
-    Record<number, LearningPathProgress>
-  >({});
+  const [paths, setPaths]               = useState<LearningPath[]>([]);
+  const [progress, setProgress]         = useState<Record<number, LearningPathProgress>>({});
+  const [loading, setLoading]           = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(false);
 
-  // --------------------------------------------------
-  // Load all learning paths
-  // --------------------------------------------------
   useEffect(() => {
-    getLearningPaths().then(setPaths);
+    getLearningPaths()
+      .then(setPaths)
+      .finally(() => setLoading(false));
   }, []);
 
-  // --------------------------------------------------
-  // Load progress safely (async/await to avoid ESLint warning)
-  // --------------------------------------------------
   useEffect(() => {
-    async function loadProgress() {
-      if (paths.length === 0) return;
+    if (paths.length === 0) return;
+    setLoadingProgress(true);
 
-      setLoadingProgress(true);
-
-      try {
-        const results = await Promise.all(
-          paths.map(async (path) => ({
-            pathId: path.id,
-            progress: await getLearningPathProgress(path.id),
-          }))
-        );
-
+    Promise.all(
+      paths.map(async (path) => ({
+        pathId: path.id,
+        progress: await getLearningPathProgress(path.id),
+      }))
+    )
+      .then((results) => {
         const map: Record<number, LearningPathProgress> = {};
-        results.forEach(({ pathId, progress }) => {
-          map[pathId] = progress;
-        });
-
+        results.forEach(({ pathId, progress: p }) => { map[pathId] = p; });
         setProgress(map);
-      } catch (err) {
-        console.error("Failed to load progress", err);
-      } finally {
-        setLoadingProgress(false);
-      }
-    }
-
-    loadProgress();
+      })
+      .catch(console.error)
+      .finally(() => setLoadingProgress(false));
   }, [paths]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1>Learning Paths</h1>
+    <div className="page-shell">
+      <TopBar title="Learning Paths" />
+      <main className="page-content page-enter">
 
-      {paths.length === 0 && (
-        <p>No learning paths available yet.</p>
-      )}
+        <div className="section-header">
+          <div>
+            <h2 className="section-header__title">Learning Paths</h2>
+            <p className="section-header__subtitle">
+              Structured collections of courses for your grade
+            </p>
+          </div>
+        </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: 16,
-          marginTop: 24,
-        }}
-      >
-        {paths.map((path) => {
-          const p = progress[path.id];
+        {loading ? (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "var(--space-4)",
+          }}>
+            {Array.from({ length: 4 }).map((_, i) => <PathSkeleton key={i} />)}
+          </div>
+        ) : paths.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state__icon">🗺️</div>
+            <h3 className="empty-state__title">No learning paths yet</h3>
+            <p className="empty-state__message">
+              Learning paths will appear here once they are created for your grade.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "var(--space-4)",
+          }}>
+            {paths.map((path, i) => {
+              const p = progress[path.id];
+              return (
+                <div
+                  key={path.id}
+                  className="card card--clickable page-enter"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                  onClick={() => navigate(`/learning/${path.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(`/learning/${path.id}`)}
+                >
+                  <div className="card__title">{path.name}</div>
+                  <p className="card__description" style={{ marginTop: "var(--space-2)" }}>
+                    {path.description || "No description provided."}
+                  </p>
 
-          return (
-            <div
-              key={path.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                padding: 16,
-                background: "#fff",
-              }}
-            >
-              <h3>{path.name}</h3>
-              <p style={{ opacity: 0.7 }}>
-                {path.description || "No description"}
-              </p>
-
-              {loadingProgress && !p ? (
-                <p>Loading progress…</p>
-              ) : (
-                p && (
-                  <>
-                    <div
-                      style={{
-                        height: 6,
-                        background: "#eee",
-                        borderRadius: 4,
-                        overflow: "hidden",
-                        margin: "12px 0",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${p.percentage}%`,
-                          height: "100%",
-                          background: "#4caf50",
-                        }}
-                      />
-                    </div>
-                    <small>
-                      {p.completed_courses}/{p.total_courses} completed
-                    </small>
-                  </>
-                )
-              )}
-
-              <button
-                style={{ marginTop: 12 }}
-                onClick={() => navigate(`/learning/${path.id}`)}
-              >
-                View path
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                  {loadingProgress && !p ? (
+                    <div className="skeleton" style={{ height: 6, borderRadius: "var(--radius-full)", marginTop: "var(--space-5)" }} />
+                  ) : p ? (
+                    <>
+                      <div className="progress-bar" style={{ marginTop: "var(--space-5)" }}>
+                        <div
+                          className="progress-bar__fill"
+                          style={{
+                            width: `${p.percentage}%`,
+                            background: p.percentage === 100 ? "var(--success)" : "var(--brand-primary)",
+                          }}
+                        />
+                      </div>
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginTop: "var(--space-1)",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--text-muted)",
+                      }}>
+                        <span>{p.completed_courses}/{p.total_courses} courses</span>
+                        <span style={{
+                          fontWeight: 700,
+                          color: p.percentage === 100 ? "var(--success)" : "var(--text-secondary)",
+                        }}>
+                          {p.percentage}%
+                        </span>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

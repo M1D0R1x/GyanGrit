@@ -2,15 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
+import type { Role } from "../auth/authTypes";
 
 type LoginApiResponse =
-  | { otp_required: true }
-  | {
-      otp_required: false;
-      id: number;
-      username: string;
-      role: "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
-    };
+  | { otp_required: true; username: string; role: Role }
+  | { otp_required: false; id: number; username: string; role: Role };
+
+const ROLE_PATHS: Record<Role, string> = {
+  STUDENT:   "/dashboard",
+  TEACHER:   "/teacher",
+  PRINCIPAL: "/principal",
+  OFFICIAL:  "/official",
+  ADMIN:     "/admin-panel",
+};
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,8 +22,8 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,21 +37,18 @@ export default function LoginPage() {
       });
 
       if (response.otp_required) {
-        navigate("/verify-otp", { state: { username }, replace: true });
+        navigate("/verify-otp", {
+          state: { username },
+          replace: true,
+        });
         return;
       }
 
       await auth.refresh();
+      navigate(ROLE_PATHS[response.role] ?? "/", { replace: true });
 
-      switch (response.role) {
-        case "STUDENT": navigate("/dashboard", { replace: true }); break;
-        case "TEACHER": navigate("/teacher", { replace: true }); break;
-        case "PRINCIPAL": navigate("/principal", { replace: true }); break;
-        case "OFFICIAL": navigate("/official", { replace: true }); break;
-        case "ADMIN": navigate("/admin-panel", { replace: true }); break;
-      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const message = err instanceof Error ? err.message : "Login failed. Please try again.";
       setError(message);
     } finally {
       setLoading(false);
@@ -55,55 +56,89 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto", padding: "20px" }}>
-      <h2>Login</h2>
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <input
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            style={{ width: "100%", padding: 10 }}
-          />
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-card__brand">
+          Gyan<span>Grit</span>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: "100%", padding: 10 }}
-          />
+        <p className="login-card__tagline">
+          Empowering rural students, one lesson at a time
+        </p>
+
+        <hr className="login-card__divider" />
+
+        {error && (
+          <div className="alert alert--error" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-group">
+            <label className="form-label" htmlFor="username">
+              Username
+            </label>
+            <input
+              id="username"
+              className="form-input"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn--primary btn--full btn--lg"
+            style={{ marginTop: "var(--space-2)" }}
+          >
+            {loading ? (
+              <>
+                <span className="btn__spinner" aria-hidden="true" />
+                Signing in
+              </>
+            ) : (
+              "Sign in"
+            )}
+          </button>
+        </form>
+
+        <div className="login-card__footer">
+          Don't have an account?{" "}
+          <button onClick={() => navigate("/register")}>
+            Register here
+          </button>
         </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "12px",
-            background: loading ? "#6c757d" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            fontSize: "1.1rem",
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-
-      <p style={{ textAlign: "center", marginTop: 20 }}>
-        Don't have an account?{" "}
-        <button onClick={() => navigate("/register")} style={{ color: "#007bff", background: "none", border: "none", textDecoration: "underline" }}>
-          Register here
-        </button>
-      </p>
-
-      {error && <p style={{ color: "red", marginTop: 16, textAlign: "center" }}>{error}</p>}
+      </div>
     </div>
   );
 }

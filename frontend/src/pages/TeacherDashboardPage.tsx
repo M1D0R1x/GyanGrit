@@ -19,171 +19,304 @@ type MyAssignment = {
   class_name: string;
 };
 
-// ─── Reusable skeleton ───────────────────────────────────────────────────────
-const Skeleton = ({ h = 140, count = 3 }: { h?: number; count?: number }) => (
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-    {[...Array(count)].map((_, i) => (
-      <div key={i} style={{ height: h, borderRadius: 10, background: "linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
-    ))}
-  </div>
-);
+function GridSkeleton({ count = 3, height = 130 }: { count?: number; height?: number }) {
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+      gap: "var(--space-4)",
+    }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="skeleton" style={{ height, borderRadius: "var(--radius-lg)" }} />
+      ))}
+    </div>
+  );
+}
 
-// ─── Stat pill ────────────────────────────────────────────────────────────────
-const Pill = ({ label, value }: { label: string; value: string | number }) => (
-  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#f4f6fb", borderRadius: 8, padding: "10px 16px", minWidth: 80 }}>
-    <span style={{ fontSize: 18, fontWeight: 700, color: "#1a56db" }}>{value}</span>
-    <span style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{label}</span>
-  </div>
-);
+function SectionBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ marginBottom: "var(--space-12)" }}>
+      <div className="section-header">
+        <h2 className="section-header__title">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
-const ProgressBar = ({ pct }: { pct: number }) => (
-  <div style={{ background: "#e5e7eb", borderRadius: 99, height: 6, marginTop: 10 }}>
-    <div style={{ width: `${pct}%`, background: pct >= 70 ? "#16a34a" : pct >= 40 ? "#f59e0b" : "#ef4444", height: "100%", borderRadius: 99, transition: "width .4s" }} />
-  </div>
-);
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div style={{ padding: "var(--space-8) 0" }}>
+      <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontStyle: "italic" }}>
+        {message}
+      </p>
+    </div>
+  );
+}
 
 export default function TeacherDashboardPage() {
   const navigate = useNavigate();
 
-  const [courses, setCourses] = useState<TeacherCourseAnalytics[]>([]);
+  const [courses, setCourses]         = useState<TeacherCourseAnalytics[]>([]);
   const [assessments, setAssessments] = useState<TeacherAssessmentAnalytics[]>([]);
-  const [classes, setClasses] = useState<TeacherClassAnalytics[]>([]);
+  const [classes, setClasses]         = useState<TeacherClassAnalytics[]>([]);
   const [assignments, setAssignments] = useState<MyAssignment[]>([]);
 
-  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingCourses, setLoadingCourses]         = useState(true);
   const [loadingAssessments, setLoadingAssessments] = useState(true);
-  const [loadingClasses, setLoadingClasses] = useState(true);
+  const [loadingClasses, setLoadingClasses]         = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([
-      getTeacherCourseAnalytics().then(d => { setCourses(d || []); setLoadingCourses(false); }),
-      getTeacherAssessmentAnalytics().then(d => { setAssessments(d || []); setLoadingAssessments(false); }),
-      getTeacherClassAnalytics().then(d => { setClasses(d || []); setLoadingClasses(false); }),
-      apiGet<MyAssignment[]>("/academics/my-assignments/").then(d => { setAssignments(d || []); setLoadingAssignments(false); }),
-    ]);
+    getTeacherCourseAnalytics()
+      .then((d) => setCourses(d ?? []))
+      .finally(() => setLoadingCourses(false));
+
+    getTeacherAssessmentAnalytics()
+      .then((d) => setAssessments(d ?? []))
+      .finally(() => setLoadingAssessments(false));
+
+    getTeacherClassAnalytics()
+      .then((d) => setClasses(d ?? []))
+      .finally(() => setLoadingClasses(false));
+
+    apiGet<MyAssignment[]>("/academics/my-assignments/")
+      .then((d) => setAssignments(d ?? []))
+      .finally(() => setLoadingAssignments(false));
   }, []);
 
-  // Group assignments by subject
-  const subjectMap = assignments.reduce<Record<string, string[]>>((acc, a) => {
-    if (!acc[a.subject_name]) acc[a.subject_name] = [];
-    acc[a.subject_name].push(`Class ${a.class_name}`);
+  // Group assignments by subject, deduplicate class names
+  const subjectMap = assignments.reduce<Record<string, Set<string>>>((acc, a) => {
+    if (!acc[a.subject_name]) acc[a.subject_name] = new Set();
+    acc[a.subject_name].add(`Class ${a.class_name}`);
     return acc;
   }, {});
 
-  // Deduplicate class names per subject
-  Object.keys(subjectMap).forEach(k => {
-    subjectMap[k] = [...new Set(subjectMap[k])].sort();
-  });
-
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 24px 64px" }}>
-      <style>{`
-        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .class-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important; }
-      `}</style>
+    <div className="page-shell">
+      <TopBar title="Teacher" />
+      <main className="page-content page-enter">
 
-      <TopBar title="Teacher Dashboard" />
-
-      {/* ── MY SUBJECTS ─────────────────────────────────────────────────── */}
-      <Section title="My Subjects">
-        {loadingAssignments ? <Skeleton h={100} count={3} /> :
-          Object.keys(subjectMap).length === 0 ? <Empty msg="No teaching assignments found." /> :
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
-            {Object.entries(subjectMap).map(([subject, cls]) => (
-              <div key={subject} style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, padding: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "#1e40af", marginBottom: 8 }}>{subject}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {cls.map(c => (
-                    <span key={c} style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 99, padding: "2px 10px", fontSize: 12, fontWeight: 500 }}>{c}</span>
-                  ))}
+        {/* My Subjects */}
+        <SectionBlock title="My Subjects">
+          {loadingAssignments ? (
+            <GridSkeleton count={3} height={90} />
+          ) : Object.keys(subjectMap).length === 0 ? (
+            <EmptyState message="No teaching assignments found." />
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "var(--space-3)",
+            }}>
+              {Object.entries(subjectMap).map(([subject, classSet], i) => (
+                <div
+                  key={subject}
+                  className="card page-enter"
+                  style={{
+                    animationDelay: `${i * 50}ms`,
+                    borderColor: "rgba(59,130,246,0.2)",
+                    background: "rgba(59,130,246,0.04)",
+                  }}
+                >
+                  <div style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 700,
+                    fontSize: "var(--text-base)",
+                    color: "var(--brand-primary)",
+                    marginBottom: "var(--space-3)",
+                  }}>
+                    {subject}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                    {[...classSet].sort().map((c) => (
+                      <span key={c} className="badge badge--info">{c}</span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        }
-      </Section>
+              ))}
+            </div>
+          )}
+        </SectionBlock>
 
-      {/* ── CLASS PERFORMANCE ───────────────────────────────────────────── */}
-      <Section title="Class Performance">
-        {loadingClasses ? <Skeleton h={130} count={5} /> :
-          classes.length === 0 ? <Empty msg="No class data yet — students may not be enrolled." /> :
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
-            {classes.map(c => (
-              <div
-                key={c.class_id}
-                className="class-card"
-                onClick={() => navigate(`/teacher/classes/${c.class_id}`)}
-                style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 18, background: "#fff", cursor: "pointer", transition: "transform .2s, box-shadow .2s" }}
-              >
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Class {c.class_name}</div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <Pill label="Students" value={c.total_students} />
-                  <Pill label="Pass Rate" value={`${c.pass_rate}%`} />
-                </div>
-                <ProgressBar pct={c.pass_rate} />
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>Click to view students →</div>
-              </div>
-            ))}
-          </div>
-        }
-      </Section>
+        {/* Class Performance */}
+        <SectionBlock title="Class Performance">
+          {loadingClasses ? (
+            <GridSkeleton count={5} height={130} />
+          ) : classes.length === 0 ? (
+            <EmptyState message="No class data yet — students may not be enrolled." />
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "var(--space-3)",
+            }}>
+              {classes.map((c, i) => {
+                const passColor = c.pass_rate >= 70
+                  ? "var(--success)"
+                  : c.pass_rate >= 40
+                  ? "var(--warning)"
+                  : "var(--error)";
 
-      {/* ── COURSE COMPLETION ───────────────────────────────────────────── */}
-      <Section title="Course Completion">
-        {loadingCourses ? <Skeleton h={120} count={3} /> :
-          courses.length === 0 ? <Empty msg="No courses found for your subject." /> :
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-            {courses.map(course => (
-              <div key={course.course_id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 18, background: "#fff" }}>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>{course.title}</div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <Pill label="Completed" value={course.completed_lessons} />
-                  <Pill label="Total" value={course.total_lessons} />
-                  <Pill label="%" value={`${course.percentage}%`} />
-                </div>
-                <ProgressBar pct={course.percentage} />
-              </div>
-            ))}
-          </div>
-        }
-      </Section>
+                return (
+                  <div
+                    key={c.class_id}
+                    className="card card--clickable page-enter"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                    onClick={() => navigate(`/teacher/classes/${c.class_id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/classes/${c.class_id}`)}
+                  >
+                    <div className="card__label">Class</div>
+                    <div style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-xl)",
+                      fontWeight: 800,
+                      color: "var(--text-primary)",
+                      marginBottom: "var(--space-3)",
+                    }}>
+                      {c.class_name}
+                    </div>
+                    <div style={{ display: "flex", gap: "var(--space-4)", fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                      <span>{c.total_students} students</span>
+                      <span style={{ color: passColor, fontWeight: 600 }}>{c.pass_rate}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-bar__fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
+                    </div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+                      View students →
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionBlock>
 
-      {/* ── ASSESSMENT PERFORMANCE ──────────────────────────────────────── */}
-      <Section title="Assessment Performance">
-        {loadingAssessments ? <Skeleton h={140} count={3} /> :
-          assessments.length === 0 ? <Empty msg="No assessments data yet." /> :
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-            {assessments.map(a => (
-              <div key={a.assessment_id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 18, background: "#fff" }}>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{a.title}</div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>{a.course}</div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <Pill label="Attempts" value={a.total_attempts} />
-                  <Pill label="Students" value={a.unique_students} />
-                  <Pill label="Pass Rate" value={`${a.pass_rate}%`} />
+        {/* Course Completion */}
+        <SectionBlock title="Course Completion">
+          {loadingCourses ? (
+            <GridSkeleton count={3} height={120} />
+          ) : courses.length === 0 ? (
+            <EmptyState message="No courses found for your subject." />
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+              gap: "var(--space-4)",
+            }}>
+              {courses.map((course, i) => (
+                <div
+                  key={course.course_id}
+                  className="card page-enter"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  {course.subject && (
+                    <div className="card__label">{course.subject}</div>
+                  )}
+                  <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>
+                    {course.title}
+                  </div>
+                  <div style={{
+                    display: "flex",
+                    gap: "var(--space-4)",
+                    fontSize: "var(--text-xs)",
+                    color: "var(--text-muted)",
+                    marginBottom: "var(--space-2)",
+                  }}>
+                    <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
+                    <span style={{
+                      fontWeight: 700,
+                      color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                    }}>
+                      {course.percentage}%
+                    </span>
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-bar__fill"
+                      style={{
+                        width: `${course.percentage}%`,
+                        background: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                      }}
+                    />
+                  </div>
                 </div>
-                <ProgressBar pct={a.pass_rate} />
-              </div>
-            ))}
-          </div>
-        }
-      </Section>
+              ))}
+            </div>
+          )}
+        </SectionBlock>
+
+        {/* Assessment Performance */}
+        <SectionBlock title="Assessment Performance">
+          {loadingAssessments ? (
+            <GridSkeleton count={3} height={140} />
+          ) : assessments.length === 0 ? (
+            <EmptyState message="No assessment data yet." />
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "var(--space-4)",
+            }}>
+              {assessments.map((a, i) => {
+                const passColor = a.pass_rate >= 70
+                  ? "var(--success)"
+                  : a.pass_rate >= 40
+                  ? "var(--warning)"
+                  : "var(--error)";
+
+                return (
+                  <div
+                    key={a.assessment_id}
+                    className="card page-enter"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
+                    <div className="card__label">{a.course}</div>
+                    <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
+                      {a.title}
+                    </div>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: "var(--space-3)",
+                      marginBottom: "var(--space-3)",
+                    }}>
+                      {[
+                        { label: "Attempts", value: a.total_attempts },
+                        { label: "Students", value: a.unique_students },
+                        { label: "Pass Rate", value: `${a.pass_rate}%` },
+                      ].map(({ label, value }) => (
+                        <div key={label} style={{ textAlign: "center" }}>
+                          <div style={{
+                            fontFamily: "var(--font-display)",
+                            fontWeight: 700,
+                            fontSize: "var(--text-base)",
+                            color: "var(--text-primary)",
+                          }}>
+                            {value}
+                          </div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                            {label}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-bar__fill"
+                        style={{ width: `${a.pass_rate}%`, background: passColor }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionBlock>
+      </main>
     </div>
   );
-}
-
-// ─── Layout helpers ───────────────────────────────────────────────────────────
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 48 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 16, paddingBottom: 8, borderBottom: "2px solid #e5e7eb" }}>{title}</h2>
-      {children}
-    </div>
-  );
-}
-
-function Empty({ msg }: { msg: string }) {
-  return <p style={{ color: "#9ca3af", fontStyle: "italic", padding: "20px 0" }}>{msg}</p>;
 }

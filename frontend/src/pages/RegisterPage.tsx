@@ -13,22 +13,22 @@ interface ValidateJoinCodeResponse {
 export default function RegisterPage() {
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-
+  const [username, setUsername]         = useState("");
+  const [password, setPassword]         = useState("");
+  const [joinCode, setJoinCode]         = useState("");
   const [detectedRole, setDetectedRole] = useState<string | null>(null);
-  const [validating, setValidating] = useState(false);
+  const [detectedInfo, setDetectedInfo] = useState<ValidateJoinCodeResponse | null>(null);
+  const [validating, setValidating]     = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [success, setSuccess]           = useState("");
+  const [error, setError]               = useState("");
+  const [loading, setLoading]           = useState(false);
 
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // Auto-validate join code when user stops typing
+  // Auto-validate join code with debounce
   useEffect(() => {
     if (joinCode.length < 8) {
       setDetectedRole(null);
+      setDetectedInfo(null);
       setValidationError("");
       return;
     }
@@ -42,14 +42,14 @@ export default function RegisterPage() {
           "/accounts/validate-join-code/",
           { join_code: joinCode }
         );
-
         setDetectedRole(res.role);
-        setValidationError("");
+        setDetectedInfo(res);
       } catch (err: unknown) {
-        const msg =
-          err instanceof Error ? err.message : "Invalid or expired join code";
-        setValidationError(msg);
+        setValidationError(
+          err instanceof Error ? err.message : "Invalid or expired join code"
+        );
         setDetectedRole(null);
+        setDetectedInfo(null);
       } finally {
         setValidating(false);
       }
@@ -60,18 +60,17 @@ export default function RegisterPage() {
 
   const handleRegister = async () => {
     if (!username || !password || !joinCode) {
-      setError("Username, password and join code are required");
+      setError("Username, password and join code are required.");
       return;
     }
-
     if (!detectedRole) {
-      setError("Please enter a valid join code first");
+      setError("Please enter a valid join code first.");
       return;
     }
 
     setLoading(true);
     setError("");
-    setMsg("");
+    setSuccess("");
 
     try {
       await apiPost("/accounts/register/", {
@@ -79,109 +78,179 @@ export default function RegisterPage() {
         password,
         join_code: joinCode,
       });
-
-      setMsg("✅ Registration successful! Redirecting to login...");
+      setSuccess("Account created! Redirecting to login…");
       setTimeout(() => navigate("/login"), 1800);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Registration failed. Check your join code.";
-
-      setError(message);
+      setError(
+        err instanceof Error ? err.message : "Registration failed. Check your join code."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: "20px" }}>
-      <h2>Register</h2>
-      <p style={{ opacity: 0.7 }}>
-        Role is automatically locked by the join code
-      </p>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-card__brand">
+          Gyan<span>Grit</span>
+        </div>
+        <p className="login-card__tagline">Create your account</p>
 
-      <div style={{ marginBottom: 12 }}>
-        <input
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          style={{ width: "100%", padding: 10 }}
-        />
-      </div>
+        <hr className="login-card__divider" />
 
-      <div style={{ marginBottom: 12 }}>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", padding: 10 }}
-        />
-      </div>
+        {success && (
+          <div className="alert alert--success" role="status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {success}
+          </div>
+        )}
 
-      <div style={{ marginBottom: 8 }}>
-        <input
-          placeholder="Join Code"
-          value={joinCode}
-          onChange={(e) => setJoinCode(e.target.value)}
-          style={{ width: "100%", padding: 10 }}
-        />
-        <small style={{ color: "#666", display: "block", marginTop: 4 }}>
-          Paste the code you received from teacher / principal / roster
-        </small>
-      </div>
+        {error && (
+          <div className="alert alert--error" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-      {/* Validation Status */}
-      {validating && <p style={{ color: "#666" }}>Validating join code...</p>}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-username">Username</label>
+          <input
+            id="reg-username"
+            className="form-input"
+            type="text"
+            placeholder="Choose a username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            disabled={loading}
+          />
+        </div>
 
-      {detectedRole && (
-        <p style={{ color: "#28a745", fontWeight: "bold", margin: "8px 0" }}>
-          ✅ You will be registered as: <strong>{detectedRole}</strong>
-        </p>
-      )}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-password">Password</label>
+          <input
+            id="reg-password"
+            className="form-input"
+            type="password"
+            placeholder="Choose a password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            disabled={loading}
+          />
+        </div>
 
-      {validationError && (
-        <p style={{ color: "red", margin: "8px 0" }}>{validationError}</p>
-      )}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-joincode">
+            Join Code
+          </label>
+          <input
+            id="reg-joincode"
+            className="form-input"
+            type="text"
+            placeholder="Paste your join code"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            disabled={loading}
+            style={{
+              borderColor: detectedRole
+                ? "var(--success)"
+                : validationError
+                ? "var(--error)"
+                : undefined,
+            }}
+          />
+          <span style={{
+            display: "block",
+            fontSize: "var(--text-xs)",
+            color: "var(--text-muted)",
+            marginTop: "var(--space-2)",
+          }}>
+            Provided by your teacher, principal, or admin
+          </span>
 
-      <button
-        onClick={handleRegister}
-        disabled={loading || !detectedRole || validating}
-        style={{
-          width: "100%",
-          padding: "12px",
-          background:
-            loading || !detectedRole || validating ? "#ccc" : "#28a745",
-          color: "white",
-          border: "none",
-          borderRadius: 4,
-          fontSize: "1rem",
-          cursor:
-            loading || !detectedRole || validating ? "not-allowed" : "pointer",
-          marginTop: 12,
-        }}
-      >
-        {loading ? "Creating Account..." : "Register"}
-      </button>
+          {/* Validation feedback */}
+          {validating && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+              marginTop: "var(--space-2)",
+              fontSize: "var(--text-xs)",
+              color: "var(--text-muted)",
+            }}>
+              <span className="btn__spinner" style={{ width: 10, height: 10 }} />
+              Validating…
+            </div>
+          )}
 
-      {msg && <p style={{ color: "green", marginTop: 16, fontWeight: "bold" }}>{msg}</p>}
-      {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
+          {detectedRole && detectedInfo && (
+            <div className="alert alert--success" style={{ marginTop: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: "var(--space-1)" }}>
+                  ✓ Valid code — you will join as <strong>{detectedRole}</strong>
+                </div>
+                {detectedInfo.institution && (
+                  <div style={{ fontSize: "var(--text-xs)", opacity: 0.9 }}>
+                    Institution: {detectedInfo.institution}
+                  </div>
+                )}
+                {detectedInfo.section && (
+                  <div style={{ fontSize: "var(--text-xs)", opacity: 0.9 }}>
+                    Section: {detectedInfo.section}
+                  </div>
+                )}
+                {detectedInfo.district && (
+                  <div style={{ fontSize: "var(--text-xs)", opacity: 0.9 }}>
+                    District: {detectedInfo.district}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-      <p style={{ marginTop: 24, textAlign: "center" }}>
-        Already have an account?{" "}
+          {validationError && (
+            <div style={{
+              marginTop: "var(--space-2)",
+              fontSize: "var(--text-xs)",
+              color: "var(--error)",
+            }}>
+              {validationError}
+            </div>
+          )}
+        </div>
+
         <button
-          onClick={() => navigate("/login")}
-          style={{
-            color: "#007bff",
-            background: "none",
-            border: "none",
-            textDecoration: "underline",
-          }}
+          onClick={handleRegister}
+          disabled={loading || !detectedRole || validating}
+          className="btn btn--primary btn--full btn--lg"
         >
-          Login here
+          {loading ? (
+            <>
+              <span className="btn__spinner" aria-hidden="true" />
+              Creating Account…
+            </>
+          ) : (
+            "Create Account"
+          )}
         </button>
-      </p>
+
+        <div className="login-card__footer">
+          Already have an account?{" "}
+          <button onClick={() => navigate("/login")}>Sign in</button>
+        </div>
+      </div>
     </div>
   );
 }

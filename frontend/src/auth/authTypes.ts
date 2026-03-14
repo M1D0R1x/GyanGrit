@@ -1,11 +1,5 @@
-// auth/authTypes.ts
-
 export type Role = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
 
-/**
- * Shape of the /accounts/me/ API response.
- * Kept in sync with accounts/views.py me() return value.
- */
 export type MeResponse = {
   authenticated: boolean;
   role: Role;
@@ -19,10 +13,6 @@ export type MeResponse = {
   district?: string | null;
 };
 
-/**
- * Full authenticated user profile stored in AuthContext.
- * Populated from MeResponse when authenticated === true.
- */
 export type UserProfile = {
   id: number;
   public_id: string;
@@ -39,8 +29,20 @@ export type AuthState = {
   loading: boolean;
   authenticated: boolean;
   user: UserProfile | null;
-  // Convenience shorthand — avoids user?.role ?? "STUDENT" everywhere
   role: Role;
   username: string | undefined;
   refresh: () => Promise<void>;
+};
+
+/**
+ * Shared role → path mapping.
+ * Used by LoginPage, VerifyOtpPage, RoleBasedRedirect.
+ * Single source of truth — change here and all pages update.
+ */
+export const ROLE_PATHS: Record<Role, string> = {
+  STUDENT:   "/dashboard",
+  TEACHER:   "/teacher",
+  PRINCIPAL: "/principal",
+  OFFICIAL:  "/official",
+  ADMIN:     "/admin-panel",
 };

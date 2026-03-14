@@ -22,9 +22,11 @@ export type AssessmentDetail = {
     id: number;
     text: string;
     marks: number;
+    order: number;
     options: {
       id: number;
       text: string;
+      // is_correct is intentionally absent — never sent to client
     }[];
   }[];
 };
@@ -35,6 +37,20 @@ export type AttemptHistoryItem = {
   passed: boolean;
   started_at: string;
   submitted_at: string;
+};
+
+export type SubmitAssessmentPayload = {
+  attempt_id: number;
+  // Field name matches backend exactly: selected_options not answers
+  selected_options: Record<number, number>;
+};
+
+export type SubmitAssessmentResponse = {
+  attempt_id: number;
+  score: number;
+  passed: boolean;
+  total_marks: number;
+  pass_marks: number;
 };
 
 /* =========================
@@ -54,7 +70,11 @@ export function getAssessment(assessmentId: number) {
 }
 
 export function startAssessment(assessmentId: number) {
-  return apiPost(
+  return apiPost<{
+    attempt_id: number;
+    assessment_id: number;
+    started_at: string;
+  }>(
     `/assessments/${assessmentId}/start/`,
     {}
   );
@@ -62,12 +82,9 @@ export function startAssessment(assessmentId: number) {
 
 export function submitAssessment(
   assessmentId: number,
-  payload: {
-    attempt_id: number;
-    answers: Record<number, number>;
-  }
+  payload: SubmitAssessmentPayload
 ) {
-  return apiPost(
+  return apiPost<SubmitAssessmentResponse>(
     `/assessments/${assessmentId}/submit/`,
     payload
   );

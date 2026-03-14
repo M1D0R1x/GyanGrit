@@ -2,4 +2,5 @@ from django.apps import AppConfig
 
 
 class RosterConfig(AppConfig):
-    name = 'apps.roster'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.roster"

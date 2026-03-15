@@ -6,11 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.academics.models import ClassRoom
+from apps.accesscontrol.permissions import require_roles
 from apps.accesscontrol.scoped_service import scope_queryset, get_scoped_object_or_403
-from apps.assessments.models import Assessment, AssessmentAttempt
+from apps.assessments.models import Assessment, AssessmentAttempt, Question, QuestionOption
 from apps.content.models import Course
 from apps.learning.models import Enrollment
 
@@ -19,80 +21,244 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================
-# INTERNAL: Course access check
-# Consistent with content/views.py has_access_to_course.
-# Subject has no institution — access is via ClassSubject traversal.
+# ACCESS CHECK
 # =====================================================
 
 def has_access_to_course(user, course):
     if not user.is_authenticated:
         return False
-
     if user.is_superuser or user.role == "ADMIN":
         return True
-
     if user.role == "STUDENT":
-        return Enrollment.objects.filter(
-            user=user,
-            course=course,
-        ).exists()
-
+        return Enrollment.objects.filter(user=user, course=course).exists()
     if user.role == "TEACHER":
-        return user.teaching_assignments.filter(
-            subject=course.subject,
-        ).exists()
-
+        return user.teaching_assignments.filter(subject=course.subject).exists()
     if user.role == "PRINCIPAL":
         if not user.institution:
             return False
-        return course.subject.classrooms.filter(
-            classroom__institution=user.institution,
-        ).exists()
-
+        return course.subject.classrooms.filter(classroom__institution=user.institution).exists()
     if user.role == "OFFICIAL":
         if not user.district:
             return False
         return course.subject.classrooms.filter(
-            classroom__institution__district__name=user.district,
+            classroom__institution__district__name=user.district
         ).exists()
-
     return False
 
 
 # =====================================================
-# COURSE ASSESSMENTS
+# ASSESSMENT CRUD (ADMIN only)
+# =====================================================
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["POST"])
+def create_assessment(request, course_id):
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    course = get_object_or_404(Course, id=course_id)
+
+    title = body.get("title", "").strip()
+    if not title:
+        return JsonResponse({"error": "title is required"}, status=400)
+
+    assessment = Assessment.objects.create(
+        course=course,
+        title=title,
+        description=body.get("description", ""),
+        pass_marks=body.get("pass_marks", 0),
+        is_published=body.get("is_published", False),
+    )
+
+    logger.info("Assessment created: id=%s by user id=%s", assessment.id, request.user.id)
+
+    return JsonResponse({
+        "id": assessment.id,
+        "title": assessment.title,
+        "pass_marks": assessment.pass_marks,
+        "total_marks": assessment.total_marks,
+        "is_published": assessment.is_published,
+    }, status=201)
+
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["PATCH"])
+def update_assessment(request, assessment_id):
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    update_fields = []
+    for field in ["title", "description", "pass_marks", "is_published"]:
+        if field in body:
+            setattr(assessment, field, body[field])
+            update_fields.append(field)
+
+    if update_fields:
+        assessment.save(update_fields=update_fields)
+
+    return JsonResponse({
+        "id": assessment.id,
+        "title": assessment.title,
+        "pass_marks": assessment.pass_marks,
+        "total_marks": assessment.total_marks,
+        "is_published": assessment.is_published,
+    })
+
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["DELETE"])
+def delete_assessment(request, assessment_id):
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    assessment.delete()
+    return JsonResponse({"success": True})
+
+
+# =====================================================
+# QUESTION CRUD (ADMIN only)
+# =====================================================
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["POST"])
+def create_question(request, assessment_id):
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    text = body.get("text", "").strip()
+    if not text:
+        return JsonResponse({"error": "text is required"}, status=400)
+
+    options_data = body.get("options", [])
+    if len(options_data) < 2:
+        return JsonResponse({"error": "At least 2 options required"}, status=400)
+
+    correct_count = sum(1 for o in options_data if o.get("is_correct"))
+    if correct_count != 1:
+        return JsonResponse({"error": "Exactly one correct option required"}, status=400)
+
+    # Auto-assign next order
+    next_order = (
+        assessment.questions.order_by("-order").values_list("order", flat=True).first() or 0
+    ) + 1
+
+    question = Question.objects.create(
+        assessment=assessment,
+        text=text,
+        marks=body.get("marks", 1),
+        order=body.get("order", next_order),
+    )
+
+    for opt in options_data:
+        QuestionOption.objects.create(
+            question=question,
+            text=opt.get("text", "").strip(),
+            is_correct=bool(opt.get("is_correct", False)),
+        )
+
+    return JsonResponse({
+        "id": question.id,
+        "text": question.text,
+        "marks": question.marks,
+        "order": question.order,
+        "options": [
+            {"id": o.id, "text": o.text, "is_correct": o.is_correct}
+            for o in question.options.all()
+        ],
+    }, status=201)
+
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["PATCH"])
+def update_question(request, question_id):
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    question = get_object_or_404(Question, id=question_id)
+
+    update_fields = []
+    for field in ["text", "marks", "order"]:
+        if field in body:
+            setattr(question, field, body[field])
+            update_fields.append(field)
+
+    if update_fields:
+        question.save(update_fields=update_fields)
+
+    # Replace options if provided
+    if "options" in body:
+        options_data = body["options"]
+        correct_count = sum(1 for o in options_data if o.get("is_correct"))
+        if correct_count != 1:
+            return JsonResponse({"error": "Exactly one correct option required"}, status=400)
+
+        question.options.all().delete()
+        for opt in options_data:
+            QuestionOption.objects.create(
+                question=question,
+                text=opt.get("text", "").strip(),
+                is_correct=bool(opt.get("is_correct", False)),
+            )
+
+    return JsonResponse({
+        "id": question.id,
+        "text": question.text,
+        "marks": question.marks,
+        "order": question.order,
+        "options": [
+            {"id": o.id, "text": o.text, "is_correct": o.is_correct}
+            for o in question.options.all()
+        ],
+    })
+
+
+@csrf_exempt
+@require_roles(["ADMIN"])
+@require_http_methods(["DELETE"])
+def delete_question(request, question_id):
+    question = get_object_or_404(Question, id=question_id)
+    question.delete()
+    return JsonResponse({"success": True})
+
+
+# =====================================================
+# STUDENT-FACING ASSESSMENT ENDPOINTS
 # =====================================================
 
 @login_required
 @require_http_methods(["GET"])
 def course_assessments(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-
     if not has_access_to_course(request.user, course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     data = list(
-        course.assessments
-        .filter(is_published=True)
+        course.assessments.filter(is_published=True)
         .values("id", "title", "description", "total_marks", "pass_marks")
         .order_by("title")
     )
     return JsonResponse(data, safe=False)
 
 
-# =====================================================
-# ASSESSMENT DETAIL
-# =====================================================
-
 @login_required
 @require_http_methods(["GET"])
 def assessment_detail(request, assessment_id):
-    assessment = get_object_or_404(
-        Assessment,
-        id=assessment_id,
-        is_published=True,
-    )
-
+    assessment = get_object_or_404(Assessment, id=assessment_id, is_published=True)
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
@@ -103,11 +269,7 @@ def assessment_detail(request, assessment_id):
             "text": q.text,
             "marks": q.marks,
             "order": q.order,
-            # is_correct is intentionally excluded — never expose answers to client
-            "options": [
-                {"id": opt.id, "text": opt.text}
-                for opt in q.options.all()
-            ],
+            "options": [{"id": opt.id, "text": opt.text} for opt in q.options.all()],
         })
 
     return JsonResponse({
@@ -120,39 +282,54 @@ def assessment_detail(request, assessment_id):
     })
 
 
-# =====================================================
-# START ASSESSMENT
-# =====================================================
+# Assessment detail for admin (includes is_correct)
+@login_required
+@require_http_methods(["GET"])
+def assessment_detail_admin(request, assessment_id):
+    if request.user.role != "ADMIN":
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    questions = []
+    for q in assessment.questions.prefetch_related("options").order_by("order"):
+        questions.append({
+            "id": q.id,
+            "text": q.text,
+            "marks": q.marks,
+            "order": q.order,
+            "options": [
+                {"id": opt.id, "text": opt.text, "is_correct": opt.is_correct}
+                for opt in q.options.all()
+            ],
+        })
+
+    return JsonResponse({
+        "id": assessment.id,
+        "title": assessment.title,
+        "description": assessment.description,
+        "total_marks": assessment.total_marks,
+        "pass_marks": assessment.pass_marks,
+        "is_published": assessment.is_published,
+        "questions": questions,
+    })
+
 
 @login_required
 @require_http_methods(["POST"])
 def start_assessment(request, assessment_id):
-    assessment = get_object_or_404(
-        Assessment,
-        id=assessment_id,
-        is_published=True,
-    )
-
+    assessment = get_object_or_404(Assessment, id=assessment_id, is_published=True)
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     active_attempt = AssessmentAttempt.objects.filter(
-        user=request.user,
-        assessment=assessment,
-        submitted_at__isnull=True,
+        user=request.user, assessment=assessment, submitted_at__isnull=True
     ).first()
 
     if active_attempt:
-        return JsonResponse({
-            "attempt_id": active_attempt.id,
-            "message": "Active attempt exists",
-        })
+        return JsonResponse({"attempt_id": active_attempt.id, "message": "Active attempt exists"})
 
-    attempt = AssessmentAttempt.objects.create(
-        assessment=assessment,
-        user=request.user,
-    )
-
+    attempt = AssessmentAttempt.objects.create(assessment=assessment, user=request.user)
     return JsonResponse({
         "attempt_id": attempt.id,
         "assessment_id": assessment.id,
@@ -160,17 +337,13 @@ def start_assessment(request, assessment_id):
     })
 
 
-# =====================================================
-# SUBMIT ASSESSMENT
-# =====================================================
-
 @login_required
 @require_http_methods(["POST"])
 def submit_assessment(request, assessment_id):
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     attempt_id = body.get("attempt_id")
     selected_options = body.get("selected_options", {})
@@ -179,10 +352,7 @@ def submit_assessment(request, assessment_id):
         return JsonResponse({"error": "attempt_id is required"}, status=400)
 
     attempt = get_object_or_404(
-        AssessmentAttempt,
-        id=attempt_id,
-        assessment_id=assessment_id,
-        user=request.user,
+        AssessmentAttempt, id=attempt_id, assessment_id=assessment_id, user=request.user
     )
 
     if attempt.submitted_at:
@@ -191,11 +361,7 @@ def submit_assessment(request, assessment_id):
     try:
         attempt.submit(selected_options)
     except Exception:
-        logger.exception(
-            "Failed to submit attempt id=%s for user id=%s",
-            attempt_id,
-            request.user.id,
-        )
+        logger.exception("Failed to submit attempt id=%s", attempt_id)
         return JsonResponse({"error": "Submission failed"}, status=500)
 
     return JsonResponse({
@@ -207,25 +373,16 @@ def submit_assessment(request, assessment_id):
     })
 
 
-# =====================================================
-# MY ATTEMPTS
-# =====================================================
-
 @login_required
 @require_http_methods(["GET"])
 def my_attempts(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id)
-
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     attempts = (
         AssessmentAttempt.objects
-        .filter(
-            assessment=assessment,
-            user=request.user,
-            submitted_at__isnull=False,
-        )
+        .filter(assessment=assessment, user=request.user, submitted_at__isnull=False)
         .values("id", "score", "passed", "started_at", "submitted_at")
         .order_by("-started_at")
     )
@@ -233,7 +390,7 @@ def my_attempts(request, assessment_id):
 
 
 # =====================================================
-# TEACHER / ADMIN ASSESSMENT ANALYTICS
+# TEACHER ANALYTICS
 # =====================================================
 
 @login_required
@@ -243,12 +400,8 @@ def teacher_assessment_analytics(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     if request.user.role == "TEACHER":
-        subject_ids = request.user.teaching_assignments.values_list(
-            "subject_id", flat=True
-        )
-        assessments = Assessment.objects.filter(
-            course__subject_id__in=subject_ids
-        )
+        subject_ids = request.user.teaching_assignments.values_list("subject_id", flat=True)
+        assessments = Assessment.objects.filter(course__subject_id__in=subject_ids)
     elif request.user.role == "PRINCIPAL":
         if not request.user.institution:
             return JsonResponse({"detail": "No institution assigned"}, status=400)
@@ -261,7 +414,7 @@ def teacher_assessment_analytics(request):
         assessments = Assessment.objects.filter(
             course__subject__classrooms__classroom__institution__district__name=request.user.district
         ).distinct()
-    else:  # ADMIN
+    else:
         assessments = Assessment.objects.all()
 
     data = []
@@ -282,8 +435,7 @@ def teacher_assessment_analytics(request):
             "assessment_id": assessment.id,
             "title": assessment.title,
             "course": assessment.course.title,
-            "subject": assessment.course.subject.name
-            if assessment.course.subject else None,
+            "subject": assessment.course.subject.name if assessment.course.subject else None,
             "total_attempts": total_attempts,
             "unique_students": unique_students,
             "average_score": round(avg_score, 2),
@@ -294,10 +446,6 @@ def teacher_assessment_analytics(request):
 
     return JsonResponse(data, safe=False)
 
-
-# =====================================================
-# TEACHER CLASS ANALYTICS
-# =====================================================
 
 @login_required
 @require_http_methods(["GET"])
@@ -316,9 +464,7 @@ def teacher_class_analytics(request):
     elif request.user.role == "OFFICIAL":
         if not request.user.district:
             return JsonResponse({"detail": "No district assigned"}, status=400)
-        classes = ClassRoom.objects.filter(
-            institution__district__name=request.user.district
-        )
+        classes = ClassRoom.objects.filter(institution__district__name=request.user.district)
     else:
         classes = ClassRoom.objects.all()
 
@@ -326,16 +472,14 @@ def teacher_class_analytics(request):
     for classroom in classes.select_related("institution"):
         student_ids = list(
             User.objects.filter(
-                role="STUDENT",
-                section__classroom=classroom,
+                role="STUDENT", section__classroom=classroom
             ).values_list("id", flat=True)
         )
         total_students = len(student_ids)
 
         if student_ids:
             agg = AssessmentAttempt.objects.filter(
-                user_id__in=student_ids,
-                submitted_at__isnull=False,
+                user_id__in=student_ids, submitted_at__isnull=False
             ).aggregate(
                 total=Count("id"),
                 avg=Avg("score"),
@@ -345,9 +489,7 @@ def teacher_class_analytics(request):
             avg_score = agg["avg"] or 0
             pass_count = agg["passes"] or 0
         else:
-            total_attempts = 0
-            avg_score = 0
-            pass_count = 0
+            total_attempts = avg_score = pass_count = 0
 
         pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
 
@@ -364,40 +506,24 @@ def teacher_class_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-# =====================================================
-# TEACHER CLASS STUDENTS
-# NOTE: This view also exists in content/views.py which is the
-# version that resolves at runtime due to URL mounting order.
-# Both are kept identical. Candidate for extraction to a
-# shared service in a future refactor.
-# =====================================================
-
 @login_required
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    classroom = get_scoped_object_or_403(
-        request.user, ClassRoom.objects, id=class_id
-    )
+    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
 
     if request.user.role == "TEACHER":
-        if not request.user.teaching_assignments.filter(
-            section__classroom=classroom
-        ).exists():
+        if not request.user.teaching_assignments.filter(section__classroom=classroom).exists():
             return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    students = User.objects.filter(
-        role="STUDENT",
-        section__classroom=classroom,
-    )
+    students = User.objects.filter(role="STUDENT", section__classroom=classroom)
 
     data = []
     for student in students:
         agg = AssessmentAttempt.objects.filter(
-            user=student,
-            submitted_at__isnull=False,
+            user=student, submitted_at__isnull=False
         ).aggregate(
             total=Count("id"),
             avg=Avg("score"),
@@ -419,30 +545,18 @@ def teacher_class_students(request, class_id):
     return JsonResponse(data, safe=False)
 
 
-# =====================================================
-# TEACHER STUDENT ASSESSMENTS
-# =====================================================
-
 @login_required
 @require_http_methods(["GET"])
 def teacher_student_assessments(request, class_id, student_id):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    classroom = get_scoped_object_or_403(
-        request.user, ClassRoom.objects, id=class_id
-    )
-    student_qs = scope_queryset(
-        request.user,
-        User.objects.filter(role="STUDENT"),
-    )
+    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
+    student_qs = scope_queryset(request.user, User.objects.filter(role="STUDENT"))
     student = get_object_or_404(student_qs, id=student_id)
 
     if student.section and student.section.classroom != classroom:
-        return JsonResponse(
-            {"detail": "Student not in this class"},
-            status=400,
-        )
+        return JsonResponse({"detail": "Student not in this class"}, status=400)
 
     attempts = (
         AssessmentAttempt.objects
@@ -453,17 +567,13 @@ def teacher_student_assessments(request, class_id, student_id):
 
     data = [
         {
-            "assessment_id": attempt.assessment.id,
-            "assessment_title": attempt.assessment.title,
-            "score": attempt.score,
-            "passed": attempt.passed,
-            "submitted_at": attempt.submitted_at.isoformat(),
+            "assessment_id": a.assessment.id,
+            "assessment_title": a.assessment.title,
+            "score": a.score,
+            "passed": a.passed,
+            "submitted_at": a.submitted_at.isoformat(),
         }
-        for attempt in attempts
+        for a in attempts
     ]
 
-    return JsonResponse({
-        "student_id": student.id,
-        "username": student.username,
-        "attempts": data,
-    })
+    return JsonResponse({"student_id": student.id, "username": student.username, "attempts": data})

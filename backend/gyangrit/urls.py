@@ -49,4 +49,7 @@ urlpatterns = [
     # ROSTER (student registration records)
     # --------------------------------------------------
     path("api/v1/roster/", include("apps.roster.api.v1.urls")),
+
+    # MEDIA
+    path("api/v1/media/", include("apps.media.api.v1.urls")),
 ]

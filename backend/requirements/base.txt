@@ -3,7 +3,8 @@
 
 Django>=4.2,<5.0
 djangorestframework>=3.14
-django-cors-headers>=4.3        # CORS middleware — required for frontend/backend separation
-psycopg[binary]>=3.1            # PostgreSQL adapter (binary for easier install)
-python-dotenv>=1.0              # .env file loading in base.py
-openpyxl>=3.1                   # Excel parsing for roster uploads (roster/services.py)
+django-cors-headers>=4.3
+psycopg[binary]>=3.1
+python-dotenv>=1.0
+openpyxl>=3.1
+boto3>=1.34

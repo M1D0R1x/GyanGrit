@@ -1,9 +1,10 @@
 import { useAuth } from "../auth/AuthContext";
 import LogoutButton from "./LogoutButton";
+import Logo from "./Logo";
 import type { Role } from "../auth/authTypes";
 
 type Props = {
-  title: string;
+  title?: string;
 };
 
 function roleBadgeClass(role: Role): string {
@@ -17,9 +18,7 @@ function getInitials(username: string): string {
 function TopBarSkeleton() {
   return (
     <header className="topbar" aria-busy="true" aria-label="Loading navigation">
-      <div className="topbar__brand">
-        Gyan<span>Grit</span>
-      </div>
+      <Logo size="sm" variant="full" />
       <div className="topbar__right">
         <div className="skeleton topbar__skeleton-user" />
       </div>
@@ -36,11 +35,11 @@ export default function TopBar({ title }: Props) {
 
   return (
     <header className="topbar" role="banner">
-      <div className="topbar__brand">
-        Gyan<span>Grit</span>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+        <Logo size="sm" variant="full" />
         {title && (
           <>
-            <span style={{ color: "var(--border-strong)", margin: "0 10px" }}>
+            <span style={{ color: "var(--border-strong)", fontSize: "var(--text-base)" }}>
               /
             </span>
             <span className="topbar__title">{title}</span>

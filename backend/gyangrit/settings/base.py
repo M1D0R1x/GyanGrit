@@ -3,24 +3,15 @@ import os
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-# -------------------------------------------------
-# Base directory
-# -------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 load_dotenv()
 
-# -------------------------------------------------
-# Core security
-# -------------------------------------------------
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-change-this")
 
 DEBUG = False
 ALLOWED_HOSTS = []
 
-# -------------------------------------------------
-# Installed apps
-# -------------------------------------------------
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -37,13 +28,11 @@ INSTALLED_APPS = [
     "apps.accesscontrol.apps.AccesscontrolConfig",
     "apps.roster.apps.RosterConfig",
     "apps.academics.apps.AcademicsConfig",
+    "apps.media.apps.MediaConfig",       # new
 ]
 
 AUTH_USER_MODEL = "accounts.User"
 
-# -------------------------------------------------
-# Middleware
-# -------------------------------------------------
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -56,15 +45,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# -------------------------------------------------
-# URLs / WSGI
-# -------------------------------------------------
 ROOT_URLCONF = "gyangrit.urls"
 WSGI_APPLICATION = "gyangrit.wsgi.application"
 
-# -------------------------------------------------
-# Templates
-# -------------------------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -80,9 +63,6 @@ TEMPLATES = [
     },
 ]
 
-# -------------------------------------------------
-# Database
-# -------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
@@ -95,11 +75,8 @@ if DATABASE_URL:
             "PASSWORD": url.password,
             "HOST": url.hostname,
             "PORT": url.port,
-            "OPTIONS": {
-                "sslmode": "require",
-                # ✅ removed server_side_cursors from here
-            },
-            "DISABLE_SERVER_SIDE_CURSORS": True,  # ✅ this is the only correct setting
+            "OPTIONS": {"sslmode": "require"},
+            "DISABLE_SERVER_SIDE_CURSORS": True,
         }
     }
 else:
@@ -110,9 +87,6 @@ else:
         }
     }
 
-# -------------------------------------------------
-# Password validation
-# -------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -120,41 +94,33 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# -------------------------------------------------
-# Internationalization
-# -------------------------------------------------
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 
-# -------------------------------------------------
-# Static files
-# -------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# -------------------------------------------------
-# REST Framework
-# -------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
 }
 
-# -------------------------------------------------
-# CORS / SESSION DEFAULTS (SAFE)
-# -------------------------------------------------
 CORS_ALLOW_CREDENTIALS = True
-
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-
 SESSION_COOKIE_AGE = 600
 SESSION_SAVE_EVERY_REQUEST = True
+
+# ─── Cloudflare R2 ───────────────────────────────────────────────
+CLOUDFLARE_R2_ACCOUNT_ID     = os.getenv("CLOUDFLARE_R2_ACCOUNT_ID", "")
+CLOUDFLARE_R2_ACCESS_KEY_ID  = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID", "")
+CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
+CLOUDFLARE_R2_BUCKET_NAME    = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "gyangrit-media")
+CLOUDFLARE_R2_PUBLIC_URL     = os.getenv("CLOUDFLARE_R2_PUBLIC_URL", "")

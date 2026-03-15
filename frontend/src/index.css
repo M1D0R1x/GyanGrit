@@ -1264,3 +1264,78 @@ a:hover {
 .skeleton-line--long  { width: 90%; }
 .skeleton-line--full  { width: 100%; }
 .skeleton-line--title { height: 20px; width: 55%; }
+
+/* ================================================================
+   LESSON MARKDOWN CONTENT RENDERER
+================================================================ */
+
+.lesson-markdown {
+  color: var(--text-secondary);
+  line-height: 1.8;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-8);
+}
+
+.lesson-markdown p {
+  margin-bottom: var(--space-4);
+  color: var(--text-secondary);
+}
+
+.lesson-markdown h1 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: var(--space-8) 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lesson-markdown h2 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+.lesson-markdown h3 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.lesson-markdown strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lesson-markdown em {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.lesson-markdown code {
+  font-family: "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.875em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  color: var(--brand-primary);
+}
+
+.lesson-markdown ul,
+.lesson-markdown ol {
+  padding-left: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.lesson-markdown li {
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.lesson-markdown li::marker {
+  color: var(--brand-primary);
+}

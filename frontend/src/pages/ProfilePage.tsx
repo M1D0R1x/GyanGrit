@@ -35,7 +35,7 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
 function ProfileSkeleton() {
   return (
     <div className="card">
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} style={{
           display: "flex",
           justifyContent: "space-between",
@@ -53,6 +53,7 @@ function ProfileSkeleton() {
 export default function ProfilePage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const user = auth.user;
 
   return (
     <div className="page-shell">
@@ -90,7 +91,9 @@ export default function ProfilePage() {
             color: "var(--brand-primary)",
             flexShrink: 0,
           }}>
-            {auth.user?.username.slice(0, 2).toUpperCase() ?? "??"}
+            {user
+              ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase() || user.username.slice(0, 2).toUpperCase()
+              : "??"}
           </div>
           <div>
             <h1 style={{
@@ -101,11 +104,11 @@ export default function ProfilePage() {
               letterSpacing: "-0.03em",
               marginBottom: "var(--space-1)",
             }}>
-              {auth.user?.username ?? "—"}
+              {user?.display_name ?? user?.username ?? "—"}
             </h1>
-            {auth.user && (
-              <span className={`topbar__role-badge topbar__role-badge--${auth.user.role.toLowerCase()}`}>
-                {auth.user.role}
+            {user && (
+              <span className={`topbar__role-badge topbar__role-badge--${user.role.toLowerCase()}`}>
+                {user.role}
               </span>
             )}
           </div>
@@ -113,23 +116,33 @@ export default function ProfilePage() {
 
         {auth.loading ? (
           <ProfileSkeleton />
-        ) : !auth.user ? (
+        ) : !user ? (
           <div className="empty-state">
             <div className="empty-state__icon">👤</div>
             <h3 className="empty-state__title">Not signed in</h3>
           </div>
         ) : (
-          <div className="card" style={{ padding: "0 var(--space-6)" }}>
-            <ProfileField label="Username"   value={auth.user.username} />
-            <ProfileField label="Public ID"  value={auth.user.public_id} />
-            <ProfileField label="Role"       value={auth.user.role} />
-            <ProfileField label="Institution" value={auth.user.institution} />
-            <ProfileField label="Section"    value={auth.user.section} />
-            <ProfileField
-              label="District"
-              value={auth.user.district}
-            />
-          </div>
+          <>
+            {/* Personal details */}
+            <div className="card" style={{ padding: "0 var(--space-6)", marginBottom: "var(--space-6)" }}>
+              <ProfileField label="First Name"    value={user.first_name} />
+              <ProfileField label="Middle Name"   value={user.middle_name || null} />
+              <ProfileField label="Last Name"     value={user.last_name} />
+              <ProfileField label="Email"          value={user.email || null} />
+              <ProfileField label="Mobile 1"       value={user.mobile_primary || null} />
+              <ProfileField label="Mobile 2"       value={user.mobile_secondary || null} />
+            </div>
+
+            {/* Account & assignment details */}
+            <div className="card" style={{ padding: "0 var(--space-6)" }}>
+              <ProfileField label="Username"    value={user.username} />
+              <ProfileField label="Public ID"   value={user.public_id} />
+              <ProfileField label="Role"        value={user.role} />
+              <ProfileField label="Institution" value={user.institution} />
+              <ProfileField label="Section"     value={user.section} />
+              <ProfileField label="District"    value={user.district} />
+            </div>
+          </>
         )}
 
         <div style={{ marginTop: "var(--space-8)" }}>

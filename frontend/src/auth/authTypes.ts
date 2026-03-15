@@ -26,9 +26,13 @@ export type UserProfile = {
   public_id:        string;
   username:         string;
   role:             Role;
-  full_name:        string;
-  mobile_number:    string;
+  first_name:       string;
+  middle_name:      string;
+  last_name:        string;
+  display_name:     string;
   email:            string;
+  mobile_primary:   string;
+  mobile_secondary: string;
   profile_complete: boolean;
   institution:      string | null;
   institution_id:   number | null;
@@ -37,10 +41,38 @@ export type UserProfile = {
   district:         string | null;
 };
 
+/**
+ * Shape returned by GET /api/v1/accounts/me/
+ * When not authenticated, only { authenticated: false } is present.
+ * When authenticated, all UserProfile fields are included.
+ */
+export type MeResponse =
+  | { authenticated: false }
+  | ({
+      authenticated: true;
+    } & {
+      id:               number;
+      public_id:        string;
+      username:         string;
+      role:             Role;
+      first_name:       string;
+      middle_name:      string;
+      last_name:        string;
+      display_name:     string;
+      email:            string;
+      mobile_primary:   string;
+      mobile_secondary: string;
+      profile_complete: boolean;
+      institution:      string | null;
+      institution_id:   number | null;
+      section:          string | null;
+      section_id:       number | null;
+      district:         string | null;
+    });
+
 export type AuthState = {
   loading:       boolean;
   authenticated: boolean;
   user:          UserProfile | null;
-  setUser:       (user: UserProfile | null) => void;
   refresh:       () => Promise<void>;
 };

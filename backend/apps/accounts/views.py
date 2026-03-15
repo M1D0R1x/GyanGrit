@@ -359,9 +359,13 @@ def me(request):
         "public_id":        user.public_id,
         "username":         user.username,
         "role":             user.role,
-        "full_name":        user.full_name,
-        "mobile_number":    user.mobile_number,
+        "first_name":       user.first_name,
+        "middle_name":      user.middle_name,
+        "last_name":        user.last_name,
+        "display_name":     user.display_name,
         "email":            user.email,
+        "mobile_primary":   user.mobile_primary,
+        "mobile_secondary": user.mobile_secondary,
         "profile_complete": user.profile_complete,
         "institution":      user.institution.name if user.institution else None,
         "institution_id":   user.institution.id  if user.institution else None,
@@ -369,7 +373,6 @@ def me(request):
         "section_id":       user.section.id      if user.section     else None,
         "district":         user.district        if user.district    else None,
     })
-
 
 
 # =========================================================
@@ -433,7 +436,16 @@ def users(request):
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
 @require_http_methods(["GET"])
 def institutions_list(request):
-    queryset = scope_queryset(request.user, Institution.objects.all())
+    """
+    Scoped institution list. Sorted alphabetically.
+    OFFICIAL → their district only.
+    PRINCIPAL → their own institution only.
+    ADMIN → all.
+    """
+    queryset = scope_queryset(
+        request.user,
+        Institution.objects.select_related("district").order_by("name"),
+    )
     return JsonResponse(
         list(queryset.values("id", "name", "district__name")),
         safe=False,
@@ -466,25 +478,6 @@ def teachers(request):
     )
     return JsonResponse(
         list(queryset.values("id", "username", "public_id")),
-        safe=False,
-    )
-
-
-@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
-@require_http_methods(["GET"])
-def institutions_list(request):
-    """
-    Scoped institution list. Sorted alphabetically.
-    OFFICIAL → their district only.
-    PRINCIPAL → their own institution only.
-    ADMIN → all.
-    """
-    queryset = scope_queryset(
-        request.user,
-        Institution.objects.select_related("district").order_by("name"),
-    )
-    return JsonResponse(
-        list(queryset.values("id", "name", "district__name")),
         safe=False,
     )
 
@@ -979,18 +972,20 @@ def complete_profile(request):
     """
     PATCH /api/v1/accounts/profile/
 
-    Required fields depend on role:
-      ALL roles:    full_name, mobile_number
-      TEACHER+:     email  (needed for OTP delivery later)
+    Accepts structured name fields and dual mobile numbers:
+      ALL roles:    first_name*, last_name*, mobile_primary*, email*
+      Optional:     middle_name, mobile_secondary
+
+    Required for TEACHER/PRINCIPAL/OFFICIAL: email (for OTP delivery).
+    Required for STUDENT: email (for reports + account recovery).
 
     Once all required fields are present, sets profile_complete = True.
-    Idempotent: calling again after completion is a no-op.
+    Idempotent: calling again after completion updates fields.
 
-    Edge cases handled:
-    - Partial saves: profile_complete stays False until ALL required fields present
-    - Mobile number format: stored as-is, validated for non-empty digits only
-    - Email: basic format check delegated to Django's validator
-    - Duplicate mobile: NOT enforced here (school students may share family phones)
+    Security notes:
+    - email is NOT unique at DB level (siblings share family email)
+    - mobile_primary is NOT unique (siblings share family phone)
+    - mobile_secondary is optional (student's own phone or second parent)
     """
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
@@ -1002,61 +997,92 @@ def complete_profile(request):
 
     user = request.user
     errors = {}
+    # Track which fields were actually sent so we only update those
+    update_fields = ["profile_complete"]
 
-    # ── full_name ────────────────────────────────────────────────────────────
-    full_name = body.get("full_name", "").strip()
-    if "full_name" in body:
-        if not full_name:
-            errors["full_name"] = "Full name is required."
-        elif len(full_name) < 2:
-            errors["full_name"] = "Full name must be at least 2 characters."
+    # ── first_name (required) ────────────────────────────────────────────────
+    if "first_name" in body:
+        val = body["first_name"].strip()
+        if not val:
+            errors["first_name"] = "First name is required."
+        elif len(val) < 2:
+            errors["first_name"] = "First name must be at least 2 characters."
         else:
-            user.full_name = full_name
+            user.first_name = val
+            update_fields.append("first_name")
 
-    # ── mobile_number ────────────────────────────────────────────────────────
-    mobile = body.get("mobile_number", "").strip()
-    if "mobile_number" in body:
-        digits = "".join(c for c in mobile if c.isdigit())
-        if not mobile:
-            errors["mobile_number"] = "Mobile number is required."
-        elif len(digits) < 10:
-            errors["mobile_number"] = "Enter a valid 10-digit mobile number."
+    # ── middle_name (optional) ───────────────────────────────────────────────
+    if "middle_name" in body:
+        user.middle_name = body["middle_name"].strip()
+        update_fields.append("middle_name")
+
+    # ── last_name (required) ─────────────────────────────────────────────────
+    if "last_name" in body:
+        val = body["last_name"].strip()
+        if not val:
+            errors["last_name"] = "Last name is required."
+        elif len(val) < 2:
+            errors["last_name"] = "Last name must be at least 2 characters."
         else:
-            user.mobile_number = mobile
+            user.last_name = val
+            update_fields.append("last_name")
 
-    # ── email ────────────────────────────────────────────────────────────────
-    email = body.get("email", "").strip().lower()
+    # ── email (required for all — siblings can share) ────────────────────────
     if "email" in body:
-        if email:
+        email = body["email"].strip().lower()
+        if not email:
+            errors["email"] = "Email is required."
+        else:
             from django.core.validators import validate_email
             from django.core.exceptions import ValidationError as DjangoValidationError
             try:
                 validate_email(email)
-                # Check uniqueness — email must be unique per user
-                if User.objects.exclude(pk=user.pk).filter(email=email).exists():
-                    errors["email"] = "This email is already registered."
-                else:
-                    user.email = email
+                user.email = email
+                update_fields.append("email")
             except DjangoValidationError:
                 errors["email"] = "Enter a valid email address."
+
+    # ── mobile_primary (required) ────────────────────────────────────────────
+    if "mobile_primary" in body:
+        raw = body["mobile_primary"].strip()
+        digits = "".join(c for c in raw if c.isdigit())
+        if not raw:
+            errors["mobile_primary"] = "Primary mobile number is required."
+        elif len(digits) < 10:
+            errors["mobile_primary"] = "Enter a valid 10-digit mobile number."
+        else:
+            user.mobile_primary = raw
+            update_fields.append("mobile_primary")
+
+    # ── mobile_secondary (optional) ──────────────────────────────────────────
+    if "mobile_secondary" in body:
+        raw = body["mobile_secondary"].strip()
+        if raw:
+            digits = "".join(c for c in raw if c.isdigit())
+            if len(digits) < 10:
+                errors["mobile_secondary"] = "Enter a valid 10-digit mobile number."
+            else:
+                user.mobile_secondary = raw
+                update_fields.append("mobile_secondary")
+        else:
+            # Allow clearing secondary number
+            user.mobile_secondary = ""
+            update_fields.append("mobile_secondary")
 
     if errors:
         return JsonResponse({"errors": errors}, status=400)
 
     # ── Determine if profile is complete ─────────────────────────────────────
-    # Required for ALL roles: full_name + mobile_number
-    # Required for TEACHER / PRINCIPAL / OFFICIAL: email also (for OTP)
-    required_email_roles = {"TEACHER", "PRINCIPAL", "OFFICIAL"}
-    needs_email = user.role in required_email_roles
-
+    # Required: first_name, last_name, mobile_primary, email
     is_complete = bool(
-        user.full_name.strip() and
-        user.mobile_number.strip() and
-        (user.email.strip() if needs_email else True)
+        user.first_name.strip()
+        and user.last_name.strip()
+        and user.mobile_primary.strip()
+        and user.email.strip()
     )
 
     user.profile_complete = is_complete
-    user.save(update_fields=["full_name", "mobile_number", "email", "profile_complete"])
+    user.save(update_fields=update_fields)
 
     logger.info(
         "Profile updated: user=%s complete=%s",
@@ -1064,10 +1090,14 @@ def complete_profile(request):
     )
 
     return JsonResponse({
-        "profile_complete": user.profile_complete,
-        "full_name":        user.full_name,
-        "mobile_number":    user.mobile_number,
-        "email":            user.email,
+        "profile_complete":  user.profile_complete,
+        "first_name":        user.first_name,
+        "middle_name":       user.middle_name,
+        "last_name":         user.last_name,
+        "display_name":      user.display_name,
+        "email":             user.email,
+        "mobile_primary":    user.mobile_primary,
+        "mobile_secondary":  user.mobile_secondary,
     })
 
 # =========================================================

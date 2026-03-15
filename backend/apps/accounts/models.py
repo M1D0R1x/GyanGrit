@@ -40,12 +40,25 @@ class User(AbstractUser):
     # district is denormalised as a string for fast filtering without joins.
     # It is always kept in sync with institution.district.name in save().
     district = models.CharField(max_length=255, blank=True, null=True)
-    # Add these three fields to the User model, after the district field:
 
-    full_name = models.CharField(max_length=255, blank=True, default="")
-    mobile_number = models.CharField(max_length=20, blank=True, default="")
+    # ── Structured name fields ───────────────────────────────────────────────
+    # first_name and last_name are inherited from AbstractUser.
+    # We override them here to enforce max_length consistency and add middle_name.
+    # AbstractUser.first_name and .last_name are CharField(max_length=150).
+    # We keep their defaults and add middle_name alongside them.
+    middle_name = models.CharField(max_length=150, blank=True, default="")
+
+    # ── Contact fields ───────────────────────────────────────────────────────
+    # mobile_primary:   parent/guardian #1 phone — used for login (future),
+    #                   OTP delivery, and report sharing.  Required for all roles.
+    # mobile_secondary: parent/guardian #2 or student's own phone.  Optional.
+    # email:            inherited from AbstractUser.  NOT unique at DB level
+    #                   because siblings may share a family email.
+    mobile_primary = models.CharField(max_length=20, blank=True, default="")
+    mobile_secondary = models.CharField(max_length=20, blank=True, default="")
+
+    # ── Profile gate ─────────────────────────────────────────────────────────
     profile_complete = models.BooleanField(default=False)
-
 
     def generate_public_id(self):
         year = timezone.now().year
@@ -57,6 +70,19 @@ class User(AbstractUser):
             "ADMIN": "A",
         }.get(self.role, "X")
         return f"{prefix}-{year}-{secrets.token_hex(4)}"
+
+    @property
+    def display_name(self):
+        """
+        Convenience: returns 'First Middle Last' with empty parts omitted.
+        Used in templates, admin, and serialisation helpers.
+        """
+        parts = [
+            self.first_name.strip(),
+            self.middle_name.strip(),
+            self.last_name.strip(),
+        ]
+        return " ".join(p for p in parts if p) or self.username
 
     def clean(self):
         if self.section and not self.institution:
@@ -258,7 +284,6 @@ class JoinCode(models.Model):
 
         # Auto-assign district FK from institution
         if self.institution and not self.district_id:
-            # district on Institution is a FK to District model
             try:
                 self.district = District.objects.get(
                     name=self.institution.district.name

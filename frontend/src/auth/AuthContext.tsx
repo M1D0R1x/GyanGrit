@@ -14,27 +14,35 @@ import type { AuthState, MeResponse, UserProfile } from "./authTypes";
 const AuthContext = createContext<AuthState>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]             = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
-  const [user, setUser]                 = useState<UserProfile | null>(null);
+  const [user, setUser]                   = useState<UserProfile | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const data: MeResponse = await apiGet("/accounts/me/");
 
-      if (data.authenticated && data.id && data.username && data.role) {
+      if (data.authenticated) {
         setAuthenticated(true);
         setUser({
-          id:             data.id,
-          public_id:      data.public_id ?? "",
-          username:       data.username,
-          role:           data.role,
-          institution:    data.institution ?? null,
-          institution_id: data.institution_id ?? null,
-          section:        data.section ?? null,
-          section_id:     data.section_id ?? null,
-          district:       data.district ?? null,
+          id:               data.id,
+          public_id:        data.public_id ?? "",
+          username:         data.username,
+          role:             data.role,
+          first_name:       data.first_name ?? "",
+          middle_name:      data.middle_name ?? "",
+          last_name:        data.last_name ?? "",
+          display_name:     data.display_name ?? "",
+          email:            data.email ?? "",
+          mobile_primary:   data.mobile_primary ?? "",
+          mobile_secondary: data.mobile_secondary ?? "",
+          profile_complete: data.profile_complete ?? false,
+          institution:      data.institution ?? null,
+          institution_id:   data.institution_id ?? null,
+          section:          data.section ?? null,
+          section_id:       data.section_id ?? null,
+          district:         data.district ?? null,
         });
       } else {
         setAuthenticated(false);
@@ -59,9 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     authenticated,
     user,
-    // Convenience shorthands for backwards compatibility
-    role:     user?.role ?? "STUDENT",
-    username: user?.username,
     refresh,
   };
 

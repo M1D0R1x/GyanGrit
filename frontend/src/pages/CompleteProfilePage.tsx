@@ -6,24 +6,29 @@ import { ROLE_PATHS } from "../auth/authTypes";
 import Logo from "../components/Logo";
 
 type FieldErrors = {
-  full_name?:     string;
-  mobile_number?: string;
-  email?:         string;
+  first_name?:       string;
+  middle_name?:      string;
+  last_name?:        string;
+  email?:            string;
+  mobile_primary?:   string;
+  mobile_secondary?: string;
 };
 
 export default function CompleteProfilePage() {
   const auth     = useAuth();
   const navigate = useNavigate();
 
-  const [fullName,  setFullName]  = useState(auth.user?.full_name    ?? "");
-  const [mobile,    setMobile]    = useState(auth.user?.mobile_number ?? "");
-  const [email,     setEmail]     = useState(auth.user?.email         ?? "");
-  const [saving,    setSaving]    = useState(false);
-  const [fieldErrs, setFieldErrs] = useState<FieldErrors>({});
-  const [globalErr, setGlobalErr] = useState("");
+  const [firstName,       setFirstName]       = useState(auth.user?.first_name       ?? "");
+  const [middleName,      setMiddleName]      = useState(auth.user?.middle_name      ?? "");
+  const [lastName,        setLastName]        = useState(auth.user?.last_name        ?? "");
+  const [email,           setEmail]           = useState(auth.user?.email            ?? "");
+  const [mobilePrimary,   setMobilePrimary]   = useState(auth.user?.mobile_primary   ?? "");
+  const [mobileSecondary, setMobileSecondary] = useState(auth.user?.mobile_secondary ?? "");
+  const [saving,          setSaving]          = useState(false);
+  const [fieldErrs,       setFieldErrs]       = useState<FieldErrors>({});
+  const [globalErr,       setGlobalErr]       = useState("");
 
   const role = auth.user?.role ?? "STUDENT";
-  const needsEmail = ["TEACHER", "PRINCIPAL", "OFFICIAL"].includes(role);
 
   // If already complete, redirect immediately
   useEffect(() => {
@@ -43,11 +48,22 @@ export default function CompleteProfilePage() {
     setFieldErrs({});
     setGlobalErr("");
 
-    // Client-side validation before hitting the server
+    // Client-side pre-validation
     const errs: FieldErrors = {};
-    if (!fullName.trim())  errs.full_name     = "Full name is required.";
-    if (!mobile.trim())    errs.mobile_number = "Mobile number is required.";
-    if (needsEmail && !email.trim()) errs.email = "Email is required for your role.";
+    if (!firstName.trim())      errs.first_name     = "First name is required.";
+    if (!lastName.trim())       errs.last_name      = "Last name is required.";
+    if (!email.trim())          errs.email           = "Email is required.";
+    if (!mobilePrimary.trim())  errs.mobile_primary  = "Primary mobile number is required.";
+
+    // Validate mobile format client-side
+    if (mobilePrimary.trim()) {
+      const digits = mobilePrimary.replace(/\D/g, "");
+      if (digits.length < 10) errs.mobile_primary = "Enter a valid 10-digit mobile number.";
+    }
+    if (mobileSecondary.trim()) {
+      const digits = mobileSecondary.replace(/\D/g, "");
+      if (digits.length < 10) errs.mobile_secondary = "Enter a valid 10-digit mobile number.";
+    }
 
     if (Object.keys(errs).length > 0) {
       setFieldErrs(errs);
@@ -57,17 +73,25 @@ export default function CompleteProfilePage() {
     setSaving(true);
     try {
       const payload: Record<string, string> = {
-        full_name:     fullName.trim(),
-        mobile_number: mobile.trim(),
+        first_name:     firstName.trim(),
+        last_name:      lastName.trim(),
+        email:          email.trim(),
+        mobile_primary: mobilePrimary.trim(),
       };
-      if (needsEmail || email.trim()) payload.email = email.trim();
+      // Only send optional fields if they have values
+      if (middleName.trim())      payload.middle_name      = middleName.trim();
+      if (mobileSecondary.trim()) payload.mobile_secondary = mobileSecondary.trim();
 
       const res = await apiPatch<{
-        profile_complete: boolean;
-        full_name:        string;
-        mobile_number:    string;
-        email:            string;
-        errors?:          FieldErrors;
+        profile_complete:  boolean;
+        first_name:        string;
+        middle_name:       string;
+        last_name:         string;
+        display_name:      string;
+        email:             string;
+        mobile_primary:    string;
+        mobile_secondary:  string;
+        errors?:           FieldErrors;
       }>("/accounts/profile/", payload);
 
       if (res.errors) {
@@ -107,7 +131,7 @@ export default function CompleteProfilePage() {
 
   return (
     <div className="login-page">
-      <div className="login-card" style={{ maxWidth: 440 }}>
+      <div className="login-card" style={{ maxWidth: 480 }}>
 
         {/* Brand */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "var(--space-2)" }}>
@@ -132,8 +156,8 @@ export default function CompleteProfilePage() {
           marginBottom: "var(--space-6)",
           lineHeight: 1.5,
         }}>
-          This information is required before you can access GyanGrit.
-          {needsEmail && " Your email will be used for OTP verification."}
+          We need your details to set up your account.
+          Fields marked * are required.
         </p>
 
         {/* Role badge */}
@@ -165,56 +189,76 @@ export default function CompleteProfilePage() {
 
         <hr className="login-card__divider" />
 
-        {/* Full name */}
+        {/* ── Name fields ─────────────────────────────────────────────────── */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "var(--space-4)",
+        }}>
+          {/* First name */}
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" htmlFor="cp-firstname">
+              First Name *
+            </label>
+            <input
+              id="cp-firstname"
+              className={`form-input ${fieldErrs.first_name ? "form-input--error" : ""}`}
+              type="text"
+              placeholder="First name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              disabled={saving}
+              autoComplete="given-name"
+              autoFocus
+            />
+            {fieldErrs.first_name && (
+              <span className="form-error">{fieldErrs.first_name}</span>
+            )}
+          </div>
+
+          {/* Last name */}
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" htmlFor="cp-lastname">
+              Last Name *
+            </label>
+            <input
+              id="cp-lastname"
+              className={`form-input ${fieldErrs.last_name ? "form-input--error" : ""}`}
+              type="text"
+              placeholder="Last name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              disabled={saving}
+              autoComplete="family-name"
+            />
+            {fieldErrs.last_name && (
+              <span className="form-error">{fieldErrs.last_name}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Middle name — full width, optional */}
         <div className="form-group">
-          <label className="form-label" htmlFor="cp-fullname">
-            Full Name *
+          <label className="form-label" htmlFor="cp-middlename">
+            Middle Name{" "}
+            <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(optional)</span>
           </label>
           <input
-            id="cp-fullname"
-            className={`form-input ${fieldErrs.full_name ? "form-input--error" : ""}`}
+            id="cp-middlename"
+            className="form-input"
             type="text"
-            placeholder="Your full legal name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Middle name"
+            value={middleName}
+            onChange={(e) => setMiddleName(e.target.value)}
             disabled={saving}
-            autoComplete="name"
-            autoFocus
+            autoComplete="additional-name"
           />
-          {fieldErrs.full_name && (
-            <span className="form-error">{fieldErrs.full_name}</span>
-          )}
         </div>
 
-        {/* Mobile */}
-        <div className="form-group">
-          <label className="form-label" htmlFor="cp-mobile">
-            Mobile Number *
-          </label>
-          <input
-            id="cp-mobile"
-            className={`form-input ${fieldErrs.mobile_number ? "form-input--error" : ""}`}
-            type="tel"
-            placeholder="10-digit mobile number"
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            disabled={saving}
-            autoComplete="tel"
-            inputMode="numeric"
-          />
-          {fieldErrs.mobile_number ? (
-            <span className="form-error">{fieldErrs.mobile_number}</span>
-          ) : (
-            <span className="form-hint">
-              Used for OTP verification on new devices
-            </span>
-          )}
-        </div>
-
-        {/* Email — required for teacher/principal/official, optional for student */}
+        {/* ── Email ───────────────────────────────────────────────────────── */}
         <div className="form-group">
           <label className="form-label" htmlFor="cp-email">
-            Email Address {needsEmail ? "*" : <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(optional)</span>}
+            Email Address *
           </label>
           <input
             id="cp-email"
@@ -228,11 +272,65 @@ export default function CompleteProfilePage() {
           />
           {fieldErrs.email ? (
             <span className="form-error">{fieldErrs.email}</span>
-          ) : needsEmail ? (
+          ) : (
             <span className="form-hint">
-              Required for OTP login — use a personal or school email
+              Used for account verification and report sharing
             </span>
-          ) : null}
+          )}
+        </div>
+
+        {/* ── Mobile numbers ──────────────────────────────────────────────── */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "var(--space-4)",
+        }}>
+          {/* Primary mobile */}
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" htmlFor="cp-mobile1">
+              Mobile 1 *
+            </label>
+            <input
+              id="cp-mobile1"
+              className={`form-input ${fieldErrs.mobile_primary ? "form-input--error" : ""}`}
+              type="tel"
+              placeholder="Parent / guardian"
+              value={mobilePrimary}
+              onChange={(e) => setMobilePrimary(e.target.value)}
+              disabled={saving}
+              autoComplete="tel"
+              inputMode="numeric"
+            />
+            {fieldErrs.mobile_primary ? (
+              <span className="form-error">{fieldErrs.mobile_primary}</span>
+            ) : (
+              <span className="form-hint">Parent / guardian number</span>
+            )}
+          </div>
+
+          {/* Secondary mobile */}
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" htmlFor="cp-mobile2">
+              Mobile 2{" "}
+              <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(opt.)</span>
+            </label>
+            <input
+              id="cp-mobile2"
+              className={`form-input ${fieldErrs.mobile_secondary ? "form-input--error" : ""}`}
+              type="tel"
+              placeholder="Student / 2nd parent"
+              value={mobileSecondary}
+              onChange={(e) => setMobileSecondary(e.target.value)}
+              disabled={saving}
+              autoComplete="tel"
+              inputMode="numeric"
+            />
+            {fieldErrs.mobile_secondary ? (
+              <span className="form-error">{fieldErrs.mobile_secondary}</span>
+            ) : (
+              <span className="form-hint">Student or 2nd parent</span>
+            )}
+          </div>
         </div>
 
         {/* Privacy note */}
@@ -241,6 +339,7 @@ export default function CompleteProfilePage() {
           border: "1px solid var(--border-subtle)",
           borderRadius: "var(--radius-md)",
           padding: "var(--space-3) var(--space-4)",
+          marginTop: "var(--space-4)",
           marginBottom: "var(--space-5)",
           display: "flex",
           gap: "var(--space-3)",
@@ -253,8 +352,9 @@ export default function CompleteProfilePage() {
             lineHeight: 1.5,
             margin: 0,
           }}>
-            Your information is stored securely and only used for
-            account verification. Mobile numbers are never shared with third parties.
+            Your information is stored securely and used only for
+            account verification and sharing progress reports.
+            Contact numbers are never shared with third parties.
           </p>
         </div>
 

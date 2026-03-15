@@ -413,6 +413,56 @@ def my_attempts(request, assessment_id):
     )
     return JsonResponse(list(attempts), safe=False)
 
+@login_required
+@require_http_methods(["GET"])
+def my_assessments(request):
+    """
+    GET /api/v1/assessments/my/
+
+    Returns all published assessments for courses the student is enrolled in,
+    annotated with their best score, pass status and attempt count.
+    Student-only endpoint.
+    """
+    if request.user.role != "STUDENT":
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    enrolled_course_ids = Enrollment.objects.filter(
+        user=request.user, status="enrolled"
+    ).values_list("course_id", flat=True)
+
+    assessments = (
+        Assessment.objects
+        .filter(course_id__in=enrolled_course_ids, is_published=True)
+        .select_related("course", "course__subject")
+        .order_by("course__grade", "course__subject__name", "title")
+    )
+
+    data = []
+    for assessment in assessments:
+        attempts = AssessmentAttempt.objects.filter(
+            user=request.user,
+            assessment=assessment,
+            submitted_at__isnull=False,
+        )
+        attempt_count = attempts.count()
+        best = attempts.order_by("-score").first()
+
+        data.append({
+            "id": assessment.id,
+            "title": assessment.title,
+            "description": assessment.description,
+            "total_marks": assessment.total_marks,
+            "pass_marks": assessment.pass_marks,
+            "course_title": assessment.course.title,
+            "subject": assessment.course.subject.name,
+            "grade": assessment.course.grade,
+            "attempt_count": attempt_count,
+            "best_score": best.score if best else None,
+            "passed": best.passed if best else False,
+        })
+
+    return JsonResponse(data, safe=False)
+
 
 # =====================================================
 # TEACHER ANALYTICS

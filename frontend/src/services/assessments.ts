@@ -1,9 +1,5 @@
 import { apiGet, apiPost } from "./api";
 
-/* =========================
-   Types
-========================= */
-
 export type AssessmentListItem = {
   id: number;
   title: string;
@@ -12,26 +8,32 @@ export type AssessmentListItem = {
   pass_marks: number;
 };
 
+export type AssessmentQuestion = {
+  id: number;
+  text: string;
+  marks: number;
+  order: number;
+  options: { id: number; text: string }[];
+};
+
 export type AssessmentDetail = {
   id: number;
   title: string;
   description: string;
   total_marks: number;
   pass_marks: number;
-  questions: {
-    id: number;
-    text: string;
-    marks: number;
-    order: number;
-    options: {
-      id: number;
-      text: string;
-      // is_correct is intentionally absent — never sent to client
-    }[];
-  }[];
+  questions: AssessmentQuestion[];
 };
 
-export type AttemptHistoryItem = {
+export type AttemptResult = {
+  attempt_id: number;
+  score: number;
+  passed: boolean;
+  total_marks: number;
+  pass_marks: number;
+};
+
+export type MyAttempt = {
   id: number;
   score: number;
   passed: boolean;
@@ -39,59 +41,30 @@ export type AttemptHistoryItem = {
   submitted_at: string;
 };
 
-export type SubmitAssessmentPayload = {
+export type StartResponse = {
   attempt_id: number;
-  // Field name matches backend exactly: selected_options not answers
-  selected_options: Record<number, number>;
+  assessment_id: number;
+  started_at: string;
 };
 
-export type SubmitAssessmentResponse = {
-  attempt_id: number;
-  score: number;
-  passed: boolean;
-  total_marks: number;
-  pass_marks: number;
-};
+// Course assessments list
+export const getCourseAssessments = (courseId: number) =>
+  apiGet<AssessmentListItem[]>(`/assessments/course/${courseId}/`);
 
-/* =========================
-   API Calls
-========================= */
+// Full assessment with questions (no is_correct)
+export const getAssessment = (assessmentId: number) =>
+  apiGet<AssessmentDetail>(`/assessments/${assessmentId}/`);
 
-export function getCourseAssessments(courseId: number) {
-  return apiGet<AssessmentListItem[]>(
-    `/assessments/course/${courseId}/`
-  );
-}
+// Start or resume attempt
+export const startAssessment = (assessmentId: number) =>
+  apiPost<StartResponse>(`/assessments/${assessmentId}/start/`, {});
 
-export function getAssessment(assessmentId: number) {
-  return apiGet<AssessmentDetail>(
-    `/assessments/${assessmentId}/`
-  );
-}
-
-export function startAssessment(assessmentId: number) {
-  return apiPost<{
-    attempt_id: number;
-    assessment_id: number;
-    started_at: string;
-  }>(
-    `/assessments/${assessmentId}/start/`,
-    {}
-  );
-}
-
-export function submitAssessment(
+// Submit answers
+export const submitAssessment = (
   assessmentId: number,
-  payload: SubmitAssessmentPayload
-) {
-  return apiPost<SubmitAssessmentResponse>(
-    `/assessments/${assessmentId}/submit/`,
-    payload
-  );
-}
+  payload: { attempt_id: number; selected_options: Record<number, number> }
+) => apiPost<AttemptResult>(`/assessments/${assessmentId}/submit/`, payload);
 
-export function getMyAttempts(assessmentId: number) {
-  return apiGet<AttemptHistoryItem[]>(
-    `/assessments/${assessmentId}/my-attempts/`
-  );
-}
+// My attempt history for one assessment
+export const getMyAttempts = (assessmentId: number) =>
+  apiGet<MyAttempt[]>(`/assessments/${assessmentId}/my-attempts/`);

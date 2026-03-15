@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 
@@ -9,6 +9,7 @@ type Course = {
   description: string;
   grade: number;
   subject__name: string;
+  subject__id: number;
 };
 
 function CourseSkeleton() {
@@ -22,10 +23,15 @@ function CourseSkeleton() {
 }
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [courses, setCourses]   = useState<Course[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const navigate                = useNavigate();
+  const [searchParams]          = useSearchParams();
+
+  // Read optional subject filter from URL — set by DashboardPage
+  const subjectIdParam = searchParams.get("subject_id");
+  const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
 
   useEffect(() => {
     apiGet<Course[]>("/courses/")
@@ -34,17 +40,52 @@ export default function CoursesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Filter client-side — all courses are already scoped to student's grade+subjects
+  const filtered = subjectId
+    ? courses.filter((c) => c.subject__id === subjectId)
+    : courses;
+
+  // Derive subject name for title when filtered
+  const subjectName = subjectId
+    ? courses.find((c) => c.subject__id === subjectId)?.subject__name ?? null
+    : null;
+
   return (
     <div className="page-shell">
-      <TopBar title="Courses" />
+      <TopBar title={subjectName ? `${subjectName} Courses` : "Courses"} />
       <main className="page-content page-enter">
+
+        {subjectName && (
+          <button className="back-btn" onClick={() => navigate("/dashboard")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back to Dashboard
+          </button>
+        )}
+
         <div className="section-header">
           <div>
-            <h2 className="section-header__title">Your Courses</h2>
+            <h2 className="section-header__title">
+              {subjectName ? `${subjectName}` : "Your Courses"}
+            </h2>
             <p className="section-header__subtitle">
-              Select a course to view its lessons
+              {subjectName
+                ? "Select a course to start learning"
+                : "All your enrolled courses"}
             </p>
           </div>
+          {subjectName && (
+            <button
+              className="btn btn--ghost"
+              onClick={() => navigate("/courses")}
+              style={{ fontSize: "var(--text-sm)" }}
+            >
+              View all courses
+            </button>
+          )}
         </div>
 
         {error && <div className="alert alert--error">{error}</div>}
@@ -57,7 +98,7 @@ export default function CoursesPage() {
           }}>
             {Array.from({ length: 6 }).map((_, i) => <CourseSkeleton key={i} />)}
           </div>
-        ) : courses.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state__icon">🎓</div>
             <h3 className="empty-state__title">No courses available</h3>
@@ -71,7 +112,7 @@ export default function CoursesPage() {
             gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: "var(--space-4)",
           }}>
-            {courses.map((course, i) => (
+            {filtered.map((course, i) => (
               <div
                 key={course.id}
                 className="card card--clickable page-enter"
@@ -81,11 +122,14 @@ export default function CoursesPage() {
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && navigate(`/courses/${course.id}`)}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-3)" }}>
-                  <span className="badge badge--info">
-                    Class {course.grade}
-                  </span>
-                  {course.subject__name && (
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "var(--space-3)",
+                }}>
+                  <span className="badge badge--info">Class {course.grade}</span>
+                  {!subjectName && course.subject__name && (
                     <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                       {course.subject__name}
                     </span>
@@ -99,6 +143,13 @@ export default function CoursesPage() {
                       : course.description}
                   </p>
                 )}
+                <div style={{
+                  marginTop: "var(--space-3)",
+                  fontSize: "var(--text-xs)",
+                  color: "var(--brand-primary)",
+                }}>
+                  View lessons →
+                </div>
               </div>
             ))}
           </div>

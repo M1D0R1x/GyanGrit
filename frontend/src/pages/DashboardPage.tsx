@@ -32,10 +32,11 @@ function SubjectCard({ subject }: { subject: StudentSubject }) {
   return (
     <div
       className="card card--clickable"
-      onClick={() => navigate("/courses")}
+      // FIX: navigate to /courses filtered by this subject, not generic /courses
+      onClick={() => navigate(`/courses?subject_id=${subject.id}`)}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && navigate("/courses")}
+      onKeyDown={(e) => e.key === "Enter" && navigate(`/courses?subject_id=${subject.id}`)}
       aria-label={`${subject.name} — ${subject.progress}% complete`}
     >
       <div className="card__label">Subject</div>
@@ -46,10 +47,7 @@ function SubjectCard({ subject }: { subject: StudentSubject }) {
       <div className="progress-bar">
         <div
           className="progress-bar__fill"
-          style={{
-            width: `${subject.progress}%`,
-            background: progressColor,
-          }}
+          style={{ width: `${subject.progress}%`, background: progressColor }}
         />
       </div>
       <div style={{
@@ -58,9 +56,7 @@ function SubjectCard({ subject }: { subject: StudentSubject }) {
         alignItems: "center",
         marginTop: "var(--space-1)",
       }}>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-          Progress
-        </span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Progress</span>
         <span style={{
           fontSize: "var(--text-sm)",
           fontWeight: 700,
@@ -89,7 +85,6 @@ export default function DashboardPage() {
   return (
     <div className="page-shell">
       <TopBar title="Dashboard" />
-
       <main className="page-content page-enter">
         <div className="section-header">
           <div>
@@ -100,9 +95,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="alert alert--error" role="alert">{error}</div>
-        )}
+        {error && <div className="alert alert--error" role="alert">{error}</div>}
 
         {loading ? (
           <div style={{
@@ -110,9 +103,7 @@ export default function DashboardPage() {
             gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: "var(--space-4)",
           }}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SubjectCardSkeleton key={i} />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <SubjectCardSkeleton key={i} />)}
           </div>
         ) : subjects.length === 0 ? (
           <div className="empty-state">
@@ -129,11 +120,7 @@ export default function DashboardPage() {
             gap: "var(--space-4)",
           }}>
             {subjects.map((subject, i) => (
-              <div
-                key={subject.id}
-                style={{ animationDelay: `${i * 60}ms` }}
-                className="page-enter"
-              >
+              <div key={subject.id} style={{ animationDelay: `${i * 60}ms` }} className="page-enter">
                 <SubjectCard subject={subject} />
               </div>
             ))}

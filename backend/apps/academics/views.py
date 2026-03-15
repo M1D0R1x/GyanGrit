@@ -191,6 +191,7 @@ def _subjects_for_student(request):
         StudentSubject.objects
         .select_related("subject", "classroom")
         .filter(student=student)
+        .order_by("subject__id")
     )
 
     if not student_subjects.exists():

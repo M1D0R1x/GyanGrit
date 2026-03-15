@@ -1,4 +1,18 @@
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+/**
+ * media.ts — Cloudflare R2 file upload service.
+ *
+ * RULES (enforced by project):
+ * - Never hardcode base URLs — import API_BASE_URL from api.ts
+ * - Upload uses XHR (not fetch) to support upload progress callbacks
+ * - CSRF token read from gyangrit_csrftoken cookie
+ * - credentials: "include" equivalent is xhr.withCredentials = true
+ *
+ * FIX (2026-03-15):
+ *   Removed hardcoded `http://127.0.0.1:8000/api/v1` string.
+ *   Now imports API_BASE_URL from api.ts — works in both dev and production.
+ */
+
+import { API_BASE_URL } from "./api";
 
 function getCsrfToken(): string | undefined {
   const match = document.cookie.match(
@@ -18,7 +32,9 @@ export type UploadFolder = "lessons" | "pdfs" | "images" | "uploads";
 
 /**
  * Upload a file to Cloudflare R2 via the backend.
- * Returns the public URL of the uploaded file.
+ *
+ * Uses XHR instead of fetch to support real upload progress reporting.
+ * Returns the public CDN URL of the uploaded file.
  */
 export async function uploadFile(
   file: File,
@@ -45,21 +61,23 @@ export async function uploadFile(
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(JSON.parse(xhr.responseText));
+          resolve(JSON.parse(xhr.responseText) as UploadResult);
         } catch {
           reject(new Error("Invalid response from server"));
         }
       } else {
         try {
-          const err = JSON.parse(xhr.responseText);
-          reject(new Error(err.error || `Upload failed: ${xhr.status}`));
+          const err = JSON.parse(xhr.responseText) as { error?: string };
+          reject(new Error(err.error ?? `Upload failed: ${xhr.status}`));
         } catch {
           reject(new Error(`Upload failed: ${xhr.status}`));
         }
       }
     });
 
-    xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+    xhr.addEventListener("error", () =>
+      reject(new Error("Network error during upload"))
+    );
 
     xhr.open("POST", `${API_BASE_URL}/media/upload/`);
     xhr.withCredentials = true;

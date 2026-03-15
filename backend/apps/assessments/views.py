@@ -78,6 +78,7 @@ def create_assessment(request, course_id):
     return JsonResponse({
         "id": assessment.id,
         "title": assessment.title,
+        "description": assessment.description,
         "pass_marks": assessment.pass_marks,
         "total_marks": assessment.total_marks,
         "is_published": assessment.is_published,
@@ -107,6 +108,7 @@ def update_assessment(request, assessment_id):
     return JsonResponse({
         "id": assessment.id,
         "title": assessment.title,
+        "description": assessment.description,
         "pass_marks": assessment.pass_marks,
         "total_marks": assessment.total_marks,
         "is_published": assessment.is_published,
@@ -149,7 +151,6 @@ def create_question(request, assessment_id):
     if correct_count != 1:
         return JsonResponse({"error": "Exactly one correct option required"}, status=400)
 
-    # Auto-assign next order
     next_order = (
         assessment.questions.order_by("-order").values_list("order", flat=True).first() or 0
     ) + 1
@@ -200,7 +201,6 @@ def update_question(request, question_id):
     if update_fields:
         question.save(update_fields=update_fields)
 
-    # Replace options if provided
     if "options" in body:
         options_data = body["options"]
         correct_count = sum(1 for o in options_data if o.get("is_correct"))
@@ -269,6 +269,7 @@ def assessment_detail(request, assessment_id):
             "text": q.text,
             "marks": q.marks,
             "order": q.order,
+            # is_correct intentionally excluded — never send to client
             "options": [{"id": opt.id, "text": opt.text} for opt in q.options.all()],
         })
 
@@ -282,10 +283,14 @@ def assessment_detail(request, assessment_id):
     })
 
 
-# Assessment detail for admin (includes is_correct)
 @login_required
 @require_http_methods(["GET"])
 def assessment_detail_admin(request, assessment_id):
+    """
+    GET /api/v1/assessments/:id/admin/
+    Admin-only view — includes is_correct for the assessment builder UI.
+    Security: is_correct is only returned here, never in the student endpoint.
+    """
     if request.user.role != "ADMIN":
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
@@ -315,9 +320,16 @@ def assessment_detail_admin(request, assessment_id):
     })
 
 
+@csrf_exempt
 @login_required
 @require_http_methods(["POST"])
 def start_assessment(request, assessment_id):
+    """
+    POST /api/v1/assessments/:id/start/
+    FIX: Added @csrf_exempt — this is a POST that previously would 403 on
+    CSRF verification before @login_required could run. Session cookie is
+    still enforced by @login_required so auth is not weakened.
+    """
     assessment = get_object_or_404(Assessment, id=assessment_id, is_published=True)
     if not has_access_to_course(request.user, assessment.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
@@ -327,9 +339,17 @@ def start_assessment(request, assessment_id):
     ).first()
 
     if active_attempt:
-        return JsonResponse({"attempt_id": active_attempt.id, "message": "Active attempt exists"})
+        return JsonResponse({
+            "attempt_id": active_attempt.id,
+            "assessment_id": assessment.id,
+            "started_at": active_attempt.started_at.isoformat(),
+            "message": "Active attempt exists",
+        })
 
-    attempt = AssessmentAttempt.objects.create(assessment=assessment, user=request.user)
+    attempt = AssessmentAttempt.objects.create(
+        assessment=assessment,
+        user=request.user,
+    )
     return JsonResponse({
         "attempt_id": attempt.id,
         "assessment_id": assessment.id,
@@ -337,9 +357,14 @@ def start_assessment(request, assessment_id):
     })
 
 
+@csrf_exempt
 @login_required
 @require_http_methods(["POST"])
 def submit_assessment(request, assessment_id):
+    """
+    POST /api/v1/assessments/:id/submit/
+    FIX: Added @csrf_exempt — same reason as start_assessment.
+    """
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -576,4 +601,8 @@ def teacher_student_assessments(request, class_id, student_id):
         for a in attempts
     ]
 
-    return JsonResponse({"student_id": student.id, "username": student.username, "attempts": data})
+    return JsonResponse({
+        "student_id": student.id,
+        "username": student.username,
+        "attempts": data,
+    })

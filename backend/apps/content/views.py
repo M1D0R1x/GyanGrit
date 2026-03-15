@@ -5,8 +5,10 @@ Single authoritative views file for the content app.
 Uses Django's function-based view pattern with JSON responses —
 consistent with the rest of the codebase.
 
-All imports are from apps.* (not backend.apps.*) to match the
-existing project import style.
+BUG FIX (2026-03-15):
+  - Student grade filter: `section.grade` does not exist on Section.
+    Grade lives on section.classroom.name (a string, e.g. "8").
+    Fixed to: int(section.classroom.name) with ValueError guard.
 """
 import json
 import logging
@@ -77,7 +79,7 @@ def has_access_to_course(user, course):
 def _get_student_section(user):
     """Return the Section FK for a STUDENT, or None."""
     try:
-        return user.section  # CustomUser.section FK set during registration
+        return user.section
     except AttributeError:
         return None
 
@@ -91,6 +93,33 @@ def _get_teacher_section(user):
     return first.section if first else None
 
 
+def _get_student_grade(user) -> int | None:
+    """
+    Derive the numeric grade for a STUDENT from their section's classroom name.
+
+    Section has no `grade` field. Grade is stored as a string on ClassRoom.name
+    (e.g. "8"). This function safely resolves the traversal:
+        user.section → ClassRoom → name → int
+
+    Returns None if the section, classroom, or name is missing/non-numeric.
+    """
+    section = _get_student_section(user)
+    if section is None:
+        return None
+    classroom = getattr(section, "classroom", None)
+    if classroom is None:
+        return None
+    try:
+        return int(classroom.name.strip())
+    except (ValueError, AttributeError):
+        logger.warning(
+            "Cannot parse grade from classroom name '%s' for user id=%s",
+            getattr(classroom, "name", None),
+            user.id,
+        )
+        return None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # COURSES — LIST
 # ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +131,7 @@ def courses(request):
     GET /api/v1/courses/
 
     STUDENT  → courses whose subject is in the student's StudentSubject set,
-               filtered to their grade.
+               filtered to their grade (derived from section → classroom → name).
     TEACHER  → courses for subjects they are assigned to teach.
     PRINCIPAL / OFFICIAL / ADMIN → all courses, optional ?grade= ?subject= filters.
     """
@@ -134,10 +163,16 @@ def courses(request):
             student=user
         ).values_list("subject_id", flat=True)
         queryset = Course.objects.filter(subject_id__in=subject_ids)
-        # Filter by student's grade if available
-        section = _get_student_section(user)
-        if section and hasattr(section, "grade"):
-            queryset = queryset.filter(grade=section.grade)
+
+        # BUG FIX: Section has no `grade` field — grade is on section.classroom.name
+        grade = _get_student_grade(user)
+        if grade is not None:
+            queryset = queryset.filter(grade=grade)
+        else:
+            logger.warning(
+                "Could not determine grade for student id=%s — returning all subject courses",
+                user.id,
+            )
 
     else:
         queryset = Course.objects.none()
@@ -272,10 +307,9 @@ def course_lessons(request, course_id):
         global_qs = course.lessons.filter(is_published=True).order_by("order")
     elif role == "TEACHER":
         section = _get_teacher_section(request.user)
-        global_qs = course.lessons.order_by("order")  # teachers see unpublished too
+        global_qs = course.lessons.order_by("order")  # teachers see unpublished
     else:
         section = None
-        section_id_param = request.GET.get("section_id")
         global_qs = course.lessons.filter(is_published=True).order_by("order")
 
     # ── Section lessons ──────────────────────────────────────────────────────
@@ -332,7 +366,7 @@ def course_lessons(request, course_id):
             "type": "section",
             "title": sl.title,
             "order": sl.order,
-            "completed": False,  # SectionLessonProgress is a future feature
+            "completed": False,
             "has_video": bool(sl.video_url or sl.hls_manifest_url),
             "has_pdf": bool(sl.pdf_url),
             "has_content": bool(sl.content.strip()),
@@ -340,12 +374,10 @@ def course_lessons(request, course_id):
             "created_by": sl.created_by.username if sl.created_by else None,
             "section_label": "Added by teacher",
         }
-        # Show section name when admin sees all sections
         if hasattr(sl, "section") and sl.section:
             entry["section_name"] = sl.section.name
         result.append(entry)
 
-    # Sort merged list: order ascending, then id ascending
     result.sort(key=lambda x: (x["order"], x["id"]))
 
     return JsonResponse(result, safe=False)
@@ -361,6 +393,7 @@ def course_lessons_all(request, course_id):
     """
     GET /api/v1/courses/:id/lessons/all/
     Admin/teacher view — global lessons only, all publish states.
+    Includes full content field for the lesson editor.
     """
     course = get_object_or_404(Course, id=course_id)
 
@@ -373,22 +406,22 @@ def course_lessons_all(request, course_id):
     lessons = course.lessons.order_by("order")
     data = [
         {
-            "id": l.id,
-            "title": l.title,
-            "order": l.order,
-            "is_published": l.is_published,
-            "content": l.content,
-            "has_video": bool(l.video_url or l.hls_manifest_url),
-            "has_pdf": bool(l.pdf_url),
-            "has_text": bool(l.content),
-            "video_url": l.video_url,
-            "video_thumbnail_url": l.video_thumbnail_url,
-            "video_duration": l.video_duration,
-            "hls_manifest_url": l.hls_manifest_url,
-            "pdf_url": l.pdf_url,
-            "thumbnail_url": l.thumbnail_url,
+            "id": lesson.id,
+            "title": lesson.title,
+            "order": lesson.order,
+            "is_published": lesson.is_published,
+            "content": lesson.content,           # full content for editor
+            "has_video": bool(lesson.video_url or lesson.hls_manifest_url),
+            "has_pdf": bool(lesson.pdf_url),
+            "has_text": bool(lesson.content),
+            "video_url": lesson.video_url,
+            "video_thumbnail_url": lesson.video_thumbnail_url,
+            "video_duration": lesson.video_duration,
+            "hls_manifest_url": lesson.hls_manifest_url,
+            "pdf_url": lesson.pdf_url,
+            "thumbnail_url": lesson.thumbnail_url,
         }
-        for l in lessons
+        for lesson in lessons
     ]
     return JsonResponse(data, safe=False)
 
@@ -411,14 +444,12 @@ def lesson_detail(request, lesson_id):
     if not has_access_to_course(request.user, lesson.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    # Mark opened + get/create progress record
     progress, _ = LessonProgress.objects.get_or_create(
         lesson=lesson,
         user=request.user,
     )
     progress.mark_opened()
 
-    # Teacher notes — only visible ones
     notes = list(
         lesson.notes.filter(is_visible_to_students=True)
         .select_related("author")
@@ -458,7 +489,6 @@ def section_lesson_detail(request, lesson_id):
     """GET /api/v1/lessons/section/:id/"""
     lesson = get_object_or_404(SectionLesson, id=lesson_id)
 
-    # Access check: student must be in the same section
     if request.user.role == "STUDENT":
         student_section = _get_student_section(request.user)
         if student_section != lesson.section:
@@ -527,14 +557,17 @@ def create_lesson(request, course_id):
         thumbnail_url=body.get("thumbnail_url") or None,
         is_published=body.get("is_published", False),
     )
-    logger.info("Lesson created: id=%s title='%s' course=%s by user=%s",
-                lesson.id, lesson.title, course.id, request.user.id)
+    logger.info(
+        "Lesson created: id=%s title='%s' course=%s by user=%s",
+        lesson.id, lesson.title, course.id, request.user.id,
+    )
 
     return JsonResponse({
         "id": lesson.id,
         "title": lesson.title,
         "order": lesson.order,
         "is_published": lesson.is_published,
+        "content": lesson.content,
     }, status=201)
 
 
@@ -575,6 +608,7 @@ def update_lesson(request, lesson_id):
         "title": lesson.title,
         "order": lesson.order,
         "is_published": lesson.is_published,
+        "content": lesson.content,
     })
 
 
@@ -710,13 +744,11 @@ def course_progress(request, course_id):
     completed = progresses.filter(completed=True).count()
     percentage = int((completed / total) * 100) if total else 0
 
-    # Resume: most recently opened incomplete lesson
     resume = (
         progresses.filter(completed=False)
         .order_by("-last_opened_at")
         .first()
     )
-    # Fallback: first uncompleted by order
     if not resume:
         completed_ids = set(progresses.filter(completed=True).values_list("lesson_id", flat=True))
         first = lessons.exclude(id__in=completed_ids).order_by("order").first()

@@ -1,60 +1,47 @@
 /**
- * Central API base URL.
- * All frontend API calls MUST go through this file.
+ * api.ts — base fetch helpers for GyanGrit frontend.
  *
- * Design:
- * - Versioned (/api/v1)
- * - Session-based auth
- * - CSRF-safe
- * - No hardcoded fetch elsewhere
+ * Rules:
+ * - All API calls go through apiGet / apiPost / apiPatch
+ * - Session cookies are sent with every request (credentials: "include")
+ * - CSRF token is read from gyangrit_csrftoken cookie and sent as X-CSRFToken
+ * - Never hardcode base URLs anywhere in the app — always import API_BASE_URL
+ *
+ * CHANGE (2026-03-15):
+ *   Exported API_BASE_URL so media.ts can use it without a hardcoded localhost string.
  */
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
 
-/**
- * Extract csrftoken from cookies.
- * Required for POST/PATCH with Django CSRF protection.
- */
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
+
 function getCsrfToken(): string | undefined {
-  // ✅ Match the renamed cookie from dev.py
   const match = document.cookie.match(
     new RegExp("(^| )gyangrit_csrftoken=([^;]+)")
   );
   return match ? match[2] : undefined;
 }
 
-
-// Add this to api.ts
 export async function initCsrf(): Promise<void> {
   await fetch(`${API_BASE_URL}/accounts/csrf/`, {
     credentials: "include",
   });
 }
 
-
-/**
- * GET helper.
- * Used for all read-only endpoints.
- */
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include", // IMPORTANT: send session cookie
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
   });
 
   if (!res.ok) {
-    throw new Error(`API GET error: ${res.status}`);
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-/**
- * POST helper.
- * Used for login, register, enroll, etc.
- */
-export async function apiPost<T>(
-  path: string,
-  body: unknown
-): Promise<T> {
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const csrfToken = getCsrfToken();
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -62,29 +49,20 @@ export async function apiPost<T>(
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
     },
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      `API POST error: ${res.status} - ${JSON.stringify(err)}`
-    );
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-/**
- * PATCH helper.
- * Used for progress updates, enrollment updates, etc.
- */
-export async function apiPatch<T>(
-  path: string,
-  body: unknown
-): Promise<T> {
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const csrfToken = getCsrfToken();
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -92,33 +70,15 @@ export async function apiPatch<T>(
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
     },
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    throw new Error(`API PATCH error: ${res.status}`);
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
   }
 
-  return res.json();
-}
-
-/**
- * Logout helper.
- * Clears the Django session.
- *
- * Backend endpoint:
- * POST /api/v1/accounts/logout/
- */
-export async function apiLogout(): Promise<void> {
-  await apiPost("/accounts/logout/", {});
-}
-
-// In api.ts — add this helper so views can use it
-export function handleApiError(err: unknown): never {
-  if (err instanceof TypeError && err.message.includes("fetch")) {
-    window.location.href = "/network-error";
-  }
-  throw err;
+  return res.json() as Promise<T>;
 }

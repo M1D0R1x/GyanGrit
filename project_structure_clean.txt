@@ -53,6 +53,8 @@ backend
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
 │   │   │   ├── 0002_joincode_subject.py
+│   │   │   ├── 0003_user_full_name_user_mobile_number_and_more.py
+│   │   │   ├── 0004_rename_mobile_number_user_mobile_primary_and_more.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── services.py
@@ -129,6 +131,21 @@ backend
 │   │   ├── r2.py
 │   │   ├── tests.py
 │   │   └── views.py
+│   ├── notifications
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   └── roster
 │       ├── __init__.py
 │       ├── admin.py
@@ -158,6 +175,7 @@ backend
 ├── manage.py
 ├── package-lock.json
 ├── package.json
+├── project_structure_clean.txt
 └── requirements
     ├── base.txt
     ├── dev.txt
@@ -179,6 +197,7 @@ frontend
 │   │   ├── LessonItem.tsx
 │   │   ├── Logo.tsx
 │   │   ├── LogoutButton.tsx
+│   │   ├── NotificationPanel.tsx
 │   │   └── TopBar.tsx
 │   ├── index.css
 │   ├── main.tsx
@@ -191,6 +210,7 @@ frontend
 │   │   ├── AssessmentHistoryPage.tsx
 │   │   ├── AssessmentPage.tsx
 │   │   ├── AssessmentsResultPage.tsx
+│   │   ├── CompleteProfilePage.tsx
 │   │   ├── CourseAssessmentsPage.tsx
 │   │   ├── CoursesPage.tsx
 │   │   ├── DashboardPage.tsx
@@ -207,7 +227,13 @@ frontend
 │   │   ├── TeacherDashboardPage.tsx
 │   │   ├── TeacherStudentDetailPage.tsx
 │   │   ├── UserManagementPage.tsx
-│   │   └── VerifyOtpPage.tsx
+│   │   ├── VerifyOtpPage.tsx
+│   │   └── errors
+│   │       ├── ErrorPage.tsx
+│   │       ├── ForbiddenPage.tsx
+│   │       ├── NetworkErrorPage.tsx
+│   │       ├── NotFoundPage.tsx
+│   │       └── ServerErrorPage.tsx
 │   ├── public
 │   │   └── favicon.svg
 │   └── services
@@ -218,6 +244,7 @@ frontend
 │       ├── learningEnrollments.ts
 │       ├── learningPaths.ts
 │       ├── media.ts
+│       ├── notifications.ts
 │       ├── progress.ts
 │       └── teacherAnalytics.ts
 ├── tsconfig.app.json
@@ -232,4 +259,4 @@ docs
 ├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-53 directories, 180 files
+58 directories, 202 files

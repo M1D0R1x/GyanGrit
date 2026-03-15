@@ -10,6 +10,27 @@ interface ValidateJoinCodeResponse {
   district?: string | null;
 }
 
+/**
+ * Parses the raw error string from api.ts and returns a clean human-readable message.
+ * api.ts throws: "API POST error: 400 - {"error":"Invalid join code"}"
+ */
+function parseApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof Error)) return fallback;
+  const msg = err.message;
+  // Try to extract the JSON payload from the error string
+  const jsonStart = msg.indexOf("{");
+  if (jsonStart !== -1) {
+    try {
+      const payload = JSON.parse(msg.slice(jsonStart));
+      if (payload.error) return payload.error;
+      if (payload.detail) return payload.detail;
+    } catch {
+      // fall through to raw message
+    }
+  }
+  return fallback;
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
 
@@ -24,7 +45,6 @@ export default function RegisterPage() {
   const [error, setError]               = useState("");
   const [loading, setLoading]           = useState(false);
 
-  // Auto-validate join code with debounce
   useEffect(() => {
     if (joinCode.length < 8) {
       setDetectedRole(null);
@@ -45,9 +65,9 @@ export default function RegisterPage() {
         setDetectedRole(res.role);
         setDetectedInfo(res);
       } catch (err: unknown) {
-        setValidationError(
-          err instanceof Error ? err.message : "Invalid or expired join code"
-        );
+        // Parse the clean error message from the API response
+        const message = parseApiError(err, "Invalid or expired join code");
+        setValidationError(message);
         setDetectedRole(null);
         setDetectedInfo(null);
       } finally {
@@ -81,9 +101,7 @@ export default function RegisterPage() {
       setSuccess("Account created! Redirecting to login…");
       setTimeout(() => navigate("/login"), 1800);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Registration failed. Check your join code."
-      );
+      setError(parseApiError(err, "Registration failed. Please check your join code."));
     } finally {
       setLoading(false);
     }
@@ -180,7 +198,6 @@ export default function RegisterPage() {
             Provided by your teacher, principal, or admin
           </span>
 
-          {/* Validation feedback */}
           {validating && (
             <div style={{
               display: "flex",
@@ -220,12 +237,23 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {validationError && (
+          {/* Clean error message — no raw API string */}
+          {validationError && !detectedRole && (
             <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
               marginTop: "var(--space-2)",
               fontSize: "var(--text-xs)",
               color: "var(--error)",
             }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
               {validationError}
             </div>
           )}

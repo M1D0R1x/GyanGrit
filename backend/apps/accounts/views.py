@@ -101,12 +101,19 @@ def register(request):
     institution = join_code.institution
     section = join_code.section
 
-    # Resolve district string from institution or section chain
+    # Resolve district string.
+    # Priority:
+    # 1. Institution FK (TEACHER, PRINCIPAL, STUDENT via institution)
+    # 2. Section chain (STUDENT via section only)
+    # 3. Direct district FK on join code (OFFICIAL — no institution)
     district = None
     if institution:
         district = institution.district.name
     elif section and section.classroom and section.classroom.institution:
         district = section.classroom.institution.district.name
+    elif join_code.district:
+        # OFFICIAL role — district is set directly on join code, no institution
+        district = join_code.district.name
 
     with transaction.atomic():
         user = User.objects.create_user(

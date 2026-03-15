@@ -1,71 +1,51 @@
-import type { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import type { Role } from "./authTypes";
-
-// Role hierarchy — higher number = more access
-const roleRank: Record<Role, number> = {
-  STUDENT:   1,
-  TEACHER:   2,
-  PRINCIPAL: 3,
-  OFFICIAL:  4,
-  ADMIN:     5,
-};
+import { ROLE_RANK, type Role } from "./authTypes";
 
 type Props = {
   role: Role;
-  children: ReactNode;
+  children: React.ReactNode;
 };
 
-function AuthLoadingScreen() {
-  return (
-    <div className="auth-loading">
-      <div className="auth-loading__logo">
-        Gyan<span>Grit</span>
-      </div>
-      <div className="auth-loading__spinner" />
-      <p className="auth-loading__text">Verifying session</p>
-    </div>
-  );
-}
-
-function AccessDeniedScreen() {
-  return (
-    <div className="access-denied">
-      <div className="access-denied__code">403</div>
-      <h2 className="access-denied__title">Access Denied</h2>
-      <p className="access-denied__message">
-        You do not have permission to view this page.
-        Please contact your administrator if you believe this is an error.
-      </p>
-      <a href="/" className="access-denied__btn">
-        Go to Dashboard
-      </a>
-    </div>
-  );
-}
-
 export function RequireRole({ role, children }: Props) {
-  const auth = useAuth();
-  const location = useLocation();
+  const auth     = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (auth.loading) return;
+
+    if (!auth.authenticated || !auth.user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    // Profile must be complete before accessing any protected page
+    // ADMIN is exempt — they are created via createsuperuser and may not have a profile
+    if (!auth.user.profile_complete && auth.user.role !== "ADMIN") {
+      navigate("/complete-profile", { replace: true });
+      return;
+    }
+
+    if (ROLE_RANK[auth.user.role] < ROLE_RANK[role]) {
+      navigate("/403", { replace: true });
+    }
+  }, [auth.loading, auth.authenticated, auth.user, role, navigate]);
 
   if (auth.loading) {
-    return <AuthLoadingScreen />;
-  }
-
-  if (!auth.authenticated) {
     return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
+      <div className="auth-loading">
+        <div className="auth-loading__logo">
+          Gyan<span>Grit</span>
+        </div>
+        <div className="auth-loading__spinner" />
+      </div>
     );
   }
 
-  if (roleRank[auth.role] < roleRank[role]) {
-    return <AccessDeniedScreen />;
-  }
+  if (!auth.authenticated || !auth.user) return null;
+  if (!auth.user.profile_complete && auth.user.role !== "ADMIN") return null;
+  if (ROLE_RANK[auth.user.role] < ROLE_RANK[role]) return null;
 
   return <>{children}</>;
 }

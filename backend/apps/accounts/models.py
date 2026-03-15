@@ -40,6 +40,12 @@ class User(AbstractUser):
     # district is denormalised as a string for fast filtering without joins.
     # It is always kept in sync with institution.district.name in save().
     district = models.CharField(max_length=255, blank=True, null=True)
+    # Add these three fields to the User model, after the district field:
+
+    full_name = models.CharField(max_length=255, blank=True, default="")
+    mobile_number = models.CharField(max_length=20, blank=True, default="")
+    profile_complete = models.BooleanField(default=False)
+
 
     def generate_public_id(self):
         year = timezone.now().year

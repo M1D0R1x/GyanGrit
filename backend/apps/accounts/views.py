@@ -354,17 +354,22 @@ def me(request):
     )
 
     return JsonResponse({
-        "authenticated": True,
-        "id": user.id,
-        "public_id": user.public_id,
-        "username": user.username,
-        "role": user.role,
-        "institution": user.institution.name if user.institution else None,
-        "institution_id": user.institution.id if user.institution else None,
-        "section": user.section.name if user.section else None,
-        "section_id": user.section.id if user.section else None,
-        "district": user.district if user.district else None,
+        "authenticated":    True,
+        "id":               user.id,
+        "public_id":        user.public_id,
+        "username":         user.username,
+        "role":             user.role,
+        "full_name":        user.full_name,
+        "mobile_number":    user.mobile_number,
+        "email":            user.email,
+        "profile_complete": user.profile_complete,
+        "institution":      user.institution.name if user.institution else None,
+        "institution_id":   user.institution.id  if user.institution else None,
+        "section":          user.section.name    if user.section     else None,
+        "section_id":       user.section.id      if user.section     else None,
+        "district":         user.district        if user.district    else None,
     })
+
 
 
 # =========================================================
@@ -962,3 +967,258 @@ This code can only be used once.
             {"error": "Email delivery failed. Check server email configuration."},
             status=500,
         )
+
+
+# =========================================================
+# COMPLETE PROFILE  (enforced on first login)
+# =========================================================
+
+@require_http_methods(["PATCH"])
+@csrf_exempt
+def complete_profile(request):
+    """
+    PATCH /api/v1/accounts/profile/
+
+    Required fields depend on role:
+      ALL roles:    full_name, mobile_number
+      TEACHER+:     email  (needed for OTP delivery later)
+
+    Once all required fields are present, sets profile_complete = True.
+    Idempotent: calling again after completion is a no-op.
+
+    Edge cases handled:
+    - Partial saves: profile_complete stays False until ALL required fields present
+    - Mobile number format: stored as-is, validated for non-empty digits only
+    - Email: basic format check delegated to Django's validator
+    - Duplicate mobile: NOT enforced here (school students may share family phones)
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    user = request.user
+    errors = {}
+
+    # ── full_name ────────────────────────────────────────────────────────────
+    full_name = body.get("full_name", "").strip()
+    if "full_name" in body:
+        if not full_name:
+            errors["full_name"] = "Full name is required."
+        elif len(full_name) < 2:
+            errors["full_name"] = "Full name must be at least 2 characters."
+        else:
+            user.full_name = full_name
+
+    # ── mobile_number ────────────────────────────────────────────────────────
+    mobile = body.get("mobile_number", "").strip()
+    if "mobile_number" in body:
+        digits = "".join(c for c in mobile if c.isdigit())
+        if not mobile:
+            errors["mobile_number"] = "Mobile number is required."
+        elif len(digits) < 10:
+            errors["mobile_number"] = "Enter a valid 10-digit mobile number."
+        else:
+            user.mobile_number = mobile
+
+    # ── email ────────────────────────────────────────────────────────────────
+    email = body.get("email", "").strip().lower()
+    if "email" in body:
+        if email:
+            from django.core.validators import validate_email
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validate_email(email)
+                # Check uniqueness — email must be unique per user
+                if User.objects.exclude(pk=user.pk).filter(email=email).exists():
+                    errors["email"] = "This email is already registered."
+                else:
+                    user.email = email
+            except DjangoValidationError:
+                errors["email"] = "Enter a valid email address."
+
+    if errors:
+        return JsonResponse({"errors": errors}, status=400)
+
+    # ── Determine if profile is complete ─────────────────────────────────────
+    # Required for ALL roles: full_name + mobile_number
+    # Required for TEACHER / PRINCIPAL / OFFICIAL: email also (for OTP)
+    required_email_roles = {"TEACHER", "PRINCIPAL", "OFFICIAL"}
+    needs_email = user.role in required_email_roles
+
+    is_complete = bool(
+        user.full_name.strip() and
+        user.mobile_number.strip() and
+        (user.email.strip() if needs_email else True)
+    )
+
+    user.profile_complete = is_complete
+    user.save(update_fields=["full_name", "mobile_number", "email", "profile_complete"])
+
+    logger.info(
+        "Profile updated: user=%s complete=%s",
+        user.id, user.profile_complete,
+    )
+
+    return JsonResponse({
+        "profile_complete": user.profile_complete,
+        "full_name":        user.full_name,
+        "mobile_number":    user.mobile_number,
+        "email":            user.email,
+    })
+
+# =========================================================
+# BULK JOIN CODE GENERATION
+# =========================================================
+
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
+@require_http_methods(["POST"])
+@csrf_exempt
+def bulk_create_join_codes(request):
+    """
+    POST /api/v1/accounts/join-codes/bulk/
+
+    Body:
+    {
+      "role":           "STUDENT",
+      "count":          20,          // 1–100
+      "institution_id": 5,           // optional for TEACHER/PRINCIPAL (auto-resolved)
+      "section_id":     12,          // optional, for STUDENT
+      "subject_id":     3,           // required for TEACHER
+      "district_id":    2,           // required for OFFICIAL
+      "expires_days":   3            // 1–30, default 3
+    }
+
+    Returns all created codes so the frontend can immediately show/download them.
+    All codes created atomically — if any fail, none are saved.
+
+    Edge cases:
+    - count > 100: rejected (prevents abuse)
+    - count < 1: rejected
+    - Same section for all student codes (they register individually, 1 code each)
+    - If partial failure in the loop: transaction.atomic() rolls back all
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    role = body.get("role", "").upper()
+    valid_roles = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"]
+
+    if role not in valid_roles:
+        return JsonResponse({"error": f"role must be one of: {', '.join(valid_roles)}"}, status=400)
+
+    # Count validation
+    try:
+        count = int(body.get("count", 1))
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "count must be an integer."}, status=400)
+
+    if count < 1:
+        return JsonResponse({"error": "count must be at least 1."}, status=400)
+    if count > 100:
+        return JsonResponse({"error": "Maximum 100 codes per batch."}, status=400)
+
+    # ── Permission matrix (same as create_join_code) ─────────────────────────
+    if request.user.role == "TEACHER" and role != "STUDENT":
+        return JsonResponse({"error": "Teachers can only create STUDENT codes."}, status=403)
+    if request.user.role == "PRINCIPAL" and role in ["OFFICIAL", "PRINCIPAL"]:
+        return JsonResponse({"error": "Principals can only create STUDENT and TEACHER codes."}, status=403)
+    if request.user.role == "OFFICIAL" and role != "PRINCIPAL":
+        return JsonResponse({"error": "Officials can only create PRINCIPAL codes."}, status=403)
+
+    # ── Resolve institution ──────────────────────────────────────────────────
+    institution = None
+    section = None
+    district = None
+    subject = None
+
+    if request.user.role in ("TEACHER", "PRINCIPAL"):
+        institution = request.user.institution
+        if not institution:
+            return JsonResponse({"error": "Your account has no institution assigned."}, status=400)
+    elif request.user.role == "OFFICIAL":
+        institution_id = body.get("institution_id")
+        if institution_id:
+            institution = get_object_or_404(Institution, id=institution_id)
+            if institution.district.name != request.user.district:
+                return JsonResponse({"error": "That institution is not in your district."}, status=403)
+    else:
+        institution_id = body.get("institution_id")
+        if institution_id:
+            institution = get_object_or_404(Institution, id=institution_id)
+
+    # ── Resolve section ──────────────────────────────────────────────────────
+    section_id = body.get("section_id")
+    if section_id:
+        section = get_object_or_404(Section, id=section_id)
+        if institution and section.classroom.institution != institution:
+            return JsonResponse({"error": "Section does not belong to this institution."}, status=400)
+
+    # ── Resolve district ─────────────────────────────────────────────────────
+    district_id = body.get("district_id")
+    if district_id:
+        district = get_object_or_404(District, id=district_id)
+    elif request.user.role == "OFFICIAL":
+        try:
+            district = District.objects.get(name=request.user.district)
+        except District.DoesNotExist:
+            pass
+
+    # ── Resolve subject ──────────────────────────────────────────────────────
+    subject_id = body.get("subject_id")
+    if subject_id:
+        subject = get_object_or_404(Subject, id=subject_id)
+
+    # ── Expiry ───────────────────────────────────────────────────────────────
+    expires_days = min(int(body.get("expires_days", 3)), 30)
+    expires_at = timezone.now() + timezone.timedelta(days=expires_days)
+
+    # ── Create atomically ────────────────────────────────────────────────────
+    created_codes = []
+    try:
+        with transaction.atomic():
+            for _ in range(count):
+                jc = JoinCode(
+                    role=role,
+                    institution=institution,
+                    section=section,
+                    district=district,
+                    subject=subject,
+                    created_by=request.user,
+                    expires_at=expires_at,
+                )
+                jc.full_clean()
+                jc.save()
+                created_codes.append(jc)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    logger.info(
+        "Bulk join codes created: count=%d role=%s by user=%s",
+        count, role, request.user.id,
+    )
+
+    data = [
+        {
+            "id":          jc.id,
+            "code":        jc.code,
+            "role":        jc.role,
+            "institution": jc.institution.name if jc.institution else None,
+            "section":     jc.section.name if jc.section else None,
+            "district":    jc.district.name if jc.district else None,
+            "subject":     jc.subject.name if jc.subject else None,
+            "is_used":     jc.is_used,
+            "is_valid":    jc.is_valid(),
+            "expires_at":  jc.expires_at.isoformat(),
+            "created_at":  jc.created_at.isoformat(),
+            "created_by":  jc.created_by.username if jc.created_by else None,
+        }
+        for jc in created_codes
+    ]
+
+    return JsonResponse({"created": len(data), "codes": data}, status=201)

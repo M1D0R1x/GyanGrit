@@ -1540,3 +1540,24 @@ a:hover {
   border-color: var(--role-official);
   background: rgba(139,92,246,0.1);
 }
+
+/* ── Form validation helpers ── */
+.form-input--error {
+  border-color: var(--error) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.form-error {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--error);
+  margin-top: var(--space-1);
+  font-weight: 500;
+}
+
+.form-hint {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}

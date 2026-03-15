@@ -1,48 +1,46 @@
-export type Role = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
+export type Role =
+  | "STUDENT"
+  | "TEACHER"
+  | "PRINCIPAL"
+  | "OFFICIAL"
+  | "ADMIN";
 
-export type MeResponse = {
-  authenticated: boolean;
-  role: Role;
-  id?: number;
-  public_id?: string;
-  username?: string;
-  institution?: string | null;
-  institution_id?: number | null;
-  section?: string | null;
-  section_id?: number | null;
-  district?: string | null;
+export const ROLE_RANK: Record<Role, number> = {
+  STUDENT:   1,
+  TEACHER:   2,
+  PRINCIPAL: 3,
+  OFFICIAL:  4,
+  ADMIN:     5,
 };
 
-export type UserProfile = {
-  id: number;
-  public_id: string;
-  username: string;
-  role: Role;
-  institution: string | null;
-  institution_id: number | null;
-  section: string | null;
-  section_id: number | null;
-  district: string | null;
-};
-
-export type AuthState = {
-  loading: boolean;
-  authenticated: boolean;
-  user: UserProfile | null;
-  role: Role;
-  username: string | undefined;
-  refresh: () => Promise<void>;
-};
-
-/**
- * Shared role → path mapping.
- * Used by LoginPage, VerifyOtpPage, RoleBasedRedirect.
- * Single source of truth — change here and all pages update.
- */
 export const ROLE_PATHS: Record<Role, string> = {
   STUDENT:   "/dashboard",
   TEACHER:   "/teacher",
   PRINCIPAL: "/principal",
   OFFICIAL:  "/official",
   ADMIN:     "/admin-panel",
+};
+
+export type UserProfile = {
+  id:               number;
+  public_id:        string;
+  username:         string;
+  role:             Role;
+  full_name:        string;
+  mobile_number:    string;
+  email:            string;
+  profile_complete: boolean;
+  institution:      string | null;
+  institution_id:   number | null;
+  section:          string | null;
+  section_id:       number | null;
+  district:         string | null;
+};
+
+export type AuthState = {
+  loading:       boolean;
+  authenticated: boolean;
+  user:          UserProfile | null;
+  setUser:       (user: UserProfile | null) => void;
+  refresh:       () => Promise<void>;
 };

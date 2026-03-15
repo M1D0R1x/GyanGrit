@@ -28,7 +28,8 @@ INSTALLED_APPS = [
     "apps.accesscontrol.apps.AccesscontrolConfig",
     "apps.roster.apps.RosterConfig",
     "apps.academics.apps.AcademicsConfig",
-    "apps.media.apps.MediaConfig",       # new
+    "apps.media.apps.MediaConfig",
+    "apps.notifications",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

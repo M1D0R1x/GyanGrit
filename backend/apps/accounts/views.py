@@ -700,3 +700,265 @@ def revoke_join_code(request, code_id):
     )
 
     return JsonResponse({"success": True, "code": join_code.code})
+
+# =========================================================
+# JOIN CODE EXCEL EXPORT
+# =========================================================
+
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
+@require_http_methods(["GET"])
+def export_join_codes(request):
+    """
+    GET /api/v1/accounts/join-codes/export/
+
+    Streams a formatted .xlsx file of the caller's visible join codes.
+    Frontend triggers download via blob URL.
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from io import BytesIO
+    from django.http import HttpResponse
+
+    # ── Reuse scoped queryset logic ─────────────────────────────────────────
+    queryset = JoinCode.objects.select_related(
+        "institution", "section", "district", "subject", "created_by"
+    ).order_by("-created_at")
+
+    if request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"error": "No institution assigned"}, status=400)
+        queryset = queryset.filter(institution=request.user.institution)
+    elif request.user.role == "TEACHER":
+        if not request.user.institution:
+            return JsonResponse({"error": "No institution assigned"}, status=400)
+        queryset = queryset.filter(institution=request.user.institution, role="STUDENT")
+    elif request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"error": "No district assigned"}, status=400)
+        queryset = (
+            queryset.filter(institution__district__name=request.user.district) |
+            queryset.filter(district__name=request.user.district)
+        )
+
+    # ── Build workbook ──────────────────────────────────────────────────────
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Join Codes"
+
+    # Styles
+    DARK    = "1E293B"
+    LIGHT1  = "FFFFFF"
+    LIGHT2  = "F1F5F9"
+    BRAND   = "3B82F6"
+    SUCCESS = "10B981"
+    MUTED   = "64748B"
+
+    header_fill = PatternFill("solid", start_color=DARK)
+    header_font = Font(bold=True, color="F8FAFC", name="Arial", size=11)
+    body_font   = Font(name="Arial", size=10, color="1E293B")
+    code_font   = Font(name="Courier New", size=10, color=BRAND, bold=True)
+    muted_font  = Font(name="Arial", size=9, color=MUTED)
+
+    border_side = Side(style="thin", color="E2E8F0")
+    thin_border = Border(
+        left=border_side, right=border_side,
+        top=border_side, bottom=border_side,
+    )
+
+    center = Alignment(horizontal="center", vertical="center")
+    left   = Alignment(horizontal="left",   vertical="center")
+
+    # Headers
+    headers    = ["#", "Role", "Join Code", "Institution / District", "Section", "Subject", "Expires", "Status", "Created By"]
+    col_widths = [4,    12,     22,          36,                        14,        18,         14,        10,       16]
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.font      = header_font
+        cell.fill      = header_fill
+        cell.alignment = center
+        cell.border    = thin_border
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    ws.row_dimensions[1].height = 24
+    ws.freeze_panes = "A2"
+
+    # Data rows
+    row_fills = [LIGHT1, LIGHT2]
+    for ri, jc in enumerate(queryset, 2):
+        fill = PatternFill("solid", start_color=row_fills[(ri - 2) % 2])
+
+        status = "Active" if jc.is_valid() else ("Used" if jc.is_used else "Expired")
+        for_val = (
+            jc.institution.name if jc.institution else
+            (jc.district.name if jc.district else "—")
+        )
+
+        row_data = [
+            ri - 1,
+            jc.role,
+            jc.code,
+            for_val,
+            jc.section.name if jc.section else "—",
+            jc.subject.name if jc.subject else "—",
+            jc.expires_at.strftime("%d %b %Y"),
+            status,
+            jc.created_by.username if jc.created_by else "—",
+        ]
+
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border = thin_border
+            cell.fill   = fill
+
+            if ci == 3:  # join code column
+                cell.font      = code_font
+                cell.alignment = left
+            elif ci in (1, 2, 7, 8):
+                cell.font      = body_font
+                cell.alignment = center
+            else:
+                cell.font      = body_font
+                cell.alignment = left
+
+        ws.row_dimensions[ri].height = 20
+
+    # Summary row
+    total_rows = queryset.count()
+    summary_row = total_rows + 2
+    ws.cell(row=summary_row, column=1,
+            value=f"Total: {total_rows} codes | Exported by: {request.user.username}").font = muted_font
+
+    # ── Stream response ─────────────────────────────────────────────────────
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"gyangrit_join_codes_{timezone.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    response = HttpResponse(
+        buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Access-Control-Expose-Headers"] = "Content-Disposition"
+    return response
+
+
+# =========================================================
+# EMAIL A SINGLE JOIN CODE
+# =========================================================
+
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
+@require_http_methods(["POST"])
+@csrf_exempt
+def email_join_code(request, code_id):
+    """
+    POST /api/v1/accounts/join-codes/<id>/email/
+
+    Body: { "email": "recipient@example.com" }
+
+    In DEBUG mode: returns a preview without sending.
+    In production: sends via Django email backend (configure EMAIL_* settings).
+    """
+    import json as _json
+    from django.core.mail import send_mail
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
+
+    try:
+        body = _json.loads(request.body)
+    except (_json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    recipient = body.get("email", "").strip()
+    if not recipient:
+        return JsonResponse({"error": "email is required"}, status=400)
+
+    try:
+        validate_email(recipient)
+    except ValidationError:
+        return JsonResponse({"error": "Invalid email address"}, status=400)
+
+    join_code = get_object_or_404(JoinCode, id=code_id)
+
+    # Scope check
+    if request.user.role == "PRINCIPAL":
+        if join_code.institution != request.user.institution:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+    elif request.user.role == "TEACHER":
+        if join_code.institution != request.user.institution or join_code.role != "STUDENT":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+    elif request.user.role == "OFFICIAL":
+        if join_code.district and join_code.district.name != request.user.district:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+    if not join_code.is_valid():
+        return JsonResponse({"error": "This code is already used or expired."}, status=400)
+
+    # Build email content
+    for_label = (
+        join_code.institution.name if join_code.institution else
+        (join_code.district.name if join_code.district else "GyanGrit")
+    )
+    subject = f"Your GyanGrit Join Code — {join_code.role.capitalize()}"
+    body_text = f"""Hello,
+
+You have been invited to join GyanGrit as a {join_code.role.lower()}.
+
+Your join code is:
+
+    {join_code.code}
+
+Use this code on the registration page at: https://gyangrit.com/register
+
+Details:
+  Role:        {join_code.role}
+  Institution: {for_label}
+  Expires:     {join_code.expires_at.strftime('%d %b %Y')}
+
+This code can only be used once.
+
+— GyanGrit Team
+"""
+
+    preview = {
+        "to":      recipient,
+        "subject": subject,
+        "body":    body_text,
+        "code":    join_code.code,
+        "role":    join_code.role,
+        "for":     for_label,
+    }
+
+    if settings.DEBUG:
+        # Development: return preview, don't send
+        logger.debug(
+            "DEV email preview for join code %s → %s", join_code.code, recipient
+        )
+        return JsonResponse({
+            "sent":    False,
+            "dev_mode": True,
+            "preview": preview,
+        })
+
+    # Production: send via configured email backend
+    try:
+        send_mail(
+            subject=subject,
+            message=body_text,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@gyangrit.com"),
+            recipient_list=[recipient],
+            fail_silently=False,
+        )
+        logger.info(
+            "Join code email sent: code=%s to=%s by user=%s",
+            join_code.code, recipient, request.user.id,
+        )
+        return JsonResponse({"sent": True, "to": recipient})
+    except Exception as e:
+        logger.error("Failed to send join code email: %s", str(e))
+        return JsonResponse(
+            {"error": "Email delivery failed. Check server email configuration."},
+            status=500,
+        )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../services/api";
 import TopBar from "../components/TopBar";
 
@@ -17,20 +17,18 @@ type JoinCode = {
   created_by: string | null;
 };
 
-type SubjectItem      = { id: number; name: string };
-type InstitutionItem  = { id: number; name: string; district__name: string };
-type DistrictItem     = { id: number; name: string };
-
-// Updated: includes the enriched fields returned by academics/sections/
-type SectionItem = {
+type SubjectItem     = { id: number; name: string };
+type InstitutionItem = { id: number; name: string; district__name: string };
+type DistrictItem    = { id: number; name: string };
+type SectionItem     = {
   id: number;
   name: string;
   classroom_id: number;
   grade: string;
   institution_id: number;
   institution_name: string;
-  label: string;        // "Class 8-A — Govt School Amritsar"
-  short_label: string;  // "Class 8-A"
+  label: string;
+  short_label: string;
 };
 
 type RoleType    = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL";
@@ -39,6 +37,9 @@ type ValidFilter = "ALL" | "VALID" | "USED";
 const ROLES: RoleType[]            = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
 const ROLE_FILTERS: string[]       = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
 const VALID_FILTERS: ValidFilter[] = ["ALL", "VALID", "USED"];
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  ?? "http://127.0.0.1:8000/api/v1";
 
 function parseApiError(err: unknown, fallback: string): string {
   if (!(err instanceof Error)) return fallback;
@@ -63,15 +64,7 @@ function roleColor(role: string): string {
   return map[role] ?? "badge--info";
 }
 
-function FilterPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -92,6 +85,200 @@ function FilterPill({
   );
 }
 
+// ── Email modal ────────────────────────────────────────────────────────────
+
+function EmailModal({
+  code,
+  onClose,
+  onSent,
+}: {
+  code: JoinCode;
+  onClose: () => void;
+  onSent: (msg: string) => void;
+}) {
+  const [email, setEmail]     = useState("");
+  const [sending, setSending] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [err, setErr]         = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSend = async () => {
+    if (!email.trim()) { setErr("Email address is required."); return; }
+    setSending(true);
+    setErr(null);
+    try {
+      const res = await apiPost<{
+        sent: boolean;
+        dev_mode?: boolean;
+        to?: string;
+        preview?: { body: string };
+      }>(`/accounts/join-codes/${code.id}/email/`, { email: email.trim() });
+
+      if (res.dev_mode && res.preview) {
+        setPreview(res.preview.body);
+      } else {
+        onSent(`Email sent to ${res.to}`);
+        onClose();
+      }
+    } catch (e) {
+      setErr(parseApiError(e, "Failed to send email."));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10000,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "var(--space-4)",
+        backdropFilter: "blur(4px)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-lg)",
+          width: "100%",
+          maxWidth: 480,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+          animation: "fadeInUp 0.2s ease both",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "16px 20px",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}>
+          <div>
+            <div style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: "var(--text-base)",
+              color: "var(--text-primary)",
+            }}>
+              Email Join Code
+            </div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+              <span style={{ fontFamily: "monospace", color: "var(--brand-primary)" }}>
+                {code.code.slice(0, 8)}…
+              </span>
+              {" · "}{code.role}
+              {code.institution ? ` · ${code.institution}` : ""}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 20,
+              lineHeight: 1,
+              padding: "4px 6px",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px" }}>
+          {preview ? (
+            <>
+              <div style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                padding: 12,
+                fontFamily: "monospace",
+                fontSize: 12,
+                color: "var(--text-secondary)",
+                whiteSpace: "pre-wrap",
+                maxHeight: 280,
+                overflowY: "auto",
+                marginBottom: 16,
+              }}>
+                {preview}
+              </div>
+              <div className="alert alert--info" style={{ marginBottom: 12 }}>
+                <strong>Dev mode:</strong> Email not sent. Configure Django email settings for production delivery.
+              </div>
+              <button className="btn btn--secondary" onClick={onClose} style={{ width: "100%" }}>
+                Close
+              </button>
+            </>
+          ) : (
+            <>
+              {err && <div className="alert alert--error" style={{ marginBottom: 12 }}>{err}</div>}
+
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">Recipient email *</label>
+                <input
+                  ref={inputRef}
+                  className="form-input"
+                  type="email"
+                  placeholder="recipient@school.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+                  disabled={sending}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn btn--primary"
+                  onClick={handleSend}
+                  disabled={sending}
+                  style={{ flex: 1 }}
+                >
+                  {sending ? (
+                    <><span className="btn__spinner" aria-hidden="true" /> Sending…</>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                        strokeLinejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                      Send Email
+                    </>
+                  )}
+                </button>
+                <button
+                  className="btn btn--secondary"
+                  onClick={onClose}
+                  disabled={sending}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
+
 export default function AdminJoinCodesPage() {
   const [codes, setCodes]             = useState<JoinCode[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -101,8 +288,9 @@ export default function AdminJoinCodesPage() {
   const [creating, setCreating]       = useState(false);
   const [filterRole, setFilterRole]   = useState("ALL");
   const [filterValid, setFilterValid] = useState<ValidFilter>("ALL");
+  const [emailCode, setEmailCode]     = useState<JoinCode | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
-  // Form fields
   const [role, setRole]               = useState<RoleType>("STUDENT");
   const [institutionId, setInstitutionId] = useState("");
   const [sectionId, setSectionId]     = useState("");
@@ -110,14 +298,12 @@ export default function AdminJoinCodesPage() {
   const [districtId, setDistrictId]   = useState("");
   const [expiresDays, setExpiresDays] = useState(3);
 
-  // Lookup data
   const [institutions, setInstitutions] = useState<InstitutionItem[]>([]);
   const [sections, setSections]         = useState<SectionItem[]>([]);
   const [subjects, setSubjects]         = useState<SubjectItem[]>([]);
   const [districts, setDistricts]       = useState<DistrictItem[]>([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
-  // Load initial data
   useEffect(() => {
     Promise.all([
       apiGet<JoinCode[]>("/accounts/join-codes/"),
@@ -135,25 +321,14 @@ export default function AdminJoinCodesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Load sections when institution is selected
   useEffect(() => {
-    if (!institutionId) {
-      setSections([]);
-      setSectionId("");
-      return;
-    }
+    if (!institutionId) { setSections([]); setSectionId(""); return; }
     setSectionsLoading(true);
-    // Uses academics/sections/ which returns enriched labels (grade, short_label, etc.)
-    apiGet<SectionItem[]>(
-      `/academics/sections/?classroom__institution_id=${institutionId}`
-    )
+    apiGet<SectionItem[]>(`/academics/sections/?classroom__institution_id=${institutionId}`)
       .then((data) => {
-        // Sort numerically by grade then alphabetically by section name
         const sorted = [...data].sort((a, b) => {
-          const gradeA = parseInt(a.grade, 10) || 0;
-          const gradeB = parseInt(b.grade, 10) || 0;
-          if (gradeA !== gradeB) return gradeA - gradeB;
-          return a.name.localeCompare(b.name);
+          const diff = (parseInt(a.grade, 10) || 0) - (parseInt(b.grade, 10) || 0);
+          return diff !== 0 ? diff : a.name.localeCompare(b.name);
         });
         setSections(sorted);
       })
@@ -161,39 +336,25 @@ export default function AdminJoinCodesPage() {
       .finally(() => setSectionsLoading(false));
   }, [institutionId]);
 
-  // Reset section when institution changes
-  useEffect(() => {
-    setSectionId("");
-  }, [institutionId]);
+  useEffect(() => { setSectionId(""); }, [institutionId]);
 
   const resetForm = () => {
     setRole("STUDENT");
-    setInstitutionId("");
-    setSectionId("");
-    setSubjectId("");
-    setDistrictId("");
+    setInstitutionId(""); setSectionId("");
+    setSubjectId(""); setDistrictId("");
     setExpiresDays(3);
   };
 
   const handleCreate = async () => {
-    setCreating(true);
-    setError(null);
-    setSuccess(null);
-
+    setCreating(true); setError(null); setSuccess(null);
     try {
-      const payload: Record<string, unknown> = {
-        role,
-        expires_days: expiresDays,
-      };
+      const payload: Record<string, unknown> = { role, expires_days: expiresDays };
       if (institutionId) payload.institution_id = Number(institutionId);
       if (sectionId)     payload.section_id     = Number(sectionId);
       if (subjectId)     payload.subject_id     = Number(subjectId);
       if (districtId)    payload.district_id    = Number(districtId);
 
-      const created = await apiPost<JoinCode>(
-        "/accounts/join-codes/create/",
-        payload
-      );
+      const created = await apiPost<JoinCode>("/accounts/join-codes/create/", payload);
       setCodes((prev) => [created, ...prev]);
       setSuccess(`Code created: ${created.code}`);
       setShowForm(false);
@@ -209,21 +370,49 @@ export default function AdminJoinCodesPage() {
     if (!confirm(`Revoke code ${codeStr.slice(0, 8)}...?`)) return;
     try {
       await apiPost(`/accounts/join-codes/${codeId}/revoke/`, {});
-      setCodes((prev) =>
-        prev.map((c) =>
-          c.id === codeId ? { ...c, is_used: true, is_valid: false } : c
-        )
-      );
+      setCodes((prev) => prev.map((c) => c.id === codeId ? { ...c, is_used: true, is_valid: false } : c));
       setSuccess("Code revoked.");
+    } catch { setError("Failed to revoke."); }
+  };
+
+  // Download Excel via blob — avoids CORS/cookie issues with direct href
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // Get CSRF token from cookie
+      const csrf = document.cookie
+        .split("; ")
+        .find((c) => c.startsWith("gyangrit_csrftoken="))
+        ?.split("=")[1] ?? "";
+
+      const res = await fetch(`${API_BASE}/accounts/join-codes/export/`, {
+        credentials: "include",
+        headers: { "X-CSRFToken": csrf },
+      });
+
+      if (!res.ok) throw new Error("Export failed");
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `gyangrit_join_codes_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSuccess("Excel downloaded.");
     } catch {
-      setError("Failed to revoke.");
+      setError("Failed to download. Try again.");
+    } finally {
+      setDownloading(false);
     }
   };
 
   const filtered = codes.filter((c) => {
     if (filterRole !== "ALL" && c.role !== filterRole) return false;
     if (filterValid === "VALID" && !c.is_valid) return false;
-    if (filterValid === "USED" && c.is_valid) return false;
+    if (filterValid === "USED"  && c.is_valid)  return false;
     return true;
   });
 
@@ -244,247 +433,140 @@ export default function AdminJoinCodesPage() {
               Generate and manage registration codes for new users
             </p>
           </div>
-          <button className="btn btn--primary" onClick={() => setShowForm(true)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-              strokeLinejoin="round" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Code
-          </button>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            <button
+              className="btn btn--secondary"
+              onClick={handleDownload}
+              disabled={downloading}
+              title="Download all codes as Excel"
+            >
+              {downloading ? (
+                <><span className="btn__spinner" aria-hidden="true" /> Exporting…</>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export Excel
+                </>
+              )}
+            </button>
+            <button className="btn btn--primary" onClick={() => setShowForm(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Code
+            </button>
+          </div>
         </div>
 
-        {error   && (
-          <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="alert alert--success" style={{ marginBottom: "var(--space-4)" }}>
-            {success}
-          </div>
-        )}
+        {error   && <div className="alert alert--error"   style={{ marginBottom: "var(--space-4)" }}>{error}</div>}
+        {success && <div className="alert alert--success" style={{ marginBottom: "var(--space-4)" }}>{success}</div>}
 
-        {/* ── Create form ── */}
+        {/* Create form */}
         {showForm && (
           <div className="card" style={{ marginBottom: "var(--space-6)" }}>
-            <h3 style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-lg)",
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              marginBottom: "var(--space-5)",
-            }}>
+            <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)", marginBottom: "var(--space-5)" }}>
               Create Join Code
             </h3>
-
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "var(--space-4)",
-            }}>
-              {/* Role */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-4)" }}>
               <div className="form-group">
                 <label className="form-label">Role *</label>
-                <select
-                  className="form-input"
-                  value={role}
-                  onChange={(e) => {
-                    setRole(e.target.value as RoleType);
-                    setInstitutionId("");
-                    setSectionId("");
-                    setSubjectId("");
-                    setDistrictId("");
-                  }}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
+                <select className="form-input" value={role}
+                  onChange={(e) => { setRole(e.target.value as RoleType); setInstitutionId(""); setSectionId(""); setSubjectId(""); setDistrictId(""); }}>
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 
-              {/* Institution */}
               {needsInstitution && (
                 <div className="form-group">
                   <label className="form-label">Institution *</label>
-                  <select
-                    className="form-input"
-                    value={institutionId}
-                    onChange={(e) => setInstitutionId(e.target.value)}
-                  >
+                  <select className="form-input" value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
                     <option value="">— select institution —</option>
-                    {institutions.map((inst) => (
-                      <option key={inst.id} value={inst.id}>
-                        {inst.name}
-                      </option>
-                    ))}
+                    {institutions.map((inst) => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
                   </select>
                 </div>
               )}
 
-              {/* Section — only for STUDENT, only after institution selected */}
               {needsSection && institutionId && (
                 <div className="form-group">
                   <label className="form-label">Section</label>
                   {sectionsLoading ? (
-                    <div
-                      className="skeleton"
-                      style={{ height: 42, borderRadius: "var(--radius-md)" }}
-                    />
+                    <div className="skeleton" style={{ height: 42, borderRadius: "var(--radius-md)" }} />
                   ) : sections.length > 0 ? (
-                    <select
-                      className="form-input"
-                      value={sectionId}
-                      onChange={(e) => setSectionId(e.target.value)}
-                    >
+                    <select className="form-input" value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
                       <option value="">— all sections —</option>
-                      {sections.map((s) => (
-                        // FIX: use short_label ("Class 8-A") not name ("A")
-                        <option key={s.id} value={s.id}>
-                          {s.short_label}
-                        </option>
-                      ))}
+                      {sections.map((s) => <option key={s.id} value={s.id}>{s.short_label}</option>)}
                     </select>
                   ) : (
-                    <input
-                      className="form-input"
-                      value="No sections found"
-                      disabled
-                      style={{ opacity: 0.5, cursor: "not-allowed" }}
-                    />
+                    <input className="form-input" value="No sections found" disabled style={{ opacity: 0.5 }} />
                   )}
                 </div>
               )}
 
-              {/* Subject — only for TEACHER */}
               {needsSubject && (
                 <div className="form-group">
                   <label className="form-label">Subject *</label>
-                  <select
-                    className="form-input"
-                    value={subjectId}
-                    onChange={(e) => setSubjectId(e.target.value)}
-                  >
+                  <select className="form-input" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
                     <option value="">— select subject —</option>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
+                    {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
               )}
 
-              {/* District — only for OFFICIAL */}
               {needsDistrict && (
                 <div className="form-group">
                   <label className="form-label">District *</label>
-                  <select
-                    className="form-input"
-                    value={districtId}
-                    onChange={(e) => setDistrictId(e.target.value)}
-                  >
+                  <select className="form-input" value={districtId} onChange={(e) => setDistrictId(e.target.value)}>
                     <option value="">— select district —</option>
-                    {districts.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
+                    {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
               )}
 
-              {/* Expiry */}
               <div className="form-group">
                 <label className="form-label">Expires in (days, max 30)</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={expiresDays}
-                  onChange={(e) => setExpiresDays(Number(e.target.value))}
-                />
+                <input className="form-input" type="number" min={1} max={30} value={expiresDays}
+                  onChange={(e) => setExpiresDays(Number(e.target.value))} />
               </div>
             </div>
 
             <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
-              <button
-                className="btn btn--primary"
-                onClick={handleCreate}
-                disabled={creating}
-              >
-                {creating ? (
-                  <>
-                    <span className="btn__spinner" aria-hidden="true" />
-                    Creating…
-                  </>
-                ) : "Create Code"}
+              <button className="btn btn--primary" onClick={handleCreate} disabled={creating}>
+                {creating ? (<><span className="btn__spinner" aria-hidden="true" /> Creating…</>) : "Create Code"}
               </button>
-              <button
-                className="btn btn--secondary"
-                onClick={() => { setShowForm(false); resetForm(); }}
-                disabled={creating}
-              >
+              <button className="btn btn--secondary" onClick={() => { setShowForm(false); resetForm(); }} disabled={creating}>
                 Cancel
               </button>
             </div>
           </div>
         )}
 
-        {/* ── Filters ── */}
-        <div style={{
-          display: "flex",
-          gap: "var(--space-2)",
-          marginBottom: "var(--space-5)",
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}>
-          <span style={{
-            fontSize: "var(--text-xs)",
-            color: "var(--text-muted)",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}>
-            Role:
-          </span>
+        {/* Filters */}
+        <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-5)", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Role:</span>
           {ROLE_FILTERS.map((r) => (
-            <FilterPill
-              key={r}
-              label={r}
-              active={filterRole === r}
-              onClick={() => setFilterRole(r)}
-            />
+            <FilterPill key={r} label={r} active={filterRole === r} onClick={() => setFilterRole(r)} />
           ))}
-
           <div style={{ width: 1, height: 16, background: "var(--border-subtle)" }} />
-
-          <span style={{
-            fontSize: "var(--text-xs)",
-            color: "var(--text-muted)",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}>
-            Status:
-          </span>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Status:</span>
           {VALID_FILTERS.map((f) => (
-            <FilterPill
-              key={f}
-              label={f}
-              active={filterValid === f}
-              onClick={() => setFilterValid(f)}
-            />
+            <FilterPill key={f} label={f} active={filterValid === f} onClick={() => setFilterValid(f)} />
           ))}
         </div>
 
-        {/* ── Table ── */}
+        {/* Table */}
         {loading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="skeleton"
-                style={{ height: 52, borderRadius: "var(--radius-md)" }}
-              />
+              <div key={i} className="skeleton" style={{ height: 52, borderRadius: "var(--radius-md)" }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -511,23 +593,11 @@ export default function AdminJoinCodesPage() {
                 {filtered.map((code) => (
                   <tr key={code.id}>
                     <td>
-                      <code style={{
-                        fontFamily: "monospace",
-                        fontSize: "var(--text-xs)",
-                        background: "var(--bg-elevated)",
-                        padding: "2px 6px",
-                        borderRadius: "var(--radius-sm)",
-                        letterSpacing: "0.05em",
-                        color: "var(--text-primary)",
-                      }}>
+                      <code style={{ fontFamily: "monospace", fontSize: "var(--text-xs)", background: "var(--bg-elevated)", padding: "2px 6px", borderRadius: "var(--radius-sm)", letterSpacing: "0.05em", color: "var(--text-primary)" }}>
                         {code.code.slice(0, 8)}…
                       </code>
                     </td>
-                    <td>
-                      <span className={`badge ${roleColor(code.role)}`}>
-                        {code.role}
-                      </span>
-                    </td>
+                    <td><span className={`badge ${roleColor(code.role)}`}>{code.role}</span></td>
                     <td style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
                       {code.institution ?? code.district ?? "—"}
                       {code.subject ? ` · ${code.subject}` : ""}
@@ -539,29 +609,38 @@ export default function AdminJoinCodesPage() {
                       </span>
                     </td>
                     <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                      {new Date(code.expires_at).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {new Date(code.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </td>
                     <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                       {code.created_by ?? "—"}
                     </td>
                     <td>
-                      {code.is_valid && (
-                        <button
-                          className="btn btn--ghost"
-                          style={{
-                            padding: "2px 8px",
-                            fontSize: "var(--text-xs)",
-                            color: "var(--error)",
-                          }}
-                          onClick={() => handleRevoke(code.id, code.code)}
-                        >
-                          Revoke
-                        </button>
-                      )}
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {code.is_valid && (
+                          <>
+                            <button
+                              className="btn btn--ghost"
+                              style={{ padding: "2px 8px", fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}
+                              onClick={() => setEmailCode(code)}
+                              title="Send code by email"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                strokeLinejoin="round" aria-hidden="true">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                              </svg>
+                            </button>
+                            <button
+                              className="btn btn--ghost"
+                              style={{ padding: "2px 8px", fontSize: "var(--text-xs)", color: "var(--error)" }}
+                              onClick={() => handleRevoke(code.id, code.code)}
+                            >
+                              Revoke
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -569,8 +648,16 @@ export default function AdminJoinCodesPage() {
             </table>
           </div>
         )}
-
       </main>
+
+      {/* Email modal */}
+      {emailCode && (
+        <EmailModal
+          code={emailCode}
+          onClose={() => setEmailCode(null)}
+          onSent={(msg) => { setSuccess(msg); setEmailCode(null); }}
+        />
+      )}
     </div>
   );
 }

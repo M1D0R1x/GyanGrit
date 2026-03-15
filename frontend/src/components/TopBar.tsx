@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import LogoutButton from "./LogoutButton";
 import Logo from "./Logo";
+import { NotificationBell, NotificationPanel } from "./NotificationPanel";
+import { fetchNotifications } from "../services/notifications";
 
 type Props = {
   title?: string;
@@ -22,6 +24,7 @@ function getInitials(username: string): string {
 
 function UserDropdown({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const [hovered, setHovered] = useState<string | null>(null);
 
   const go = (path: string) => {
     onClose();
@@ -47,19 +50,39 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
       <UserInfoHeader />
 
       <div style={{ padding: "4px 0" }}>
-        <DropdownBtn
-          icon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          }
-          label="Profile"
+        <button
+          role="menuitem"
           onClick={() => go("/profile")}
-        />
+          onMouseEnter={() => setHovered("profile")}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            width: "100%",
+            padding: "8px 16px",
+            background: hovered === "profile" ? "var(--bg-overlay)" : "none",
+            border: "none",
+            color: hovered === "profile" ? "var(--text-primary)" : "var(--text-secondary)",
+            fontFamily: "var(--font-body)",
+            fontSize: "var(--text-sm)",
+            fontWeight: 500,
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "all 0.1s",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Profile
+        </button>
+
         <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
+
         <div style={{ padding: "4px 8px" }}>
           <LogoutButton onLogout={onClose} />
         </div>
@@ -89,72 +112,56 @@ function UserInfoHeader() {
   );
 }
 
-function DropdownBtn({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      role="menuitem"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        width: "100%",
-        padding: "8px 16px",
-        background: hovered ? "var(--bg-overlay)" : "none",
-        border: "none",
-        color: hovered ? "var(--text-primary)" : "var(--text-secondary)",
-        fontFamily: "var(--font-body)",
-        fontSize: "var(--text-sm)",
-        fontWeight: 500,
-        cursor: "pointer",
-        textAlign: "left",
-        transition: "all 0.1s",
-      }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
 export default function TopBar({ title }: Props) {
-  const auth = useAuth();
+  const auth     = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [userMenuOpen, setUserMenuOpen]   = useState(false);
+  const [notifOpen, setNotifOpen]         = useState(false);
+  const [unreadCount, setUnreadCount]     = useState(0);
+
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef    = useRef<HTMLDivElement>(null);
+
+  // Poll unread count every 60 seconds while authenticated
+  const refreshUnread = useCallback(() => {
+    if (!auth.authenticated) return;
+    fetchNotifications()
+      .then((data) => setUnreadCount(data.unread))
+      .catch(() => { /* silent — network errors shouldn't break the topbar */ });
+  }, [auth.authenticated]);
 
   useEffect(() => {
-    if (!open) return;
+    refreshUnread();
+    const interval = setInterval(refreshUnread, 60_000);
+    return () => clearInterval(interval);
+  }, [refreshUnread]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [userMenuOpen]);
 
+  // Escape closes whichever panel is open
   useEffect(() => {
-    if (!open) return;
+    if (!userMenuOpen && !notifOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setUserMenuOpen(false);
+        setNotifOpen(false);
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open]);
+  }, [userMenuOpen, notifOpen]);
 
-  // Navigate to role-appropriate home on logo click
   const handleLogoClick = () => {
     if (!auth.authenticated || !auth.user) {
       navigate("/login");
@@ -187,7 +194,7 @@ export default function TopBar({ title }: Props) {
       }}
       role="banner"
     >
-      {/* Left: clickable logo + optional page title */}
+      {/* Left: clickable logo + page title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={handleLogoClick}
@@ -222,95 +229,122 @@ export default function TopBar({ title }: Props) {
         )}
       </div>
 
-      {/* Right: user pill with dropdown */}
-      {auth.loading ? (
-        <div style={{
-          width: 160,
-          height: 34,
-          background: "var(--bg-elevated)",
-          borderRadius: "var(--radius-full)",
-          animation: "shimmer 1.5s infinite linear",
-        }} />
-      ) : auth.authenticated && auth.user ? (
-        <div ref={containerRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => setOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label="Open user menu"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "4px 12px 4px 6px",
-              background: open ? "var(--bg-elevated)" : "var(--bg-overlay)",
-              border: "1px solid",
-              borderColor: open ? "var(--brand-primary)" : "var(--border-subtle)",
-              borderRadius: "var(--radius-full)",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              fontFamily: "inherit",
-            }}
-          >
-            <div style={{
-              width: 26,
-              height: 26,
-              borderRadius: "50%",
-              background: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              fontWeight: 700,
-              color: "#fff",
-              flexShrink: 0,
-            }}>
-              {getInitials(auth.user.username)}
-            </div>
+      {/* Right: notification bell + user pill */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-            <span style={{
-              fontSize: "var(--text-sm)",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              maxWidth: 100,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}>
-              {auth.user.username}
-            </span>
-
-            <span style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "2px 6px",
-              borderRadius: "var(--radius-full)",
-              background: (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
-              color: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}>
-              {auth.user.role}
-            </span>
-
-            <svg
-              width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="var(--text-muted)" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{
-                transform: open ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.15s",
-                flexShrink: 0,
+        {/* Notification bell */}
+        {auth.authenticated && (
+          <div ref={notifRef} style={{ position: "relative" }}>
+            <NotificationBell
+              unread={unreadCount}
+              active={notifOpen}
+              onClick={() => {
+                setNotifOpen((v) => !v);
+                setUserMenuOpen(false);
               }}
-              aria-hidden="true"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
+            />
+            {notifOpen && (
+              <NotificationPanel
+                onClose={() => setNotifOpen(false)}
+                onUnreadChange={setUnreadCount}
+              />
+            )}
+          </div>
+        )}
 
-          {open && <UserDropdown onClose={() => setOpen(false)} />}
-        </div>
-      ) : null}
+        {/* User pill */}
+        {auth.loading ? (
+          <div style={{
+            width: 140,
+            height: 34,
+            background: "var(--bg-elevated)",
+            borderRadius: "var(--radius-full)",
+            animation: "shimmer 1.5s infinite linear",
+          }} />
+        ) : auth.authenticated && auth.user ? (
+          <div ref={userMenuRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => {
+                setUserMenuOpen((v) => !v);
+                setNotifOpen(false);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              aria-label="Open user menu"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "4px 12px 4px 6px",
+                background: userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
+                border: "1px solid",
+                borderColor: userMenuOpen ? "var(--brand-primary)" : "var(--border-subtle)",
+                borderRadius: "var(--radius-full)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                fontFamily: "inherit",
+              }}
+            >
+              <div style={{
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                background: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#fff",
+                flexShrink: 0,
+              }}>
+                {getInitials(auth.user.username)}
+              </div>
+
+              <span style={{
+                fontSize: "var(--text-sm)",
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                maxWidth: 100,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
+                {auth.user.username}
+              </span>
+
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "2px 6px",
+                borderRadius: "var(--radius-full)",
+                background: (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
+                color: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}>
+                {auth.user.role}
+              </span>
+
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="var(--text-muted)" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{
+                  transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.15s",
+                  flexShrink: 0,
+                }}
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {userMenuOpen && <UserDropdown onClose={() => setUserMenuOpen(false)} />}
+          </div>
+        ) : null}
+      </div>
     </header>
   );
 }

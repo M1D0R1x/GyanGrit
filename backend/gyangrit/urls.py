@@ -52,4 +52,7 @@ urlpatterns = [
 
     # MEDIA
     path("api/v1/media/", include("apps.media.api.v1.urls")),
+
+    # NOTIFICATIONS
+    path("api/v1/notifications/", include("apps.notifications.api.v1.urls")),
 ]

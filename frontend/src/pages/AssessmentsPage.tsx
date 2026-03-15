@@ -4,40 +4,20 @@ import { apiGet } from "../services/api";
 import { type AssessmentWithStatus } from "../services/assessments";
 import TopBar from "../components/TopBar";
 
-function AssessmentSkeleton() {
-  return (
-    <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)" }}>
-      <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-        <div className="skeleton" style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          <div className="skeleton skeleton-line skeleton-line--medium" />
-          <div className="skeleton skeleton-line skeleton-line--short" style={{ marginTop: "var(--space-2)" }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ScoreRing({ score, total, size = 44 }: { score: number; total: number; size?: number }) {
   const pct    = total > 0 ? score / total : 0;
   const r      = (size - 6) / 2;
   const circ   = 2 * Math.PI * r;
   const filled = circ * pct;
   const color  = pct >= 0.6 ? "var(--success)" : pct >= 0.4 ? "var(--warning)" : "var(--error)";
-
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <circle cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke="var(--bg-elevated)" strokeWidth={5} />
-      <circle cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke={color} strokeWidth={5}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="score-ring">
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg-elevated)" strokeWidth={5} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5}
         strokeDasharray={`${filled} ${circ - filled}`}
         strokeDashoffset={circ / 4}
-        strokeLinecap="round"
-        style={{ transition: "stroke-dasharray 0.6s ease" }}
-      />
-      <text x={size / 2} y={size / 2 + 1}
-        textAnchor="middle" dominantBaseline="middle"
+        strokeLinecap="round" />
+      <text x={size/2} y={size/2 + 1} textAnchor="middle" dominantBaseline="middle"
         fill={color}
         style={{ fontSize: size * 0.22, fontWeight: 800, fontFamily: "var(--font-display)" }}>
         {Math.round(pct * 100)}
@@ -46,12 +26,24 @@ function ScoreRing({ score, total, size = 44 }: { score: number; total: number; 
   );
 }
 
+function SkeletonRow() {
+  return (
+    <div style={{ display: "flex", gap: "var(--space-4)", padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", alignItems: "center" }}>
+      <div className="skeleton" style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div className="skeleton skeleton-line skeleton-line--medium" />
+        <div className="skeleton skeleton-line skeleton-line--short" style={{ marginTop: "var(--space-2)" }} />
+      </div>
+    </div>
+  );
+}
+
 export default function AssessmentsPage() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState<AssessmentWithStatus[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [subjectFilter, setSubjectFilter] = useState("all");
   const [statusFilter, setStatusFilter]   = useState<"all" | "passed" | "pending">("all");
 
   useEffect(() => {
@@ -65,131 +57,65 @@ export default function AssessmentsPage() {
 
   const filtered = assessments.filter((a) => {
     const matchSubject = subjectFilter === "all" || a.subject === subjectFilter;
-    const matchStatus  =
-      statusFilter === "all" ? true :
-      statusFilter === "passed" ? a.passed :
-      !a.passed;
+    const matchStatus  = statusFilter === "all" ? true : statusFilter === "passed" ? a.passed : !a.passed;
     return matchSubject && matchStatus;
   });
 
-  const totalAttempted = assessments.filter((a) => (a.attempt_count ?? 0) > 0).length;
-  const passedCount    = assessments.filter((a) => a.passed).length;
+  const attempted = assessments.filter((a) => (a.attempt_count ?? 0) > 0).length;
+  const passed    = assessments.filter((a) => a.passed).length;
 
   return (
     <div className="page-shell">
       <TopBar title="Assessments" />
-      <main className="page-content page-enter" style={{ padding: 0 }}>
+      <main className="page-enter" style={{ flex: 1 }}>
 
-        {/* Header summary */}
-        <div style={{
-          padding: "var(--space-5) var(--space-5) var(--space-4)",
-          borderBottom: "1px solid var(--border-subtle)",
-          background: "var(--bg-surface)",
-        }}>
-          <h2 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-xl)",
-            fontWeight: 800,
-            color: "var(--text-primary)",
-            letterSpacing: "-0.02em",
-            marginBottom: "var(--space-1)",
-          }}>
-            My Assessments
-          </h2>
-          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
-            Tap any assessment to view details and attempt it
-          </p>
-
+        {/* Header */}
+        <div className="page-header">
+          <h2 className="page-header__title">My Assessments</h2>
+          <p className="page-header__sub">Tap any assessment to view and attempt it</p>
           {!loading && (
-            <div style={{ display: "flex", gap: "var(--space-3)" }}>
-              {[
-                { label: "Total", value: assessments.length, color: "var(--text-primary)" },
-                { label: "Attempted", value: totalAttempted, color: "var(--brand-primary)" },
-                { label: "Passed", value: passedCount, color: "var(--success)" },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{
-                  flex: 1,
-                  padding: "var(--space-3)",
-                  background: "var(--bg-elevated)",
-                  borderRadius: "var(--radius-md)",
-                  textAlign: "center",
-                }}>
-                  <div style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-2xl)",
-                    fontWeight: 800,
-                    color,
-                    lineHeight: 1,
-                  }}>
-                    {value}
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    {label}
-                  </div>
-                </div>
-              ))}
+            <div className="stats-row">
+              <div className="stats-row__item">
+                <div className="stats-row__value">{assessments.length}</div>
+                <div className="stats-row__label">Total</div>
+              </div>
+              <div className="stats-row__item">
+                <div className="stats-row__value" style={{ color: "var(--brand-primary)" }}>{attempted}</div>
+                <div className="stats-row__label">Attempted</div>
+              </div>
+              <div className="stats-row__item">
+                <div className="stats-row__value" style={{ color: "var(--success)" }}>{passed}</div>
+                <div className="stats-row__label">Passed</div>
+              </div>
             </div>
           )}
         </div>
 
         {/* History shortcut */}
-        <button
-          onClick={() => navigate("/assessments/history")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            padding: "var(--space-3) var(--space-5)",
-            background: "var(--bg-elevated)",
-            border: "none",
-            borderBottom: "1px solid var(--border-subtle)",
-            cursor: "pointer",
-            color: "var(--brand-primary)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <button className="history-shortcut" onClick={() => navigate("/assessments/history")}>
+          <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3h6l3 9 4-6h5" /><path d="M21 21H3" />
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l4 2" />
             </svg>
-            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>View all attempt history</span>
-          </div>
+            View all attempt history
+          </span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
 
-        {/* Subject filter — horizontal scroll */}
+        {/* Subject filter */}
         {!loading && subjects.length > 2 && (
-          <div style={{
-            display: "flex",
-            gap: "var(--space-2)",
-            padding: "var(--space-3) var(--space-5)",
-            overflowX: "auto",
-            borderBottom: "1px solid var(--border-subtle)",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}>
+          <div className="filter-pills">
             {subjects.map((s) => (
               <button
                 key={s}
+                className={`filter-pill${subjectFilter === s ? " filter-pill--active" : ""}`}
                 onClick={() => setSubjectFilter(s)}
-                style={{
-                  flexShrink: 0,
-                  padding: "var(--space-1) var(--space-3)",
-                  borderRadius: "var(--radius-full)",
-                  border: `1.5px solid ${subjectFilter === s ? "var(--brand-primary)" : "var(--border-default)"}`,
-                  background: subjectFilter === s ? "var(--brand-primary-glow)" : "transparent",
-                  color: subjectFilter === s ? "var(--brand-primary)" : "var(--text-muted)",
-                  fontSize: "var(--text-xs)",
-                  fontWeight: subjectFilter === s ? 700 : 400,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.15s",
-                  textTransform: subjectFilter === s ? "none" : "none",
-                }}
               >
                 {s === "all" ? "All Subjects" : s}
               </button>
@@ -199,27 +125,12 @@ export default function AssessmentsPage() {
 
         {/* Status tabs */}
         {!loading && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            borderBottom: "1px solid var(--border-subtle)",
-          }}>
+          <div className="status-tabs">
             {(["all", "pending", "passed"] as const).map((f) => (
               <button
                 key={f}
+                className={`status-tab${statusFilter === f ? " status-tab--active" : ""}`}
                 onClick={() => setStatusFilter(f)}
-                style={{
-                  padding: "var(--space-3)",
-                  background: "none",
-                  border: "none",
-                  borderBottom: `2px solid ${statusFilter === f ? "var(--brand-primary)" : "transparent"}`,
-                  color: statusFilter === f ? "var(--brand-primary)" : "var(--text-muted)",
-                  fontSize: "var(--text-sm)",
-                  fontWeight: statusFilter === f ? 700 : 400,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  textTransform: "capitalize",
-                }}
               >
                 {f}
               </button>
@@ -227,15 +138,12 @@ export default function AssessmentsPage() {
           </div>
         )}
 
-        {error && (
-          <div className="alert alert--error" style={{ margin: "var(--space-4)" }}>{error}</div>
-        )}
+        {error && <div className="alert alert--error" style={{ margin: "var(--space-4)" }}>{error}</div>}
 
-        {/* List */}
         {loading ? (
-          Array.from({ length: 8 }).map((_, i) => <AssessmentSkeleton key={i} />)
+          Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
         ) : filtered.length === 0 ? (
-          <div className="empty-state" style={{ padding: "var(--space-16) var(--space-6)" }}>
+          <div className="empty-state">
             <div className="empty-state__icon">📋</div>
             <h3 className="empty-state__title">No assessments found</h3>
             <p className="empty-state__message">
@@ -245,118 +153,50 @@ export default function AssessmentsPage() {
             </p>
           </div>
         ) : (
-          <div>
-            {filtered.map((a, i) => {
-              const attempted = (a.attempt_count ?? 0) > 0;
-              return (
-                <button
-                  key={a.id}
-                  onClick={() => navigate(`/assessments/${a.id}`)}
-                  className="page-enter"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-4)",
-                    width: "100%",
-                    padding: "var(--space-4) var(--space-5)",
-                    background: "none",
-                    border: "none",
-                    borderBottom: "1px solid var(--border-subtle)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    animationDelay: `${i * 30}ms`,
-                    transition: "background 0.1s",
-                  }}
-                  onTouchStart={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)";
-                  }}
-                  onTouchEnd={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "none";
-                  }}
-                >
-                  {/* Score ring or status icon */}
-                  {attempted && a.best_score !== null ? (
-                    <ScoreRing score={a.best_score} total={a.total_marks} />
-                  ) : (
-                    <div style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "var(--radius-md)",
-                      background: "var(--bg-elevated)",
-                      border: "1.5px dashed var(--border-default)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}>
+          filtered.map((a, i) => {
+            const attempted = (a.attempt_count ?? 0) > 0;
+            return (
+              <button
+                key={a.id}
+                className="assessment-row page-enter"
+                style={{ animationDelay: `${i * 25}ms` }}
+                onClick={() => navigate(`/assessments/${a.id}`)}
+              >
+                <div className={`assessment-row__icon${attempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
+                  {attempted && a.best_score !== null
+                    ? <ScoreRing score={a.best_score} total={a.total_marks} />
+                    : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"
-                        strokeLinejoin="round">
+                        stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                        <polyline points="12 6 12 12 16 14" />
                       </svg>
-                    </div>
-                  )}
+                    )
+                  }
+                </div>
 
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "var(--space-2)",
-                      marginBottom: "var(--space-1)",
-                      flexWrap: "wrap",
-                    }}>
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: "var(--brand-primary)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}>
-                        {a.subject}
-                      </span>
-                      <span style={{ fontSize: 10, color: "var(--text-muted)" }}>·</span>
-                      <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Class {a.grade}</span>
-                    </div>
-                    <div style={{
-                      fontSize: "var(--text-sm)",
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      lineHeight: 1.3,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {a.title}
-                    </div>
-                    <div style={{
-                      display: "flex",
-                      gap: "var(--space-3)",
-                      marginTop: "var(--space-1)",
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      flexWrap: "wrap",
-                    }}>
-                      <span>{a.total_marks} marks · pass {a.pass_marks}</span>
-                      {attempted && (
-                        <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
-                          {a.passed ? "✓ Passed" : `${a.attempt_count} attempt${(a.attempt_count ?? 0) !== 1 ? "s" : ""}`}
-                        </span>
-                      )}
-                    </div>
+                <div className="assessment-row__body">
+                  <div className="assessment-row__subject">
+                    {a.subject} · Class {a.grade}
                   </div>
+                  <div className="assessment-row__title">{a.title}</div>
+                  <div className="assessment-row__meta">
+                    <span>{a.total_marks} marks · pass {a.pass_marks}</span>
+                    {attempted && (
+                      <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
+                        {a.passed ? "✓ Passed" : `${a.attempt_count ?? 0} attempt${(a.attempt_count ?? 0) !== 1 ? "s" : ""}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
+                <svg className="assessment-row__chevron" width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            );
+          })
         )}
       </main>
     </div>

@@ -10,93 +10,40 @@ import {
 
 const DURATION_MINUTES = 30;
 const DURATION_SECONDS = DURATION_MINUTES * 60;
+const LETTERS = ["A", "B", "C", "D", "E"];
 
 function formatTime(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-// ── Option button ──────────────────────────────────────────────────────────
+// ── Option ─────────────────────────────────────────────────────────────────
 
-function OptionButton({
-  label,
+function OptionBtn({
+  letter,
   text,
   selected,
   onSelect,
 }: {
-  label: string;
+  letter: string;
   text: string;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const [pressed, setPressed] = useState(false);
-
   return (
     <button
       onClick={onSelect}
-      onTouchStart={() => setPressed(true)}
-      onTouchEnd={() => setPressed(false)}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "var(--space-3)",
-        width: "100%",
-        padding: "var(--space-4)",
-        borderRadius: "var(--radius-lg)",
-        border: `2px solid ${selected ? "var(--brand-primary)" : "var(--border-default)"}`,
-        background: selected
-          ? "var(--brand-primary-glow)"
-          : pressed
-          ? "var(--bg-elevated)"
-          : "var(--bg-surface)",
-        cursor: "pointer",
-        textAlign: "left",
-        transform: pressed ? "scale(0.98)" : "scale(1)",
-        transition: "all 0.12s ease",
-        WebkitTapHighlightColor: "transparent",
-      }}
+      className={`assessment-option-btn${selected ? " assessment-option-btn--selected" : ""}`}
     >
-      {/* Letter circle */}
-      <div style={{
-        width: 32,
-        height: 32,
-        borderRadius: "50%",
-        background: selected ? "var(--brand-primary)" : "var(--bg-elevated)",
-        border: `2px solid ${selected ? "var(--brand-primary)" : "var(--border-subtle)"}`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-display)",
-        fontWeight: 800,
-        fontSize: "var(--text-sm)",
-        color: selected ? "#fff" : "var(--text-muted)",
-        flexShrink: 0,
-        transition: "all 0.12s",
-      }}>
-        {label}
-      </div>
-
-      <span style={{
-        fontSize: "var(--text-base)",
-        lineHeight: 1.5,
-        color: selected ? "var(--brand-primary)" : "var(--text-primary)",
-        fontWeight: selected ? 600 : 400,
-        paddingTop: "var(--space-1)",
-        transition: "color 0.12s",
-      }}>
-        {text}
-      </span>
-
-      {selected && (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke="var(--brand-primary)" strokeWidth="2.5" strokeLinecap="round"
-          strokeLinejoin="round" style={{ flexShrink: 0, marginLeft: "auto", paddingTop: "var(--space-1)" }}>
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      )}
+      <span className="assessment-option-btn__letter">{letter}</span>
+      <span className="assessment-option-btn__text">{text}</span>
+      <svg
+        className="assessment-option-btn__check"
+        width="16" height="16" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth="2.5"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
     </button>
   );
 }
@@ -111,8 +58,6 @@ function QuestionView({
   onSelect,
   onPrev,
   onNext,
-  isFirst,
-  isLast,
 }: {
   question: AssessmentQuestion;
   index: number;
@@ -121,106 +66,43 @@ function QuestionView({
   onSelect: (optionId: number) => void;
   onPrev: () => void;
   onNext: () => void;
-  isFirst: boolean;
-  isLast: boolean;
 }) {
-  const letters = ["A", "B", "C", "D", "E"];
+  const isFirst = index === 0;
+  const isLast  = index === total - 1;
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "calc(100vh - 120px)",
-      padding: "var(--space-5)",
-    }}>
-      {/* Question number + marks */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "var(--space-4)",
-      }}>
-        <span style={{
-          fontSize: "var(--text-xs)",
-          fontWeight: 700,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-        }}>
-          Question {index + 1} of {total}
-        </span>
-        <span style={{
-          fontSize: "var(--text-xs)",
-          fontWeight: 700,
-          padding: "var(--space-1) var(--space-2)",
-          borderRadius: "var(--radius-full)",
-          background: "var(--brand-primary-glow)",
-          color: "var(--brand-primary)",
-        }}>
-          {question.marks} {question.marks === 1 ? "mark" : "marks"}
-        </span>
+    <>
+      <div className="assessment-question-scroll">
+        <div className="assessment-question-meta">
+          <span className="assessment-question-label">
+            Question {index + 1} of {total}
+          </span>
+          <span className="assessment-marks-badge">
+            {question.marks} {question.marks === 1 ? "mark" : "marks"}
+          </span>
+        </div>
+
+        <p className="assessment-question-text">{question.text}</p>
+
+        <div className="assessment-options">
+          {question.options.map((opt, i) => (
+            <OptionBtn
+              key={opt.id}
+              letter={LETTERS[i] ?? String(i + 1)}
+              text={opt.text}
+              selected={selected === opt.id}
+              onSelect={() => onSelect(opt.id)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Question text */}
-      <div style={{
-        fontSize: "var(--text-lg)",
-        fontWeight: 700,
-        color: "var(--text-primary)",
-        fontFamily: "var(--font-display)",
-        lineHeight: 1.5,
-        marginBottom: "var(--space-6)",
-        letterSpacing: "-0.01em",
-        flex: "0 0 auto",
-      }}>
-        {question.text}
-      </div>
-
-      {/* Options */}
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--space-3)",
-        flex: 1,
-      }}>
-        {question.options.map((opt, i) => (
-          <OptionButton
-            key={opt.id}
-            label={letters[i] ?? String(i + 1)}
-            text={opt.text}
-            selected={selected === opt.id}
-            onSelect={() => onSelect(opt.id)}
-          />
-        ))}
-      </div>
-
-      {/* Prev / Next navigation */}
-      <div style={{
-        display: "flex",
-        gap: "var(--space-3)",
-        marginTop: "var(--space-6)",
-        paddingBottom: "var(--space-4)",
-      }}>
+      <nav className="assessment-nav" aria-label="Question navigation">
         <button
+          className="assessment-nav__btn"
           onClick={onPrev}
           disabled={isFirst}
-          style={{
-            flex: 1,
-            padding: "var(--space-4)",
-            borderRadius: "var(--radius-lg)",
-            border: "1.5px solid var(--border-default)",
-            background: isFirst ? "transparent" : "var(--bg-elevated)",
-            color: isFirst ? "var(--text-muted)" : "var(--text-secondary)",
-            fontSize: "var(--text-sm)",
-            fontWeight: 600,
-            cursor: isFirst ? "not-allowed" : "pointer",
-            opacity: isFirst ? 0.4 : 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "var(--space-2)",
-            transition: "all 0.12s",
-            WebkitTapHighlightColor: "transparent",
-          }}
+          aria-label="Previous question"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -228,28 +110,11 @@ function QuestionView({
           </svg>
           Previous
         </button>
-
         <button
+          className={`assessment-nav__btn${!isLast ? " assessment-nav__btn--next" : ""}`}
           onClick={onNext}
           disabled={isLast}
-          style={{
-            flex: 1,
-            padding: "var(--space-4)",
-            borderRadius: "var(--radius-lg)",
-            border: "none",
-            background: isLast ? "var(--bg-elevated)" : "var(--brand-primary)",
-            color: isLast ? "var(--text-muted)" : "#fff",
-            fontSize: "var(--text-sm)",
-            fontWeight: 700,
-            cursor: isLast ? "default" : "pointer",
-            opacity: isLast ? 0.4 : 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "var(--space-2)",
-            transition: "all 0.12s",
-            WebkitTapHighlightColor: "transparent",
-          }}
+          aria-label="Next question"
         >
           Next
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -257,12 +122,12 @@ function QuestionView({
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
-      </div>
-    </div>
+      </nav>
+    </>
   );
 }
 
-// ── Submit confirmation screen ─────────────────────────────────────────────
+// ── Submit confirmation ────────────────────────────────────────────────────
 
 function SubmitScreen({
   assessment,
@@ -277,140 +142,57 @@ function SubmitScreen({
   onConfirm: () => void;
   onBack: () => void;
 }) {
-  const answeredCount  = Object.keys(answers).length;
-  const totalQuestions = assessment.questions.length;
-  const unanswered     = totalQuestions - answeredCount;
+  const answered  = Object.keys(answers).length;
+  const total     = assessment.questions.length;
+  const unanswered = total - answered;
+  const allDone   = unanswered === 0;
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "calc(100vh - 120px)",
-      padding: "var(--space-6) var(--space-5)",
-    }}>
-      <div style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        gap: "var(--space-4)",
-      }}>
-        <div style={{
-          width: 80,
-          height: 80,
-          borderRadius: "50%",
-          background: unanswered === 0 ? "rgba(63,185,80,0.12)" : "rgba(245,158,11,0.12)",
-          border: `2px solid ${unanswered === 0 ? "var(--success)" : "var(--warning)"}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 36,
-        }}>
-          {unanswered === 0 ? "✓" : "!"}
+    <div className="assessment-submit-screen">
+      <div className="assessment-submit-screen__center">
+        <div className={`assessment-submit-screen__icon${allDone ? " assessment-submit-screen__icon--ready" : " assessment-submit-screen__icon--warn"}`}>
+          {allDone ? "✓" : "!"}
         </div>
 
         <div>
-          <h2 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-2xl)",
-            fontWeight: 800,
-            color: "var(--text-primary)",
-            letterSpacing: "-0.02em",
-            marginBottom: "var(--space-2)",
-          }}>
-            Ready to submit?
-          </h2>
-          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            You answered{" "}
-            <strong style={{ color: "var(--text-primary)" }}>
-              {answeredCount} of {totalQuestions}
-            </strong>{" "}
-            questions.
+          <h2 className="assessment-submit-screen__title">Ready to submit?</h2>
+          <p className="assessment-submit-screen__sub">
+            You answered <strong style={{ color: "var(--text-primary)" }}>{answered} of {total}</strong> questions.
           </p>
         </div>
 
-        {/* Answer summary grid */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: "var(--space-2)",
-          width: "100%",
-          maxWidth: 280,
-        }}>
-          {assessment.questions.map((q, i) => {
-            const answered = answers[q.id] !== undefined;
-            return (
-              <div
-                key={q.id}
-                style={{
-                  aspectRatio: "1",
-                  borderRadius: "var(--radius-sm)",
-                  background: answered ? "rgba(63,185,80,0.12)" : "var(--bg-elevated)",
-                  border: `2px solid ${answered ? "var(--success)" : "var(--border-default)"}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  fontSize: "var(--text-xs)",
-                  color: answered ? "var(--success)" : "var(--text-muted)",
-                }}
-              >
-                {i + 1}
-              </div>
-            );
-          })}
+        <div className="assessment-answer-grid">
+          {assessment.questions.map((q, i) => (
+            <div
+              key={q.id}
+              className={`assessment-answer-box${answers[q.id] !== undefined ? " assessment-answer-box--answered" : ""}`}
+            >
+              {i + 1}
+            </div>
+          ))}
         </div>
 
         {unanswered > 0 && (
-          <div className="alert alert--warning" style={{ textAlign: "left", width: "100%" }}>
+          <div className="alert alert--warning" style={{ marginBottom: 0 }}>
             {unanswered} unanswered question{unanswered !== 1 ? "s" : ""} will score 0.
           </div>
         )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", paddingBottom: "var(--space-4)" }}>
+      <div className="assessment-submit-screen__actions">
         <button
+          className="btn btn--primary btn--full btn--lg"
           onClick={onConfirm}
           disabled={submitting}
-          style={{
-            padding: "var(--space-4)",
-            borderRadius: "var(--radius-lg)",
-            border: "none",
-            background: "var(--brand-primary)",
-            color: "#fff",
-            fontSize: "var(--text-base)",
-            fontWeight: 700,
-            cursor: submitting ? "not-allowed" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "var(--space-2)",
-            WebkitTapHighlightColor: "transparent",
-          }}
         >
-          {submitting ? (
-            <><span className="btn__spinner" aria-hidden="true" /> Submitting…</>
-          ) : (
-            "Submit Assessment"
-          )}
+          {submitting
+            ? <><span className="btn__spinner" aria-hidden="true" /> Submitting…</>
+            : "Submit Assessment"}
         </button>
         <button
+          className="btn btn--secondary btn--full btn--lg"
           onClick={onBack}
           disabled={submitting}
-          style={{
-            padding: "var(--space-4)",
-            borderRadius: "var(--radius-lg)",
-            border: "1.5px solid var(--border-default)",
-            background: "transparent",
-            color: "var(--text-secondary)",
-            fontSize: "var(--text-base)",
-            fontWeight: 600,
-            cursor: "pointer",
-            WebkitTapHighlightColor: "transparent",
-          }}
         >
           Review Answers
         </button>
@@ -419,7 +201,7 @@ function SubmitScreen({
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────────────────────
 
 export default function AssessmentTakePage() {
   const { assessmentId } = useParams();
@@ -444,26 +226,20 @@ export default function AssessmentTakePage() {
   attemptRef.current  = attemptId;
   assessRef.current   = assessment;
 
-  const storageKey = `gg_assessment_${assessmentId ?? ""}`;
+  const storageKey = `gg_q_${assessmentId ?? ""}`;
 
   useEffect(() => {
     if (!assessmentId) return;
     const id = Number(assessmentId);
-
     async function init() {
       try {
-        const [a, attempt] = await Promise.all([
-          getAssessment(id),
-          startAssessment(id),
-        ]);
+        const [a, attempt] = await Promise.all([getAssessment(id), startAssessment(id)]);
         setAssessment(a);
         setAttemptId(attempt.attempt_id);
-
         try {
           const saved = sessionStorage.getItem(storageKey);
           if (saved) setAnswers(JSON.parse(saved) as Record<number, number>);
         } catch { /* silent */ }
-
         setTimerActive(true);
       } catch {
         setError("Failed to load assessment. Please go back and try again.");
@@ -476,7 +252,7 @@ export default function AssessmentTakePage() {
   }, [assessmentId]);
 
   useEffect(() => {
-    if (Object.keys(answers).length === 0) return;
+    if (!Object.keys(answers).length) return;
     try { sessionStorage.setItem(storageKey, JSON.stringify(answers)); }
     catch { /* silent */ }
   }, [answers, storageKey]);
@@ -499,6 +275,7 @@ export default function AssessmentTakePage() {
       submittingRef.current = false;
       setSubmitting(false);
       setError("Submission failed. Please try again.");
+      setShowSubmit(false);
     }
   }, [navigate, storageKey]);
 
@@ -506,32 +283,30 @@ export default function AssessmentTakePage() {
     if (!timerActive) return;
     const t = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(t);
-          void doSubmit(answersRef.current);
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(t); void doSubmit(answersRef.current); return 0; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(t);
   }, [timerActive, doSubmit]);
 
+  const handleSelect = (questionId: number, optionId: number) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+    const total = assessment?.questions.length ?? 0;
+    if (currentIdx < total - 1) {
+      setTimeout(() => setCurrentIdx((i) => i + 1), 280);
+    } else {
+      setTimeout(() => setShowSubmit(true), 350);
+    }
+  };
+
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)" }}>
-        <div style={{
-          height: 56,
-          background: "var(--bg-surface)",
-          borderBottom: "1px solid var(--border-subtle)",
-        }} />
-        <div style={{ padding: "var(--space-5)" }}>
+      <div className="assessment-take-shell">
+        <div className="assessment-topbar" />
+        <div style={{ padding: "var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton" style={{
-              height: 60,
-              borderRadius: "var(--radius-lg)",
-              marginBottom: "var(--space-3)",
-            }} />
+            <div key={i} className="skeleton" style={{ height: 60, borderRadius: "var(--radius-lg)" }} />
           ))}
         </div>
       </div>
@@ -540,149 +315,82 @@ export default function AssessmentTakePage() {
 
   if (error && !assessment) {
     return (
-      <div style={{ padding: "var(--space-6)" }}>
-        <div className="alert alert--error">{error}</div>
-        <button className="btn btn--secondary" style={{ marginTop: "var(--space-4)" }}
-          onClick={() => navigate(-1)}>Go back</button>
+      <div className="assessment-take-shell">
+        <div style={{ padding: "var(--space-6)" }}>
+          <div className="alert alert--error">{error}</div>
+          <button className="btn btn--secondary" onClick={() => navigate(-1)}>Go back</button>
+        </div>
       </div>
     );
   }
 
   if (!assessment) return null;
 
-  const totalQuestions = assessment.questions.length;
-  const answeredCount  = Object.keys(answers).length;
-  const isWarning      = timeLeft <= 300;
-  const isCritical     = timeLeft <= 60;
-  const currentQ       = assessment.questions[currentIdx];
+  const total        = assessment.questions.length;
+  const answeredCount = Object.keys(answers).length;
+  const progressPct  = total ? (answeredCount / total) * 100 : 0;
+  const isWarning    = timeLeft <= 300;
+  const isCritical   = timeLeft <= 60;
+  const timerClass   = isCritical ? "critical" : isWarning ? "warning" : "normal";
+  const currentQ     = assessment.questions[currentIdx];
+  const allReady     = answeredCount === total;
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "100vh",
-      background: "var(--bg-base)",
-      maxWidth: 600,
-      margin: "0 auto",
-    }}>
-      {/* ── Top bar ── */}
-      <div style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        background: "var(--bg-surface)",
-        borderBottom: "1px solid var(--border-subtle)",
-        padding: "0 var(--space-4)",
-        height: 56,
-        display: "flex",
-        alignItems: "center",
-        gap: "var(--space-3)",
-      }}>
-        {/* Progress dots */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          gap: 4,
-          alignItems: "center",
-          overflow: "hidden",
-        }}>
+    <div className="assessment-take-shell">
+      {/* Top bar */}
+      <div className="assessment-topbar">
+        <div className="assessment-dots" role="tablist" aria-label="Question progress">
           {assessment.questions.map((q, i) => {
             const answered = answers[q.id] !== undefined;
-            const isCurrent = i === currentIdx;
+            const active   = i === currentIdx && !showSubmit;
             return (
               <button
                 key={q.id}
+                role="tab"
+                aria-selected={active}
+                aria-label={`Question ${i + 1}${answered ? ", answered" : ""}`}
+                className={`assessment-dot${active ? " assessment-dot--active" : answered ? " assessment-dot--answered" : " assessment-dot--unanswered"}`}
                 onClick={() => { setCurrentIdx(i); setShowSubmit(false); }}
-                style={{
-                  flexShrink: 0,
-                  width: isCurrent ? 24 : 8,
-                  height: 8,
-                  borderRadius: 99,
-                  background: isCurrent
-                    ? "var(--brand-primary)"
-                    : answered
-                    ? "var(--success)"
-                    : "var(--bg-elevated)",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-                aria-label={`Question ${i + 1}`}
               />
             );
           })}
         </div>
 
-        {/* Timer */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--space-1)",
-          padding: "var(--space-1) var(--space-2)",
-          borderRadius: "var(--radius-md)",
-          background: isCritical
-            ? "rgba(239,68,68,0.12)"
-            : isWarning
-            ? "rgba(245,158,11,0.10)"
-            : "transparent",
-          transition: "background 0.3s",
-        }}>
+        <div className={`assessment-timer assessment-timer--${timerClass}`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-            stroke={isCritical ? "var(--error)" : isWarning ? "var(--warning)" : "var(--text-muted)"}
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: isCritical ? "var(--error)" : isWarning ? "var(--warning)" : "var(--text-muted)" }}>
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
-          <span style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-sm)",
-            fontWeight: 800,
-            color: isCritical ? "var(--error)" : isWarning ? "var(--warning)" : "var(--text-primary)",
-            letterSpacing: "0.04em",
-            transition: "color 0.3s",
-          }}>
+          <span className={`assessment-timer__text assessment-timer__text--${timerClass}`}>
             {formatTime(timeLeft)}
           </span>
         </div>
 
-        {/* Submit trigger */}
         <button
+          className={`assessment-submit-trigger${allReady ? " assessment-submit-trigger--ready" : ""}`}
           onClick={() => setShowSubmit(true)}
-          style={{
-            padding: "var(--space-2) var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1.5px solid var(--brand-primary)",
-            background: answeredCount === totalQuestions ? "var(--brand-primary)" : "transparent",
-            color: answeredCount === totalQuestions ? "#fff" : "var(--brand-primary)",
-            fontSize: "var(--text-xs)",
-            fontWeight: 700,
-            cursor: "pointer",
-            transition: "all 0.15s",
-            WebkitTapHighlightColor: "transparent",
-            whiteSpace: "nowrap",
-          }}
         >
           Submit
         </button>
       </div>
 
-      {/* ── Progress bar ── */}
-      <div style={{ height: 3, background: "var(--bg-elevated)" }}>
-        <div style={{
-          height: "100%",
-          width: `${totalQuestions ? (answeredCount / totalQuestions) * 100 : 0}%`,
-          background: answeredCount === totalQuestions ? "var(--success)" : "var(--brand-primary)",
-          transition: "width 0.3s ease",
-        }} />
+      {/* Progress bar */}
+      <div className="assessment-topbar-progress">
+        <div
+          className={`assessment-topbar-progress__fill${allReady ? " assessment-topbar-progress__fill--complete" : ""}`}
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
 
-      {/* ── Content ── */}
       {error && (
-        <div className="alert alert--warning" style={{ margin: "var(--space-4)" }}>{error}</div>
+        <div className="alert alert--warning" style={{ margin: "var(--space-3) var(--space-4) 0" }}>
+          {error}
+        </div>
       )}
 
+      {/* Question or submit screen */}
       {showSubmit ? (
         <SubmitScreen
           assessment={assessment}
@@ -695,28 +403,14 @@ export default function AssessmentTakePage() {
         <QuestionView
           question={currentQ}
           index={currentIdx}
-          total={totalQuestions}
+          total={total}
           selected={answers[currentQ.id]}
-          onSelect={(optId) => {
-            setAnswers((prev) => ({ ...prev, [currentQ.id]: optId }));
-            // Auto-advance to next question after short delay
-            if (currentIdx < totalQuestions - 1) {
-              setTimeout(() => setCurrentIdx((i) => i + 1), 300);
-            } else {
-              // Last question — show submit screen
-              setTimeout(() => setShowSubmit(true), 400);
-            }
-          }}
+          onSelect={(optId) => handleSelect(currentQ.id, optId)}
           onPrev={() => setCurrentIdx((i) => Math.max(0, i - 1))}
           onNext={() => {
-            if (currentIdx < totalQuestions - 1) {
-              setCurrentIdx((i) => i + 1);
-            } else {
-              setShowSubmit(true);
-            }
+            if (currentIdx < total - 1) setCurrentIdx((i) => i + 1);
+            else setShowSubmit(true);
           }}
-          isFirst={currentIdx === 0}
-          isLast={currentIdx === totalQuestions - 1}
         />
       ) : null}
     </div>

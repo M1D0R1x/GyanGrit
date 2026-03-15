@@ -5,6 +5,7 @@ urlpatterns = [
     # Student-facing
     path("my/", views.my_assessments),
     path("course/<int:course_id>/", views.course_assessments),
+    path("my-history/", views.all_my_attempts),
     path("<int:assessment_id>/", views.assessment_detail),
     path("<int:assessment_id>/admin/", views.assessment_detail_admin),
     path("<int:assessment_id>/start/", views.start_assessment),

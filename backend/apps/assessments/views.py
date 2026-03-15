@@ -415,37 +415,136 @@ def my_attempts(request, assessment_id):
 
 @login_required
 @require_http_methods(["GET"])
-def my_assessments(request):
+def all_my_attempts(request):
     """
-    GET /api/v1/assessments/my/
+    GET /api/v1/assessments/my-history/
 
-    Returns all published assessments for courses the student is enrolled in,
-    annotated with their best score, pass status and attempt count.
-    Student-only endpoint.
+    Returns all submitted attempts by the current user across all assessments,
+    with full context (assessment title, subject, grade, marks).
+    Student-facing only — other roles have analytics dashboards.
     """
     if request.user.role != "STUDENT":
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    enrolled_course_ids = Enrollment.objects.filter(
-        user=request.user, status="enrolled"
-    ).values_list("course_id", flat=True)
-
-    assessments = (
-        Assessment.objects
-        .filter(course_id__in=enrolled_course_ids, is_published=True)
-        .select_related("course", "course__subject")
-        .order_by("course__grade", "course__subject__name", "title")
+    attempts = (
+        AssessmentAttempt.objects
+        .filter(user=request.user, submitted_at__isnull=False)
+        .select_related(
+            "assessment",
+            "assessment__course",
+            "assessment__course__subject",
+        )
+        .order_by("-submitted_at")
     )
 
-    data = []
-    for assessment in assessments:
-        attempts = AssessmentAttempt.objects.filter(
-            user=request.user,
-            assessment=assessment,
-            submitted_at__isnull=False,
+    data = [
+        {
+            "id": a.id,
+            "score": a.score,
+            "passed": a.passed,
+            "submitted_at": a.submitted_at.isoformat(),
+            "assessment_id": a.assessment.id,
+            "assessment_title": a.assessment.title,
+            "total_marks": a.assessment.total_marks,
+            "pass_marks": a.assessment.pass_marks,
+            "subject": a.assessment.course.subject.name,
+            "grade": a.assessment.course.grade,
+            "course_title": a.assessment.course.title,
+        }
+        for a in attempts
+    ]
+
+    return JsonResponse(data, safe=False)
+
+@login_required
+@require_http_methods(["GET"])
+def my_assessments(request):
+    """
+    GET /api/v1/assessments/my/
+
+    STUDENT   → assessments for enrolled courses, with personal attempt stats
+    ADMIN     → all published assessments (no attempt stats)
+    TEACHER   → assessments for subjects they teach (no attempt stats)
+    PRINCIPAL → assessments for their institution (no attempt stats)
+    OFFICIAL  → assessments for their district (no attempt stats)
+    """
+    user = request.user
+
+    if user.role == "STUDENT":
+        enrolled_course_ids = Enrollment.objects.filter(
+            user=user, status="enrolled"
+        ).values_list("course_id", flat=True)
+        assessments_qs = (
+            Assessment.objects
+            .filter(course_id__in=enrolled_course_ids, is_published=True)
+            .select_related("course", "course__subject")
+            .order_by("course__grade", "course__subject__name", "title")
         )
-        attempt_count = attempts.count()
-        best = attempts.order_by("-score").first()
+
+    elif user.is_superuser or user.role == "ADMIN":
+        assessments_qs = (
+            Assessment.objects
+            .filter(is_published=True)
+            .select_related("course", "course__subject")
+            .order_by("course__grade", "course__subject__name", "title")
+        )
+
+    elif user.role == "TEACHER":
+        subject_ids = user.teaching_assignments.values_list("subject_id", flat=True)
+        assessments_qs = (
+            Assessment.objects
+            .filter(course__subject_id__in=subject_ids, is_published=True)
+            .select_related("course", "course__subject")
+            .order_by("course__grade", "course__subject__name", "title")
+        )
+
+    elif user.role == "PRINCIPAL":
+        if not user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        assessments_qs = (
+            Assessment.objects
+            .filter(
+                course__subject__classrooms__classroom__institution=user.institution,
+                is_published=True,
+            )
+            .distinct()
+            .select_related("course", "course__subject")
+            .order_by("course__grade", "course__subject__name", "title")
+        )
+
+    elif user.role == "OFFICIAL":
+        if not user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
+        assessments_qs = (
+            Assessment.objects
+            .filter(
+                course__subject__classrooms__classroom__institution__district__name=user.district,
+                is_published=True,
+            )
+            .distinct()
+            .select_related("course", "course__subject")
+            .order_by("course__grade", "course__subject__name", "title")
+        )
+
+    else:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    data = []
+    for assessment in assessments_qs:
+        if user.role == "STUDENT":
+            attempts = AssessmentAttempt.objects.filter(
+                user=user,
+                assessment=assessment,
+                submitted_at__isnull=False,
+            )
+            attempt_count = attempts.count()
+            best          = attempts.order_by("-score").first()
+            best_score    = best.score if best else None
+            passed        = best.passed if best else False
+        else:
+            attempt_count = None
+            best_score    = None
+            passed        = False
 
         data.append({
             "id": assessment.id,
@@ -457,8 +556,8 @@ def my_assessments(request):
             "subject": assessment.course.subject.name,
             "grade": assessment.course.grade,
             "attempt_count": attempt_count,
-            "best_score": best.score if best else None,
-            "passed": best.passed if best else False,
+            "best_score": best_score,
+            "passed": passed,
         })
 
     return JsonResponse(data, safe=False)

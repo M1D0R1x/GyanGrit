@@ -33,12 +33,28 @@ export type AttemptResult = {
   pass_marks: number;
 };
 
-export type MyAttempt = {
+// Used in history pages — matches backend response shape
+export type AttemptHistoryItem = {
   id: number;
   score: number;
   passed: boolean;
   started_at: string;
   submitted_at: string;
+};
+
+// Used in all-history page — includes assessment + subject context
+export type AttemptWithContext = {
+  id: number;
+  score: number;
+  passed: boolean;
+  submitted_at: string;
+  assessment_id: number;
+  assessment_title: string;
+  total_marks: number;
+  pass_marks: number;
+  subject: string;
+  grade: number;
+  course_title: string;
 };
 
 export type StartResponse = {
@@ -47,24 +63,36 @@ export type StartResponse = {
   started_at: string;
 };
 
-// Course assessments list
+export type AssessmentWithStatus = {
+  id: number;
+  title: string;
+  description: string;
+  total_marks: number;
+  pass_marks: number;
+  course_title: string;
+  subject: string;
+  grade: number;
+  best_score: number | null;
+  passed: boolean;
+  attempt_count: number | null;
+};
+
 export const getCourseAssessments = (courseId: number) =>
   apiGet<AssessmentListItem[]>(`/assessments/course/${courseId}/`);
 
-// Full assessment with questions (no is_correct)
 export const getAssessment = (assessmentId: number) =>
   apiGet<AssessmentDetail>(`/assessments/${assessmentId}/`);
 
-// Start or resume attempt
 export const startAssessment = (assessmentId: number) =>
   apiPost<StartResponse>(`/assessments/${assessmentId}/start/`, {});
 
-// Submit answers
 export const submitAssessment = (
   assessmentId: number,
   payload: { attempt_id: number; selected_options: Record<number, number> }
 ) => apiPost<AttemptResult>(`/assessments/${assessmentId}/submit/`, payload);
 
-// My attempt history for one assessment
 export const getMyAttempts = (assessmentId: number) =>
-  apiGet<MyAttempt[]>(`/assessments/${assessmentId}/my-attempts/`);
+  apiGet<AttemptHistoryItem[]>(`/assessments/${assessmentId}/my-attempts/`);
+
+export const getAllMyAttempts = () =>
+  apiGet<AttemptWithContext[]>(`/assessments/my-history/`);

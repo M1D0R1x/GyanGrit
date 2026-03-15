@@ -32,8 +32,7 @@ const AssessmentsPage     = lazy(() => import("../pages/AssessmentsPage"));
 const CourseAssessmentsPage  = lazy(() => import("../pages/CourseAssessmentsPage"));
 const AssessmentPage         = lazy(() => import("../pages/AssessmentPage"));
 const AssessmentResultPage   = lazy(() => import("../pages/AssessmentsResultPage"));
-const AssessmentHistoryPage  = lazy(() => import("../pages/AssessmentHistoryPage"));
-
+const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
 // Teacher
 const TeacherDashboardPage     = lazy(() => import("../pages/TeacherDashboardPage"));
 const TeacherClassDetailPage   = lazy(() => import("../pages/TeacherClassDetailPage"));
@@ -101,6 +100,7 @@ export const router = createBrowserRouter([
   { path: "/assessments/:assessmentId/history",   element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
   { path: "/assessments",                             element: <Protected role="STUDENT"><AssessmentsPage /></Protected> },
   { path: "/assessments/:assessmentId/take",          element: <Protected role="STUDENT"><AssessmentTakePage /></Protected> },
+  { path: "/assessments/history",                   element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
 
   // ── Teacher ──────────────────────────────────────────────────────────────
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },

@@ -1,13 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Book background -->
   <rect x="3" y="7" width="26" height="20" rx="3" fill="#3b82f6" opacity="0.15"/>
   <rect x="3" y="7" width="26" height="20" rx="3" stroke="#3b82f6" stroke-width="1.5"/>
-  <!-- Spine -->
   <line x1="16" y1="7" x2="16" y2="27" stroke="#3b82f6" stroke-width="1.5"/>
-  <!-- Right page lines -->
   <line x1="19" y1="13" x2="25" y2="13" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round"/>
   <line x1="19" y1="17" x2="25" y2="17" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round"/>
   <line x1="19" y1="21" x2="23" y2="21" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round"/>
-  <!-- Flame (Grit) -->
   <path d="M9 23 C9 19 12 17 11 14 C12.5 16 14 15 13 12 C15 14.5 14 18 12 20 C13.5 19 15 18 14 15.5 C16 18 14 22 11 23 Z" fill="#3b82f6"/>
 </svg>

@@ -1,179 +1,301 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import type { Role } from "../auth/authTypes";
+import LogoutButton from "./LogoutButton";
+import Logo from "./Logo";
+// import type { Role } from "../auth/authTypes"; GETTING NOT USED ERROR
 
 type Props = {
   title?: string;
 };
 
-function roleBadgeClass(role: Role): string {
-  return `topbar__role-badge topbar__role-badge--${role.toLowerCase()}`;
-}
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  STUDENT:   "#3b82f6",
+  TEACHER:   "#10b981",
+  PRINCIPAL: "#f59e0b",
+  OFFICIAL:  "#8b5cf6",
+  ADMIN:     "#ef4444",
+};
 
 function getInitials(username: string): string {
   return username.slice(0, 2).toUpperCase();
 }
 
-// Roles that have a /manage-users page
-const USER_MANAGEMENT_ROLES: Role[] = ["TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
+function UserDropdown({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
 
-function TopBarSkeleton() {
+  const go = (path: string) => {
+    onClose();
+    navigate(path);
+  };
+
   return (
-    <header className="topbar" aria-busy="true">
-      <div className="topbar__brand">Gyan<span>Grit</span></div>
-      <div className="topbar__right">
-        <div className="skeleton topbar__skeleton-user" />
+    <div
+      role="menu"
+      style={{
+        position: "absolute",
+        top: "calc(100% + 8px)",
+        right: 0,
+        minWidth: 200,
+        background: "var(--bg-elevated)",
+        border: "1px solid var(--border-default)",
+        borderRadius: "var(--radius-md)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        zIndex: 9999,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{
+        padding: "12px 16px",
+        borderBottom: "1px solid var(--border-subtle)",
+        background: "var(--bg-surface)",
+      }}>
+        <UserInfo />
       </div>
-    </header>
+
+      <div style={{ padding: "4px 0" }}>
+        <DropdownItem
+          icon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          }
+          label="Profile"
+          onClick={() => go("/profile")}
+        />
+
+        <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
+
+        <div style={{ padding: "4px 8px" }}>
+          <LogoutButton onLogout={onClose} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserInfo() {
+  const auth = useAuth();
+  if (!auth.user) return null;
+  return (
+    <>
+      <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+        {auth.user.username}
+      </div>
+      {auth.user.public_id && (
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+          {auth.user.public_id}
+        </div>
+      )}
+    </>
+  );
+}
+
+function DropdownItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        padding: "8px 16px",
+        background: "none",
+        border: "none",
+        color: "var(--text-secondary)",
+        fontFamily: "var(--font-body)",
+        fontSize: "var(--text-sm)",
+        fontWeight: 500,
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "background 0.1s",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "none";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+      }}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
 export default function TopBar({ title }: Props) {
-  const auth      = useAuth();
-  const navigate  = useNavigate();
+  const auth = useAuth();
   const [open, setOpen] = useState(false);
-  const dropRef   = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
+    if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [open]);
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
-
-  if (auth.loading) return <TopBarSkeleton />;
-
-  const showManageUsers = auth.user && USER_MANAGEMENT_ROLES.includes(auth.user.role);
-
-  const handleLogout = async () => {
-    const { apiPost } = await import("../services/api");
-    try { await apiPost("/accounts/logout/", {}); } catch { /* ignore */ }
-    navigate("/login", { replace: true });
-  };
+  }, [open]);
 
   return (
-    <header className="topbar" role="banner">
-      <div className="topbar__brand">
-        Gyan<span>Grit</span>
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        height: 56,
+        background: "var(--bg-surface)",
+        borderBottom: "1px solid var(--border-subtle)",
+        backdropFilter: "blur(8px)",
+      }}
+      role="banner"
+    >
+      {/* Left: logo + optional title */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Logo size="sm" variant="full" />
         {title && (
           <>
-            <span style={{ color: "var(--border-strong)", margin: "0 10px" }}>/</span>
-            <span className="topbar__title">{title}</span>
+            <span style={{ color: "var(--border-strong)", fontSize: 16 }}>/</span>
+            <span style={{
+              fontSize: "var(--text-sm)",
+              fontWeight: 600,
+              color: "var(--text-secondary)",
+            }}>
+              {title}
+            </span>
           </>
         )}
       </div>
 
-      <div className="topbar__right">
-        {auth.authenticated && auth.user ? (
-          <div ref={dropRef} style={{ position: "relative" }}>
-            <button
-              className="topbar__user"
-              onClick={() => setOpen((o) => !o)}
-              aria-haspopup="menu"
-              aria-expanded={open}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+      {/* Right: user pill */}
+      {auth.loading ? (
+        <div style={{
+          width: 160,
+          height: 34,
+          background: "var(--bg-elevated)",
+          borderRadius: "var(--radius-full)",
+          animation: "shimmer 1.5s infinite linear",
+        }} />
+      ) : auth.authenticated && auth.user ? (
+        <div ref={containerRef} style={{ position: "relative" }}>
+          {/* The entire pill IS the button */}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label="Open user menu"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "4px 12px 4px 6px",
+              background: open ? "var(--bg-elevated)" : "var(--bg-overlay)",
+              border: "1px solid",
+              borderColor: open ? "var(--brand-primary)" : "var(--border-subtle)",
+              borderRadius: "var(--radius-full)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              fontFamily: "inherit",
+            }}
+          >
+            {/* Avatar circle */}
+            <div style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              background: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#fff",
+              flexShrink: 0,
+            }}>
+              {getInitials(auth.user.username)}
+            </div>
+
+            {/* Username */}
+            <span style={{
+              fontSize: "var(--text-sm)",
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              maxWidth: 100,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>
+              {auth.user.username}
+            </span>
+
+            {/* Role badge */}
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 6px",
+              borderRadius: "var(--radius-full)",
+              background: ROLE_BADGE_COLORS[auth.user.role] + "22",
+              color: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+            }}>
+              {auth.user.role}
+            </span>
+
+            {/* Chevron */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: open ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.15s",
+                flexShrink: 0,
+              }}
+              aria-hidden="true"
             >
-              <div className="topbar__avatar" aria-hidden="true">
-                {getInitials(auth.user.username)}
-              </div>
-              <span className="topbar__username">{auth.user.username}</span>
-              <span className={roleBadgeClass(auth.user.role)}>
-                {auth.user.role}
-              </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                strokeLinejoin="round" style={{ marginLeft: 4, opacity: 0.5 }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
 
-            {open && (
-              <div
-                role="menu"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 8px)",
-                  right: 0,
-                  minWidth: 200,
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: "var(--radius-md)",
-                  boxShadow: "var(--shadow-lg)",
-                  zIndex: "var(--z-overlay)",
-                  padding: "var(--space-2)",
-                  animation: "fadeInUp 0.15s ease both",
-                }}
-              >
-                <button
-                  className="dropdown-item"
-                  role="menuitem"
-                  onClick={() => { setOpen(false); navigate("/profile"); }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                  Profile
-                </button>
-
-                {showManageUsers && (
-                  <button
-                    className="dropdown-item"
-                    role="menuitem"
-                    onClick={() => { setOpen(false); navigate("/manage-users"); }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                      strokeLinejoin="round">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    Manage {auth.user.role === "TEACHER" ? "Students" :
-                             auth.user.role === "PRINCIPAL" ? "Teachers" :
-                             auth.user.role === "OFFICIAL" ? "Principals" : "Users"}
-                  </button>
-                )}
-
-                <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", margin: "var(--space-2) 0" }} />
-
-                <button
-                  className="dropdown-item"
-                  role="menuitem"
-                  onClick={() => { setOpen(false); handleLogout(); }}
-                  style={{ color: "var(--error)" }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>Not signed in</span>
-        )}
-      </div>
+          {open && <UserDropdown onClose={() => setOpen(false)} />}
+        </div>
+      ) : null}
     </header>
   );
 }

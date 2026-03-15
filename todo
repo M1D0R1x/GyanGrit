@@ -3,3 +3,75 @@ TODO
 
 
 
+give the current content urls and ask if it needs update after current changes
+and also ask to segreate the urls in that
+
+
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER"])
+@require_http_methods(["GET"])
+def join_codes_list(request):
+    """
+    List join codes visible to the current user.
+    - ADMIN: all codes
+    - PRINCIPAL: codes for their institution
+    - TEACHER: codes for their institution (student codes only)
+    """
+    queryset = JoinCode.objects.select_related(
+        "institution", "section", "district", "subject", "created_by"
+    ).order_by("-created_at")
+
+    if request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"error": "No institution assigned"}, status=400)
+        queryset = queryset.filter(institution=request.user.institution)
+
+    elif request.user.role == "TEACHER":
+        if not request.user.institution:
+            return JsonResponse({"error": "No institution assigned"}, status=400)
+        queryset = queryset.filter(
+            institution=request.user.institution,
+            role="STUDENT",
+        )
+
+    data = [
+        {
+            "id": jc.id,
+            "code": jc.code,
+            "role": jc.role,
+            "institution": jc.institution.name if jc.institution else None,
+            "section": jc.section.name if jc.section else None,
+            "district": jc.district.name if jc.district else None,
+            "subject": jc.subject.name if jc.subject else None,
+            "is_used": jc.is_used,
+            "is_valid": jc.is_valid(),
+            "expires_at": jc.expires_at.isoformat(),
+            "created_at": jc.created_at.isoformat(),
+            "created_by": jc.created_by.username if jc.created_by else None,
+        }
+        for jc in queryset
+    ]
+
+    return JsonResponse(data, safe=False)
+
+    FOR OFFICIAL WHAT SHALL WE DO?
+    HE SHOULD BE ABLE TO ADD ATLEAST PRINCIPALS RIGHT?
+    OR SHALL WE COMPLETELY LEAVE THE JOIN CODES FOR OFFCIALS?
+
+
+in the admin/join-codes page
+after selecting the student and institution, in section only a,a,a,a coming
+we should be able to see 10 scl name and district since they are all in hierarchy
+if rather we select one school in one district and then select different section of different school
+not possible
+so either dynamically filter out abased on institution name and disctrcit to give the
+section name but it should show 10 scl name since districty will be same
+as we already filter out the section name
+
+and also can we make such that the institution, sections will come based on
+order alphabetically for institution
+and for section name, based on 10 or 9 ..
+logo is visible now but still cannot click on it yet
+
+
+create error pages for all the type of errors we can get
+they should be placed under the error page folder maybe or follow the industry standard

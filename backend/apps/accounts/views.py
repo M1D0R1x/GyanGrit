@@ -465,24 +465,30 @@ def teachers(request):
     )
 
 
-# =========================================================
-# JOIN CODE MANAGEMENT
-# =========================================================
-
-@require_roles(["ADMIN", "PRINCIPAL", "TEACHER"])
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
 @require_http_methods(["GET"])
 def join_codes_list(request):
     """
     List join codes visible to the current user.
     - ADMIN: all codes
+    - OFFICIAL: codes for their district
     - PRINCIPAL: codes for their institution
-    - TEACHER: codes for their institution (student codes only)
+    - TEACHER: STUDENT codes for their institution only
     """
     queryset = JoinCode.objects.select_related(
         "institution", "section", "district", "subject", "created_by"
     ).order_by("-created_at")
 
-    if request.user.role == "PRINCIPAL":
+    if request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"error": "No district assigned"}, status=400)
+        queryset = queryset.filter(
+            institution__district__name=request.user.district
+        ) | queryset.filter(
+            district__name=request.user.district
+        )
+
+    elif request.user.role == "PRINCIPAL":
         if not request.user.institution:
             return JsonResponse({"error": "No institution assigned"}, status=400)
         queryset = queryset.filter(institution=request.user.institution)
@@ -516,17 +522,18 @@ def join_codes_list(request):
     return JsonResponse(data, safe=False)
 
 
-@require_roles(["ADMIN", "PRINCIPAL", "TEACHER"])
+@require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
 @require_http_methods(["POST"])
 @csrf_exempt
 def create_join_code(request):
     """
     Create a new join code.
 
-    Scoping rules:
-    - ADMIN: can create any role, must supply institution_id/section_id/etc.
-    - PRINCIPAL: can create STUDENT and TEACHER codes for their institution only.
-    - TEACHER: can create STUDENT codes for their institution only.
+    Role creation matrix:
+    - ADMIN     → any role
+    - OFFICIAL  → PRINCIPAL only (for their district)
+    - PRINCIPAL → STUDENT, TEACHER (for their institution)
+    - TEACHER   → STUDENT only (for their institution)
     """
     try:
         body = json.loads(request.body)
@@ -542,65 +549,86 @@ def create_join_code(request):
             status=400,
         )
 
-    # ── Enforce role creation permissions ────────────────────────────────────
+    # ── Permission matrix ───────────────────────────────────────────────────
     if request.user.role == "TEACHER" and role != "STUDENT":
         return JsonResponse(
-            {"error": "Teachers can only create STUDENT codes"},
+            {"error": "Teachers can only create STUDENT codes."},
             status=403,
         )
     if request.user.role == "PRINCIPAL" and role in ["OFFICIAL", "PRINCIPAL"]:
         return JsonResponse(
-            {"error": "Principals can only create STUDENT and TEACHER codes"},
+            {"error": "Principals can only create STUDENT and TEACHER codes."},
+            status=403,
+        )
+    if request.user.role == "OFFICIAL" and role != "PRINCIPAL":
+        return JsonResponse(
+            {"error": "Officials can only create PRINCIPAL codes."},
             status=403,
         )
 
-    # ── Resolve institution ──────────────────────────────────────────────────
-    # If the requester is TEACHER or PRINCIPAL, institution is always their own.
-    # ADMIN must supply institution_id for non-OFFICIAL roles.
+    # ── Resolve institution ─────────────────────────────────────────────────
     institution = None
     section = None
     district = None
     subject = None
 
     if request.user.role in ("TEACHER", "PRINCIPAL"):
+        # Always their own institution — never from body
         institution = request.user.institution
         if not institution:
             return JsonResponse(
                 {"error": "Your account has no institution assigned."},
                 status=400,
             )
+    elif request.user.role == "OFFICIAL":
+        # OFFICIAL creates PRINCIPAL codes — institution comes from body
+        # or they pick a school in their district
+        institution_id = body.get("institution_id")
+        if institution_id:
+            institution = get_object_or_404(Institution, id=institution_id)
+            # Verify institution is in their district
+            if institution.district.name != request.user.district:
+                return JsonResponse(
+                    {"error": "That institution is not in your district."},
+                    status=403,
+                )
     else:
-        # ADMIN — resolve from body
+        # ADMIN
         institution_id = body.get("institution_id")
         if institution_id:
             institution = get_object_or_404(Institution, id=institution_id)
 
-    # ── Resolve section ──────────────────────────────────────────────────────
+    # ── Resolve section ─────────────────────────────────────────────────────
     section_id = body.get("section_id")
     if section_id:
         section = get_object_or_404(Section, id=section_id)
-        # Verify section belongs to institution
         if institution and section.classroom.institution != institution:
             return JsonResponse(
                 {"error": "Section does not belong to this institution."},
                 status=400,
             )
 
-    # ── Resolve district ─────────────────────────────────────────────────────
+    # ── Resolve district ────────────────────────────────────────────────────
     district_id = body.get("district_id")
     if district_id:
         district = get_object_or_404(District, id=district_id)
+    elif request.user.role == "OFFICIAL" and not district_id:
+        # OFFICIAL — auto-assign their own district FK
+        try:
+            district = District.objects.get(name=request.user.district)
+        except District.DoesNotExist:
+            pass
 
-    # ── Resolve subject ──────────────────────────────────────────────────────
+    # ── Resolve subject ─────────────────────────────────────────────────────
     subject_id = body.get("subject_id")
     if subject_id:
         subject = get_object_or_404(Subject, id=subject_id)
 
-    # ── Expiry ────────────────────────────────────────────────────────────────
+    # ── Expiry ──────────────────────────────────────────────────────────────
     expires_days = min(int(body.get("expires_days", 3)), 30)
     expires_at = timezone.now() + timezone.timedelta(days=expires_days)
 
-    # ── Create ────────────────────────────────────────────────────────────────
+    # ── Create ──────────────────────────────────────────────────────────────
     try:
         join_code = JoinCode(
             role=role,

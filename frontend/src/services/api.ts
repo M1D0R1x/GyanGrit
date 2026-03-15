@@ -114,3 +114,11 @@ export async function apiPatch<T>(
 export async function apiLogout(): Promise<void> {
   await apiPost("/accounts/logout/", {});
 }
+
+// In api.ts — add this helper so views can use it
+export function handleApiError(err: unknown): never {
+  if (err instanceof TypeError && err.message.includes("fetch")) {
+    window.location.href = "/network-error";
+  }
+  throw err;
+}

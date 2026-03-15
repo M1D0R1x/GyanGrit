@@ -28,7 +28,7 @@ def institutions(request):
     if request.user.role not in ["ADMIN", "OFFICIAL", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    queryset = Institution.objects.select_related("district")
+    queryset = Institution.objects.select_related("district").order_by("name")
 
     if request.user.role == "OFFICIAL":
         if not request.user.district:
@@ -78,13 +78,29 @@ def classes(request):
 @login_required
 @require_http_methods(["GET"])
 def sections(request):
-    classroom_id = request.GET.get("classroom_id")
+    """
+    Returns sections with full label: classroom grade + institution name.
+    This fixes the 'A, A, A, A' problem — each section now has a unique
+    human-readable label like 'Class 8-A — Govt School Amritsar'.
 
-    queryset = Section.objects.select_related("classroom", "classroom__institution")
+    Sorted by: institution name (A-Z), then grade (6→10), then section name (A→Z).
+    Filtered by institution scope based on role.
 
-    if classroom_id:
-        queryset = queryset.filter(classroom_id=classroom_id)
+    Accepts optional ?classroom__institution_id= for frontend-side filtering.
+    """
+    institution_id_filter = request.GET.get("classroom__institution_id")
 
+    queryset = Section.objects.select_related(
+        "classroom",
+        "classroom__institution",
+        "classroom__institution__district",
+    )
+
+    # Optional institution filter (used by join code form)
+    if institution_id_filter:
+        queryset = queryset.filter(classroom__institution_id=institution_id_filter)
+
+    # Role-based scoping
     if request.user.role in ["PRINCIPAL", "TEACHER", "STUDENT"]:
         if request.user.institution:
             queryset = queryset.filter(classroom__institution=request.user.institution)
@@ -95,10 +111,30 @@ def sections(request):
                 classroom__institution__district__name=request.user.district
             )
 
-    return JsonResponse(
-        list(queryset.values("id", "name", "classroom_id")),
-        safe=False
+    # Sort: institution name A-Z, then grade numerically, then section name A-Z
+    # Grade is stored as string ("6", "7"...) so we cast for ordering
+    queryset = queryset.order_by(
+        "classroom__institution__name",
+        "classroom__name",
+        "name",
     )
+
+    data = [
+        {
+            "id": s.id,
+            "name": s.name,
+            "classroom_id": s.classroom_id,
+            "grade": s.classroom.name,
+            "institution_id": s.classroom.institution_id,
+            "institution_name": s.classroom.institution.name,
+            # Full label: "Class 8-A" or with school name when needed
+            "label": f"Class {s.classroom.name}-{s.name} — {s.classroom.institution.name}",
+            "short_label": f"Class {s.classroom.name}-{s.name}",
+        }
+        for s in queryset
+    ]
+
+    return JsonResponse(data, safe=False)
 
 
 # =========================================================

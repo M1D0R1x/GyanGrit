@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import LogoutButton from "./LogoutButton";
 import Logo from "./Logo";
-// import type { Role } from "../auth/authTypes"; GETTING NOT USED ERROR
 
 type Props = {
   title?: string;
@@ -45,16 +44,10 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
         overflow: "hidden",
       }}
     >
-      <div style={{
-        padding: "12px 16px",
-        borderBottom: "1px solid var(--border-subtle)",
-        background: "var(--bg-surface)",
-      }}>
-        <UserInfo />
-      </div>
+      <UserInfoHeader />
 
       <div style={{ padding: "4px 0" }}>
-        <DropdownItem
+        <DropdownBtn
           icon={
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round"
@@ -66,9 +59,7 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
           label="Profile"
           onClick={() => go("/profile")}
         />
-
         <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
-
         <div style={{ padding: "4px 8px" }}>
           <LogoutButton onLogout={onClose} />
         </div>
@@ -77,11 +68,15 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
   );
 }
 
-function UserInfo() {
+function UserInfoHeader() {
   const auth = useAuth();
   if (!auth.user) return null;
   return (
-    <>
+    <div style={{
+      padding: "12px 16px",
+      borderBottom: "1px solid var(--border-subtle)",
+      background: "var(--bg-surface)",
+    }}>
       <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
         {auth.user.username}
       </div>
@@ -90,11 +85,11 @@ function UserInfo() {
           {auth.user.public_id}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-function DropdownItem({
+function DropdownBtn({
   icon,
   label,
   onClick,
@@ -103,33 +98,28 @@ function DropdownItem({
   label: string;
   onClick: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <button
       role="menuitem"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 10,
         width: "100%",
         padding: "8px 16px",
-        background: "none",
+        background: hovered ? "var(--bg-overlay)" : "none",
         border: "none",
-        color: "var(--text-secondary)",
+        color: hovered ? "var(--text-primary)" : "var(--text-secondary)",
         fontFamily: "var(--font-body)",
         fontSize: "var(--text-sm)",
         fontWeight: 500,
         cursor: "pointer",
         textAlign: "left",
-        transition: "background 0.1s",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = "none";
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+        transition: "all 0.1s",
       }}
     >
       {icon}
@@ -140,6 +130,7 @@ function DropdownItem({
 
 export default function TopBar({ title }: Props) {
   const auth = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +154,22 @@ export default function TopBar({ title }: Props) {
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
+  // Navigate to role-appropriate home on logo click
+  const handleLogoClick = () => {
+    if (!auth.authenticated || !auth.user) {
+      navigate("/login");
+      return;
+    }
+    const paths: Record<string, string> = {
+      STUDENT:   "/dashboard",
+      TEACHER:   "/teacher",
+      PRINCIPAL: "/principal",
+      OFFICIAL:  "/official",
+      ADMIN:     "/admin-panel",
+    };
+    navigate(paths[auth.user.role] ?? "/");
+  };
+
   return (
     <header
       style={{
@@ -180,12 +187,30 @@ export default function TopBar({ title }: Props) {
       }}
       role="banner"
     >
-      {/* Left: logo + optional title */}
+      {/* Left: clickable logo + optional page title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Logo size="sm" variant="full" />
+        <button
+          onClick={handleLogoClick}
+          aria-label="Go to home"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            borderRadius: "var(--radius-sm)",
+            transition: "opacity 0.15s",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.75"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+        >
+          <Logo size="sm" variant="full" />
+        </button>
+
         {title && (
           <>
-            <span style={{ color: "var(--border-strong)", fontSize: 16 }}>/</span>
+            <span style={{ color: "var(--border-strong)", fontSize: 16, userSelect: "none" }}>/</span>
             <span style={{
               fontSize: "var(--text-sm)",
               fontWeight: 600,
@@ -197,7 +222,7 @@ export default function TopBar({ title }: Props) {
         )}
       </div>
 
-      {/* Right: user pill */}
+      {/* Right: user pill with dropdown */}
       {auth.loading ? (
         <div style={{
           width: 160,
@@ -208,7 +233,6 @@ export default function TopBar({ title }: Props) {
         }} />
       ) : auth.authenticated && auth.user ? (
         <div ref={containerRef} style={{ position: "relative" }}>
-          {/* The entire pill IS the button */}
           <button
             onClick={() => setOpen((v) => !v)}
             aria-haspopup="menu"
@@ -228,7 +252,6 @@ export default function TopBar({ title }: Props) {
               fontFamily: "inherit",
             }}
           >
-            {/* Avatar circle */}
             <div style={{
               width: 26,
               height: 26,
@@ -245,7 +268,6 @@ export default function TopBar({ title }: Props) {
               {getInitials(auth.user.username)}
             </div>
 
-            {/* Username */}
             <span style={{
               fontSize: "var(--text-sm)",
               fontWeight: 600,
@@ -258,13 +280,12 @@ export default function TopBar({ title }: Props) {
               {auth.user.username}
             </span>
 
-            {/* Role badge */}
             <span style={{
               fontSize: 10,
               fontWeight: 700,
               padding: "2px 6px",
               borderRadius: "var(--radius-full)",
-              background: ROLE_BADGE_COLORS[auth.user.role] + "22",
+              background: (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
               color: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
               letterSpacing: "0.04em",
               textTransform: "uppercase",
@@ -272,16 +293,10 @@ export default function TopBar({ title }: Props) {
               {auth.user.role}
             </span>
 
-            {/* Chevron */}
             <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--text-muted)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="var(--text-muted)" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
               style={{
                 transform: open ? "rotate(180deg)" : "rotate(0deg)",
                 transition: "transform 0.15s",

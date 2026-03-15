@@ -10,6 +10,12 @@ import VerifyOtpPage from "../pages/VerifyOtpPage";
 import { RequireRole } from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 
+// --Errors--
+const NotFoundPage    = lazy(() => import("../pages/errors/NotFoundPage"));
+const ForbiddenPage   = lazy(() => import("../pages/errors/ForbiddenPage"));
+const ServerErrorPage = lazy(() => import("../pages/errors/ServerErrorPage"));
+const NetworkErrorPage = lazy(() => import("../pages/errors/NetworkErrorPage"));
+
 // ── Student ────────────────────────────────────────────────────────────────
 const DashboardPage      = lazy(() => import("../pages/DashboardPage"));
 const CoursesPage        = lazy(() => import("../pages/CoursesPage"));
@@ -149,4 +155,16 @@ export const router = createBrowserRouter([
 
   // ── Catch-all ─────────────────────────────────────────────────────────
   { path: "*", element: <Navigate to="/" replace /> },
+
+    // ── Error pages ───────────────────────────────────────────────────────────
+  { path: "/403",
+    element: <Suspense fallback={<PageLoader />}><ForbiddenPage /></Suspense> },
+  { path: "/500",
+    element: <Suspense fallback={<PageLoader />}><ServerErrorPage /></Suspense> },
+  { path: "/network-error",
+    element: <Suspense fallback={<PageLoader />}><NetworkErrorPage /></Suspense> },
+
+  // 404 — catch-all (must be last)
+  { path: "*",
+    element: <Suspense fallback={<PageLoader />}><NotFoundPage /></Suspense> },
 ]);

@@ -28,7 +28,6 @@ venv/
 
 # Django runtime
 db.sqlite3
-media/
 staticfiles/
 
 # Django secrets

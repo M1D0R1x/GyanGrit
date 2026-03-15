@@ -1,5 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
-
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
@@ -35,10 +33,13 @@ const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPag
 const OfficialDashboardPage  = lazy(() => import("../pages/OfficialDashboardPage"));
 const AdminDashboardPage     = lazy(() => import("../pages/AdminDashboardPage"));
 
-// Admin content management
-const AdminContentPage            = lazy(() => import("../pages/AdminContentPage"));
-const AdminLessonEditorPage       = lazy(() => import("../pages/AdminLessonEditorPage"));
-const AdminAssessmentBuilderPage  = lazy(() => import("../pages/AdminAssessmentBuilderPage"));
+// Admin content
+const AdminContentPage           = lazy(() => import("../pages/AdminContentPage"));
+const AdminLessonEditorPage      = lazy(() => import("../pages/AdminLessonEditorPage"));
+const AdminAssessmentBuilderPage = lazy(() => import("../pages/AdminAssessmentBuilderPage"));
+
+// Admin user management
+const AdminJoinCodesPage = lazy(() => import("../pages/AdminJoinCodesPage"));
 
 function PageLoader() {
   return (
@@ -74,38 +75,37 @@ export const router = createBrowserRouter([
   { path: "/verify-otp", element: <VerifyOtpPage /> },
 
   // Student
-  { path: "/dashboard",    element: <Protected role="STUDENT"><DashboardPage /></Protected> },
-  { path: "/courses",      element: <Protected role="STUDENT"><CoursesPage /></Protected> },
-  { path: "/courses/:courseId", element: <Protected role="STUDENT"><LessonsPage /></Protected> },
-  { path: "/lessons/:lessonId", element: <Protected role="STUDENT"><LessonPage /></Protected> },
-  { path: "/learning",          element: <Protected role="STUDENT"><LearningPathsPage /></Protected> },
-  { path: "/learning/:pathId",  element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
-  { path: "/profile",           element: <Protected role="STUDENT"><ProfilePage /></Protected> },
+  { path: "/dashboard",              element: <Protected role="STUDENT"><DashboardPage /></Protected> },
+  { path: "/courses",                element: <Protected role="STUDENT"><CoursesPage /></Protected> },
+  { path: "/courses/:courseId",      element: <Protected role="STUDENT"><LessonsPage /></Protected> },
+  { path: "/lessons/:lessonId",      element: <Protected role="STUDENT"><LessonPage /></Protected> },
+  { path: "/learning",               element: <Protected role="STUDENT"><LearningPathsPage /></Protected> },
+  { path: "/learning/:pathId",       element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
+  { path: "/profile",                element: <Protected role="STUDENT"><ProfilePage /></Protected> },
 
   // Assessments
-  { path: "/courses/:courseId/assessments", element: <Protected role="STUDENT"><CourseAssessmentsPage /></Protected> },
-  { path: "/assessments/:assessmentId",     element: <Protected role="STUDENT"><AssessmentPage /></Protected> },
-  { path: "/assessment-result",             element: <Protected role="STUDENT"><AssessmentResultPage /></Protected> },
+  { path: "/courses/:courseId/assessments",    element: <Protected role="STUDENT"><CourseAssessmentsPage /></Protected> },
+  { path: "/assessments/:assessmentId",        element: <Protected role="STUDENT"><AssessmentPage /></Protected> },
+  { path: "/assessment-result",               element: <Protected role="STUDENT"><AssessmentResultPage /></Protected> },
   { path: "/assessments/:assessmentId/history", element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
 
   // Teacher
-  { path: "/teacher", element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
-  { path: "/teacher/classes/:classId", element: <Protected role="TEACHER"><TeacherClassDetailPage /></Protected> },
-  { path: "/teacher/classes/:classId/students/:studentId", element: <Protected role="TEACHER"><TeacherStudentDetailPage /></Protected> },
+  { path: "/teacher",                                         element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
+  { path: "/teacher/classes/:classId",                        element: <Protected role="TEACHER"><TeacherClassDetailPage /></Protected> },
+  { path: "/teacher/classes/:classId/students/:studentId",    element: <Protected role="TEACHER"><TeacherStudentDetailPage /></Protected> },
 
-  // Principal
+  // Other roles
   { path: "/principal", element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
-
-  // Official
-  { path: "/official", element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
-
-  // Admin
+  { path: "/official",  element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
   { path: "/admin-panel", element: <Protected role="ADMIN"><AdminDashboardPage /></Protected> },
 
-  // Admin content management
-  { path: "/admin/content", element: <Protected role="ADMIN"><AdminContentPage /></Protected> },
-  { path: "/admin/content/courses/:courseId/lessons", element: <Protected role="ADMIN"><AdminLessonEditorPage /></Protected> },
-  { path: "/admin/content/courses/:courseId/assessments", element: <Protected role="ADMIN"><AdminAssessmentBuilderPage /></Protected> },
+  // Admin — content management
+  { path: "/admin/content",                                    element: <Protected role="ADMIN"><AdminContentPage /></Protected> },
+  { path: "/admin/content/courses/:courseId/lessons",          element: <Protected role="ADMIN"><AdminLessonEditorPage /></Protected> },
+  { path: "/admin/content/courses/:courseId/assessments",      element: <Protected role="ADMIN"><AdminAssessmentBuilderPage /></Protected> },
+
+  // Admin — user management
+  { path: "/admin/join-codes", element: <Protected role="ADMIN"><AdminJoinCodesPage /></Protected> },
 
   { path: "*", element: <Navigate to="/" replace /> },
 ]);

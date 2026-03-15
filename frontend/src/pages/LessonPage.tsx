@@ -5,25 +5,72 @@ import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
 import TopBar from "../components/TopBar";
 
-// ─── Markdown renderer (no library — basic patterns only) ───────
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
-    .replace(/^- (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
-    .replace(/\n\n/g, "</p><p>")
-    .replace(/^(?!<[hul])/gm, "")
-    .trim();
+function renderMarkdown(raw: string): string {
+  if (!raw) return "";
+  const lines = raw.split("\n");
+  const out: string[] = [];
+  // FIX 1: Track list type ("ul" | "ol" | null) to correctly close ordered vs unordered lists
+  let listType: "ul" | "ol" | null = null;
+
+  const escape = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const inline = (s: string) =>
+    escape(s)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`(.+?)`/g, "<code>$1</code>");
+
+  for (const line of lines) {
+    const isBullet  = /^[-*] /.test(line);
+    const isOrdered = /^\d+\. /.test(line);
+    const isList    = isBullet || isOrdered;
+
+    // Close open list if we're leaving list territory
+    if (listType && !isList) {
+      out.push(`</${listType}>`);
+      listType = null;
+    }
+
+    if (line.startsWith("# ")) {
+      out.push(`<h1>${inline(line.slice(2))}</h1>`);
+    } else if (line.startsWith("## ")) {
+      out.push(`<h2>${inline(line.slice(3))}</h2>`);
+    } else if (line.startsWith("### ")) {
+      out.push(`<h3>${inline(line.slice(4))}</h3>`);
+    } else if (isBullet) {
+      if (listType !== "ul") {
+        if (listType === "ol") out.push("</ol>");
+        out.push("<ul>");
+        listType = "ul";
+      }
+      out.push(`<li>${inline(line.slice(2))}</li>`);
+    } else if (isOrdered) {
+      // FIX 2: Ordered list items now open/close <ol>, not <ul>
+      if (listType !== "ol") {
+        if (listType === "ul") out.push("</ul>");
+        out.push("<ol>");
+        listType = "ol";
+      }
+      out.push(`<li>${inline(line.replace(/^\d+\. /, ""))}</li>`);
+    } else if (line.trim() === "") {
+      // blank line — skip
+    } else {
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+
+  // FIX 3: Close whichever list type is still open at end of input
+  if (listType) out.push(`</${listType}>`);
+
+  return out.join("\n");
 }
 
-// ─── Video embed ─────────────────────────────────────────────────
-function VideoEmbed({ url, thumbnail, duration }: {
+function VideoEmbed({
+  url,
+  thumbnail,
+  duration,
+}: {
   url: string;
   thumbnail?: string | null;
   duration?: string;
@@ -41,17 +88,7 @@ function VideoEmbed({ url, thumbnail, duration }: {
         border: "1px solid var(--border-subtle)",
         marginBottom: "var(--space-6)",
       }}>
-
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn--primary"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            strokeLinejoin="round" aria-hidden="true">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn--primary">
           Watch Video
         </a>
       </div>
@@ -66,25 +103,29 @@ function VideoEmbed({ url, thumbnail, duration }: {
     || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : "");
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        aspectRatio: "16 / 9",
-        borderRadius: "var(--radius-lg)",
-        overflow: "hidden",
-        marginBottom: "var(--space-6)",
-        background: "#000",
-        boxShadow: "var(--shadow-lg)",
-      }}
-    >
+    <div style={{
+      position: "relative",
+      width: "100%",
+      aspectRatio: "16 / 9",
+      borderRadius: "var(--radius-lg)",
+      overflow: "hidden",
+      marginBottom: "var(--space-6)",
+      background: "#000",
+      boxShadow: "var(--shadow-lg)",
+    }}>
       {playing ? (
         <iframe
           src={embedSrc}
           title="Lesson video"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            border: "none",
+          }}
         />
       ) : (
         <button
@@ -108,13 +149,7 @@ function VideoEmbed({ url, thumbnail, duration }: {
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           )}
-          {/* Dark overlay */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-          }} />
-          {/* Play button */}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
           <div style={{
             position: "absolute",
             inset: 0,
@@ -134,7 +169,6 @@ function VideoEmbed({ url, thumbnail, duration }: {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "transform var(--transition-fast), background var(--transition-fast)",
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
                 <polygon points="5 3 19 12 5 21 5 3" />
@@ -160,9 +194,16 @@ function VideoEmbed({ url, thumbnail, duration }: {
   );
 }
 
-// ─── PDF viewer ───────────────────────────────────────────────────
 function PdfViewer({ url }: { url: string }) {
   const [expanded, setExpanded] = useState(false);
+
+  const headerRadius = expanded
+    ? "var(--radius-lg) var(--radius-lg) 0 0"
+    : "var(--radius-lg)";
+
+  const headerBorderBottom = expanded
+    ? "none"
+    : "1px solid var(--border-subtle)";
 
   return (
     <div style={{ marginBottom: "var(--space-6)" }}>
@@ -172,9 +213,9 @@ function PdfViewer({ url }: { url: string }) {
         justifyContent: "space-between",
         padding: "var(--space-4) var(--space-5)",
         background: "var(--bg-elevated)",
-        borderRadius: expanded ? "var(--radius-lg) var(--radius-lg) 0 0" : "var(--radius-lg)",
+        borderRadius: headerRadius,
         border: "1px solid var(--border-subtle)",
-        borderBottom: expanded ? "none" : "1px solid var(--border-subtle)",
+        borderBottom: headerBorderBottom,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
           <div style={{
@@ -188,15 +229,26 @@ function PdfViewer({ url }: { url: string }) {
             justifyContent: "center",
             flexShrink: 0,
           }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="var(--error)" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--error)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+            <div style={{
+              fontWeight: 600,
+              fontSize: "var(--text-sm)",
+              color: "var(--text-primary)",
+            }}>
               Lesson PDF
             </div>
             <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
@@ -204,8 +256,10 @@ function PdfViewer({ url }: { url: string }) {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "var(--space-2)" }}>
 
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          {/* FIX 4: Restored the missing opening <a tag */}
+          <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
@@ -223,13 +277,14 @@ function PdfViewer({ url }: { url: string }) {
           </button>
         </div>
       </div>
+
       {expanded && (
         <iframe
           src={url}
           title="Lesson PDF"
           style={{
             width: "100%",
-            height: "600px",
+            height: 600,
             border: "1px solid var(--border-subtle)",
             borderTop: "none",
             borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
@@ -241,17 +296,6 @@ function PdfViewer({ url }: { url: string }) {
   );
 }
 
-// ─── Markdown content renderer ────────────────────────────────────
-function MarkdownContent({ content }: { content: string }) {
-  return (
-    <div
-      className="lesson-markdown"
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-    />
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────
 export default function LessonPage() {
   const { lessonId } = useParams();
   const navigate     = useNavigate();
@@ -279,7 +323,7 @@ export default function LessonPage() {
     try {
       await apiPatch(`/lessons/${lesson.id}/progress/`, { completed: true });
       setMarked(true);
-      setLesson((prev) => prev ? { ...prev, completed: true } : null);
+      setLesson((prev) => (prev ? { ...prev, completed: true } : null));
     } catch {
       setError("Could not mark as complete. Please try again.");
     } finally {
@@ -292,12 +336,16 @@ export default function LessonPage() {
       <div className="page-shell">
         <TopBar />
         <main className="page-content page-content--narrow">
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", paddingTop: "var(--space-8)" }}>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-4)",
+            paddingTop: "var(--space-8)",
+          }}>
             <div className="skeleton" style={{ height: 32, width: "60%", borderRadius: "var(--radius-sm)" }} />
             <div className="skeleton" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />
             <div className="skeleton" style={{ height: 20, width: "90%", borderRadius: "var(--radius-sm)" }} />
             <div className="skeleton" style={{ height: 20, width: "80%", borderRadius: "var(--radius-sm)" }} />
-            <div className="skeleton" style={{ height: 20, width: "70%", borderRadius: "var(--radius-sm)" }} />
           </div>
         </main>
       </div>
@@ -309,8 +357,10 @@ export default function LessonPage() {
       <div className="page-shell">
         <TopBar />
         <main className="page-content page-content--narrow">
-          <div className="alert alert--error">{error || "Lesson not found."}</div>
-          <button className="back-btn" onClick={() => navigate(-1)}>← Go back</button>
+          <div className="alert alert--error">{error ?? "Lesson not found."}</div>
+          <button className="back-btn" onClick={() => navigate(-1)}>
+            ← Go back
+          </button>
         </main>
       </div>
     );
@@ -318,39 +368,62 @@ export default function LessonPage() {
 
   const hasVideo   = !!(lesson.video_url || lesson.hls_manifest_url);
   const hasPdf     = !!lesson.pdf_url;
-  const hasContent = !!lesson.content?.trim();
+  const hasContent = !!(lesson.content?.trim());
+
+  const ctaBg     = marked ? "rgba(63,185,80,0.06)" : "var(--bg-elevated)";
+  const ctaBorder = marked ? "rgba(63,185,80,0.2)"  : "var(--border-subtle)";
 
   return (
     <div className="page-shell">
       <TopBar />
       <main className="page-content page-content--narrow page-enter">
 
-        {/* Back */}
         <button className="back-btn" onClick={() => navigate(-1)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Back
         </button>
 
-        {/* Lesson header */}
         <div style={{ marginBottom: "var(--space-6)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-3)",
+            flexWrap: "wrap",
+          }}>
             {marked && (
               <span className="badge badge--success">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="3" strokeLinecap="round"
-                  strokeLinejoin="round" style={{ marginRight: 4 }}>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ marginRight: 4 }}
+                >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 Completed
               </span>
             )}
-            {hasVideo  && <span className="badge badge--success" style={{ fontSize: 10 }}>Video</span>}
-            {hasPdf    && <span className="badge badge--warning" style={{ fontSize: 10 }}>PDF</span>}
-            {hasContent && <span className="badge badge--info"   style={{ fontSize: 10 }}>Reading</span>}
+            {hasVideo   && <span className="badge badge--success" style={{ fontSize: 10 }}>Video</span>}
+            {hasPdf     && <span className="badge badge--warning" style={{ fontSize: 10 }}>PDF</span>}
+            {hasContent && <span className="badge badge--info"    style={{ fontSize: 10 }}>Reading</span>}
           </div>
           <h1 style={{
             fontFamily: "var(--font-display)",
@@ -364,33 +437,33 @@ export default function LessonPage() {
           </h1>
         </div>
 
-        {/* Video */}
         {hasVideo && (
           <VideoEmbed
-            url={(lesson.video_url || lesson.hls_manifest_url)!}
+            url={(lesson.video_url ?? lesson.hls_manifest_url)!}
             thumbnail={lesson.video_thumbnail_url}
             duration={lesson.video_duration}
           />
         )}
 
-        {/* PDF */}
         {hasPdf && <PdfViewer url={lesson.pdf_url!} />}
 
-        {/* Text content */}
-        {hasContent && <MarkdownContent content={lesson.content} />}
+        {hasContent && (
+          <div
+            className="lesson-markdown"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }}
+          />
+        )}
 
-        {/* Empty state */}
         {!hasVideo && !hasPdf && !hasContent && (
           <div className="empty-state" style={{ paddingTop: "var(--space-16)" }}>
             <div className="empty-state__icon">🚧</div>
             <h3 className="empty-state__title">Content coming soon</h3>
             <p className="empty-state__message">
-              This lesson hasn't been filled in yet. Check back later.
+              This lesson has not been filled in yet.
             </p>
           </div>
         )}
 
-        {/* Teacher notes */}
         {lesson.notes && lesson.notes.length > 0 && (
           <div style={{ marginTop: "var(--space-8)" }}>
             <div style={{
@@ -401,10 +474,17 @@ export default function LessonPage() {
               paddingBottom: "var(--space-3)",
               borderBottom: "1px solid var(--border-subtle)",
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="var(--role-teacher)" strokeWidth="2" strokeLinecap="round"
-                strokeLinejoin="round">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--role-teacher)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
               </svg>
               <span style={{
                 fontSize: "var(--text-sm)",
@@ -415,21 +495,26 @@ export default function LessonPage() {
               </span>
             </div>
             {lesson.notes.map((note) => (
-              <div
-                key={note.id}
-                style={{
-                  padding: "var(--space-4)",
-                  background: "rgba(16,185,129,0.04)",
-                  border: "1px solid rgba(16,185,129,0.15)",
-                  borderRadius: "var(--radius-md)",
-                  marginBottom: "var(--space-3)",
-                  borderLeft: "3px solid var(--role-teacher)",
-                }}
-              >
-                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", whiteSpace: "pre-wrap" }}>
+              <div key={note.id} style={{
+                padding: "var(--space-4)",
+                background: "rgba(16,185,129,0.04)",
+                border: "1px solid rgba(16,185,129,0.15)",
+                borderLeft: "3px solid var(--role-teacher)",
+                borderRadius: "var(--radius-md)",
+                marginBottom: "var(--space-3)",
+              }}>
+                <p style={{
+                  color: "var(--text-secondary)",
+                  fontSize: "var(--text-sm)",
+                  whiteSpace: "pre-wrap",
+                }}>
                   {note.content}
                 </p>
-                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                <div style={{
+                  marginTop: "var(--space-2)",
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-muted)",
+                }}>
                   — {note.author__username}
                 </div>
               </div>
@@ -437,23 +522,18 @@ export default function LessonPage() {
           </div>
         )}
 
-        {/* Mark complete CTA */}
         <div style={{
           marginTop: "var(--space-10)",
           padding: "var(--space-6)",
-          background: marked ? "rgba(63,185,80,0.06)" : "var(--bg-elevated)",
-          border: `1px solid ${marked ? "rgba(63,185,80,0.2)" : "var(--border-subtle)"}`,
+          background: ctaBg,
+          border: `1px solid ${ctaBorder}`,
           borderRadius: "var(--radius-lg)",
           textAlign: "center",
           transition: "all var(--transition-slow)",
         }}>
           {marked ? (
             <div>
-              <div style={{
-                fontSize: 40,
-                marginBottom: "var(--space-3)",
-                animation: "fadeInUp 0.4s ease both",
-              }}>
+              <div style={{ fontSize: 40, marginBottom: "var(--space-3)" }}>
                 🎉
               </div>
               <div style={{
@@ -465,19 +545,24 @@ export default function LessonPage() {
               }}>
                 Lesson complete!
               </div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+              <p style={{
+                fontSize: "var(--text-sm)",
+                color: "var(--text-muted)",
+                marginBottom: "var(--space-4)",
+              }}>
                 Well done. Keep going!
               </p>
-              <button
-                className="btn btn--secondary"
-                onClick={() => navigate(-1)}
-              >
+              <button className="btn btn--secondary" onClick={() => navigate(-1)}>
                 ← Back to lessons
               </button>
             </div>
           ) : (
             <div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+              <p style={{
+                fontSize: "var(--text-sm)",
+                color: "var(--text-muted)",
+                marginBottom: "var(--space-4)",
+              }}>
                 Finished reading? Mark this lesson as complete to track your progress.
               </p>
               <button
@@ -486,12 +571,23 @@ export default function LessonPage() {
                 disabled={marking}
               >
                 {marking ? (
-                  <><span className="btn__spinner" aria-hidden="true" /> Saving…</>
+                  <>
+                    <span className="btn__spinner" aria-hidden="true" />
+                    Saving…
+                  </>
                 ) : (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                      strokeLinejoin="round" aria-hidden="true">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                     Mark as Complete
@@ -501,6 +597,7 @@ export default function LessonPage() {
             </div>
           )}
         </div>
+
       </main>
     </div>
   );

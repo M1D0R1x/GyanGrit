@@ -1,49 +1,5 @@
 TODO
 
-Context:
-We have a role called **district-scoped official**. When such a user logs in, the **district should be automatically selected**. Currently the district is not auto-selected in the UI.
 
-Required changes:
-
-1. **District Selection**
-
-   * For users with district-scoped roles, automatically set their district on load.
-   * Either:
-
-     * Enable district selection from backend response, or
-     * Preselect the district in frontend based on the authenticated user's scope.
-
-2. **Data Explosion Problem**
-
-   * Each district can have:
-
-     * 2 schools
-     * 5 classes per school
-     * 12 subjects per class
-
-   If courses are generated per subject per class per school, this can lead to:
-   `2 × 5 × 12 = 120 potential course entries` (or more depending on structure).
-
-3. **Current Issue**
-
-   * The frontend is calling:
-
-     * `/courses/`
-     * `/paths/`
-     * `/courses/` again
-   * These endpoints currently return empty because no courses or paths exist yet.
-   * However, if implemented naïvely later, this could result in **large numbers of generated items and slow loading**.
-
-4. **Design Requirement**
-
-   * Do **not preload or generate courses/paths for every school/class/subject combination**.
-   * Instead:
-
-     * Load data **incrementally** (district → school → class → subject).
-     * Only fetch courses or paths **after the specific scope is selected**.
-     * Avoid automatically generating or displaying hundreds of combinations.
-
-Goal:
-Ensure district-scoped officials have their district auto-selected and prevent the UI from attempting to load or generate massive numbers of course/path combinations that would cause slow loading or unnecessary API calls.
 
 

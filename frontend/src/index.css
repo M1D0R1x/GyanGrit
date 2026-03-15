@@ -1339,3 +1339,169 @@ a:hover {
 .lesson-markdown li::marker {
   color: var(--brand-primary);
 }
+
+/* ================================================================
+   DROPDOWN MENU
+================================================================ */
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+/* ================================================================
+   MOBILE-FIRST RESPONSIVE SYSTEM
+   Base styles target mobile (< 640px).
+   Larger screens are progressively enhanced.
+================================================================ */
+
+/* ── TopBar ── */
+@media (max-width: 640px) {
+  .topbar {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .topbar__username {
+    display: none;
+  }
+
+  .topbar__title {
+    font-size: var(--text-base);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ── Page content ── */
+@media (max-width: 768px) {
+  .page-content {
+    padding: var(--space-4);
+  }
+
+  .page-content--narrow {
+    padding: var(--space-4);
+  }
+}
+
+/* ── Stat grid — single column on mobile ── */
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Section header — stack on mobile ── */
+@media (max-width: 540px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+}
+
+/* ── Cards — ensure they don't overflow ── */
+@media (max-width: 480px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .result-card {
+    padding: var(--space-8);
+  }
+
+  .result-card__score {
+    font-size: 56px;
+  }
+
+  .login-card {
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* ── Data tables — horizontal scroll on mobile ── */
+@media (max-width: 640px) {
+  .card:has(.data-table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
+  }
+}
+
+/* ── Assessment options — full width on mobile ── */
+@media (max-width: 480px) {
+  .assessment-option {
+    padding: var(--space-3);
+  }
+}
+
+/* ── Button groups — stack on very small screens ── */
+@media (max-width: 360px) {
+  .result-card__actions {
+    flex-direction: column;
+  }
+
+  .result-card__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Auth loading — safe area for notched phones ── */
+.auth-loading {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── TopBar safe area for iPhone notch ── */
+.topbar {
+  padding-top: max(var(--space-4), env(safe-area-inset-top));
+}
+
+/* ================================================================
+   FORM RESPONSIVE
+================================================================ */
+
+@media (max-width: 480px) {
+  .form-input,
+  select.form-input,
+  textarea.form-input {
+    font-size: 16px; /* Prevents iOS zoom on input focus */
+  }
+}
+
+/* ================================================================
+   ADMIN CONTENT PAGE — responsive grid
+================================================================ */
+
+@media (max-width: 640px) {
+  /* Lesson editor — collapse two-column grid to single */
+  .form-group > div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}

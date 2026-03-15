@@ -147,3 +147,4 @@ htmlcov/
 infra/**/secrets/
 
 *.dump
+backend/COMMANDS.md

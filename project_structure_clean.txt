@@ -1,4 +1,5 @@
 backend
+├── COMMANDS.md
 ├── __init__.py
 ├── apps
 │   ├── __init__.py
@@ -54,6 +55,7 @@ backend
 │   │   │   ├── 0002_joincode_subject.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── services.py
 │   │   ├── static
 │   │   │   └── admin
 │   │   │       └── js
@@ -73,6 +75,7 @@ backend
 │   │   │   ├── 0001_initial.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   ├── content
@@ -84,8 +87,13 @@ backend
 │   │   │       ├── __init__.py
 │   │   │       └── urls.py
 │   │   ├── apps.py
+│   │   ├── management
+│   │   │   └── commands
+│   │   │       └── seed_content.py
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_lesson_pdf_url_lesson_updated_at_and_more.py
+│   │   │   ├── 0003_sectionlesson.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── tests.py
@@ -104,6 +112,21 @@ backend
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── media
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── r2.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   └── roster
@@ -140,7 +163,6 @@ backend
     ├── dev.txt
     └── prod.txt
 frontend
-├── README.md
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
@@ -155,11 +177,17 @@ frontend
 │   │   └── authTypes.ts
 │   ├── components
 │   │   ├── LessonItem.tsx
+│   │   ├── Logo.tsx
 │   │   ├── LogoutButton.tsx
 │   │   └── TopBar.tsx
+│   ├── index.css
 │   ├── main.tsx
 │   ├── pages
+│   │   ├── AdminAssessmentBuilderPage.tsx
+│   │   ├── AdminContentPage.tsx
 │   │   ├── AdminDashboardPage.tsx
+│   │   ├── AdminJoinCodesPage.tsx
+│   │   ├── AdminLessonEditorPage.tsx
 │   │   ├── AssessmentHistoryPage.tsx
 │   │   ├── AssessmentPage.tsx
 │   │   ├── AssessmentsResultPage.tsx
@@ -178,13 +206,18 @@ frontend
 │   │   ├── TeacherClassDetailPage.tsx
 │   │   ├── TeacherDashboardPage.tsx
 │   │   ├── TeacherStudentDetailPage.tsx
+│   │   ├── UserManagementPage.tsx
 │   │   └── VerifyOtpPage.tsx
+│   ├── public
+│   │   └── favicon.svg
 │   └── services
 │       ├── api.ts
 │       ├── assessments.ts
+│       ├── content.ts
 │       ├── courseProgress.ts
 │       ├── learningEnrollments.ts
 │       ├── learningPaths.ts
+│       ├── media.ts
 │       ├── progress.ts
 │       └── teacherAnalytics.ts
 ├── tsconfig.app.json
@@ -193,7 +226,10 @@ frontend
 └── vite.config.ts
 docs
 ├── API_AND_FRONTEND_END_POINTS.md
+├── DATA_MODEL.md
+├── DEPLOYMENT.md
 ├── LEARNING_LOOP.md
+├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-46 directories, 151 files
+53 directories, 180 files

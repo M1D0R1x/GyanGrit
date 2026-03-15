@@ -1505,3 +1505,38 @@ a:hover {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ================================================================
+   DROPDOWN ITEM — used in TopBar menu
+================================================================ */
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.dropdown-item:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+/* Also add badge--purple for OFFICIAL role */
+.topbar__role-badge--official {
+  color: var(--role-official);
+  border-color: var(--role-official);
+  background: rgba(139,92,246,0.1);
+}

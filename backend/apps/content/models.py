@@ -5,12 +5,17 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from apps.academics.models import Subject
+from apps.academics.models import Subject, Section
 
 logger = logging.getLogger(__name__)
 
 
 class Course(models.Model):
+    """
+    Global curriculum unit.
+    One Course per (subject, grade). Government-curated content lives here.
+    60 total: 5 grades × 12 subjects.
+    """
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -31,6 +36,11 @@ class Course(models.Model):
 
 
 class Lesson(models.Model):
+    """
+    Global lesson belonging to a Course.
+    Visible to ALL students enrolled in this course's grade+subject.
+    Government-curated content.
+    """
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,
@@ -40,12 +50,12 @@ class Lesson(models.Model):
     order = models.PositiveIntegerField(default=1)
 
     # Content types — any combination can be set on a single lesson
-    content = models.TextField(blank=True)          # markdown/text
-    video_url = models.URLField(blank=True, null=True)        # YouTube/Vimeo URL
+    content = models.TextField(blank=True)
+    video_url = models.URLField(blank=True, null=True)
     video_thumbnail_url = models.URLField(blank=True, null=True)
-    video_duration = models.CharField(max_length=20, blank=True)  # e.g. "12:34"
+    video_duration = models.CharField(max_length=20, blank=True)
     hls_manifest_url = models.URLField(blank=True, null=True)
-    pdf_url = models.URLField(blank=True, null=True)          # R2 URL
+    pdf_url = models.URLField(blank=True, null=True)
     thumbnail_url = models.URLField(blank=True, null=True)
 
     is_published = models.BooleanField(default=False)
@@ -65,7 +75,65 @@ class Lesson(models.Model):
         return f"{self.course.title} — {self.title} (Order {self.order})"
 
 
+class SectionLesson(models.Model):
+    """
+    Section-specific supplemental lesson added by a teacher.
+
+    Design rationale:
+    - Global Lesson rows are government content, shared across all sections.
+    - SectionLesson allows a teacher to add extra lessons visible ONLY to
+      their specific section (class).
+    - Satisfies SRS requirement that teachers can upload and create custom
+      content without modifying the global curriculum.
+    - Additive model — no existing Lesson rows are touched.
+
+    Visibility rule:
+    - A student sees: all global Lesson rows for their course
+                    + all SectionLesson rows for their section + course
+    """
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="section_lessons",
+    )
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="section_lessons",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_section_lessons",
+    )
+
+    title = models.CharField(max_length=255)
+    order = models.PositiveIntegerField(default=0)
+
+    content = models.TextField(blank=True)
+    video_url = models.URLField(blank=True, null=True)
+    video_thumbnail_url = models.URLField(blank=True, null=True)
+    video_duration = models.CharField(max_length=20, blank=True)
+    hls_manifest_url = models.URLField(blank=True, null=True)
+    pdf_url = models.URLField(blank=True, null=True)
+
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"[Section {self.section}] {self.course} — {self.title}"
+
+
 class LessonProgress(models.Model):
+    """
+    Tracks a single student's progress on a single global Lesson.
+    NOTE: field is `user` (not `student`) — matches the existing DB schema.
+    """
     lesson = models.ForeignKey(
         Lesson,
         on_delete=models.CASCADE,
@@ -107,9 +175,8 @@ class LessonProgress(models.Model):
 class LessonNote(models.Model):
     """
     Teacher-authored supplemental notes attached to a lesson.
-    These sit on top of the shared curriculum — teachers can add
-    context, local examples, or corrections without editing the
-    global lesson content.
+    Sits on top of the shared curriculum — teachers add context,
+    local examples, or corrections without editing global content.
     """
     lesson = models.ForeignKey(
         Lesson,

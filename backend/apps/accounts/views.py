@@ -465,6 +465,25 @@ def teachers(request):
     )
 
 
+@require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
+@require_http_methods(["GET"])
+def institutions_list(request):
+    """
+    Scoped institution list. Sorted alphabetically.
+    OFFICIAL → their district only.
+    PRINCIPAL → their own institution only.
+    ADMIN → all.
+    """
+    queryset = scope_queryset(
+        request.user,
+        Institution.objects.select_related("district").order_by("name"),
+    )
+    return JsonResponse(
+        list(queryset.values("id", "name", "district__name")),
+        safe=False,
+    )
+
+
 @require_roles(["ADMIN", "PRINCIPAL", "TEACHER", "OFFICIAL"])
 @require_http_methods(["GET"])
 def join_codes_list(request):

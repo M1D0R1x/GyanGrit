@@ -17,16 +17,27 @@ type JoinCode = {
   created_by: string | null;
 };
 
-type SubjectItem     = { id: number; name: string };
-type InstitutionItem = { id: number; name: string; district__name: string };
-type SectionItem     = { id: number; name: string; classroom_id: number };
-type DistrictItem    = { id: number; name: string };
+type SubjectItem      = { id: number; name: string };
+type InstitutionItem  = { id: number; name: string; district__name: string };
+type DistrictItem     = { id: number; name: string };
 
-type RoleType = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL";
+// Updated: includes the enriched fields returned by academics/sections/
+type SectionItem = {
+  id: number;
+  name: string;
+  classroom_id: number;
+  grade: string;
+  institution_id: number;
+  institution_name: string;
+  label: string;        // "Class 8-A — Govt School Amritsar"
+  short_label: string;  // "Class 8-A"
+};
+
+type RoleType    = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL";
 type ValidFilter = "ALL" | "VALID" | "USED";
 
-const ROLES: RoleType[]         = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
-const ROLE_FILTERS               = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
+const ROLES: RoleType[]            = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
+const ROLE_FILTERS: string[]       = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
 const VALID_FILTERS: ValidFilter[] = ["ALL", "VALID", "USED"];
 
 function parseApiError(err: unknown, fallback: string): string {
@@ -35,10 +46,8 @@ function parseApiError(err: unknown, fallback: string): string {
   if (jsonStart !== -1) {
     try {
       const p = JSON.parse(err.message.slice(jsonStart));
-      if (p.error) return p.error;
-    } catch {
-      // fall through
-    }
+      if (p.error) return String(p.error);
+    } catch { /* fall through */ }
   }
   return fallback;
 }
@@ -84,27 +93,31 @@ function FilterPill({
 }
 
 export default function AdminJoinCodesPage() {
-  const [codes, setCodes]           = useState<JoinCode[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [success, setSuccess]       = useState<string | null>(null);
-  const [showForm, setShowForm]     = useState(false);
-  const [creating, setCreating]     = useState(false);
-  const [filterRole, setFilterRole] = useState("ALL");
+  const [codes, setCodes]             = useState<JoinCode[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [success, setSuccess]         = useState<string | null>(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [creating, setCreating]       = useState(false);
+  const [filterRole, setFilterRole]   = useState("ALL");
   const [filterValid, setFilterValid] = useState<ValidFilter>("ALL");
 
-  const [role, setRole]                   = useState<RoleType>("STUDENT");
+  // Form fields
+  const [role, setRole]               = useState<RoleType>("STUDENT");
   const [institutionId, setInstitutionId] = useState("");
-  const [sectionId, setSectionId]         = useState("");
-  const [subjectId, setSubjectId]         = useState("");
-  const [districtId, setDistrictId]       = useState("");
-  const [expiresDays, setExpiresDays]     = useState(3);
+  const [sectionId, setSectionId]     = useState("");
+  const [subjectId, setSubjectId]     = useState("");
+  const [districtId, setDistrictId]   = useState("");
+  const [expiresDays, setExpiresDays] = useState(3);
 
+  // Lookup data
   const [institutions, setInstitutions] = useState<InstitutionItem[]>([]);
   const [sections, setSections]         = useState<SectionItem[]>([]);
   const [subjects, setSubjects]         = useState<SubjectItem[]>([]);
   const [districts, setDistricts]       = useState<DistrictItem[]>([]);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
 
+  // Load initial data
   useEffect(() => {
     Promise.all([
       apiGet<JoinCode[]>("/accounts/join-codes/"),
@@ -122,16 +135,35 @@ export default function AdminJoinCodesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Load sections when institution is selected
   useEffect(() => {
     if (!institutionId) {
       setSections([]);
+      setSectionId("");
       return;
     }
+    setSectionsLoading(true);
+    // Uses academics/sections/ which returns enriched labels (grade, short_label, etc.)
     apiGet<SectionItem[]>(
       `/academics/sections/?classroom__institution_id=${institutionId}`
     )
-      .then(setSections)
-      .catch(() => setSections([]));
+      .then((data) => {
+        // Sort numerically by grade then alphabetically by section name
+        const sorted = [...data].sort((a, b) => {
+          const gradeA = parseInt(a.grade, 10) || 0;
+          const gradeB = parseInt(b.grade, 10) || 0;
+          if (gradeA !== gradeB) return gradeA - gradeB;
+          return a.name.localeCompare(b.name);
+        });
+        setSections(sorted);
+      })
+      .catch(() => setSections([]))
+      .finally(() => setSectionsLoading(false));
+  }, [institutionId]);
+
+  // Reset section when institution changes
+  useEffect(() => {
+    setSectionId("");
   }, [institutionId]);
 
   const resetForm = () => {
@@ -223,8 +255,16 @@ export default function AdminJoinCodesPage() {
           </button>
         </div>
 
-        {error   && <div className="alert alert--error">{error}</div>}
-        {success && <div className="alert alert--success">{success}</div>}
+        {error   && (
+          <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="alert alert--success" style={{ marginBottom: "var(--space-4)" }}>
+            {success}
+          </div>
+        )}
 
         {/* ── Create form ── */}
         {showForm && (
@@ -244,12 +284,19 @@ export default function AdminJoinCodesPage() {
               gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
               gap: "var(--space-4)",
             }}>
+              {/* Role */}
               <div className="form-group">
-                <label className="form-label">Role</label>
+                <label className="form-label">Role *</label>
                 <select
                   className="form-input"
                   value={role}
-                  onChange={(e) => setRole(e.target.value as RoleType)}
+                  onChange={(e) => {
+                    setRole(e.target.value as RoleType);
+                    setInstitutionId("");
+                    setSectionId("");
+                    setSubjectId("");
+                    setDistrictId("");
+                  }}
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>{r}</option>
@@ -257,15 +304,16 @@ export default function AdminJoinCodesPage() {
                 </select>
               </div>
 
+              {/* Institution */}
               {needsInstitution && (
                 <div className="form-group">
-                  <label className="form-label">Institution</label>
+                  <label className="form-label">Institution *</label>
                   <select
                     className="form-input"
                     value={institutionId}
                     onChange={(e) => setInstitutionId(e.target.value)}
                   >
-                    <option value="">— select —</option>
+                    <option value="">— select institution —</option>
                     {institutions.map((inst) => (
                       <option key={inst.id} value={inst.id}>
                         {inst.name}
@@ -275,31 +323,50 @@ export default function AdminJoinCodesPage() {
                 </div>
               )}
 
-              {needsSection && institutionId && sections.length > 0 && (
+              {/* Section — only for STUDENT, only after institution selected */}
+              {needsSection && institutionId && (
                 <div className="form-group">
                   <label className="form-label">Section</label>
-                  <select
-                    className="form-input"
-                    value={sectionId}
-                    onChange={(e) => setSectionId(e.target.value)}
-                  >
-                    <option value="">— select —</option>
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  {sectionsLoading ? (
+                    <div
+                      className="skeleton"
+                      style={{ height: 42, borderRadius: "var(--radius-md)" }}
+                    />
+                  ) : sections.length > 0 ? (
+                    <select
+                      className="form-input"
+                      value={sectionId}
+                      onChange={(e) => setSectionId(e.target.value)}
+                    >
+                      <option value="">— all sections —</option>
+                      {sections.map((s) => (
+                        // FIX: use short_label ("Class 8-A") not name ("A")
+                        <option key={s.id} value={s.id}>
+                          {s.short_label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="form-input"
+                      value="No sections found"
+                      disabled
+                      style={{ opacity: 0.5, cursor: "not-allowed" }}
+                    />
+                  )}
                 </div>
               )}
 
+              {/* Subject — only for TEACHER */}
               {needsSubject && (
                 <div className="form-group">
-                  <label className="form-label">Subject</label>
+                  <label className="form-label">Subject *</label>
                   <select
                     className="form-input"
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
                   >
-                    <option value="">— select —</option>
+                    <option value="">— select subject —</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -307,15 +374,16 @@ export default function AdminJoinCodesPage() {
                 </div>
               )}
 
+              {/* District — only for OFFICIAL */}
               {needsDistrict && (
                 <div className="form-group">
-                  <label className="form-label">District</label>
+                  <label className="form-label">District *</label>
                   <select
                     className="form-input"
                     value={districtId}
                     onChange={(e) => setDistrictId(e.target.value)}
                   >
-                    <option value="">— select —</option>
+                    <option value="">— select district —</option>
                     {districts.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
@@ -323,6 +391,7 @@ export default function AdminJoinCodesPage() {
                 </div>
               )}
 
+              {/* Expiry */}
               <div className="form-group">
                 <label className="form-label">Expires in (days, max 30)</label>
                 <input
@@ -422,9 +491,7 @@ export default function AdminJoinCodesPage() {
           <div className="empty-state">
             <div className="empty-state__icon">🔑</div>
             <h3 className="empty-state__title">No join codes</h3>
-            <p className="empty-state__message">
-              Create a code to invite new users.
-            </p>
+            <p className="empty-state__message">Create a code to invite new users.</p>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -464,7 +531,7 @@ export default function AdminJoinCodesPage() {
                     <td style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
                       {code.institution ?? code.district ?? "—"}
                       {code.subject ? ` · ${code.subject}` : ""}
-                      {code.section ? ` · Section ${code.section}` : ""}
+                      {code.section ? ` · ${code.section}` : ""}
                     </td>
                     <td>
                       <span className={`badge ${code.is_valid ? "badge--success" : "badge--error"}`}>
@@ -502,6 +569,7 @@ export default function AdminJoinCodesPage() {
             </table>
           </div>
         )}
+
       </main>
     </div>
   );

@@ -12,7 +12,7 @@
 A role-based digital learning platform for government schools in Punjab, India.
 Built for low-bandwidth environments and shared devices, GyanGrit delivers
 government-curated content with session-controlled access, teacher dashboards,
-and district-level analytics.
+district-level analytics, and a gamification layer to keep students engaged.
 
 ---
 
@@ -22,7 +22,7 @@ and district-level analytics.
 |---|---|
 | Frontend | React 18, Vite, TypeScript |
 | Backend | Django 4.2, Python 3.11+ |
-| Database | PostgreSQL via Supabase (prod) / SQLite (dev) |
+| Database | PostgreSQL via Supabase (all environments) |
 | Auth | Django session-based with single-device enforcement |
 | API | REST, versioned under `/api/v1/` |
 | Styling | Custom CSS design system — no UI library |
@@ -40,18 +40,21 @@ Browser (React SPA)
         │
         ▼
   Django Backend
-  ┌──────────────────────────────────────────────────┐
-  │  accounts      users, auth, OTP, join codes      │
-  │  academics     districts, schools, subjects       │
-  │  accesscontrol role decorators, queryset scoping  │
-  │  content       courses, lessons, progress         │
-  │  learning      enrollments, learning paths        │
-  │  assessments   quizzes, scoring, attempts         │
-  │  roster        bulk student pre-registration      │
-  └──────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  accounts       users, auth, OTP, join codes             │
+  │  academics      districts, schools, subjects             │
+  │  accesscontrol  role decorators, queryset scoping        │
+  │  content        courses, lessons, section lessons        │
+  │  learning       enrollments, learning paths              │
+  │  assessments    quizzes, scoring, attempts               │
+  │  roster         bulk student pre-registration            │
+  │  gamification   points, badges, streaks, leaderboard     │
+  │  notifications  in-app notifications                     │
+  │  media          Cloudflare R2 media management           │
+  └──────────────────────────────────────────────────────────┘
         │
         ▼
-  PostgreSQL
+  PostgreSQL (Supabase)
 ```
 
 ---
@@ -60,9 +63,9 @@ Browser (React SPA)
 
 | Role | Access Scope | Login |
 |---|---|---|
-| STUDENT | Own courses, lessons, assessments | Password only |
-| TEACHER | Class analytics, roster upload | Password + OTP |
-| PRINCIPAL | Institution overview, teacher list | Password + OTP |
+| STUDENT | Own courses, lessons, assessments, leaderboard | Password only |
+| TEACHER | Class analytics, roster upload, lesson/assessment builder | Password + OTP |
+| PRINCIPAL | Institution overview, teacher list, lesson/assessment builder | Password + OTP |
 | OFFICIAL | District-level analytics | Password + OTP |
 | ADMIN | Full system | Password only |
 
@@ -106,7 +109,7 @@ SECRET_KEY=your-secret-key-here
 DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
 ```
 
-Leave `DATABASE_URL` unset to use SQLite in development.
+`DATABASE_URL` is required in all environments — no SQLite fallback in production.
 
 ---
 
@@ -119,19 +122,22 @@ GyanGrit/
 │   │   ├── accounts/        user model, auth, OTP, join codes, sessions
 │   │   ├── academics/       districts, schools, classrooms, subjects
 │   │   ├── accesscontrol/   permission decorators, queryset scoping
-│   │   ├── content/         courses, lessons, progress tracking
+│   │   ├── content/         courses, lessons, section lessons, progress
 │   │   ├── learning/        enrollments, learning paths
-│   │   ├── assessments/     quizzes, scoring, attempt history
-│   │   └── roster/          Excel-based bulk student registration
+│   │   ├── assessments/     quizzes, scoring, attempt history, builder
+│   │   ├── roster/          Excel-based bulk student registration
+│   │   ├── gamification/    points, badges, streaks, leaderboard
+│   │   ├── notifications/   in-app notification delivery
+│   │   └── media/           Cloudflare R2 presigned URL management
 │   ├── gyangrit/
 │   │   └── settings/        base.py · dev.py · prod.py
 │   └── requirements/        base.txt · dev.txt · prod.txt
 ├── frontend/
 │   └── src/
 │       ├── auth/            AuthContext, role guards, types
-│       ├── components/      TopBar, LessonItem, LogoutButton
-│       ├── pages/           one file per route (20 pages)
-│       ├── services/        api.ts and per-domain service files
+│       ├── components/      TopBar, BottomNav, LessonItem, NotificationPanel, LogoutButton
+│       ├── pages/           one file per route (~30 pages)
+│       ├── services/        api.ts and per-domain service files (11 files)
 │       └── app/             router.tsx
 └── docs/
     ├── API_AND_FRONTEND_END_POINTS.md
@@ -139,6 +145,7 @@ GyanGrit/
     ├── DATA_MODEL.md
     ├── LEARNING_LOOP.md
     ├── SIGNAL_CHAIN.md
+    ├── GAMIFICATION.md
     └── DEPLOYMENT.md
 ```
 
@@ -148,11 +155,12 @@ GyanGrit/
 
 | Document | Description |
 |---|---|
-| [API & Endpoints](docs/API_AND_FRONTEND_END_POINTS.md) | Full API reference — all 7 apps, request/response shapes, role restrictions |
+| [API & Endpoints](docs/API_AND_FRONTEND_END_POINTS.md) | Full API reference — all 10 apps, request/response shapes, role restrictions |
 | [Architecture](docs/SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md) | System design, models, data scoping, security, frontend structure |
 | [Data Model](docs/DATA_MODEL.md) | Every model, field, constraint, and the design decision behind each |
 | [Learning Loop](docs/LEARNING_LOOP.md) | Content loop, assessment loop, and learning path flow |
-| [Signal Chain](docs/SIGNAL_CHAIN.md) | Auto-enrollment and auto-assignment Django signal architecture |
+| [Signal Chain](docs/SIGNAL_CHAIN.md) | Auto-enrollment, assessment scoring, and gamification signal architecture |
+| [Gamification](docs/GAMIFICATION.md) | Points, streaks, badges, leaderboard scoping, and frontend integration |
 | [Deployment](docs/DEPLOYMENT.md) | Production setup, environment config, whitenoise, database backup |
 
 ---
@@ -179,6 +187,14 @@ encode role, institution, section, and subject. The frontend previews this befor
 which applies role-based ORM filters via an explicit traversal map. No data leakage
 through missed conditions.
 
+**Ledger-based gamification** — Points are stored as immutable `PointEvent` records before
+being aggregated into a `StudentPoints` total. This makes double-awarding architecturally
+impossible and gives a full audit trail. Gamification signals never block core learning flows.
+
+**Supabase PostgreSQL everywhere** — Both development and production use PostgreSQL via
+Supabase. SQLite is not used in any environment. This eliminates the class of bugs that
+only appear when switching databases before deployment.
+
 ---
 
 ## Academic Context
@@ -186,7 +202,8 @@ through missed conditions.
 Capstone project — B.Tech Computer Science, Lovely Professional University, 2026.
 
 Built to address the digital education divide in rural Punjab:
-- Offline-first architecture (PWA roadmap)
 - Government-curated content delivery
 - District-level administrative oversight
 - Single-device policy for shared-device households
+- Gamification to maintain student engagement
+- Offline-first architecture (PWA roadmap)

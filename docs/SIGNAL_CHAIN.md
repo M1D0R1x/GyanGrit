@@ -1,19 +1,20 @@
 # GyanGrit — Signal Chain Documentation
 
 This document describes the Django signal architecture that drives
-automatic subject assignment and course enrollment.
+automatic subject assignment, course enrollment, assessment scoring,
+and gamification events.
 
 ---
 
 ## Why Signals?
 
-When a new student registers, three things must happen automatically:
-1. Assign subjects based on their classroom's curriculum
-2. Enroll them in core courses for each subject
-3. Keep this working correctly when new subjects are added to existing classrooms
+Using signals keeps each app responsible for its own domain:
+- `academics` owns subject assignment
+- `learning` owns course enrollment
+- `assessments` owns score calculation
+- `gamification` owns points and badges
 
-Using signals keeps each app responsible for its own domain.
-No cross-app enrollment logic lives in `views.py` or `accounts`.
+No cross-app enrollment or gamification logic lives in `views.py`.
 
 ---
 
@@ -26,6 +27,8 @@ No cross-app enrollment logic lives in `views.py` or `accounts`.
 | `post_save` | `StudentSubject` | `auto_enroll_core_courses` | `learning/signals.py` |
 | `post_save` | `Question` | `update_total_marks_on_save` | `assessments/signals.py` |
 | `post_delete` | `Question` | `update_total_marks_on_delete` | `assessments/signals.py` |
+| `post_save` | `LessonProgress` | `on_lesson_progress_save` | `gamification/signals.py` |
+| `post_save` | `AssessmentAttempt` | `on_assessment_attempt_save` | `gamification/signals.py` |
 
 ---
 
@@ -106,6 +109,97 @@ sum of question marks. Never needs manual update.
 
 ---
 
+## Chain 4: Lesson Completion → Gamification
+
+Triggered when: A `LessonProgress` record is saved with `completed=True`.
+
+```
+LessonProgress.post_save
+│
+│  Guard 1: instance.completed must be True
+│  Guard 2: PointEvent must not already exist for
+│           (user, reason=lesson_complete, lesson_id)
+│  Guard 3: user.role must be "STUDENT"
+│
+└─► gamification/signals.py: on_lesson_progress_save()
+    │
+    │  Within transaction.atomic():
+    │
+    ├─► _award_points(user, "lesson_complete", lesson_id=...)
+    │       Creates PointEvent (+10 pts)
+    │       Updates StudentPoints.total_points atomically (select_for_update)
+    │
+    ├─► _update_streak(user)
+    │       Gets/creates StudentStreak (select_for_update)
+    │       If last_activity_date == today → no change
+    │       If last_activity_date == yesterday → streak += 1
+    │       Else → streak = 1 (reset)
+    │       Updates longest_streak = max(longest, current)
+    │       Returns current_streak value
+    │
+    ├─► _check_streak_bonuses(user, current_streak)
+    │       If current_streak == 3 → +15 pts + badge "streak_3"
+    │       If current_streak == 7 → +50 pts + badge "streak_7"
+    │
+    ├─► _check_lesson_badges(user)
+    │       Counts LessonProgress.filter(user, completed=True)
+    │       completed >= 1  → badge "first_lesson"
+    │       completed >= 10 → badge "lesson_10"
+    │       completed >= 50 → badge "lesson_50"
+    │
+    └─► _check_points_badges(user)
+            total_points >= 100 → badge "points_100"
+            total_points >= 500 → badge "points_500"
+```
+
+**Safety:** Entire handler is wrapped in `try/except Exception`. A gamification failure
+**never blocks lesson completion or prevents the PATCH from returning a 200 response.**
+
+---
+
+## Chain 5: Assessment Submission → Gamification
+
+Triggered when: An `AssessmentAttempt` is saved with `submitted_at` newly set.
+
+```
+AssessmentAttempt.post_save
+│
+│  Guard 1: instance.submitted_at must not be None
+│  Guard 2: PointEvent must not already exist for
+│           (user, reason=assessment_attempt, assessment_id=attempt.id)
+│  Guard 3: user.role must be "STUDENT"
+│
+└─► gamification/signals.py: on_assessment_attempt_save()
+    │
+    │  Within transaction.atomic():
+    │
+    ├─► _award_points(user, "assessment_attempt", assessment_id=attempt.id)
+    │       Always fires: +5 pts for attempting
+    │
+    ├─► if instance.passed:
+    │       _award_points(user, "assessment_pass", assessment_id=attempt.id)
+    │           +25 pts
+    │
+    ├─► if instance.score == instance.assessment.total_marks (perfect score):
+    │       _award_points(user, "perfect_score", assessment_id=attempt.id)
+    │           +50 pts bonus
+    │       _award_badge(user, "perfect_score")
+    │
+    ├─► _update_streak(user)   [same logic as Chain 4]
+    │
+    ├─► _check_streak_bonuses(user, current_streak)
+    │
+    ├─► _check_assessment_badges(user)
+    │       If any AssessmentAttempt(user, passed=True) exists → badge "first_pass"
+    │
+    └─► _check_points_badges(user)
+```
+
+**Safety:** Entire handler is wrapped in `try/except Exception`. A gamification failure
+**never blocks assessment submission or changes the submit response.**
+
+---
+
 ## Signal Registration
 
 Signals are registered in each app's `AppConfig.ready()`:
@@ -122,13 +216,17 @@ def ready(self):
 # assessments/apps.py
 def ready(self):
     import apps.assessments.signals  # noqa
+
+# gamification/apps.py
+def ready(self):
+    import apps.gamification.signals  # noqa
 ```
 
 ---
 
 ## Guards and Safety
 
-Every signal handler has guards against:
+### Enrollment chain guards
 
 **Non-numeric classroom names:**
 ```python
@@ -155,6 +253,41 @@ if not created:
     return  # Only fire on creation, not updates
 ```
 
+### Gamification chain guards
+
+**Double-award prevention (PointEvent ledger check):**
+```python
+if PointEvent.objects.filter(
+    user=user,
+    reason=reason,
+    lesson_id=lesson_id,   # or assessment_id for assessment events
+).exists():
+    return  # Already awarded — skip silently
+```
+
+**Non-student guard:**
+```python
+if user.role != "STUDENT":
+    return
+```
+
+**Non-blocking wrapper:**
+```python
+try:
+    # all gamification logic
+except Exception:
+    logger.exception("Gamification signal failed for user=%s", user.id)
+    # Never re-raises — core flow continues normally
+```
+
+**Atomic updates:**
+```python
+with transaction.atomic():
+    summary, _ = StudentPoints.objects.select_for_update().get_or_create(user=user)
+    summary.total_points += points
+    summary.save(update_fields=["total_points", "updated_at"])
+```
+
 ---
 
 ## Logging
@@ -162,13 +295,16 @@ if not created:
 All signal handlers log their results using Python's `logging` module:
 
 ```
-INFO: Student id=5 (student1): assigned 12 subjects. Enrollment triggered per subject via learning signals.
+INFO: Student id=5 (student1): assigned 12 subjects.
 INFO: auto_enroll_core_courses: enrolled student id=5 in 3 core courses for subject 'Mathematics' grade 8.
 INFO: ClassSubject added: assigned subject 'Physics' to 28 existing students in classroom '9'.
 INFO: Assessment 'Chapter 1 Quiz' total_marks updated to 20.
+INFO: Gamification: user=5 +10 pts reason=lesson_complete total=45
+INFO: Gamification: user=5 earned badge=first_lesson
+INFO: Gamification: user=5 +25 pts reason=assessment_pass total=80
 ```
 
-No `print()` statements exist in signal handlers.
+No `print()` statements exist anywhere in signal handlers.
 
 ---
 
@@ -178,3 +314,4 @@ No `print()` statements exist in signal handlers.
 - Join code validation — handled in `accounts/views.py`
 - OTP creation — handled in `accounts/views.py`
 - Session creation — handled in `accounts/views.py:_create_device_session()`
+- Notification delivery — handled explicitly in views when teachers/system create notifications

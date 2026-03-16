@@ -21,13 +21,23 @@ District
                     ▼             ▼
                   Course      Enrollment
                     │
-                    └── Lesson
-                          └── LessonProgress (per user)
+                    ├── Lesson
+                    │     └── LessonProgress (per user)
+                    │           │
+                    │           └──► PointEvent (gamification)
+                    │
+                    ├── SectionLesson (teacher-added)
                     │
                     └── Assessment
                           ├── Question
                           │     └── QuestionOption
                           └── AssessmentAttempt (per user)
+                                │
+                                └──► PointEvent (gamification)
+
+User (STUDENT) ── StudentPoints (gamification total)
+User (STUDENT) ── StudentBadge (gamification badges)
+User (STUDENT) ── StudentStreak (gamification streak)
 
 User (TEACHER) ── TeachingAssignment ── Subject + Section
 
@@ -38,6 +48,8 @@ OTPVerification ─────────────────────�
 AuditLog ───────────────────────────────► User (actor)
 
 LearningPath ── LearningPathCourse ── Course
+
+Notification ──────────────────────────► User (recipient)
 ```
 
 ---
@@ -93,7 +105,7 @@ Stores pending OTP challenges for TEACHER / PRINCIPAL / OFFICIAL login.
 ---
 
 ### DeviceSession
-Enforces single-device login policy (FR-02).
+Enforces single-device login policy.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -147,7 +159,7 @@ Append-only log of sensitive operations.
 | Field | Type | Notes |
 |---|---|---|
 | `name` | CharField | |
-| `district` | FK → District | PROTECT on delete — district cannot be deleted while schools exist |
+| `district` | FK → District | PROTECT on delete |
 | `is_government` | BooleanField | Default True |
 
 Unique constraint: `(name, district)`.
@@ -163,7 +175,7 @@ Represents a grade level within a school. Name is the grade number as a string: 
 | `institution` | FK → Institution | |
 
 **Why store grade as a string?**
-Allows future non-numeric grades (e.g. `"LKG"`) without a migration. The signal chain uses `int(classroom.name.strip())` with a guard for non-numeric values.
+Allows future non-numeric grades (e.g. `"LKG"`) without a migration. The signal chain uses `int(classroom.name.strip())` with a guard for non-numeric values. Analytics sort uses `Cast("name", IntegerField())` to sort `6, 7, 8, 9, 10` correctly rather than lexicographically.
 
 ---
 
@@ -185,7 +197,7 @@ Global subject catalog. Not institution-scoped.
 | `name` | CharField | Unique. e.g. `"Mathematics"`, `"Physics"` |
 
 **Why global?**
-All government schools teach the same subjects. Subject scoping happens via `ClassSubject` (which subjects a classroom teaches) and `StudentSubject` (which subjects a student studies).
+All government schools teach the same subjects. Subject scoping happens via `ClassSubject` and `StudentSubject`.
 
 ---
 
@@ -199,12 +211,12 @@ Junction table: which subjects are taught in which classroom.
 
 Unique constraint: `(classroom, subject)`.
 
-When a new `ClassSubject` is created, `academics/signals.py` retroactively assigns it to all existing students in that classroom via `StudentSubject`.
+When a new `ClassSubject` is created, `academics/signals.py` retroactively assigns it to all existing students in that classroom.
 
 ---
 
 ### StudentSubject
-Which subjects a student is enrolled in, and in which classroom.
+Which subjects a student is enrolled in.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -231,8 +243,6 @@ Unique constraint: `(teacher, subject, section)`.
 
 `clean()` validates that teacher and section belong to the same institution.
 
-Created automatically when a TEACHER registers via join code, or when an admin creates a teacher via the admin panel.
-
 ---
 
 ## 3. Content App
@@ -248,9 +258,6 @@ A unit of curriculum. Belongs to a subject and grade level.
 | `description` | TextField | |
 | `is_core` | BooleanField | Core courses are auto-enrolled via signals |
 
-**Why subject + grade instead of classroom?**
-A course is curriculum, not classroom-specific. The same "Mathematics Class 8" course can be used across all schools. Institution scoping happens at the query level via `ClassSubject`, not at the model level.
-
 ---
 
 ### Lesson
@@ -265,9 +272,28 @@ An ordered content unit within a course.
 | `video_url` | URLField | Direct video fallback |
 | `hls_manifest_url` | URLField | Adaptive streaming manifest (HLS) |
 | `thumbnail_url` | URLField | Preview image |
+| `pdf_url` | URLField | PDF attachment |
 | `is_published` | BooleanField | Unpublished lessons are invisible to students |
 
 Unique constraint: `(course, order)`.
+
+---
+
+### SectionLesson
+Teacher-added supplementary lessons within a course.
+
+| Field | Type | Notes |
+|---|---|---|
+| `course` | FK → Course | |
+| `added_by` | FK → User | The TEACHER or PRINCIPAL who created it |
+| `title` | CharField | |
+| `content` | TextField | |
+| `video_url` | URLField | Optional |
+| `order` | PositiveIntegerField | Display order within the course |
+| `created_at` | DateTimeField | |
+
+**Why separate from Lesson?**
+Keeps curriculum content (admin-managed) cleanly separate from teacher-added content. Teachers can add context and practice material without touching the central curriculum. The lesson list endpoint merges both and marks source as `"curriculum"` or `"section"`.
 
 ---
 
@@ -284,8 +310,7 @@ Per-user tracking of lesson engagement. Created automatically on first lesson op
 
 Unique constraint: `(lesson, user)`.
 
-**Why not store course-level completion?**
-Course progress is derived at request time from the count of completed lessons. Storing it separately creates a second source of truth that can fall out of sync.
+When `completed` is first set to `True`, a gamification signal fires to award points and check badges.
 
 ---
 
@@ -300,9 +325,9 @@ A quiz attached to a course.
 | `title` | CharField | |
 | `total_marks` | PositiveIntegerField | Auto-computed from questions via signal. `editable=False`. |
 | `pass_marks` | PositiveIntegerField | Set by teacher |
-| `is_published` | BooleanField | |
+| `is_published` | BooleanField | Unpublished assessments invisible to students |
 
-`total_marks` is never set manually. It is recomputed by `assessments/signals.py` whenever a `Question` is saved or deleted.
+`total_marks` is never set manually. Recomputed by `assessments/signals.py` whenever a `Question` is saved or deleted.
 
 ---
 
@@ -329,7 +354,7 @@ One of up to 4 options for a question. Exactly one must be correct.
 | `text` | CharField | |
 | `is_correct` | BooleanField | `clean()` enforces only one correct option per question |
 
-**Security:** `is_correct` is never included in any API response. The frontend never knows the correct answer before submission.
+**Security:** `is_correct` is never included in the student-facing API response (`/assessments/:id/`). It is only returned in the builder endpoint (`/assessments/:id/admin/`) for ADMIN, TEACHER, and PRINCIPAL.
 
 ---
 
@@ -346,7 +371,9 @@ One attempt by a student at an assessment.
 | `score` | PositiveIntegerField | Computed on submit |
 | `passed` | BooleanField | `score >= assessment.pass_marks` |
 
-**Scoring design:** `calculate_score_and_pass()` fetches all selected options matching the submitted IDs in a single query, filters for `is_correct=True`, and sums their `question.marks`. This replaces the original N+1 pattern (one query per question).
+**Scoring design:** `calculate_score_and_pass()` fetches all selected options matching submitted IDs in a single query, filters for `is_correct=True`, and sums their question marks. No N+1.
+
+When `submitted_at` is first set, a gamification signal fires to award points.
 
 ---
 
@@ -392,7 +419,85 @@ Unique constraints: `(learning_path, course)` and `(learning_path, order)`.
 
 ---
 
-## 6. Key Constraints Summary
+## 6. Gamification App
+
+### PointEvent
+Immutable ledger of every point award. Never updated — only inserted.
+
+| Field | Type | Notes |
+|---|---|---|
+| `user` | FK → User | |
+| `points` | PositiveSmallIntegerField | Amount awarded |
+| `reason` | CharField | Choice: `lesson_complete`, `assessment_attempt`, `assessment_pass`, `perfect_score`, `streak_3`, `streak_7` |
+| `lesson_id` | IntegerField | Nullable — context for lesson events |
+| `assessment_id` | IntegerField | Nullable — context for assessment events |
+| `created_at` | DateTimeField | Indexed |
+
+**Why a ledger instead of just a counter?**
+The ledger is also the deduplication guard. Before awarding, signals check if a `PointEvent` already exists for the same `(user, reason, lesson_id/assessment_id)`. Re-completing a lesson or re-running a signal never causes double-awarding.
+
+---
+
+### StudentPoints
+Denormalized running total — updated atomically by signals.
+
+| Field | Type | Notes |
+|---|---|---|
+| `user` | OneToOneField → User | |
+| `total_points` | PositiveIntegerField | Indexed for leaderboard ordering |
+| `updated_at` | DateTimeField | Auto-updated |
+
+**Why denormalize?**
+Summing `PointEvent.points` per user on every leaderboard query would not scale across hundreds of students. The cached total solves this. Updated with `select_for_update` to prevent race conditions.
+
+---
+
+### StudentBadge
+A badge earned by a student. Created once, never updated.
+
+| Field | Type | Notes |
+|---|---|---|
+| `user` | FK → User | |
+| `badge_code` | CharField | Choice: `first_lesson`, `lesson_10`, `lesson_50`, `first_pass`, `perfect_score`, `streak_3`, `streak_7`, `points_100`, `points_500` |
+| `earned_at` | DateTimeField | |
+
+Unique constraint: `(user, badge_code)`. `get_or_create` used on award — no duplicates possible.
+
+---
+
+### StudentStreak
+Tracks the student's daily activity streak.
+
+| Field | Type | Notes |
+|---|---|---|
+| `user` | OneToOneField → User | |
+| `current_streak` | PositiveSmallIntegerField | Resets to 1 on gap day |
+| `longest_streak` | PositiveSmallIntegerField | Never decreases |
+| `last_activity_date` | DateField | Date (not datetime) to avoid timezone double-counting |
+
+**Streak logic:**
+- If `last_activity_date == today` → no change (already counted today)
+- If `last_activity_date == yesterday` → `current_streak += 1`
+- Otherwise → `current_streak = 1` (gap resets streak)
+- `longest_streak = max(longest_streak, current_streak)` after every update
+
+---
+
+## 7. Notifications App
+
+### Notification
+
+| Field | Type | Notes |
+|---|---|---|
+| `recipient` | FK → User | |
+| `message` | TextField | |
+| `notification_type` | CharField | e.g. `announcement`, `assessment_published`, `system` |
+| `is_read` | BooleanField | Default False |
+| `created_at` | DateTimeField | Indexed |
+
+---
+
+## 8. Key Constraints Summary
 
 | Constraint | Where Enforced |
 |---|---|
@@ -404,3 +509,6 @@ Unique constraints: `(learning_path, course)` and `(learning_path, order)`.
 | Student cannot re-enroll in same course | `Enrollment` unique constraint |
 | Lesson order unique within course | `Lesson` unique constraint |
 | Assessment attempt cannot be submitted twice | `AssessmentAttempt.submit()` guard |
+| Gamification point not awarded twice per event | `PointEvent` ledger check before every award |
+| Badge not awarded twice per student | `StudentBadge` unique constraint + `get_or_create` |
+| Streak not double-counted in same day | `StudentStreak.last_activity_date` date comparison |

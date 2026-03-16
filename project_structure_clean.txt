@@ -100,6 +100,22 @@ backend
 │   │   ├── models.py
 │   │   ├── tests.py
 │   │   └── views.py
+│   ├── gamification
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   ├── learning
 │   │   ├── __init__.py
 │   │   ├── admin.py
@@ -175,7 +191,6 @@ backend
 ├── manage.py
 ├── package-lock.json
 ├── package.json
-├── project_structure_clean.txt
 └── requirements
     ├── base.txt
     ├── dev.txt
@@ -194,6 +209,7 @@ frontend
 │   │   ├── RoleBasedRedirect.tsx
 │   │   └── authTypes.ts
 │   ├── components
+│   │   ├── BottomNav.tsx
 │   │   ├── LessonItem.tsx
 │   │   ├── Logo.tsx
 │   │   ├── LogoutButton.tsx
@@ -209,11 +225,14 @@ frontend
 │   │   ├── AdminLessonEditorPage.tsx
 │   │   ├── AssessmentHistoryPage.tsx
 │   │   ├── AssessmentPage.tsx
+│   │   ├── AssessmentTakePage.tsx
+│   │   ├── AssessmentsPage.tsx
 │   │   ├── AssessmentsResultPage.tsx
 │   │   ├── CompleteProfilePage.tsx
 │   │   ├── CourseAssessmentsPage.tsx
 │   │   ├── CoursesPage.tsx
 │   │   ├── DashboardPage.tsx
+│   │   ├── LeaderboardPage.tsx
 │   │   ├── LearningPathPage.tsx
 │   │   ├── LearningPathsPage.tsx
 │   │   ├── LessonPage.tsx
@@ -241,6 +260,7 @@ frontend
 │       ├── assessments.ts
 │       ├── content.ts
 │       ├── courseProgress.ts
+│       ├── gamification.ts
 │       ├── learningEnrollments.ts
 │       ├── learningPaths.ts
 │       ├── media.ts
@@ -259,4 +279,4 @@ docs
 ├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-58 directories, 202 files
+62 directories, 218 files

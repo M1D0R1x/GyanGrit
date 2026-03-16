@@ -111,6 +111,8 @@ export const router = createBrowserRouter([
   { path: "/principal",  element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
   { path: "/official",   element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
   { path: "/admin-panel",element: <Protected role="ADMIN"><AdminDashboardPage /></Protected> },
+  { path: "/principal/courses/:courseId/lessons", element: <Protected role="PRINCIPAL"><AdminLessonEditorPage /></Protected> },
+
 
   // ── Admin — content management ────────────────────────────────────────────
   { path: "/admin/content",                               element: <Protected role="ADMIN"><AdminContentPage /></Protected> },

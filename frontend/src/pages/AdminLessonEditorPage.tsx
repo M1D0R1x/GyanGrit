@@ -11,8 +11,9 @@ import { uploadFile, extractYouTubeId, getYouTubeThumbnail } from "../services/m
 import TopBar from "../components/TopBar";
 
 type EditorMode = "list" | "create" | "edit";
+type VideoInputMode = "url" | "upload";
 
-// ── Video preview ────────────────────────────────────────────────────────────
+// ── Video preview (YouTube / Vimeo URL) ───────────────────────────────────────
 
 function VideoPreview({
   url,
@@ -111,7 +112,7 @@ function VideoPreview({
   );
 }
 
-// ── File upload zone ─────────────────────────────────────────────────────────
+// ── PDF upload zone ───────────────────────────────────────────────────────────
 
 function FileUploadZone({
   onUpload,
@@ -127,9 +128,9 @@ function FileUploadZone({
   folder: "pdfs" | "images";
 }) {
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress]   = useState(0);
+  const [error, setError]         = useState<string | null>(null);
+  const inputRef                  = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
     setUploading(true);
@@ -161,7 +162,7 @@ function FileUploadZone({
           padding: "var(--space-6)",
           textAlign: "center",
           cursor: uploading ? "not-allowed" : "pointer",
-          transition: "border-color var(--transition-fast)",
+          transition: "all var(--transition-fast)",
           background: uploading ? "var(--brand-primary-glow)" : "var(--bg-elevated)",
         }}
       >
@@ -240,13 +241,7 @@ function FileUploadZone({
       />
 
       {error && (
-        <div
-          style={{
-            marginTop: "var(--space-2)",
-            fontSize: "var(--text-xs)",
-            color: "var(--error)",
-          }}
-        >
+        <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--error)" }}>
           {error}
         </div>
       )}
@@ -261,16 +256,8 @@ function FileUploadZone({
             fontSize: "var(--text-xs)",
           }}
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--success)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
           <span style={{ color: "var(--success)" }}>Uploaded</span>
@@ -288,28 +275,189 @@ function FileUploadZone({
   );
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
+// ── Video upload zone (R2 CDN) ────────────────────────────────────────────────
+
+function VideoUploadZone({
+  onUpload,
+  currentUrl,
+}: {
+  onUpload: (url: string) => void;
+  currentUrl?: string | null;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress]   = useState(0);
+  const [error, setError]         = useState<string | null>(null);
+  const inputRef                  = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    const allowedTypes = ["video/mp4", "video/webm"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Only MP4 and WebM videos are supported.");
+      return;
+    }
+    if (file.size > 500 * 1024 * 1024) {
+      setError("Video must be under 500MB.");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    setProgress(0);
+    try {
+      const result = await uploadFile(file, "videos", setProgress);
+      onUpload(result.url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const isR2Url =
+    currentUrl &&
+    (currentUrl.includes("r2.dev") || currentUrl.includes("r2.cloudflarestorage.com"));
+
+  return (
+    <div>
+      <div
+        onClick={() => !uploading && inputRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const file = e.dataTransfer.files[0];
+          if (file) void handleFile(file);
+        }}
+        style={{
+          border: `2px dashed ${uploading ? "var(--brand-primary)" : "var(--border-default)"}`,
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-6)",
+          textAlign: "center",
+          cursor: uploading ? "not-allowed" : "pointer",
+          background: uploading ? "var(--brand-primary-glow)" : "var(--bg-elevated)",
+          transition: "all var(--transition-fast)",
+        }}
+      >
+        {uploading ? (
+          <div>
+            <div
+              style={{
+                fontSize: "var(--text-sm)",
+                color: "var(--brand-primary)",
+                marginBottom: "var(--space-2)",
+                fontWeight: 600,
+              }}
+            >
+              Uploading video… {progress}%
+            </div>
+            <div style={{ height: 6, background: "var(--bg-overlay)", borderRadius: 99, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${progress}%`,
+                  background: "var(--brand-primary)",
+                  borderRadius: 99,
+                  transition: "width 0.2s",
+                }}
+              />
+            </div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+              Large files may take a moment. Do not close this page.
+            </div>
+          </div>
+        ) : (
+          <>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginBottom: "var(--space-3)" }}
+            >
+              <polygon points="23 7 16 12 23 17 23 7" />
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", fontWeight: 600 }}>
+              Upload video to CDN
+            </div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+              MP4 or WebM · max 500MB · Click or drag and drop
+            </div>
+          </>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/webm"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+        }}
+      />
+
+      {error && (
+        <div className="alert alert--error" style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
+          {error}
+        </div>
+      )}
+
+      {isR2Url && !uploading && (
+        <div
+          style={{
+            marginTop: "var(--space-2)",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-2)",
+            fontSize: "var(--text-xs)",
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span style={{ color: "var(--success)", fontWeight: 600 }}>Hosted on CDN</span>
+          <a
+            href={currentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--text-muted)", textDecoration: "underline" }}
+          >
+            Preview
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function AdminLessonEditorPage() {
   const { courseId } = useParams();
-  const navigate = useNavigate();
+  const navigate     = useNavigate();
 
-  const [mode, setMode] = useState<EditorMode>("list");
-  const [lessons, setLessons] = useState<LessonItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [mode, setMode]             = useState<EditorMode>("list");
+  const [lessons, setLessons]       = useState<LessonItem[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
   const [editingLesson, setEditing] = useState<LessonItem | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError]           = useState<string | null>(null);
+  const [success, setSuccess]       = useState<string | null>(null);
 
-  // Form state
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
+  // All form state — hooks must be inside the component function, never outside
+  const [title, setTitle]                   = useState("");
+  const [content, setContent]               = useState("");
+  const [videoUrl, setVideoUrl]             = useState("");
   const [videoThumbnail, setVideoThumbnail] = useState("");
-  const [videoDuration, setVideoDuration] = useState("");
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
+  const [videoDuration, setVideoDuration]   = useState("");
+  const [pdfUrl, setPdfUrl]                 = useState("");
+  const [isPublished, setIsPublished]       = useState(false);
+  const [videoInputMode, setVideoInputMode] = useState<VideoInputMode>("url");
 
   const numericCourseId = Number(courseId);
 
@@ -329,6 +477,7 @@ export default function AdminLessonEditorPage() {
     setVideoDuration("");
     setPdfUrl("");
     setIsPublished(false);
+    setVideoInputMode("url");
     setEditing(null);
   };
 
@@ -339,20 +488,22 @@ export default function AdminLessonEditorPage() {
 
   const openEdit = (lesson: LessonItem) => {
     setTitle(lesson.title);
-    // FIX: load lesson.content instead of blanking it.
-    // LessonItem.content is now typed (was missing before).
-    // getCourseAllLessons returns content for each lesson.
     setContent(lesson.content ?? "");
     setVideoUrl(lesson.video_url ?? "");
     setVideoThumbnail(lesson.video_thumbnail_url ?? "");
     setVideoDuration(lesson.video_duration ?? "");
     setPdfUrl(lesson.pdf_url ?? "");
     setIsPublished(lesson.is_published);
+    // Auto-detect CDN vs embed URL
+    const isR2 =
+      !!lesson.video_url &&
+      (lesson.video_url.includes("r2.dev") ||
+        lesson.video_url.includes("r2.cloudflarestorage.com"));
+    setVideoInputMode(isR2 ? "upload" : "url");
     setEditing(lesson);
     setMode("edit");
   };
 
-  // Auto-fill YouTube thumbnail when URL is entered
   const handleVideoUrlChange = (url: string) => {
     setVideoUrl(url);
     const ytId = extractYouTubeId(url);
@@ -366,7 +517,6 @@ export default function AdminLessonEditorPage() {
       setError("Title is required.");
       return;
     }
-
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -431,27 +581,19 @@ export default function AdminLessonEditorPage() {
               setMode("list");
               resetForm();
             } else {
-              navigate("/admin/content");
+              navigate(-1);
             }
           }}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          {mode !== "list" ? "Back to Lessons" : "Back to Courses"}
+          {mode !== "list" ? "Back to Lessons" : "Back"}
         </button>
 
-        {error && <div className="alert alert--error">{error}</div>}
+        {error   && <div className="alert alert--error">{error}</div>}
         {success && <div className="alert alert--success">{success}</div>}
 
         {/* ── LIST MODE ── */}
@@ -460,17 +602,9 @@ export default function AdminLessonEditorPage() {
             <div className="section-header">
               <h2 className="section-header__title">Lessons</h2>
               <button className="btn btn--primary" onClick={openCreate}>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  strokeLinejoin="round" aria-hidden="true">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
@@ -481,23 +615,15 @@ export default function AdminLessonEditorPage() {
             {loading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="skeleton"
-                    style={{ height: 64, borderRadius: "var(--radius-md)" }}
-                  />
+                  <div key={i} className="skeleton" style={{ height: 64, borderRadius: "var(--radius-md)" }} />
                 ))}
               </div>
             ) : lessons.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state__icon">📝</div>
                 <h3 className="empty-state__title">No lessons yet</h3>
-                <p className="empty-state__message">
-                  Add your first lesson to this course.
-                </p>
-                <button className="btn btn--primary" onClick={openCreate}>
-                  Add First Lesson
-                </button>
+                <p className="empty-state__message">Add your first lesson to this course.</p>
+                <button className="btn btn--primary" onClick={openCreate}>Add First Lesson</button>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -541,53 +667,26 @@ export default function AdminLessonEditorPage() {
                         >
                           {lesson.title}
                         </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "var(--space-2)",
-                            marginTop: "var(--space-1)",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          {lesson.has_text && (
-                            <span className="badge badge--info" style={{ fontSize: 10 }}>
-                              Text
-                            </span>
-                          )}
-                          {lesson.has_video && (
-                            <span className="badge badge--success" style={{ fontSize: 10 }}>
-                              Video
-                            </span>
-                          )}
-                          {lesson.has_pdf && (
-                            <span className="badge badge--warning" style={{ fontSize: 10 }}>
-                              PDF
-                            </span>
-                          )}
+                        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-1)", flexWrap: "wrap" }}>
+                          {lesson.has_text  && <span className="badge badge--info"    style={{ fontSize: 10 }}>Text</span>}
+                          {lesson.has_video && <span className="badge badge--success" style={{ fontSize: 10 }}>Video</span>}
+                          {lesson.has_pdf   && <span className="badge badge--warning" style={{ fontSize: 10 }}>PDF</span>}
                         </div>
                       </div>
 
                       <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
                         <button
                           className="btn btn--ghost"
-                          style={{
-                            padding: "var(--space-1) var(--space-3)",
-                            fontSize: "var(--text-xs)",
-                          }}
+                          style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
                           onClick={() => void handleTogglePublish(lesson)}
                         >
-                          {lesson.is_published ? (
-                            <span style={{ color: "var(--success)" }}>Published</span>
-                          ) : (
-                            <span style={{ color: "var(--text-muted)" }}>Draft</span>
-                          )}
+                          {lesson.is_published
+                            ? <span style={{ color: "var(--success)" }}>Published</span>
+                            : <span style={{ color: "var(--text-muted)" }}>Draft</span>}
                         </button>
                         <button
                           className="btn btn--secondary"
-                          style={{
-                            padding: "var(--space-1) var(--space-3)",
-                            fontSize: "var(--text-xs)",
-                          }}
+                          style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
                           onClick={() => openEdit(lesson)}
                         >
                           Edit
@@ -612,9 +711,7 @@ export default function AdminLessonEditorPage() {
 
             {/* Title */}
             <div className="form-group">
-              <label className="form-label" htmlFor="lesson-title">
-                Lesson Title *
-              </label>
+              <label className="form-label" htmlFor="lesson-title">Lesson Title *</label>
               <input
                 id="lesson-title"
                 className="form-input"
@@ -629,97 +726,108 @@ export default function AdminLessonEditorPage() {
             <div className="form-group">
               <label className="form-label" htmlFor="lesson-content">
                 Text Content
-                <span
-                  style={{
-                    color: "var(--text-muted)",
-                    fontWeight: 400,
-                    marginLeft: "var(--space-2)",
-                  }}
-                >
+                <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
                   (Markdown supported)
                 </span>
               </label>
               <textarea
                 id="lesson-content"
                 className="form-input"
-                placeholder={
-                  "# Lesson Title\n\nWrite your lesson content here. Markdown is supported.\n\n## Section 1\nContent..."
-                }
+                placeholder={"# Lesson Title\n\nWrite your lesson content here.\n\n## Section 1\nContent..."}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={12}
-                style={{
-                  fontFamily: "var(--font-body)",
-                  resize: "vertical",
-                  minHeight: 200,
-                  lineHeight: 1.6,
-                }}
+                style={{ fontFamily: "var(--font-body)", resize: "vertical", minHeight: 200, lineHeight: 1.6 }}
               />
             </div>
 
-            {/* Video Section */}
+            {/* Video — tab toggle between URL and CDN upload */}
             <div className="form-group">
               <label className="form-label">Video</label>
-              <input
-                className="form-input"
-                type="url"
-                placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-                value={videoUrl}
-                onChange={(e) => handleVideoUrlChange(e.target.value)}
-              />
-              {videoUrl && (
-                <>
-                  <VideoPreview
-                    url={videoUrl}
-                    thumbnail={videoThumbnail}
-                    duration={videoDuration}
-                  />
-                  <div
+
+              <div
+                style={{
+                  display: "flex",
+                  marginBottom: "var(--space-3)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "var(--radius-sm)",
+                  overflow: "hidden",
+                }}
+              >
+                {(["url", "upload"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setVideoInputMode(tab)}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "var(--space-3)",
-                      marginTop: "var(--space-3)",
+                      flex: 1,
+                      padding: "var(--space-2) var(--space-3)",
+                      background: videoInputMode === tab ? "var(--brand-primary)" : "var(--bg-elevated)",
+                      border: "none",
+                      color: videoInputMode === tab ? "#fff" : "var(--text-muted)",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: videoInputMode === tab ? 700 : 400,
+                      cursor: "pointer",
+                      transition: "all var(--transition-fast)",
+                      fontFamily: "var(--font-body)",
                     }}
                   >
-                    <div>
-                      <label
-                        className="form-label"
-                        style={{ fontSize: "var(--text-xs)" }}
-                      >
-                        Thumbnail URL
-                      </label>
-                      <input
-                        className="form-input"
-                        type="url"
-                        placeholder="Auto-filled for YouTube"
-                        value={videoThumbnail}
-                        onChange={(e) => setVideoThumbnail(e.target.value)}
-                        style={{ fontSize: "var(--text-sm)" }}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="form-label"
-                        style={{ fontSize: "var(--text-xs)" }}
-                      >
-                        Duration (e.g. 12:34)
-                      </label>
-                      <input
-                        className="form-input"
-                        type="text"
-                        placeholder="12:34"
-                        value={videoDuration}
-                        onChange={(e) => setVideoDuration(e.target.value)}
-                        style={{ fontSize: "var(--text-sm)" }}
-                      />
-                    </div>
-                  </div>
+                    {tab === "url" ? "Paste URL (YouTube / Vimeo)" : "Upload to CDN (R2)"}
+                  </button>
+                ))}
+              </div>
+
+              {videoInputMode === "url" ? (
+                <>
+                  <input
+                    className="form-input"
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                    value={videoUrl}
+                    onChange={(e) => handleVideoUrlChange(e.target.value)}
+                  />
+                  {videoUrl && (
+                    <>
+                      <VideoPreview url={videoUrl} thumbnail={videoThumbnail} duration={videoDuration} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
+                        <div>
+                          <label className="form-label" style={{ fontSize: "var(--text-xs)" }}>Thumbnail URL</label>
+                          <input
+                            className="form-input"
+                            type="url"
+                            placeholder="Auto-filled for YouTube"
+                            value={videoThumbnail}
+                            onChange={(e) => setVideoThumbnail(e.target.value)}
+                            style={{ fontSize: "var(--text-sm)" }}
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ fontSize: "var(--text-xs)" }}>Duration (e.g. 12:34)</label>
+                          <input
+                            className="form-input"
+                            type="text"
+                            placeholder="12:34"
+                            value={videoDuration}
+                            onChange={(e) => setVideoDuration(e.target.value)}
+                            style={{ fontSize: "var(--text-sm)" }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
+              ) : (
+                <VideoUploadZone
+                  currentUrl={videoUrl}
+                  onUpload={(url) => {
+                    setVideoUrl(url);
+                    setVideoThumbnail(""); // no auto-thumbnail for CDN video
+                  }}
+                />
               )}
             </div>
 
-            {/* PDF Upload */}
+            {/* PDF */}
             <div className="form-group">
               <label className="form-label">PDF Document</label>
               <FileUploadZone
@@ -755,46 +863,21 @@ export default function AdminLessonEditorPage() {
               }}
             >
               <div>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    fontSize: "var(--text-sm)",
-                    color: "var(--text-primary)",
-                  }}
-                >
+                <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
                   Publish lesson
                 </div>
-                <div
-                  style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}
-                >
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                   Published lessons are visible to enrolled students
                 </div>
               </div>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--space-2)",
-                  cursor: "pointer",
-                }}
-              >
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={isPublished}
                   onChange={(e) => setIsPublished(e.target.checked)}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    accentColor: "var(--brand-primary)",
-                    cursor: "pointer",
-                  }}
+                  style={{ width: 18, height: 18, accentColor: "var(--brand-primary)", cursor: "pointer" }}
                 />
-                <span
-                  style={{
-                    fontSize: "var(--text-sm)",
-                    color: isPublished ? "var(--success)" : "var(--text-muted)",
-                  }}
-                >
+                <span style={{ fontSize: "var(--text-sm)", color: isPublished ? "var(--success)" : "var(--text-muted)" }}>
                   {isPublished ? "Published" : "Draft"}
                 </span>
               </label>
@@ -808,10 +891,7 @@ export default function AdminLessonEditorPage() {
                 disabled={saving}
               >
                 {saving ? (
-                  <>
-                    <span className="btn__spinner" aria-hidden="true" />
-                    Saving…
-                  </>
+                  <><span className="btn__spinner" aria-hidden="true" /> Saving…</>
                 ) : mode === "create" ? (
                   "Create Lesson"
                 ) : (
@@ -820,10 +900,7 @@ export default function AdminLessonEditorPage() {
               </button>
               <button
                 className="btn btn--secondary"
-                onClick={() => {
-                  setMode("list");
-                  resetForm();
-                }}
+                onClick={() => { setMode("list"); resetForm(); }}
                 disabled={saving}
               >
                 Cancel

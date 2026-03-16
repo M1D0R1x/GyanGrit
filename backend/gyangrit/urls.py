@@ -55,4 +55,7 @@ urlpatterns = [
 
     # NOTIFICATIONS
     path("api/v1/notifications/", include("apps.notifications.api.v1.urls")),
+
+    # GAMIFICATION
+    path("api/v1/gamification/", include("apps.gamification.api.v1.urls")),
 ]

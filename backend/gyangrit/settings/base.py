@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.academics.apps.AcademicsConfig",
     "apps.media.apps.MediaConfig",
     "apps.notifications",
+    "apps.gamification",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

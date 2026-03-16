@@ -1,3 +1,4 @@
+// components.BottomNav
 import { useLocation, useNavigate } from "react-router-dom";
 
 function HomeIcon({ active }: { active: boolean }) {
@@ -33,6 +34,18 @@ function AssessmentIcon({ active }: { active: boolean }) {
   );
 }
 
+function LeaderboardIcon({ active }: { active: boolean }) {
+  return (
+    <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}
+      strokeLinecap="round" strokeLinejoin="round">
+      <rect x="18" y="3"  width="4" height="18" rx="1" />
+      <rect x="10" y="8"  width="4" height="13" rx="1" />
+      <rect x="2"  y="13" width="4" height="8"  rx="1" />
+    </svg>
+  );
+}
+
 function ProfileIcon({ active }: { active: boolean }) {
   return (
     <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
@@ -54,28 +67,34 @@ export default function BottomNav() {
 
   const tabs = [
     {
-      label: "Dashboard",
-      to: "/dashboard",
+      label:  "Home",
+      to:     "/dashboard",
       active: isActive(["/dashboard"]),
-      icon: (a: boolean) => <HomeIcon active={a} />,
+      icon:   (a: boolean) => <HomeIcon active={a} />,
     },
     {
-      label: "Courses",
-      to: "/courses",
-      active: isActive(["/courses", "/lessons"]),
-      icon: (a: boolean) => <CoursesIcon active={a} />,
+      label:  "Courses",
+      to:     "/courses",
+      active: isActive(["/courses", "/lessons", "/learning"]),
+      icon:   (a: boolean) => <CoursesIcon active={a} />,
     },
     {
-      label: "Assessments",
-      to: "/assessments",
+      label:  "Tests",
+      to:     "/assessments",
       active: isActive(["/assessments", "/assessment-result"]),
-      icon: (a: boolean) => <AssessmentIcon active={a} />,
+      icon:   (a: boolean) => <AssessmentIcon active={a} />,
     },
     {
-      label: "Profile",
-      to: "/profile",
+      label:  "Ranks",
+      to:     "/leaderboard",
+      active: isActive(["/leaderboard"]),
+      icon:   (a: boolean) => <LeaderboardIcon active={a} />,
+    },
+    {
+      label:  "Profile",
+      to:     "/profile",
       active: isActive(["/profile"]),
-      icon: (a: boolean) => <ProfileIcon active={a} />,
+      icon:   (a: boolean) => <ProfileIcon active={a} />,
     },
   ];
 

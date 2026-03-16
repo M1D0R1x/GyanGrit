@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import { useAuth } from "../auth/AuthContext";
@@ -36,16 +36,8 @@ type AssessmentAnalytics = {
   pass_rate: number;
 };
 
-// Loading and data are a single state object.
-// This means only ONE setState call fires in the effect — no cascading renders.
-type DashboardState =
-  | { loading: true }
-  | {
-      loading: false;
-      classes: ClassAnalytics[];
-      courses: CourseAnalytics[];
-      assessments: AssessmentAnalytics[];
-    };
+const COURSE_PREVIEW     = 6;
+const ASSESSMENT_PREVIEW = 5;
 
 function StatCard({ label, value, accent }: {
   label: string;
@@ -64,7 +56,7 @@ function StatCard({ label, value, accent }: {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="section-header">
+    <div className="section-header" style={{ marginTop: "var(--space-10)" }}>
       <div>
         <h2 className="section-header__title">{title}</h2>
         {subtitle && <p className="section-header__subtitle">{subtitle}</p>}
@@ -90,46 +82,52 @@ function GridSkeleton({ count = 3, height = 120 }: { count?: number; height?: nu
 export default function OfficialDashboardPage() {
   const { user } = useAuth();
 
-  const [state, setState] = useState<DashboardState>({ loading: true });
+  // Single loading flag — avoids multiple setState calls that cause cascading renders
+  const [loading, setLoading]         = useState(true);
+  const [classes, setClasses]         = useState<ClassAnalytics[]>([]);
+  const [courses, setCourses]         = useState<CourseAnalytics[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentAnalytics[]>([]);
+
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
+  const [showAllCourses, setShowAllCourses]            = useState(false);
+  const [showAllAssessments, setShowAllAssessments]    = useState(false);
 
-  const loadAnalytics = useCallback(async () => {
-    const [classRes, courseRes, assessmentRes] = await Promise.allSettled([
-      apiGet<ClassAnalytics[]>("/teacher/analytics/classes/"),
-      apiGet<CourseAnalytics[]>("/teacher/analytics/courses/"),
-      apiGet<AssessmentAnalytics[]>("/teacher/analytics/assessments/"),
-    ]);
+  // ESLint fix: no useCallback — async function defined directly inside useEffect
+  // so setState calls are never synchronous from the perspective of the effect
+  useEffect(() => {
+    let cancelled = false;
 
-    // Single setState call — loading + data transition in one update.
-    // This is the only way to fully satisfy react-hooks/set-state-in-effect
-    // when multiple pieces of state must change together.
-    setState({
-      loading: false,
-      classes:     classRes.status      === "fulfilled" ? (classRes.value      ?? []) : [],
-      courses:     courseRes.status     === "fulfilled" ? (courseRes.value     ?? []) : [],
-      assessments: assessmentRes.status === "fulfilled" ? (assessmentRes.value ?? []) : [],
-    });
+    async function load() {
+      const [classRes, courseRes, assessmentRes] = await Promise.allSettled([
+        apiGet<ClassAnalytics[]>("/teacher/analytics/classes/"),
+        apiGet<CourseAnalytics[]>("/teacher/analytics/courses/"),
+        apiGet<AssessmentAnalytics[]>("/teacher/analytics/assessments/"),
+      ]);
+
+      if (cancelled) return;
+
+      if (classRes.status === "fulfilled")      setClasses(classRes.value ?? []);
+      if (courseRes.status === "fulfilled")     setCourses(courseRes.value ?? []);
+      if (assessmentRes.status === "fulfilled") setAssessments(assessmentRes.value ?? []);
+      setLoading(false);
+    }
+
+    void load();
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
-
-  // Derived values — only computed when not loading
-  const classes     = state.loading ? [] : state.classes;
-  const courses     = state.loading ? [] : state.courses;
-  const assessments = state.loading ? [] : state.assessments;
-
-  const institutions = [...new Set(classes.map((c) => c.institution))].sort();
-  const filteredClasses = selectedInstitution
+  // Derived values
+  const institutions     = [...new Set(classes.map((c) => c.institution))].sort();
+  const filteredClasses  = selectedInstitution
     ? classes.filter((c) => c.institution === selectedInstitution)
     : classes;
-  const totalStudents = classes.reduce((sum, c) => sum + c.total_students, 0);
-  const avgPassRate = classes.length
+  const totalStudents    = classes.reduce((sum, c) => sum + c.total_students, 0);
+  const avgPassRate      = classes.length
     ? Math.round(classes.reduce((sum, c) => sum + c.pass_rate, 0) / classes.length)
     : 0;
 
-  const loading = state.loading;
+  const shownCourses      = showAllCourses      ? courses      : courses.slice(0, COURSE_PREVIEW);
+  const shownAssessments  = showAllAssessments  ? assessments  : assessments.slice(0, ASSESSMENT_PREVIEW);
 
   return (
     <div className="page-shell">
@@ -179,48 +177,31 @@ export default function OfficialDashboardPage() {
             </div>
 
             {!loading && (
-              <div style={{ display: "flex", gap: "var(--space-3)" }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-3xl)",
-                    fontWeight: 800,
-                    color: "var(--role-official)",
-                  }}>
-                    {institutions.length}
+              <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+                {[
+                  { value: institutions.length, label: "Schools",  color: "var(--role-official)" },
+                  { value: totalStudents,        label: "Students", color: "var(--text-primary)" },
+                  { value: `${avgPassRate}%`,    label: "Avg Pass", color: avgPassRate >= 70 ? "var(--success)" : "var(--warning)" },
+                ].map(({ value, label, color }, idx, arr) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "var(--text-3xl)",
+                        fontWeight: 800,
+                        color,
+                      }}>
+                        {value}
+                      </div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                        {label}
+                      </div>
+                    </div>
+                    {idx < arr.length - 1 && (
+                      <div style={{ width: 1, height: 40, background: "var(--border-subtle)" }} />
+                    )}
                   </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    Schools
-                  </div>
-                </div>
-                <div style={{ width: 1, background: "var(--border-subtle)" }} />
-                <div style={{ textAlign: "center" }}>
-                  <div style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-3xl)",
-                    fontWeight: 800,
-                    color: "var(--text-primary)",
-                  }}>
-                    {totalStudents}
-                  </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    Students
-                  </div>
-                </div>
-                <div style={{ width: 1, background: "var(--border-subtle)" }} />
-                <div style={{ textAlign: "center" }}>
-                  <div style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-3xl)",
-                    fontWeight: 800,
-                    color: avgPassRate >= 70 ? "var(--success)" : "var(--warning)",
-                  }}>
-                    {avgPassRate}%
-                  </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    Avg Pass Rate
-                  </div>
-                </div>
+                ))}
               </div>
             )}
           </div>
@@ -245,11 +226,13 @@ export default function OfficialDashboardPage() {
           </div>
         )}
 
-        {/* Class Performance */}
-        <SectionHeader
-          title="Class Performance"
-          subtitle="Filter by school to drill down"
-        />
+        {/* ── Class Performance ─────────────────────────────────────────── */}
+        <div className="section-header">
+          <div>
+            <h2 className="section-header__title">Class Performance</h2>
+            <p className="section-header__subtitle">Filter by school to drill down</p>
+          </div>
+        </div>
 
         {!loading && institutions.length > 1 && (
           <div style={{
@@ -266,10 +249,10 @@ export default function OfficialDashboardPage() {
                   cursor: "pointer",
                   border: "1px solid var(--border-default)",
                   background: selectedInstitution === inst
-                    ? "rgba(88,166,255,0.12)"
+                    ? "rgba(139,92,246,0.12)"
                     : "transparent",
                   color: selectedInstitution === inst
-                    ? "var(--info)"
+                    ? "var(--role-official)"
                     : "var(--text-muted)",
                   padding: "var(--space-1) var(--space-3)",
                 }}
@@ -299,11 +282,8 @@ export default function OfficialDashboardPage() {
             marginBottom: "var(--space-10)",
           }}>
             {filteredClasses.map((c, i) => {
-              const passColor = c.pass_rate >= 70
-                ? "var(--success)"
-                : c.pass_rate >= 40
-                ? "var(--warning)"
-                : "var(--error)";
+              const passColor = c.pass_rate >= 70 ? "var(--success)"
+                : c.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
 
               return (
                 <div
@@ -315,8 +295,8 @@ export default function OfficialDashboardPage() {
                     fontSize: "var(--text-xs)",
                     color: "var(--text-muted)",
                     marginBottom: "var(--space-2)",
-                    textOverflow: "ellipsis",
                     overflow: "hidden",
+                    textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}>
                     {c.institution}
@@ -354,10 +334,10 @@ export default function OfficialDashboardPage() {
           </div>
         )}
 
-        {/* Course Analytics */}
+        {/* ── Course Analytics ──────────────────────────────────────────── */}
         <SectionHeader
           title="Course Analytics"
-          subtitle="Aggregated completion rates across your district"
+          subtitle={`Aggregated completion rates across your district${courses.length > COURSE_PREVIEW ? ` · ${courses.length} total` : ""}`}
         />
 
         {loading ? (
@@ -366,74 +346,83 @@ export default function OfficialDashboardPage() {
           <div className="empty-state" style={{ padding: "var(--space-8)" }}>
             <div className="empty-state__icon">📚</div>
             <h3 className="empty-state__title">No course data yet</h3>
-            <p className="empty-state__message">
-              Courses will appear here once content is published.
-            </p>
+            <p className="empty-state__message">Courses will appear once content is published.</p>
           </div>
         ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "var(--space-4)",
-            marginBottom: "var(--space-10)",
-          }}>
-            {courses.map((course, i) => (
-              <div
-                key={course.course_id}
-                className="card page-enter"
-                style={{ animationDelay: `${i * 40}ms` }}
-              >
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "var(--space-2)",
-                }}>
-                  <span className="badge badge--info">Class {course.grade}</span>
-                  {course.subject && (
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                      {course.subject}
-                    </span>
-                  )}
-                </div>
-                <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>
-                  {course.title}
-                </div>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "var(--text-xs)",
-                  color: "var(--text-muted)",
-                  marginBottom: "var(--space-2)",
-                }}>
-                  <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
-                  <span style={{
-                    fontWeight: 700,
-                    color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+          <>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+              gap: "var(--space-4)",
+              marginBottom: "var(--space-4)",
+            }}>
+              {shownCourses.map((course, i) => (
+                <div
+                  key={course.course_id}
+                  className="card page-enter"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "var(--space-2)",
                   }}>
-                    {course.percentage}%
-                  </span>
+                    <span className="badge badge--info">Class {course.grade}</span>
+                    {course.subject && (
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                        {course.subject}
+                      </span>
+                    )}
+                  </div>
+                  <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>
+                    {course.title}
+                  </div>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "var(--text-xs)",
+                    color: "var(--text-muted)",
+                    marginBottom: "var(--space-2)",
+                  }}>
+                    <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
+                    <span style={{
+                      fontWeight: 700,
+                      color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                    }}>
+                      {course.percentage}%
+                    </span>
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-bar__fill"
+                      style={{
+                        width: `${course.percentage}%`,
+                        background: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar__fill"
-                    style={{
-                      width: `${course.percentage}%`,
-                      background: course.percentage >= 70
-                        ? "var(--success)"
-                        : "var(--brand-primary)",
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {courses.length > COURSE_PREVIEW && (
+              <button
+                className="btn btn--secondary"
+                onClick={() => setShowAllCourses((v) => !v)}
+                style={{ marginBottom: "var(--space-4)" }}
+              >
+                {showAllCourses
+                  ? "Show less"
+                  : `Show all ${courses.length} courses`}
+              </button>
+            )}
+          </>
         )}
 
-        {/* Assessment Analytics */}
+        {/* ── Assessment Analytics ──────────────────────────────────────── */}
         <SectionHeader
           title="Assessment Analytics"
-          subtitle="Pass rates and attempt counts across your district"
+          subtitle={`Pass rates and attempt counts across your district${assessments.length > ASSESSMENT_PREVIEW ? ` · ${assessments.length} total` : ""}`}
         />
 
         {loading ? (
@@ -444,75 +433,87 @@ export default function OfficialDashboardPage() {
             <h3 className="empty-state__title">No assessment data yet</h3>
           </div>
         ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "var(--space-4)",
-          }}>
-            {assessments.map((a, i) => {
-              const passColor = a.pass_rate >= 70
-                ? "var(--success)"
-                : a.pass_rate >= 40
-                ? "var(--warning)"
-                : "var(--error)";
+          <>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "var(--space-4)",
+              marginBottom: "var(--space-4)",
+            }}>
+              {shownAssessments.map((a, i) => {
+                const passColor = a.pass_rate >= 70 ? "var(--success)"
+                  : a.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
 
-              return (
-                <div
-                  key={a.assessment_id}
-                  className="card page-enter"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                >
-                  <div className="card__label">{a.subject ?? a.course}</div>
-                  <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
-                    {a.title}
-                  </div>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: "var(--space-3)",
-                    marginBottom: "var(--space-3)",
-                  }}>
-                    {[
-                      { label: "Attempts", value: a.total_attempts },
-                      { label: "Students", value: a.unique_students },
-                      { label: "Avg Score", value: a.average_score },
-                    ].map(({ label, value }) => (
-                      <div key={label} style={{ textAlign: "center" }}>
-                        <div style={{
-                          fontFamily: "var(--font-display)",
-                          fontWeight: 700,
-                          fontSize: "var(--text-lg)",
-                          color: "var(--text-primary)",
-                        }}>
-                          {value}
+                return (
+                  <div
+                    key={a.assessment_id}
+                    className="card page-enter"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
+                    <div className="card__label">{a.subject ?? a.course}</div>
+                    <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
+                      {a.title}
+                    </div>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: "var(--space-3)",
+                      marginBottom: "var(--space-3)",
+                    }}>
+                      {[
+                        { label: "Attempts",  value: a.total_attempts },
+                        { label: "Students",  value: a.unique_students },
+                        { label: "Avg Score", value: a.average_score },
+                      ].map(({ label, value }) => (
+                        <div key={label} style={{ textAlign: "center" }}>
+                          <div style={{
+                            fontFamily: "var(--font-display)",
+                            fontWeight: 700,
+                            fontSize: "var(--text-lg)",
+                            color: "var(--text-primary)",
+                          }}>
+                            {value}
+                          </div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                            {label}
+                          </div>
                         </div>
-                        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                          {label}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "var(--text-xs)",
+                      color: "var(--text-muted)",
+                      marginBottom: "var(--space-1)",
+                    }}>
+                      <span>{a.pass_count} passed · {a.fail_count} failed</span>
+                      <span style={{ fontWeight: 700, color: passColor }}>{a.pass_rate}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-bar__fill"
+                        style={{ width: `${a.pass_rate}%`, background: passColor }}
+                      />
+                    </div>
                   </div>
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "var(--text-xs)",
-                    color: "var(--text-muted)",
-                    marginBottom: "var(--space-1)",
-                  }}>
-                    <span>{a.pass_count} passed · {a.fail_count} failed</span>
-                    <span style={{ fontWeight: 700, color: passColor }}>{a.pass_rate}%</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-bar__fill"
-                      style={{ width: `${a.pass_rate}%`, background: passColor }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            {assessments.length > ASSESSMENT_PREVIEW && (
+              <button
+                className="btn btn--secondary"
+                onClick={() => setShowAllAssessments((v) => !v)}
+                style={{ marginBottom: "var(--space-4)" }}
+              >
+                {showAllAssessments
+                  ? "Show less"
+                  : `Show all ${assessments.length} assessments`}
+              </button>
+            )}
+          </>
         )}
+
       </main>
     </div>
   );

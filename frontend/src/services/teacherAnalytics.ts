@@ -46,9 +46,10 @@ export function getTeacherLessonAnalytics() {
 
 export type TeacherAssessmentAnalytics = {
   assessment_id: number;
+  course_id: number;       // ← add this
   title: string;
   course: string;
-  subject: string | null;   // added — backend now returns this
+  subject: string | null;
   total_attempts: number;
   unique_students: number;
   average_score: number;

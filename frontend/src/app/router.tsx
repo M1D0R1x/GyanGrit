@@ -105,6 +105,8 @@ export const router = createBrowserRouter([
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
   { path: "/teacher/classes/:classId",                       element: <Protected role="TEACHER"><TeacherClassDetailPage /></Protected> },
   { path: "/teacher/classes/:classId/students/:studentId",   element: <Protected role="TEACHER"><TeacherStudentDetailPage /></Protected> },
+  { path: "/teacher/courses/:courseId/lessons",     element: <Protected role="TEACHER"><AdminLessonEditorPage /></Protected> },
+  { path: "/teacher/courses/:courseId/assessments", element: <Protected role="TEACHER"><AdminAssessmentBuilderPage /></Protected> },
 
   // ── Other roles ───────────────────────────────────────────────────────────
   { path: "/principal",  element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },

@@ -650,6 +650,7 @@ def teacher_assessment_analytics(request):
 
         data.append({
             "assessment_id": assessment.id,
+            "course_id": assessment.course.id,
             "title": assessment.title,
             "course": assessment.course.title,
             "subject": assessment.course.subject.name if assessment.course.subject else None,

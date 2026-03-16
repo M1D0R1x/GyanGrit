@@ -97,7 +97,7 @@ export default function TeacherDashboardPage() {
       <TopBar title="Teacher" />
       <main className="page-content page-enter">
 
-        {/* My Subjects */}
+        {/* ── My Subjects ────────────────────────────────────────────────── */}
         <SectionBlock title="My Subjects">
           {loadingAssignments ? (
             <GridSkeleton count={3} height={90} />
@@ -139,7 +139,7 @@ export default function TeacherDashboardPage() {
           )}
         </SectionBlock>
 
-        {/* Class Performance */}
+        {/* ── Class Performance ──────────────────────────────────────────── */}
         <SectionBlock title="Class Performance">
           {loadingClasses ? (
             <GridSkeleton count={5} height={130} />
@@ -178,14 +178,27 @@ export default function TeacherDashboardPage() {
                     }}>
                       {c.class_name}
                     </div>
-                    <div style={{ display: "flex", gap: "var(--space-4)", fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                    <div style={{
+                      display: "flex",
+                      gap: "var(--space-4)",
+                      fontSize: "var(--text-xs)",
+                      color: "var(--text-muted)",
+                      marginBottom: "var(--space-2)",
+                    }}>
                       <span>{c.total_students} students</span>
                       <span style={{ color: passColor, fontWeight: 600 }}>{c.pass_rate}%</span>
                     </div>
                     <div className="progress-bar">
-                      <div className="progress-bar__fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
+                      <div
+                        className="progress-bar__fill"
+                        style={{ width: `${c.pass_rate}%`, background: passColor }}
+                      />
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+                    <div style={{
+                      fontSize: "var(--text-xs)",
+                      color: "var(--text-muted)",
+                      marginTop: "var(--space-2)",
+                    }}>
                       View students →
                     </div>
                   </div>
@@ -195,7 +208,7 @@ export default function TeacherDashboardPage() {
           )}
         </SectionBlock>
 
-        {/* Course Completion */}
+        {/* ── Course Completion ──────────────────────────────────────────── */}
         <SectionBlock title="Course Completion">
           {loadingCourses ? (
             <GridSkeleton count={3} height={120} />
@@ -210,8 +223,12 @@ export default function TeacherDashboardPage() {
               {courses.map((course, i) => (
                 <div
                   key={course.course_id}
-                  className="card page-enter"
+                  className="card card--clickable page-enter"
                   style={{ animationDelay: `${i * 40}ms` }}
+                  onClick={() => navigate(`/teacher/courses/${course.course_id}/lessons`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/courses/${course.course_id}/lessons`)}
                 >
                   {course.subject && (
                     <div className="card__label">{course.subject}</div>
@@ -243,13 +260,21 @@ export default function TeacherDashboardPage() {
                       }}
                     />
                   </div>
+                  {/* Navigation hint — sits below progress bar */}
+                  <div style={{
+                    fontSize: "var(--text-xs)",
+                    color: "var(--brand-primary)",
+                    marginTop: "var(--space-2)",
+                  }}>
+                    Manage lessons →
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </SectionBlock>
 
-        {/* Assessment Performance */}
+        {/* ── Assessment Performance ─────────────────────────────────────── */}
         <SectionBlock title="Assessment Performance">
           {loadingAssessments ? (
             <GridSkeleton count={3} height={140} />
@@ -271,13 +296,20 @@ export default function TeacherDashboardPage() {
                 return (
                   <div
                     key={a.assessment_id}
-                    className="card page-enter"
+                    className="card card--clickable page-enter"
                     style={{ animationDelay: `${i * 40}ms` }}
+                    onClick={() => navigate(`/teacher/courses/${a.course_id}/assessments`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/courses/${a.course_id}/assessments`)}
                   >
+                    {/* Card header — course label + assessment title */}
                     <div className="card__label">{a.course}</div>
                     <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
                       {a.title}
                     </div>
+
+                    {/* Stats — 3-column grid */}
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr 1fr",
@@ -304,11 +336,22 @@ export default function TeacherDashboardPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Progress bar */}
                     <div className="progress-bar">
                       <div
                         className="progress-bar__fill"
                         style={{ width: `${a.pass_rate}%`, background: passColor }}
                       />
+                    </div>
+
+                    {/* Navigation hint — sits below progress bar */}
+                    <div style={{
+                      fontSize: "var(--text-xs)",
+                      color: "var(--warning)",
+                      marginTop: "var(--space-2)",
+                    }}>
+                      Manage assessment →
                     </div>
                   </div>
                 );
@@ -316,6 +359,7 @@ export default function TeacherDashboardPage() {
             </div>
           )}
         </SectionBlock>
+
       </main>
     </div>
   );

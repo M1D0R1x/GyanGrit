@@ -16,6 +16,8 @@ import logging
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
+from django.db.models.functions import Cast
+from django.db.models import IntegerField
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -907,9 +909,23 @@ def teacher_class_analytics(request):
     classes = scope_queryset(request.user, ClassRoom.objects.all())
 
     if request.user.role == "TEACHER":
-        classes = classes.filter(
+        classes = ClassRoom.objects.filter(
             sections__teaching_assignments__teacher=request.user
-        ).distinct()
+        ).distinct().order_by(Cast("name", IntegerField()))
+    elif request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=400)
+        classes = ClassRoom.objects.filter(
+            institution=request.user.institution
+        ).order_by(Cast("name", IntegerField()))
+    elif request.user.role == "OFFICIAL":
+        if not request.user.district:
+            return JsonResponse({"detail": "No district assigned"}, status=400)
+        classes = ClassRoom.objects.filter(
+            institution__district__name=request.user.district
+        ).order_by(Cast("name", IntegerField()))
+    else:
+        classes = ClassRoom.objects.all().order_by(Cast("name", IntegerField()))
 
     data = []
     for classroom in classes.select_related("institution"):
@@ -963,7 +979,7 @@ def teacher_assessment_analytics(request):
         assessments = scope_queryset(request.user, Assessment.objects.all())
 
     data = []
-    for assessment in assessments.select_related("course", "course__subject"):
+    for assessment in assessments.select_related("course", "course__subject").order_by("course__grade", "title"):
         attempts = assessment.attempts.filter(submitted_at__isnull=False)
         agg = attempts.aggregate(
             total=Count("id"),

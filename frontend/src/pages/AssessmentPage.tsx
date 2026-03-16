@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getAssessment,
+  getAssessmentAdmin,
   getMyAttempts,
   type AssessmentDetail,
-  type MyAttempt,
+  type AttemptHistoryItem,
 } from "../services/assessments";
+import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/TopBar";
 
 const DURATION_MINUTES = 30;
+
+const STAFF_ROLES = ["ADMIN", "TEACHER", "PRINCIPAL", "OFFICIAL"] as const;
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -23,9 +27,13 @@ function timeAgo(iso: string): string {
 export default function AssessmentPage() {
   const { assessmentId } = useParams();
   const navigate         = useNavigate();
+  const { user }         = useAuth();
+
+  const role    = user?.role ?? "STUDENT";
+  const isStaff = (STAFF_ROLES as readonly string[]).includes(role);
 
   const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
-  const [attempts, setAttempts]     = useState<MyAttempt[]>([]);
+  const [attempts, setAttempts]     = useState<AttemptHistoryItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
 
@@ -33,22 +41,27 @@ export default function AssessmentPage() {
     if (!assessmentId) return;
     const id = Number(assessmentId);
 
-    Promise.all([
-      getAssessment(id),
-      getMyAttempts(id),
-    ])
-      .then(([a, att]) => {
-        setAssessment(a);
-        setAttempts(att);
-      })
-      .catch(() => setError("Failed to load assessment. Please go back and try again."))
-      .finally(() => setLoading(false));
-  }, [assessmentId]);
+    if (isStaff) {
+      // Staff: use admin endpoint — works on unpublished, no attempt fetch needed
+      getAssessmentAdmin(id)
+        .then(setAssessment)
+        .catch(() => setError("Failed to load assessment."))
+        .finally(() => setLoading(false));
+    } else {
+      // Student: published-only endpoint + their attempt history
+      Promise.all([getAssessment(id), getMyAttempts(id)])
+        .then(([a, att]) => {
+          setAssessment(a);
+          setAttempts(att);
+        })
+        .catch(() => setError("Failed to load assessment. Please go back and try again."))
+        .finally(() => setLoading(false));
+    }
+  }, [assessmentId, isStaff]);
 
-  const bestAttempt = attempts.length > 0
+  const bestAttempt    = attempts.length > 0
     ? attempts.reduce((best, a) => a.score > best.score ? a : best, attempts[0])
     : null;
-
   const hasPassedBefore = attempts.some((a) => a.passed);
 
   if (loading) {
@@ -93,6 +106,18 @@ export default function AssessmentPage() {
           Back
         </button>
 
+        {/* Staff banner — shown instead of attempt CTA */}
+        {isStaff && (
+          <div className="alert alert--info" style={{ marginBottom: "var(--space-4)" }}>
+            <span>
+              You are viewing this assessment as <strong>{role}</strong>.
+              {!assessment.questions?.length
+                ? " No questions added yet."
+                : ` ${assessment.questions.length} question${assessment.questions.length !== 1 ? "s" : ""} · ${assessment.total_marks} marks total.`}
+            </span>
+          </div>
+        )}
+
         {/* Assessment info card */}
         <div className="card" style={{ marginBottom: "var(--space-4)" }}>
           <h1 style={{
@@ -119,9 +144,9 @@ export default function AssessmentPage() {
             borderRadius: "var(--radius-md)",
           }}>
             {[
-              { label: "Questions", value: assessment.questions.length },
+              { label: "Questions",   value: assessment.questions.length },
               { label: "Total Marks", value: assessment.total_marks },
-              { label: "Pass Marks", value: assessment.pass_marks },
+              { label: "Pass Marks",  value: assessment.pass_marks },
             ].map(({ label, value }) => (
               <div key={label} style={{ textAlign: "center" }}>
                 <div style={{
@@ -132,7 +157,12 @@ export default function AssessmentPage() {
                 }}>
                   {value}
                 </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <div style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}>
                   {label}
                 </div>
               </div>
@@ -140,71 +170,89 @@ export default function AssessmentPage() {
           </div>
         </div>
 
-        {/* Best score badge */}
-        {bestAttempt && (
-          <div className={`alert ${hasPassedBefore ? "alert--success" : "alert--warning"}`} style={{ marginBottom: "var(--space-4)" }}>
+        {/* Best score badge — students only */}
+        {!isStaff && bestAttempt && (
+          <div
+            className={`alert ${hasPassedBefore ? "alert--success" : "alert--warning"}`}
+            style={{ marginBottom: "var(--space-4)" }}
+          >
             {hasPassedBefore
               ? `✓ You passed this assessment. Best score: ${bestAttempt.score}/${assessment.total_marks}`
               : `Your best score so far: ${bestAttempt.score}/${assessment.total_marks} — keep trying!`}
           </div>
         )}
 
-        {/* Rules card */}
-        <div className="card" style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-base)",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            marginBottom: "var(--space-4)",
-          }}>
-            Instructions
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {[
-              `This assessment has ${assessment.questions.length} questions worth ${assessment.total_marks} marks total.`,
-              `You need ${assessment.pass_marks} marks to pass.`,
-              `Time allowed: ${DURATION_MINUTES} minutes. The assessment will auto-submit when time runs out.`,
-              "Each question has exactly one correct answer. Select carefully.",
-              "You can attempt this assessment multiple times. Only your best score is shown on the leaderboard.",
-              "Do not refresh or close the page during the assessment — your progress may be lost.",
-            ].map((rule, i) => (
-              <div key={i} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
-                <div style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: "var(--brand-primary-glow)",
-                  color: "var(--brand-primary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "var(--text-xs)",
-                  fontWeight: 700,
-                  flexShrink: 0,
-                  fontFamily: "var(--font-display)",
-                }}>
-                  {i + 1}
+        {/* Rules card — students only */}
+        {!isStaff && (
+          <div className="card" style={{ marginBottom: "var(--space-6)" }}>
+            <h2 style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-base)",
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              marginBottom: "var(--space-4)",
+            }}>
+              Instructions
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {[
+                `This assessment has ${assessment.questions.length} questions worth ${assessment.total_marks} marks total.`,
+                `You need ${assessment.pass_marks} marks to pass.`,
+                `Time allowed: ${DURATION_MINUTES} minutes. The assessment will auto-submit when time runs out.`,
+                "Each question has exactly one correct answer. Select carefully.",
+                "You can attempt this assessment multiple times. Only your best score counts.",
+                "Do not refresh or close the page during the assessment — your progress may be lost.",
+              ].map((rule, i) => (
+                <div key={i} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
+                  <div style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    background: "var(--brand-primary-glow)",
+                    color: "var(--brand-primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "var(--text-xs)",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    fontFamily: "var(--font-display)",
+                  }}>
+                    {i + 1}
+                  </div>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    {rule}
+                  </span>
                 </div>
-                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                  {rule}
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Start button */}
-        <button
-          className="btn btn--primary btn--lg"
-          style={{ width: "100%", justifyContent: "center" }}
-          onClick={() => navigate(`/assessments/${assessmentId}/take`)}
-        >
-          {attempts.length === 0 ? "Start Assessment" : "Attempt Again"}
-        </button>
+        {/* Start button — students only */}
+        {!isStaff && (
+          <button
+            className="btn btn--primary btn--lg"
+            style={{ width: "100%", justifyContent: "center" }}
+            onClick={() => navigate(`/assessments/${assessmentId}/take`)}
+          >
+            {attempts.length === 0 ? "Start Assessment" : "Attempt Again"}
+          </button>
+        )}
 
-        {/* History */}
-        {attempts.length > 0 && (
+        {/* Staff action — go to builder */}
+        {isStaff && (
+          <button
+            className="btn btn--secondary btn--lg"
+            style={{ width: "100%", justifyContent: "center" }}
+            onClick={() => navigate(-1)}
+          >
+            ← Back to Assessment Builder
+          </button>
+        )}
+
+        {/* Attempt history — students only */}
+        {!isStaff && attempts.length > 0 && (
           <div style={{ marginTop: "var(--space-8)" }}>
             <div style={{
               display: "flex",
@@ -253,6 +301,7 @@ export default function AssessmentPage() {
             </div>
           </div>
         )}
+
       </main>
     </div>
   );

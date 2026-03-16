@@ -81,7 +81,11 @@ export const getCourseAssessments = (courseId: number) =>
   apiGet<AssessmentListItem[]>(`/assessments/course/${courseId}/`);
 
 export const getAssessment = (assessmentId: number) =>
-  apiGet<AssessmentDetail>(`/assessments/${assessmentId}/`);
+  apiGet<AssessmentDetail>(`/assessments/${assessmentId}/`)
+
+// Admin/Teacher/Principal endpoint — returns is_correct, works on unpublished assessments
+export const getAssessmentAdmin = (assessmentId: number) =>
+  apiGet<AssessmentDetail>(`/assessments/${assessmentId}/admin/`);
 
 export const startAssessment = (assessmentId: number) =>
   apiPost<StartResponse>(`/assessments/${assessmentId}/start/`, {});

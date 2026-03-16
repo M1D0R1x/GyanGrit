@@ -12,9 +12,12 @@ export type LearningPath = {
 /**
  * A course inside a learning path.
  */
+// services.learningPaths
 export type LearningPathCourse = {
   course_id: number;
   title: string;
+  grade: number;
+  subject: string;
   order: number;
 };
 

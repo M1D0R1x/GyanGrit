@@ -1,3 +1,4 @@
+// pages.LearningPathsPage
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,6 +8,7 @@ import {
   type LearningPathProgress,
 } from "../services/learningPaths";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 function PathSkeleton() {
   return (
@@ -21,40 +23,50 @@ function PathSkeleton() {
 export default function LearningPathsPage() {
   const navigate = useNavigate();
 
-  const [paths, setPaths]               = useState<LearningPath[]>([]);
-  const [progress, setProgress]         = useState<Record<number, LearningPathProgress>>({});
-  const [loading, setLoading]           = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [paths, setPaths]         = useState<LearningPath[]>([]);
+  const [progress, setProgress]   = useState<Record<number, LearningPathProgress>>({});
+  const [loading, setLoading]     = useState(true);
 
+  // ESLint fix: single useEffect with async function + cancelled flag.
+  // Fetches paths first, then all progress in parallel — no cascading setState.
   useEffect(() => {
-    getLearningPaths()
-      .then(setPaths)
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (paths.length === 0) return;
-    setLoadingProgress(true);
+    async function load() {
+      try {
+        const pathList = await getLearningPaths();
+        if (cancelled) return;
+        setPaths(pathList ?? []);
 
-    Promise.all(
-      paths.map(async (path) => ({
-        pathId: path.id,
-        progress: await getLearningPathProgress(path.id),
-      }))
-    )
-      .then((results) => {
+        if (!pathList || pathList.length === 0) return;
+
+        const results = await Promise.allSettled(
+          pathList.map((p) => getLearningPathProgress(p.id))
+        );
+        if (cancelled) return;
+
         const map: Record<number, LearningPathProgress> = {};
-        results.forEach(({ pathId, progress: p }) => { map[pathId] = p; });
+        results.forEach((r, idx) => {
+          if (r.status === "fulfilled" && r.value) {
+            map[pathList[idx].id] = r.value;
+          }
+        });
         setProgress(map);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingProgress(false));
-  }, [paths]);
+      } catch (err) {
+        if (!cancelled) console.error("[LearningPathsPage] load failed:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="page-shell">
       <TopBar title="Learning Paths" />
-      <main className="page-content page-enter">
+      <main className="page-content page-enter has-bottom-nav">
 
         <div className="section-header">
           <div>
@@ -104,16 +116,16 @@ export default function LearningPathsPage() {
                     {path.description || "No description provided."}
                   </p>
 
-                  {loadingProgress && !p ? (
-                    <div className="skeleton" style={{ height: 6, borderRadius: "var(--radius-full)", marginTop: "var(--space-5)" }} />
-                  ) : p ? (
+                  {p ? (
                     <>
                       <div className="progress-bar" style={{ marginTop: "var(--space-5)" }}>
                         <div
                           className="progress-bar__fill"
                           style={{
                             width: `${p.percentage}%`,
-                            background: p.percentage === 100 ? "var(--success)" : "var(--brand-primary)",
+                            background: p.percentage === 100
+                              ? "var(--success)"
+                              : "var(--brand-primary)",
                           }}
                         />
                       </div>
@@ -127,19 +139,28 @@ export default function LearningPathsPage() {
                         <span>{p.completed_courses}/{p.total_courses} courses</span>
                         <span style={{
                           fontWeight: 700,
-                          color: p.percentage === 100 ? "var(--success)" : "var(--text-secondary)",
+                          color: p.percentage === 100
+                            ? "var(--success)"
+                            : "var(--text-secondary)",
                         }}>
                           {p.percentage}%
                         </span>
                       </div>
                     </>
-                  ) : null}
+                  ) : (
+                    /* progress not yet loaded for this path */
+                    <div
+                      className="skeleton"
+                      style={{ height: 6, borderRadius: "var(--radius-full)", marginTop: "var(--space-5)" }}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

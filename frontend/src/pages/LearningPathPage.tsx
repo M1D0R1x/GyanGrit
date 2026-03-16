@@ -1,54 +1,52 @@
+// pages.LearningPathPage
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiGet } from "../services/api";
+import {
+  getLearningPath,
+  getLearningPathProgress,
+  type LearningPathDetail,
+  type LearningPathProgress,
+} from "../services/learningPaths";
 import TopBar from "../components/TopBar";
-
-type LearningPathDetail = {
-  id: number;
-  name: string;
-  description: string;
-  courses: {
-    course_id: number;
-    title: string;
-    grade: number;
-    subject: string;
-    order: number;
-  }[];
-};
-
-type LearningPathProgress = {
-  path_id: number;
-  total_courses: number;
-  completed_courses: number;
-  percentage: number;
-};
+import BottomNav from "../components/BottomNav";
 
 export default function LearningPathPage() {
   const { pathId } = useParams();
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
 
   const [path, setPath]         = useState<LearningPathDetail | null>(null);
   const [progress, setProgress] = useState<LearningPathProgress | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
     if (!pathId) return;
+    let cancelled = false;
 
-    Promise.all([
-      apiGet<LearningPathDetail>(`/learning/paths/${pathId}/`),
-      apiGet<LearningPathProgress>(`/learning/paths/${pathId}/progress/`),
-    ])
-      .then(([pathData, progressData]) => {
+    async function load() {
+      try {
+        const [pathData, progressData] = await Promise.all([
+          getLearningPath(Number(pathId)),
+          getLearningPathProgress(Number(pathId)),
+        ]);
+        if (cancelled) return;
         setPath(pathData);
         setProgress(progressData);
-      })
-      .finally(() => setLoading(false));
+      } catch {
+        if (!cancelled) setError("Failed to load learning path.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => { cancelled = true; };
   }, [pathId]);
 
   return (
     <div className="page-shell">
       <TopBar title={path?.name ?? "Learning Path"} />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate("/learning")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -58,6 +56,10 @@ export default function LearningPathPage() {
           </svg>
           All Learning Paths
         </button>
+
+        {error && (
+          <div className="alert alert--error">{error}</div>
+        )}
 
         {loading ? (
           <div>
@@ -72,6 +74,12 @@ export default function LearningPathPage() {
           <div className="empty-state">
             <div className="empty-state__icon">❓</div>
             <h3 className="empty-state__title">Path not found</h3>
+            <p className="empty-state__message">
+              This learning path may have been removed or doesn't exist.
+            </p>
+            <button className="btn btn--secondary" onClick={() => navigate("/learning")}>
+              Back to paths
+            </button>
           </div>
         ) : (
           <>
@@ -97,16 +105,23 @@ export default function LearningPathPage() {
               </p>
             )}
 
+            {/* Progress card */}
             {progress && (
               <div className="card" style={{ marginBottom: "var(--space-6)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "var(--space-2)",
+                }}>
                   <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                     {progress.completed_courses} of {progress.total_courses} courses completed
                   </span>
                   <span style={{
                     fontFamily: "var(--font-display)",
                     fontWeight: 800,
-                    color: progress.percentage === 100 ? "var(--success)" : "var(--brand-primary)",
+                    color: progress.percentage === 100
+                      ? "var(--success)"
+                      : "var(--brand-primary)",
                   }}>
                     {progress.percentage}%
                   </span>
@@ -116,17 +131,37 @@ export default function LearningPathPage() {
                     className="progress-bar__fill"
                     style={{
                       width: `${progress.percentage}%`,
-                      background: progress.percentage === 100 ? "var(--success)" : "var(--brand-primary)",
+                      background: progress.percentage === 100
+                        ? "var(--success)"
+                        : "var(--brand-primary)",
                     }}
                   />
                 </div>
+                {progress.percentage === 100 && (
+                  <div style={{
+                    textAlign: "center",
+                    marginTop: "var(--space-3)",
+                    fontSize: "var(--text-sm)",
+                    color: "var(--success)",
+                    fontWeight: 600,
+                  }}>
+                    🎉 Path complete!
+                  </div>
+                )}
               </div>
             )}
 
+            {/* Course list */}
             <div className="section-header">
               <h3 className="section-header__title">
                 Courses in this path
               </h3>
+              <span style={{
+                fontSize: "var(--text-xs)",
+                color: "var(--text-muted)",
+              }}>
+                {path.courses.length} course{path.courses.length !== 1 ? "s" : ""}
+              </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -141,6 +176,7 @@ export default function LearningPathPage() {
                   onKeyDown={(e) => e.key === "Enter" && navigate(`/courses/${c.course_id}`)}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+                    {/* Order badge */}
                     <div style={{
                       width: 36,
                       height: 36,
@@ -158,16 +194,32 @@ export default function LearningPathPage() {
                     }}>
                       {c.order}
                     </div>
-                    <div>
-                      <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "var(--text-sm)" }}>
+
+                    {/* Course info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontWeight: 600,
+                        color: "var(--text-primary)",
+                        fontSize: "var(--text-sm)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
                         {c.title}
                       </div>
                       {c.subject && (
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-                          {c.subject} · Class {c.grade}
-                        </div>
-                      )}
+                        {c.subject} · Class {c.grade}
+                       </div>
+                        )}
                     </div>
+
+                    {/* Arrow */}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"
+                      strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
                   </div>
                 </div>
               ))}
@@ -175,6 +227,7 @@ export default function LearningPathPage() {
           </>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

@@ -28,7 +28,7 @@ export type UploadResult = {
   size: number;
 };
 
-export type UploadFolder = "lessons" | "pdfs" | "images" | "uploads";
+export type UploadFolder = "lessons" | "pdfs" | "images" | "uploads" | "videos";
 
 /**
  * Upload a file to Cloudflare R2 via the backend.

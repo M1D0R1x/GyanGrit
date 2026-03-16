@@ -392,16 +392,19 @@ def course_lessons(request, course_id):
 def course_lessons_all(request, course_id):
     """
     GET /api/v1/courses/:id/lessons/all/
-    Admin/teacher view — global lessons only, all publish states.
+    Admin/teacher/principal view — global lessons only, all publish states.
     Includes full content field for the lesson editor.
     """
     course = get_object_or_404(Course, id=course_id)
 
-    if request.user.role not in ["ADMIN", "TEACHER"]:
+    # PRINCIPAL added — they need to review and manage lessons in their school
+    if request.user.role not in ["ADMIN", "TEACHER", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    if request.user.role == "TEACHER" and not has_access_to_course(request.user, course):
-        return JsonResponse({"detail": "Forbidden"}, status=403)
+    # PRINCIPAL and TEACHER: must have access to this course's subject
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     lessons = course.lessons.order_by("order")
     data = [
@@ -410,7 +413,7 @@ def course_lessons_all(request, course_id):
             "title": lesson.title,
             "order": lesson.order,
             "is_published": lesson.is_published,
-            "content": lesson.content,           # full content for editor
+            "content": lesson.content,
             "has_video": bool(lesson.video_url or lesson.hls_manifest_url),
             "has_pdf": bool(lesson.pdf_url),
             "has_text": bool(lesson.content),
@@ -523,7 +526,7 @@ def section_lesson_detail(request, lesson_id):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @csrf_exempt
-@require_roles(["ADMIN", "TEACHER"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["POST"])
 def create_lesson(request, course_id):
     try:
@@ -533,8 +536,10 @@ def create_lesson(request, course_id):
 
     course = get_object_or_404(Course, id=course_id)
 
-    if request.user.role == "TEACHER" and not has_access_to_course(request.user, course):
-        return JsonResponse({"detail": "Forbidden"}, status=403)
+    # TEACHER and PRINCIPAL: must have subject access
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     title = body.get("title", "").strip()
     if not title:
@@ -558,8 +563,8 @@ def create_lesson(request, course_id):
         is_published=body.get("is_published", False),
     )
     logger.info(
-        "Lesson created: id=%s title='%s' course=%s by user=%s",
-        lesson.id, lesson.title, course.id, request.user.id,
+        "Lesson created: id=%s title='%s' course=%s by user=%s role=%s",
+        lesson.id, lesson.title, course.id, request.user.id, request.user.role,
     )
 
     return JsonResponse({
@@ -572,7 +577,7 @@ def create_lesson(request, course_id):
 
 
 @csrf_exempt
-@require_roles(["ADMIN", "TEACHER"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["PATCH"])
 def update_lesson(request, lesson_id):
     try:
@@ -582,8 +587,10 @@ def update_lesson(request, lesson_id):
 
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
-    if request.user.role == "TEACHER" and not has_access_to_course(request.user, lesson.course):
-        return JsonResponse({"detail": "Forbidden"}, status=403)
+    # TEACHER and PRINCIPAL: must have subject access
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, lesson.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     url_fields = {"video_url", "hls_manifest_url", "pdf_url", "thumbnail_url", "video_thumbnail_url"}
     all_fields = [
@@ -602,6 +609,10 @@ def update_lesson(request, lesson_id):
 
     if update_fields:
         lesson.save(update_fields=update_fields)
+        logger.info(
+            "Lesson updated: id=%s fields=%s by user=%s role=%s",
+            lesson.id, update_fields, request.user.id, request.user.role,
+        )
 
     return JsonResponse({
         "id": lesson.id,

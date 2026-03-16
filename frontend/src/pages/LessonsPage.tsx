@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { updateLessonProgress } from "../services/progress";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 /**
  * LessonsPage — merged global + section lessons
@@ -219,7 +220,7 @@ export default function LessonsPage() {
   return (
     <div className="page-shell">
       <TopBar />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate("/courses")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -299,7 +300,7 @@ export default function LessonsPage() {
                 onSelect={() => handleSelect(lesson)}
                 onComplete={
                   lesson.type === "global"
-                    ? () => handleComplete(lesson.id)
+                    ? () => void handleComplete(lesson.id)
                     : undefined
                 }
               />
@@ -307,6 +308,7 @@ export default function LessonsPage() {
           </ul>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

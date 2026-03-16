@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 type Course = {
   id: number;
@@ -29,7 +30,6 @@ export default function CoursesPage() {
   const navigate                = useNavigate();
   const [searchParams]          = useSearchParams();
 
-  // Read optional subject filter from URL — set by DashboardPage
   const subjectIdParam = searchParams.get("subject_id");
   const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
 
@@ -40,12 +40,10 @@ export default function CoursesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Filter client-side — all courses are already scoped to student's grade+subjects
   const filtered = subjectId
     ? courses.filter((c) => c.subject__id === subjectId)
     : courses;
 
-  // Derive subject name for title when filtered
   const subjectName = subjectId
     ? courses.find((c) => c.subject__id === subjectId)?.subject__name ?? null
     : null;
@@ -53,7 +51,7 @@ export default function CoursesPage() {
   return (
     <div className="page-shell">
       <TopBar title={subjectName ? `${subjectName} Courses` : "Courses"} />
-      <main className="page-content page-enter">
+      <main className="page-content page-enter has-bottom-nav">
 
         {subjectName && (
           <button className="back-btn" onClick={() => navigate("/dashboard")}>
@@ -155,6 +153,7 @@ export default function CoursesPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

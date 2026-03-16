@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 type StudentSubject = {
   id: number;
@@ -32,7 +33,6 @@ function SubjectCard({ subject }: { subject: StudentSubject }) {
   return (
     <div
       className="card card--clickable"
-      // FIX: navigate to /courses filtered by this subject, not generic /courses
       onClick={() => navigate(`/courses?subject_id=${subject.id}`)}
       role="button"
       tabIndex={0}
@@ -85,7 +85,7 @@ export default function DashboardPage() {
   return (
     <div className="page-shell">
       <TopBar title="Dashboard" />
-      <main className="page-content page-enter">
+      <main className="page-content page-enter has-bottom-nav">
         <div className="section-header">
           <div>
             <h2 className="section-header__title">Your Subjects</h2>
@@ -127,6 +127,7 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

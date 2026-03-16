@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/TopBar";
 import LogoutButton from "../components/LogoutButton";
+import BottomNav from "../components/BottomNav";
 
 function ProfileField({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -51,14 +52,14 @@ function ProfileSkeleton() {
 }
 
 export default function ProfilePage() {
-  const auth = useAuth();
+  const auth     = useAuth();
   const navigate = useNavigate();
-  const user = auth.user;
+  const user     = auth.user;
 
   return (
     <div className="page-shell">
       <TopBar title="Profile" />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -123,17 +124,15 @@ export default function ProfilePage() {
           </div>
         ) : (
           <>
-            {/* Personal details */}
             <div className="card" style={{ padding: "0 var(--space-6)", marginBottom: "var(--space-6)" }}>
-              <ProfileField label="First Name"    value={user.first_name} />
-              <ProfileField label="Middle Name"   value={user.middle_name || null} />
-              <ProfileField label="Last Name"     value={user.last_name} />
-              <ProfileField label="Email"          value={user.email || null} />
-              <ProfileField label="Mobile 1"       value={user.mobile_primary || null} />
-              <ProfileField label="Mobile 2"       value={user.mobile_secondary || null} />
+              <ProfileField label="First Name"  value={user.first_name} />
+              <ProfileField label="Middle Name" value={user.middle_name || null} />
+              <ProfileField label="Last Name"   value={user.last_name} />
+              <ProfileField label="Email"       value={user.email || null} />
+              <ProfileField label="Mobile 1"    value={user.mobile_primary || null} />
+              <ProfileField label="Mobile 2"    value={user.mobile_secondary || null} />
             </div>
 
-            {/* Account & assignment details */}
             <div className="card" style={{ padding: "0 var(--space-6)" }}>
               <ProfileField label="Username"    value={user.username} />
               <ProfileField label="Public ID"   value={user.public_id} />
@@ -149,6 +148,7 @@ export default function ProfilePage() {
           <LogoutButton />
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

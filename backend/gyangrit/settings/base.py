@@ -116,7 +116,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_AGE = 600
+SESSION_COOKIE_AGE = 3600 # we need to think about this near to deployment
 SESSION_SAVE_EVERY_REQUEST = True
 
 # ─── Cloudflare R2 ───────────────────────────────────────────────

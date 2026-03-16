@@ -4,6 +4,7 @@ import { getLessonDetail, type LessonDetail } from "../services/content";
 import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 
@@ -484,7 +485,7 @@ export default function LessonPage() {
   return (
     <div className="page-shell">
       <TopBar />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg
@@ -704,6 +705,7 @@ export default function LessonPage() {
           )}
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

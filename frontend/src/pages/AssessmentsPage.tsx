@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { type AssessmentWithStatus } from "../services/assessments";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 function ScoreRing({ score, total, size = 44 }: { score: number; total: number; size?: number }) {
   const pct    = total > 0 ? score / total : 0;
@@ -67,7 +68,7 @@ export default function AssessmentsPage() {
   return (
     <div className="page-shell">
       <TopBar title="Assessments" />
-      <main className="page-enter" style={{ flex: 1 }}>
+      <main className="page-enter has-bottom-nav" style={{ flex: 1 }}>
 
         {/* Header */}
         <div className="page-header">
@@ -154,7 +155,7 @@ export default function AssessmentsPage() {
           </div>
         ) : (
           filtered.map((a, i) => {
-            const attempted = (a.attempt_count ?? 0) > 0;
+            const isAttempted = (a.attempt_count ?? 0) > 0;
             return (
               <button
                 key={a.id}
@@ -162,8 +163,8 @@ export default function AssessmentsPage() {
                 style={{ animationDelay: `${i * 25}ms` }}
                 onClick={() => navigate(`/assessments/${a.id}`)}
               >
-                <div className={`assessment-row__icon${attempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
-                  {attempted && a.best_score !== null
+                <div className={`assessment-row__icon${isAttempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
+                  {isAttempted && a.best_score !== null
                     ? <ScoreRing score={a.best_score} total={a.total_marks} />
                     : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -182,7 +183,7 @@ export default function AssessmentsPage() {
                   <div className="assessment-row__title">{a.title}</div>
                   <div className="assessment-row__meta">
                     <span>{a.total_marks} marks · pass {a.pass_marks}</span>
-                    {attempted && (
+                    {isAttempted && (
                       <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
                         {a.passed ? "✓ Passed" : `${a.attempt_count ?? 0} attempt${(a.attempt_count ?? 0) !== 1 ? "s" : ""}`}
                       </span>
@@ -199,6 +200,7 @@ export default function AssessmentsPage() {
           })
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

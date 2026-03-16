@@ -9,6 +9,7 @@ import {
 } from "../services/assessments";
 import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 const DURATION_MINUTES = 30;
 
@@ -59,7 +60,7 @@ export default function AssessmentPage() {
     }
   }, [assessmentId, isStaff]);
 
-  const bestAttempt    = attempts.length > 0
+  const bestAttempt     = attempts.length > 0
     ? attempts.reduce((best, a) => a.score > best.score ? a : best, attempts[0])
     : null;
   const hasPassedBefore = attempts.some((a) => a.passed);
@@ -95,7 +96,7 @@ export default function AssessmentPage() {
   return (
     <div className="page-shell">
       <TopBar title="Assessment" />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -106,7 +107,7 @@ export default function AssessmentPage() {
           Back
         </button>
 
-        {/* Staff banner — shown instead of attempt CTA */}
+        {/* Staff banner */}
         {isStaff && (
           <div className="alert alert--info" style={{ marginBottom: "var(--space-4)" }}>
             <span>
@@ -182,7 +183,7 @@ export default function AssessmentPage() {
           </div>
         )}
 
-        {/* Rules card — students only */}
+        {/* Instructions — students only */}
         {!isStaff && (
           <div className="card" style={{ marginBottom: "var(--space-6)" }}>
             <h2 style={{
@@ -205,17 +206,10 @@ export default function AssessmentPage() {
               ].map((rule, i) => (
                 <div key={i} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
                   <div style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    background: "var(--brand-primary-glow)",
-                    color: "var(--brand-primary)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "var(--text-xs)",
-                    fontWeight: 700,
-                    flexShrink: 0,
+                    width: 24, height: 24, borderRadius: "50%",
+                    background: "var(--brand-primary-glow)", color: "var(--brand-primary)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0,
                     fontFamily: "var(--font-display)",
                   }}>
                     {i + 1}
@@ -240,7 +234,7 @@ export default function AssessmentPage() {
           </button>
         )}
 
-        {/* Staff action — go to builder */}
+        {/* Staff back button */}
         {isStaff && (
           <button
             className="btn btn--secondary btn--lg"
@@ -303,6 +297,8 @@ export default function AssessmentPage() {
         )}
 
       </main>
+      {/* BottomNav only for students — staff use their own dashboards */}
+      {!isStaff && <BottomNav />}
     </div>
   );
 }

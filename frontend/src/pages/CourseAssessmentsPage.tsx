@@ -5,6 +5,7 @@ import {
   type AssessmentListItem,
 } from "../services/assessments";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 export default function CourseAssessmentsPage() {
   const { courseId } = useParams();
@@ -25,7 +26,7 @@ export default function CourseAssessmentsPage() {
   return (
     <div className="page-shell">
       <TopBar title="Assessments" />
-      <main className="page-content page-content--narrow page-enter">
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -104,6 +105,7 @@ export default function CourseAssessmentsPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

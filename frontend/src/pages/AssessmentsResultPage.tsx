@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 type ResultState = {
   score: number;
@@ -45,7 +46,7 @@ export default function AssessmentResultPage() {
     <div className="page-shell">
       <TopBar title="Result" />
       <main
-        className="page-content page-enter"
+        className="page-content page-enter has-bottom-nav"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -175,6 +176,7 @@ export default function AssessmentResultPage() {
           </div>
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

@@ -117,12 +117,11 @@ def update_assessment(request, assessment_id):
 
 @csrf_exempt
 @require_roles(["ADMIN"])
-@require_http_methods(["DELETE"])
+@require_http_methods(["DELETE", "POST"])
 def delete_assessment(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id)
     assessment.delete()
     return JsonResponse({"success": True})
-
 
 # =====================================================
 # QUESTION CRUD (ADMIN only)
@@ -229,7 +228,7 @@ def update_question(request, question_id):
 
 @csrf_exempt
 @require_roles(["ADMIN"])
-@require_http_methods(["DELETE"])
+@require_http_methods(["DELETE", "POST"])
 def delete_question(request, question_id):
     question = get_object_or_404(Question, id=question_id)
     question.delete()

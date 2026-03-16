@@ -225,12 +225,22 @@ def create_course(request):
         description=description,
         is_core=bool(is_core),
     )
+
+    logger.info(
+        "Course created: id=%s title='%s' by user=%s",
+        course.id, course.title, request.user.id,
+    )
+
+    # Return same shape as CourseItem in frontend — subject__name and subject__id
+    # must be present so setCourses(...prev, created) works without type mismatch
     return JsonResponse({
         "id": course.id,
         "title": course.title,
+        "description": course.description,
         "grade": course.grade,
-        "subject": course.subject.name,
         "is_core": course.is_core,
+        "subject__name": subject.name,
+        "subject__id": subject.id,
     }, status=201)
 
 

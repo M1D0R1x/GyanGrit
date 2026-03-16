@@ -1,6 +1,6 @@
+import {apiGet, apiPost, apiPatch, apiDelete} from "../services/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiGet, apiPost, apiPatch } from "../services/api";
 import TopBar from "../components/TopBar";
 
 type AssessmentItem = {
@@ -224,15 +224,15 @@ export default function AdminAssessmentBuilderPage() {
   };
 
   const handleDeleteQuestion = async (questionId: number) => {
-    if (!confirm("Delete this question?")) return;
-    try {
-      await apiPost(`/assessments/questions/${questionId}/delete/`, {});
-      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
-      setSuccess("Question deleted.");
-    } catch (err: unknown) {
-      setError(parseApiError(err, "Failed to delete question."));
-    }
-  };
+  if (!confirm("Delete this question?")) return;
+  try {
+    await apiDelete(`/assessments/questions/${questionId}/delete/`);
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setSuccess("Question deleted.");
+  } catch (err: unknown) {
+    setError(parseApiError(err, "Failed to delete question."));
+  }
+};
 
   return (
     <div className="page-shell">

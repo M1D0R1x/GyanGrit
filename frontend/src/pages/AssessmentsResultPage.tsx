@@ -25,7 +25,10 @@ export default function AssessmentResultPage() {
             <p className="empty-state__message">
               This page must be reached by submitting an assessment.
             </p>
-            <button className="btn btn--secondary" onClick={() => navigate("/")}>
+            <button
+              className="btn btn--secondary"
+              onClick={() => navigate("/dashboard")}
+            >
               Go to Dashboard
             </button>
           </div>
@@ -41,18 +44,27 @@ export default function AssessmentResultPage() {
   return (
     <div className="page-shell">
       <TopBar title="Result" />
-      <main className="page-content page-enter" style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        paddingTop: "var(--space-16)",
-      }}>
+      <main
+        className="page-content page-enter"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          paddingTop: "var(--space-16)",
+        }}
+      >
         <div className="result-card">
           <div className="result-card__icon">
             {state.passed ? "🎉" : "📖"}
           </div>
 
-          <div className={`result-card__score ${state.passed ? "result-card__score--pass" : "result-card__score--fail"}`}>
+          <div
+            className={`result-card__score ${
+              state.passed
+                ? "result-card__score--pass"
+                : "result-card__score--fail"
+            }`}
+          >
             {percentage}%
           </div>
 
@@ -60,53 +72,86 @@ export default function AssessmentResultPage() {
             {state.passed ? "Assessment Passed" : "Assessment Failed"}
           </div>
 
-          <div style={{
-            display: "flex",
-            gap: "var(--space-8)",
-            justifyContent: "center",
-            marginBottom: "var(--space-8)",
-            padding: "var(--space-5)",
-            background: "var(--bg-elevated)",
-            borderRadius: "var(--radius-md)",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--space-8)",
+              justifyContent: "center",
+              marginBottom: "var(--space-8)",
+              padding: "var(--space-5)",
+              background: "var(--bg-elevated)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
             <div style={{ textAlign: "center" }}>
-              <div style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-2xl)",
-                fontWeight: 800,
-                color: "var(--text-primary)",
-              }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-2xl)",
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                }}
+              >
                 {state.score}
               </div>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
                 Your Score
               </div>
             </div>
+
             <div style={{ width: 1, background: "var(--border-subtle)" }} />
+
             <div style={{ textAlign: "center" }}>
-              <div style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-2xl)",
-                fontWeight: 800,
-                color: "var(--text-primary)",
-              }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-2xl)",
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                }}
+              >
                 {state.pass_marks}
               </div>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
                 Pass Mark
               </div>
             </div>
+
             <div style={{ width: 1, background: "var(--border-subtle)" }} />
+
             <div style={{ textAlign: "center" }}>
-              <div style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-2xl)",
-                fontWeight: 800,
-                color: "var(--text-primary)",
-              }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-2xl)",
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                }}
+              >
                 {state.total_marks}
               </div>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
                 Total Marks
               </div>
             </div>
@@ -115,13 +160,15 @@ export default function AssessmentResultPage() {
           <div className="result-card__actions">
             <button
               className="btn btn--secondary"
-              onClick={() => navigate(`/assessments/${state.assessment_id}/history`)}
+              onClick={() =>
+                navigate(`/assessments/${state.assessment_id}/history`)
+              }
             >
               View History
             </button>
             <button
               className="btn btn--primary"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>

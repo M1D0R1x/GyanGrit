@@ -29,7 +29,6 @@ const AssessmentTakePage  = lazy(() => import("../pages/AssessmentTakePage"));
 const AssessmentsPage     = lazy(() => import("../pages/AssessmentsPage"));
 
 // Assessments
-const CourseAssessmentsPage  = lazy(() => import("../pages/CourseAssessmentsPage"));
 const AssessmentPage         = lazy(() => import("../pages/AssessmentPage"));
 const AssessmentResultPage   = lazy(() => import("../pages/AssessmentsResultPage"));
 const AssessmentHistoryPage = lazy(() => import("../pages/AssessmentHistoryPage"));
@@ -93,14 +92,14 @@ export const router = createBrowserRouter([
   { path: "/learning/:pathId",        element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
   { path: "/profile",                 element: <Protected role="STUDENT"><ProfilePage /></Protected> },
 
-  // ── Assessments ──────────────────────────────────────────────────────────
-  { path: "/courses/:courseId/assessments",       element: <Protected role="STUDENT"><CourseAssessmentsPage /></Protected> },
-  { path: "/assessments/:assessmentId",           element: <Protected role="STUDENT"><AssessmentPage /></Protected> },
-  { path: "/assessment-result",                   element: <Protected role="STUDENT"><AssessmentResultPage /></Protected> },
-  { path: "/assessments/:assessmentId/history",   element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
-  { path: "/assessments",                             element: <Protected role="STUDENT"><AssessmentsPage /></Protected> },
-  { path: "/assessments/:assessmentId/take",          element: <Protected role="STUDENT"><AssessmentTakePage /></Protected> },
-  { path: "/assessments/history",                   element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
+  // AFTER — static routes before dynamic ones
+{ path: "/assessments",                         element: <Protected role="STUDENT"><AssessmentsPage /></Protected> },
+{ path: "/assessments/history",                 element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
+{ path: "/assessments/:assessmentId",           element: <Protected role="STUDENT"><AssessmentPage /></Protected> },
+{ path: "/assessments/:assessmentId/take",      element: <Protected role="STUDENT"><AssessmentTakePage /></Protected> },
+{ path: "/assessments/:assessmentId/history",   element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
+{ path: "/assessment-result",                   element: <Protected role="STUDENT"><AssessmentResultPage /></Protected> },
+
 
   // ── Teacher ──────────────────────────────────────────────────────────────
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },

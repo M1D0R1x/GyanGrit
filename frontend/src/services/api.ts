@@ -82,3 +82,27 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 
   return res.json() as Promise<T>;
 }
+
+export async function apiDelete<T = Record<string, unknown>>(
+  path: string
+): Promise<T> {
+  const csrfToken = getCsrfToken();
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
+  }
+
+  // DELETE endpoints may return 204 No Content — handle gracefully
+  const text = await res.text();
+  return (text ? JSON.parse(text) : {}) as T;
+}

@@ -5,6 +5,12 @@
  *   Added `content` field to LessonItem type.
  *   The /courses/:id/lessons/all/ endpoint returns `content` for the editor,
  *   but the type was missing it — causing openEdit() to always show a blank textarea.
+ *
+ * FIX (2026-03-16):
+ *   Removed separate CreatedCourse type — createCourse now returns CourseItem.
+ *   Backend create_course view updated to return subject__name and subject__id
+ *   so the response shape matches CourseItem exactly.
+ *   This fixes the TS2345 type mismatch in AdminContentPage setCourses().
  */
 
 import { apiGet, apiPost, apiPatch } from "./api";
@@ -89,18 +95,26 @@ export type UpdateLessonPayload = Partial<CreateLessonPayload> & {
   is_published?: boolean;
 };
 
-// ── Courses ─────────────────────────────────────────────────────────────────
+// createCourse returns CourseItem directly.
+// Backend create_course now returns subject__name + subject__id
+// so the shape matches CourseItem — no separate CreatedCourse type needed.
+export async function createCourse(
+  payload: CreateCoursePayload
+): Promise<CourseItem> {
+  return apiPost<CourseItem>("/courses/create/", payload);
+}
+
+// ── Courses ──────────────────────────────────────────────────────────────────
 
 export const getCourses = () =>
   apiGet<CourseItem[]>("/courses/");
 
-export const createCourse = (payload: CreateCoursePayload) =>
-  apiPost<CourseItem>("/courses/create/", payload);
+export const updateCourse = (
+  courseId: number,
+  payload: Partial<CreateCoursePayload>
+) => apiPatch<CourseItem>(`/courses/${courseId}/`, payload);
 
-export const updateCourse = (courseId: number, payload: Partial<CreateCoursePayload>) =>
-  apiPatch<CourseItem>(`/courses/${courseId}/`, payload);
-
-// ── Lessons (student view) ───────────────────────────────────────────────────
+// ── Lessons (student view) ────────────────────────────────────────────────────
 
 export const getCourseLessons = (courseId: number) =>
   apiGet<LessonItem[]>(`/courses/${courseId}/lessons/`);
@@ -108,7 +122,7 @@ export const getCourseLessons = (courseId: number) =>
 export const getLessonDetail = (lessonId: number) =>
   apiGet<LessonDetail>(`/lessons/${lessonId}/`);
 
-// ── Lessons (admin/teacher editor view — includes content, all publish states)
+// ── Lessons (admin/teacher editor view — includes content, all publish states) ─
 
 export const getCourseAllLessons = (courseId: number) =>
   apiGet<LessonItem[]>(`/courses/${courseId}/lessons/all/`);
@@ -119,7 +133,7 @@ export const createLesson = (courseId: number, payload: CreateLessonPayload) =>
 export const updateLesson = (lessonId: number, payload: UpdateLessonPayload) =>
   apiPatch<LessonItem>(`/lessons/${lessonId}/update/`, payload);
 
-// ── Course progress ──────────────────────────────────────────────────────────
+// ── Course progress ───────────────────────────────────────────────────────────
 
 export type CourseProgress = {
   course_id: number;

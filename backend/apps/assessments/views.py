@@ -51,7 +51,7 @@ def has_access_to_course(user, course):
 # =====================================================
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["POST"])
 def create_assessment(request, course_id):
     try:
@@ -60,6 +60,11 @@ def create_assessment(request, course_id):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     course = get_object_or_404(Course, id=course_id)
+
+    # TEACHER and PRINCIPAL must have subject access
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     title = body.get("title", "").strip()
     if not title:
@@ -73,7 +78,10 @@ def create_assessment(request, course_id):
         is_published=body.get("is_published", False),
     )
 
-    logger.info("Assessment created: id=%s by user id=%s", assessment.id, request.user.id)
+    logger.info(
+        "Assessment created: id=%s by user id=%s role=%s",
+        assessment.id, request.user.id, request.user.role,
+    )
 
     return JsonResponse({
         "id": assessment.id,
@@ -86,7 +94,7 @@ def create_assessment(request, course_id):
 
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["PATCH"])
 def update_assessment(request, assessment_id):
     try:
@@ -95,6 +103,10 @@ def update_assessment(request, assessment_id):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     update_fields = []
     for field in ["title", "description", "pass_marks", "is_published"]:
@@ -116,10 +128,15 @@ def update_assessment(request, assessment_id):
 
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["DELETE", "POST"])
 def delete_assessment(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
     assessment.delete()
     return JsonResponse({"success": True})
 
@@ -128,7 +145,7 @@ def delete_assessment(request, assessment_id):
 # =====================================================
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["POST"])
 def create_question(request, assessment_id):
     try:
@@ -137,6 +154,10 @@ def create_question(request, assessment_id):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     text = body.get("text", "").strip()
     if not text:
@@ -181,7 +202,7 @@ def create_question(request, assessment_id):
 
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["PATCH"])
 def update_question(request, question_id):
     try:
@@ -190,6 +211,10 @@ def update_question(request, question_id):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     question = get_object_or_404(Question, id=question_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, question.assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     update_fields = []
     for field in ["text", "marks", "order"]:
@@ -205,7 +230,6 @@ def update_question(request, question_id):
         correct_count = sum(1 for o in options_data if o.get("is_correct"))
         if correct_count != 1:
             return JsonResponse({"error": "Exactly one correct option required"}, status=400)
-
         question.options.all().delete()
         for opt in options_data:
             QuestionOption.objects.create(
@@ -227,10 +251,15 @@ def update_question(request, question_id):
 
 
 @csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
 @require_http_methods(["DELETE", "POST"])
 def delete_question(request, question_id):
     question = get_object_or_404(Question, id=question_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, question.assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
     question.delete()
     return JsonResponse({"success": True})
 
@@ -287,13 +316,16 @@ def assessment_detail(request, assessment_id):
 def assessment_detail_admin(request, assessment_id):
     """
     GET /api/v1/assessments/:id/admin/
-    Admin-only view — includes is_correct for the assessment builder UI.
-    Security: is_correct is only returned here, never in the student endpoint.
+    Returns is_correct for builder UI. ADMIN, TEACHER, PRINCIPAL only.
     """
-    if request.user.role != "ADMIN":
+    if request.user.role not in ["ADMIN", "TEACHER", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     assessment = get_object_or_404(Assessment, id=assessment_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, assessment.course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
 
     questions = []
     for q in assessment.questions.prefetch_related("options").order_by("order"):
@@ -418,29 +450,22 @@ def all_my_attempts(request):
     """
     GET /api/v1/assessments/my-history/
 
-    Returns all submitted attempts with full context.
-
-    STUDENT       → their own attempts
-    ADMIN         → any student's attempts via ?user_id= param,
-                    or their own (empty) attempts if no param given
-    Other roles   → 403 (teachers/principals use analytics dashboard)
+    STUDENT  → their own attempts
+    ADMIN    → any student's attempts via ?user_id= param,
+               or empty list if no param
+    Others   → 403 (use analytics dashboard instead)
     """
     user = request.user
 
-    # Determine whose attempts to fetch
     if user.role == "STUDENT":
         target_user = user
-
     elif user.is_superuser or user.role == "ADMIN":
         user_id_param = request.GET.get("user_id")
         if user_id_param:
-            from django.contrib.auth import get_user_model
             User = get_user_model()
             target_user = get_object_or_404(User, id=user_id_param)
         else:
-            # Admin with no user_id — return empty list (admin has no attempts)
             return JsonResponse([], safe=False)
-
     else:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
@@ -471,7 +496,6 @@ def all_my_attempts(request):
         }
         for a in attempts
     ]
-
     return JsonResponse(data, safe=False)
 
 

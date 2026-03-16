@@ -835,6 +835,13 @@ def teacher_course_analytics(request):
 
     courses_qs = scope_queryset(request.user, Course.objects.all())
 
+    # TEACHER sees only courses for subjects they teach — not all courses at institution
+    if request.user.role == "TEACHER":
+        subject_ids = request.user.teaching_assignments.values_list(
+            "subject_id", flat=True
+        )
+        courses_qs = courses_qs.filter(subject_id__in=subject_ids)
+
     data = []
     for course in courses_qs.select_related("subject"):
         total_lessons = course.lessons.filter(is_published=True).count()
@@ -863,6 +870,13 @@ def teacher_lesson_analytics(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     lessons_qs = scope_queryset(request.user, Lesson.objects.all())
+
+    # TEACHER sees only lessons for subjects they teach
+    if request.user.role == "TEACHER":
+        subject_ids = request.user.teaching_assignments.values_list(
+            "subject_id", flat=True
+        )
+        lessons_qs = lessons_qs.filter(course__subject_id__in=subject_ids)
 
     data = []
     for lesson in lessons_qs.select_related("course"):

@@ -643,23 +643,105 @@ def delete_lesson(request, lesson_id):
     lesson.delete()
     return JsonResponse({"success": True})
 
+@csrf_exempt
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["PATCH"])
+def update_section_lesson(request, lesson_id):
+    """PATCH /api/v1/lessons/section/:id/update/"""
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    lesson = get_object_or_404(SectionLesson, id=lesson_id)
+
+    # TEACHER: can only edit lessons in their own section
+    if request.user.role == "TEACHER":
+        teacher_section = _get_teacher_section(request.user)
+        if lesson.section != teacher_section:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    # PRINCIPAL: can only edit lessons in their school
+    if request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=403)
+        if lesson.section.classroom.institution != request.user.institution:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    url_fields = {"video_url", "video_thumbnail_url", "pdf_url"}
+    all_fields = [
+        "title", "content", "video_url", "video_thumbnail_url",
+        "pdf_url", "is_published", "order",
+    ]
+    update_fields = []
+    for field in all_fields:
+        if field in body:
+            value = body[field]
+            if field in url_fields and value == "":
+                value = None
+            setattr(lesson, field, value)
+            update_fields.append(field)
+
+    if update_fields:
+        lesson.save(update_fields=update_fields)
+
+    logger.info(
+        "SectionLesson updated: id=%s by user=%s role=%s",
+        lesson.id, request.user.id, request.user.role,
+    )
+
+    return JsonResponse({
+        "id": lesson.id,
+        "title": lesson.title,
+        "order": lesson.order,
+        "is_published": lesson.is_published,
+    })
+
+
+@csrf_exempt
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["DELETE", "POST"])
+def delete_section_lesson(request, lesson_id):
+    """DELETE /api/v1/lessons/section/:id/delete/"""
+    lesson = get_object_or_404(SectionLesson, id=lesson_id)
+
+    # TEACHER: can only delete their own section's lessons
+    if request.user.role == "TEACHER":
+        teacher_section = _get_teacher_section(request.user)
+        if lesson.section != teacher_section:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    # PRINCIPAL: can only delete lessons in their school
+    if request.user.role == "PRINCIPAL":
+        if not request.user.institution:
+            return JsonResponse({"detail": "No institution assigned"}, status=403)
+        if lesson.section.classroom.institution != request.user.institution:
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    lesson.delete()
+    logger.info(
+        "SectionLesson deleted: id=%s by user=%s role=%s",
+        lesson_id, request.user.id, request.user.role,
+    )
+    return JsonResponse({"success": True})
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION LESSON CRUD (TEACHER)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@csrf_exempt
-@require_roles(["TEACHER", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET", "POST"])
 def section_lesson_list_create(request, course_id):
-    """
-    GET  /api/v1/courses/:id/section-lessons/ — list for teacher's section
-    POST /api/v1/courses/:id/section-lessons/ — create new section lesson
-    """
     course = get_object_or_404(Course, id=course_id)
-    section = _get_teacher_section(request.user)
 
-    if not section and request.user.role != "ADMIN":
+    # PRINCIPAL uses institution scope — they can manage any section in their school
+    if request.user.role == "PRINCIPAL":
+        section = None  # PRINCIPAL manages all sections — no single section scope
+    else:
+        section = _get_teacher_section(request.user)
+
+    if not section and request.user.role == "TEACHER":
         return JsonResponse({"error": "No section assigned to this teacher"}, status=400)
 
     if request.method == "GET":

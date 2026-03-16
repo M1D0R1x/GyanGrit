@@ -3,17 +3,13 @@
  *
  * FIX (2026-03-15):
  *   Added `content` field to LessonItem type.
- *   The /courses/:id/lessons/all/ endpoint returns `content` for the editor,
- *   but the type was missing it — causing openEdit() to always show a blank textarea.
  *
  * FIX (2026-03-16):
- *   Removed separate CreatedCourse type — createCourse now returns CourseItem.
- *   Backend create_course view updated to return subject__name and subject__id
- *   so the response shape matches CourseItem exactly.
- *   This fixes the TS2345 type mismatch in AdminContentPage setCourses().
+ *   Removed CreatedCourse type — createCourse returns CourseItem directly.
+ *   Added section lesson CRUD service functions.
  */
 
-import { apiGet, apiPost, apiPatch } from "./api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
 
 export type CourseItem = {
   id: number;
@@ -30,7 +26,6 @@ export type LessonItem = {
   title: string;
   order: number;
   is_published: boolean;
-  // Content fields — present in lessons/all/ (admin/teacher view)
   content?: string;
   has_video: boolean;
   has_pdf: boolean;
@@ -41,7 +36,6 @@ export type LessonItem = {
   pdf_url?: string | null;
   hls_manifest_url?: string | null;
   thumbnail_url?: string | null;
-  // Student view fields
   completed?: boolean;
 };
 
@@ -95,16 +89,37 @@ export type UpdateLessonPayload = Partial<CreateLessonPayload> & {
   is_published?: boolean;
 };
 
-// createCourse returns CourseItem directly.
-// Backend create_course now returns subject__name + subject__id
-// so the shape matches CourseItem — no separate CreatedCourse type needed.
+// ── Section Lessons ───────────────────────────────────────────────────────────
+
+export type SectionLessonItem = {
+  id: number;
+  title: string;
+  order: number;
+  has_video: boolean;
+  has_pdf: boolean;
+  has_content: boolean;
+  is_published: boolean;
+  created_by: string | null;
+};
+
+export type CreateSectionLessonPayload = {
+  title: string;
+  content?: string;
+  video_url?: string;
+  video_thumbnail_url?: string;
+  pdf_url?: string;
+  order?: number;
+  is_published?: boolean;
+};
+
+// ── Course ────────────────────────────────────────────────────────────────────
+
+// createCourse returns CourseItem — backend returns subject__name + subject__id
 export async function createCourse(
   payload: CreateCoursePayload
 ): Promise<CourseItem> {
   return apiPost<CourseItem>("/courses/create/", payload);
 }
-
-// ── Courses ──────────────────────────────────────────────────────────────────
 
 export const getCourses = () =>
   apiGet<CourseItem[]>("/courses/");
@@ -122,7 +137,7 @@ export const getCourseLessons = (courseId: number) =>
 export const getLessonDetail = (lessonId: number) =>
   apiGet<LessonDetail>(`/lessons/${lessonId}/`);
 
-// ── Lessons (admin/teacher editor view — includes content, all publish states) ─
+// ── Lessons (admin/teacher editor — includes content, all publish states) ──────
 
 export const getCourseAllLessons = (courseId: number) =>
   apiGet<LessonItem[]>(`/courses/${courseId}/lessons/all/`);
@@ -132,6 +147,24 @@ export const createLesson = (courseId: number, payload: CreateLessonPayload) =>
 
 export const updateLesson = (lessonId: number, payload: UpdateLessonPayload) =>
   apiPatch<LessonItem>(`/lessons/${lessonId}/update/`, payload);
+
+// ── Section Lessons (teacher/principal) ───────────────────────────────────────
+
+export const getSectionLessons = (courseId: number) =>
+  apiGet<SectionLessonItem[]>(`/courses/${courseId}/section-lessons/`);
+
+export const createSectionLesson = (
+  courseId: number,
+  payload: CreateSectionLessonPayload
+) => apiPost<SectionLessonItem>(`/courses/${courseId}/section-lessons/`, payload);
+
+export const updateSectionLesson = (
+  lessonId: number,
+  payload: Partial<CreateSectionLessonPayload>
+) => apiPatch<SectionLessonItem>(`/lessons/section/${lessonId}/update/`, payload);
+
+export const deleteSectionLesson = (lessonId: number) =>
+  apiDelete<{ success: boolean }>(`/lessons/section/${lessonId}/delete/`);
 
 // ── Course progress ───────────────────────────────────────────────────────────
 

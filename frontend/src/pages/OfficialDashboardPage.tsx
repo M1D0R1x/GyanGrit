@@ -1,4 +1,6 @@
+// pages.OfficialDashboardPage
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import { useAuth } from "../auth/AuthContext";
@@ -81,6 +83,7 @@ function GridSkeleton({ count = 3, height = 120 }: { count?: number; height?: nu
 
 export default function OfficialDashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Single loading flag — avoids multiple setState calls that cause cascading renders
   const [loading, setLoading]         = useState(true);
@@ -92,8 +95,7 @@ export default function OfficialDashboardPage() {
   const [showAllCourses, setShowAllCourses]            = useState(false);
   const [showAllAssessments, setShowAllAssessments]    = useState(false);
 
-  // ESLint fix: no useCallback — async function defined directly inside useEffect
-  // so setState calls are never synchronous from the perspective of the effect
+  // ESLint fix: async function directly inside useEffect — no useCallback
   useEffect(() => {
     let cancelled = false;
 
@@ -117,17 +119,17 @@ export default function OfficialDashboardPage() {
   }, []);
 
   // Derived values
-  const institutions     = [...new Set(classes.map((c) => c.institution))].sort();
-  const filteredClasses  = selectedInstitution
+  const institutions    = [...new Set(classes.map((c) => c.institution))].sort();
+  const filteredClasses = selectedInstitution
     ? classes.filter((c) => c.institution === selectedInstitution)
     : classes;
-  const totalStudents    = classes.reduce((sum, c) => sum + c.total_students, 0);
-  const avgPassRate      = classes.length
+  const totalStudents   = classes.reduce((sum, c) => sum + c.total_students, 0);
+  const avgPassRate     = classes.length
     ? Math.round(classes.reduce((sum, c) => sum + c.pass_rate, 0) / classes.length)
     : 0;
 
-  const shownCourses      = showAllCourses      ? courses      : courses.slice(0, COURSE_PREVIEW);
-  const shownAssessments  = showAllAssessments  ? assessments  : assessments.slice(0, ASSESSMENT_PREVIEW);
+  const shownCourses     = showAllCourses     ? courses     : courses.slice(0, COURSE_PREVIEW);
+  const shownAssessments = showAllAssessments ? assessments : assessments.slice(0, ASSESSMENT_PREVIEW);
 
   return (
     <div className="page-shell">
@@ -136,7 +138,7 @@ export default function OfficialDashboardPage() {
 
         {/* District Banner */}
         <div className="card" style={{
-          marginBottom: "var(--space-8)",
+          marginBottom: "var(--space-6)",
           background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, var(--bg-surface) 60%)",
           borderColor: "rgba(139,92,246,0.2)",
         }}>
@@ -167,11 +169,7 @@ export default function OfficialDashboardPage() {
               }}>
                 {user?.district ?? "All Districts"}
               </h2>
-              <p style={{
-                fontSize: "var(--text-sm)",
-                color: "var(--text-muted)",
-                marginTop: "var(--space-1)",
-              }}>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
                 Data is automatically scoped to your district
               </p>
             </div>
@@ -185,17 +183,10 @@ export default function OfficialDashboardPage() {
                 ].map(({ value, label, color }, idx, arr) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "var(--text-3xl)",
-                        fontWeight: 800,
-                        color,
-                      }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 800, color }}>
                         {value}
                       </div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                        {label}
-                      </div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
                     </div>
                     {idx < arr.length - 1 && (
                       <div style={{ width: 1, height: 40, background: "var(--border-subtle)" }} />
@@ -205,6 +196,26 @@ export default function OfficialDashboardPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Quick Actions ─────────────────────────────────────────────── */}
+        <div style={{
+          display: "flex",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-8)",
+          flexWrap: "wrap",
+        }}>
+          <button
+            className="btn btn--secondary"
+            onClick={() => navigate("/official/users")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Manage Principal Codes
+          </button>
         </div>
 
         {/* Summary stats */}
@@ -217,12 +228,10 @@ export default function OfficialDashboardPage() {
         ) : (
           <div className="stat-grid" style={{ marginBottom: "var(--space-8)" }}>
             <StatCard label="Total Classes"  value={classes.length} />
-            <StatCard label="Total Students" value={totalStudents}
-              accent="var(--role-student)" />
+            <StatCard label="Total Students" value={totalStudents}   accent="var(--role-student)" />
             <StatCard label="Avg Pass Rate"  value={`${avgPassRate}%`}
               accent={avgPassRate >= 70 ? "var(--success)" : "var(--warning)"} />
-            <StatCard label="Active Courses" value={courses.length}
-              accent="var(--brand-primary)" />
+            <StatCard label="Active Courses" value={courses.length}  accent="var(--brand-primary)" />
           </div>
         )}
 
@@ -235,12 +244,7 @@ export default function OfficialDashboardPage() {
         </div>
 
         {!loading && institutions.length > 1 && (
-          <div style={{
-            display: "flex",
-            gap: "var(--space-2)",
-            flexWrap: "wrap",
-            marginBottom: "var(--space-5)",
-          }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
             {[null, ...institutions].map((inst) => (
               <button
                 key={inst ?? "__all__"}
@@ -248,12 +252,8 @@ export default function OfficialDashboardPage() {
                 style={{
                   cursor: "pointer",
                   border: "1px solid var(--border-default)",
-                  background: selectedInstitution === inst
-                    ? "rgba(139,92,246,0.12)"
-                    : "transparent",
-                  color: selectedInstitution === inst
-                    ? "var(--role-official)"
-                    : "var(--text-muted)",
+                  background: selectedInstitution === inst ? "rgba(139,92,246,0.12)" : "transparent",
+                  color: selectedInstitution === inst ? "var(--role-official)" : "var(--text-muted)",
                   padding: "var(--space-1) var(--space-3)",
                 }}
                 onClick={() => setSelectedInstitution(inst)}
@@ -284,13 +284,8 @@ export default function OfficialDashboardPage() {
             {filteredClasses.map((c, i) => {
               const passColor = c.pass_rate >= 70 ? "var(--success)"
                 : c.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
-
               return (
-                <div
-                  key={c.class_id}
-                  className="card page-enter"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                >
+                <div key={c.class_id} className="card page-enter" style={{ animationDelay: `${i * 40}ms` }}>
                   <div style={{
                     fontSize: "var(--text-xs)",
                     color: "var(--text-muted)",
@@ -318,15 +313,10 @@ export default function OfficialDashboardPage() {
                     marginBottom: "var(--space-2)",
                   }}>
                     <span>{c.total_students} students</span>
-                    <span style={{ fontWeight: 700, color: passColor }}>
-                      {c.pass_rate}% pass
-                    </span>
+                    <span style={{ fontWeight: 700, color: passColor }}>{c.pass_rate}% pass</span>
                   </div>
                   <div className="progress-bar">
-                    <div
-                      className="progress-bar__fill"
-                      style={{ width: `${c.pass_rate}%`, background: passColor }}
-                    />
+                    <div className="progress-bar__fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
                   </div>
                 </div>
               );
@@ -357,11 +347,7 @@ export default function OfficialDashboardPage() {
               marginBottom: "var(--space-4)",
             }}>
               {shownCourses.map((course, i) => (
-                <div
-                  key={course.course_id}
-                  className="card page-enter"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                >
+                <div key={course.course_id} className="card page-enter" style={{ animationDelay: `${i * 40}ms` }}>
                   <div style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -370,9 +356,7 @@ export default function OfficialDashboardPage() {
                   }}>
                     <span className="badge badge--info">Class {course.grade}</span>
                     {course.subject && (
-                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                        {course.subject}
-                      </span>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{course.subject}</span>
                     )}
                   </div>
                   <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>
@@ -411,9 +395,7 @@ export default function OfficialDashboardPage() {
                 onClick={() => setShowAllCourses((v) => !v)}
                 style={{ marginBottom: "var(--space-4)" }}
               >
-                {showAllCourses
-                  ? "Show less"
-                  : `Show all ${courses.length} courses`}
+                {showAllCourses ? "Show less" : `Show all ${courses.length} courses`}
               </button>
             )}
           </>
@@ -443,13 +425,8 @@ export default function OfficialDashboardPage() {
               {shownAssessments.map((a, i) => {
                 const passColor = a.pass_rate >= 70 ? "var(--success)"
                   : a.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
-
                 return (
-                  <div
-                    key={a.assessment_id}
-                    className="card page-enter"
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  >
+                  <div key={a.assessment_id} className="card page-enter" style={{ animationDelay: `${i * 40}ms` }}>
                     <div className="card__label">{a.subject ?? a.course}</div>
                     <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
                       {a.title}
@@ -474,9 +451,7 @@ export default function OfficialDashboardPage() {
                           }}>
                             {value}
                           </div>
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                            {label}
-                          </div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
                         </div>
                       ))}
                     </div>
@@ -506,9 +481,7 @@ export default function OfficialDashboardPage() {
                 onClick={() => setShowAllAssessments((v) => !v)}
                 style={{ marginBottom: "var(--space-4)" }}
               >
-                {showAllAssessments
-                  ? "Show less"
-                  : `Show all ${assessments.length} assessments`}
+                {showAllAssessments ? "Show less" : `Show all ${assessments.length} assessments`}
               </button>
             )}
           </>

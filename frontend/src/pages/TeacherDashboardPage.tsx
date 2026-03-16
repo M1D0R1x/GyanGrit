@@ -1,3 +1,4 @@
+// pages.TeacherDashboardPage
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -96,6 +97,28 @@ export default function TeacherDashboardPage() {
     <div className="page-shell">
       <TopBar title="Teacher" />
       <main className="page-content page-enter">
+
+        {/* ── Quick Actions ─────────────────────────────────────────────── */}
+        <div style={{
+          display: "flex",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-8)",
+          flexWrap: "wrap",
+        }}>
+          <button
+            className="btn btn--secondary"
+            onClick={() => navigate("/teacher/users")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Manage Student Codes
+          </button>
+        </div>
 
         {/* ── My Subjects ────────────────────────────────────────────────── */}
         <SectionBlock title="My Subjects">
@@ -260,7 +283,6 @@ export default function TeacherDashboardPage() {
                       }}
                     />
                   </div>
-                  {/* Navigation hint — sits below progress bar */}
                   <div style={{
                     fontSize: "var(--text-xs)",
                     color: "var(--brand-primary)",
@@ -303,13 +325,10 @@ export default function TeacherDashboardPage() {
                     tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/courses/${a.course_id}/assessments`)}
                   >
-                    {/* Card header — course label + assessment title */}
                     <div className="card__label">{a.course}</div>
                     <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
                       {a.title}
                     </div>
-
-                    {/* Stats — 3-column grid */}
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr 1fr",
@@ -336,16 +355,12 @@ export default function TeacherDashboardPage() {
                         </div>
                       ))}
                     </div>
-
-                    {/* Progress bar */}
                     <div className="progress-bar">
                       <div
                         className="progress-bar__fill"
                         style={{ width: `${a.pass_rate}%`, background: passColor }}
                       />
                     </div>
-
-                    {/* Navigation hint — sits below progress bar */}
                     <div style={{
                       fontSize: "var(--text-xs)",
                       color: "var(--warning)",

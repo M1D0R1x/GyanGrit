@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import type { Role } from "../auth/authTypes";
@@ -9,15 +10,20 @@ type UserRow = {
   role: Role;
 };
 
-// Each role maps to a distinct badge class.
-// PRINCIPAL → warning (amber)
-// OFFICIAL  → purple (violet) — distinct from principal
 const ROLE_COLORS: Record<Role, string> = {
   STUDENT:   "badge--info",
   TEACHER:   "badge--success",
   PRINCIPAL: "badge--warning",
   OFFICIAL:  "badge--purple",
   ADMIN:     "badge--error",
+};
+
+const ROLE_ACCENT: Record<Role, string> = {
+  STUDENT:   "var(--role-student)",
+  TEACHER:   "var(--role-teacher)",
+  PRINCIPAL: "var(--role-principal)",
+  OFFICIAL:  "var(--role-official)",
+  ADMIN:     "var(--role-admin)",
 };
 
 function StatCard({ label, value, accent }: {
@@ -28,11 +34,43 @@ function StatCard({ label, value, accent }: {
   return (
     <div className="card">
       <div className="card__label">{label}</div>
-      <div
-        className="card__value"
-        style={{ color: accent ?? "var(--text-primary)" }}
-      >
+      <div className="card__value" style={{ color: accent ?? "var(--text-primary)" }}>
         {value}
+      </div>
+    </div>
+  );
+}
+
+function QuickLink({
+  icon, title, description, onClick, accent,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  onClick: () => void;
+  accent?: string;
+}) {
+  return (
+    <div
+      className="card card--clickable"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      style={{ borderColor: accent ? `${accent}33` : undefined }}
+    >
+      <div style={{ fontSize: 28, marginBottom: "var(--space-3)" }}>{icon}</div>
+      <div style={{
+        fontFamily: "var(--font-display)",
+        fontWeight: 700,
+        fontSize: "var(--text-base)",
+        color: accent ?? "var(--text-primary)",
+        marginBottom: "var(--space-1)",
+      }}>
+        {title}
+      </div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+        {description}
       </div>
     </div>
   );
@@ -49,9 +87,12 @@ function TableSkeleton() {
 }
 
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
+
   const [users, setUsers]     = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
 
   useEffect(() => {
     apiGet<UserRow[]>("/accounts/users/")
@@ -62,51 +103,121 @@ export default function AdminDashboardPage() {
 
   const countByRole = (role: Role) => users.filter((u) => u.role === role).length;
 
+  const filteredUsers = roleFilter === "ALL"
+    ? users
+    : users.filter((u) => u.role === roleFilter);
+
+  const ROLES: Role[] = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
+
   return (
     <div className="page-shell">
       <TopBar title="Admin" />
       <main className="page-content page-enter">
 
+        {/* Quick nav */}
+        <div className="section-header">
+          <h2 className="section-header__title">Admin Panel</h2>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+          gap: "var(--space-4)",
+          marginBottom: "var(--space-10)",
+        }}>
+          <QuickLink
+            icon="📚"
+            title="Content"
+            description="Manage courses, lessons, and assessments"
+            accent="var(--brand-primary)"
+            onClick={() => navigate("/admin/content")}
+          />
+          <QuickLink
+            icon="🔑"
+            title="Join Codes"
+            description="Generate and manage registration codes"
+            accent="var(--role-principal)"
+            onClick={() => navigate("/admin/join-codes")}
+          />
+          <QuickLink
+            icon="👥"
+            title="Users"
+            description="View and manage all users in the system"
+            accent="var(--role-official)"
+            onClick={() => navigate("/admin/users")}
+          />
+        </div>
+
+        {/* System stats */}
         <div className="section-header">
           <div>
             <h2 className="section-header__title">System Overview</h2>
             <p className="section-header__subtitle">
-              Read-only user management dashboard
+              {loading ? "Loading…" : `${users.length} total users`}
             </p>
           </div>
         </div>
 
         {error && <div className="alert alert--error">{error}</div>}
 
-        {/* Stat cards */}
         <div className="stat-grid" style={{ marginBottom: "var(--space-8)" }}>
           <StatCard label="Total Users"  value={users.length} />
-          <StatCard label="Students"     value={countByRole("STUDENT")}
-            accent="var(--role-student)" />
-          <StatCard label="Teachers"     value={countByRole("TEACHER")}
-            accent="var(--role-teacher)" />
-          <StatCard label="Principals"   value={countByRole("PRINCIPAL")}
-            accent="var(--role-principal)" />
-          <StatCard label="Officials"    value={countByRole("OFFICIAL")}
-            accent="var(--role-official)" />
-          <StatCard label="Admins"       value={countByRole("ADMIN")}
-            accent="var(--role-admin)" />
+          <StatCard label="Students"     value={countByRole("STUDENT")}   accent="var(--role-student)" />
+          <StatCard label="Teachers"     value={countByRole("TEACHER")}   accent="var(--role-teacher)" />
+          <StatCard label="Principals"   value={countByRole("PRINCIPAL")} accent="var(--role-principal)" />
+          <StatCard label="Officials"    value={countByRole("OFFICIAL")}  accent="var(--role-official)" />
+          <StatCard label="Admins"       value={countByRole("ADMIN")}     accent="var(--role-admin)" />
         </div>
 
-        {/* User table */}
+        {/* User table with role filter */}
         <div className="section-header">
           <h3 className="section-header__title">All Users</h3>
         </div>
+
+        {/* Role filter pills */}
+        {!loading && (
+          <div style={{
+            display: "flex",
+            gap: "var(--space-2)",
+            flexWrap: "wrap",
+            marginBottom: "var(--space-4)",
+          }}>
+            {(["ALL", ...ROLES] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRoleFilter(r)}
+                style={{
+                  padding: "2px 12px",
+                  borderRadius: "var(--radius-full)",
+                  border: "1px solid var(--border-default)",
+                  background: roleFilter === r ? "var(--brand-primary-glow)" : "transparent",
+                  color: roleFilter === r
+                    ? "var(--brand-primary)"
+                    : r === "ALL" ? "var(--text-muted)" : ROLE_ACCENT[r as Role],
+                  fontSize: "var(--text-xs)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all var(--transition-fast)",
+                }}
+              >
+                {r === "ALL" ? `All (${users.length})` : `${r} (${countByRole(r as Role)})`}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {loading ? (
             <div style={{ padding: "var(--space-6)" }}>
               <TableSkeleton />
             </div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state__icon">👥</div>
               <h3 className="empty-state__title">No users found</h3>
+              <p className="empty-state__message">
+                {roleFilter !== "ALL" ? `No ${roleFilter} users in the system.` : "No users yet."}
+              </p>
             </div>
           ) : (
             <table className="data-table">
@@ -118,7 +229,7 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <tr key={u.id}>
                     <td style={{
                       color: "var(--text-muted)",
@@ -141,6 +252,7 @@ export default function AdminDashboardPage() {
             </table>
           )}
         </div>
+
       </main>
     </div>
   );

@@ -418,16 +418,35 @@ def all_my_attempts(request):
     """
     GET /api/v1/assessments/my-history/
 
-    Returns all submitted attempts by the current user across all assessments,
-    with full context (assessment title, subject, grade, marks).
-    Student-facing only — other roles have analytics dashboards.
+    Returns all submitted attempts with full context.
+
+    STUDENT       → their own attempts
+    ADMIN         → any student's attempts via ?user_id= param,
+                    or their own (empty) attempts if no param given
+    Other roles   → 403 (teachers/principals use analytics dashboard)
     """
-    if request.user.role != "STUDENT":
+    user = request.user
+
+    # Determine whose attempts to fetch
+    if user.role == "STUDENT":
+        target_user = user
+
+    elif user.is_superuser or user.role == "ADMIN":
+        user_id_param = request.GET.get("user_id")
+        if user_id_param:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            target_user = get_object_or_404(User, id=user_id_param)
+        else:
+            # Admin with no user_id — return empty list (admin has no attempts)
+            return JsonResponse([], safe=False)
+
+    else:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     attempts = (
         AssessmentAttempt.objects
-        .filter(user=request.user, submitted_at__isnull=False)
+        .filter(user=target_user, submitted_at__isnull=False)
         .select_related(
             "assessment",
             "assessment__course",
@@ -454,6 +473,7 @@ def all_my_attempts(request):
     ]
 
     return JsonResponse(data, safe=False)
+
 
 @login_required
 @require_http_methods(["GET"])

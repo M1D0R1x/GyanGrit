@@ -1,26 +1,11 @@
 TODO
 
-okay so i checked the profile filling view
-it just asks for full name
-mobile number and email
-address right
+http://127.0.0.1:5173/assessments/5 for this
+can we make it assessments/10(class)/punjabi(subject)/assessmentid maybe?
+please take care of that
 
-so i want to let u know that that its jack shit
-ur a senior full stak developer and architect what kind of sloppy execution is that
-we need firstname*, middle name, lastname* and email*
-mobile1* and mobile2
-right * are important and non star can be null as usual
-we need his every detail right 2 numbers so that we can contact both the parents or
-or one parent and student
-and also 2 numbers so that we can share reports over the mobile phones
+http://127.0.0.1:5173/courses?subject_id=1 this is okay
+http://127.0.0.1:5173/courses/50 can we make this something like
+courses/punjabi10 or courses/10punjabi or courses/10/punjabi
+as it will be easy for admin and all
 
-and also we need to improve the login system, the username and password system is
-too sloppy isnit it ?
-i think we need to use a better system
-likely using something other than usernamer, it also should be unique,
-but edge cases, siblings can be in the same class or scl
-so their if login with email may clash at the time
-so we need to take care of that
-we cant introdue a new uuid, as we already have a public id but we cant use it
-As its not easy to remember
-so please think about it use your skills and expertise and all

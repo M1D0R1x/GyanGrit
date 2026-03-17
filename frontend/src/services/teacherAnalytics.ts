@@ -1,128 +1,115 @@
 import { apiGet } from "./api";
 
-/* =========================
-   COURSE ANALYTICS
-   Backend: content/views.py teacher_course_analytics
-   Returns: course_id, title, subject, grade,
-            total_lessons, completed_lessons, percentage
-========================= */
+// ── Course Analytics ───────────────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/courses/
+// Scoped: TEACHER → their subjects only; PRINCIPAL/OFFICIAL/ADMIN → their scope
 
 export type TeacherCourseAnalytics = {
-  course_id: number;
-  title: string;
-  subject: string;        // added — backend now returns this
-  grade: number;          // added — backend now returns this
-  total_lessons: number;
-  completed_lessons: number;
-  percentage: number;
+  course_id:          number;   // was "id" — fixed 2026-03-18
+  title:              string;
+  subject:            string;
+  grade:              number;
+  total_lessons:      number;
+  completed_lessons:  number;   // distinct lessons with at least one completion
+  percentage:         number;   // completed_lessons / total_lessons * 100
+  enrolled_students:  number;
+  completed_students: number;
 };
 
 export function getTeacherCourseAnalytics() {
   return apiGet<TeacherCourseAnalytics[]>("/teacher/analytics/courses/");
 }
 
-/* =========================
-   LESSON ANALYTICS
-   Backend: content/views.py teacher_lesson_analytics
-========================= */
+// ── Lesson Analytics ───────────────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/lessons/?course_id=N
 
 export type TeacherLessonAnalytics = {
-  lesson_id: number;
-  lesson_title: string;
-  course_title: string;
-  completed_count: number;
-  total_attempts: number;
-  avg_position: number;
+  id:        number;
+  title:     string;
+  order:     number;
+  views:     number;
+  completed: number;
 };
 
-export function getTeacherLessonAnalytics() {
-  return apiGet<TeacherLessonAnalytics[]>("/teacher/analytics/lessons/");
+export function getTeacherLessonAnalytics(courseId: number) {
+  return apiGet<TeacherLessonAnalytics[]>(`/teacher/analytics/lessons/?course_id=${courseId}`);
 }
 
-/* =========================
-   ASSESSMENT ANALYTICS
-   Backend: content/views.py teacher_assessment_analytics
-========================= */
+// ── Assessment Analytics ───────────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/assessments/
+// Scoped: TEACHER → their subjects only
 
 export type TeacherAssessmentAnalytics = {
-  assessment_id: number;
-  course_id: number;       // ← add this
-  title: string;
-  course: string;
-  subject: string | null;
-  total_attempts: number;
-  unique_students: number;
-  average_score: number;
-  pass_count: number;
-  fail_count: number;
-  pass_rate: number;
+  assessment_id:   number;   // was "id" — fixed 2026-03-18
+  title:           string;
+  grade:           number;
+  subject:         string;
+  course:          string;   // course title — added 2026-03-18
+  course_id:       number;
+  total_marks:     number;
+  pass_marks:      number;
+  total_attempts:  number;
+  unique_students: number;   // added 2026-03-18
+  pass_count:      number;
+  fail_count:      number;   // added 2026-03-18
+  pass_rate:       number;   // added 2026-03-18
+  average_score:   number;   // was "avg_score" — fixed 2026-03-18
 };
 
 export function getTeacherAssessmentAnalytics() {
   return apiGet<TeacherAssessmentAnalytics[]>("/teacher/analytics/assessments/");
 }
 
-/* =========================
-   CLASS ANALYTICS
-   Backend: content/views.py teacher_class_analytics
-========================= */
+// ── Class Analytics ────────────────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/classes/
+// TEACHER → their assigned classrooms; others → scoped
 
 export type TeacherClassAnalytics = {
-  class_id: number;
-  class_name: string;
-  institution: string;
-  total_students: number;
-  total_attempts: number;
-  average_score: number;
-  pass_rate: number;
+  class_id:       number;   // was "id" — fixed 2026-03-18
+  class_name:     string;   // was "name" — fixed 2026-03-18
+  institution:    string | null;
+  total_students: number;   // added 2026-03-18
+  total_attempts: number;   // added 2026-03-18
+  pass_rate:      number;   // added 2026-03-18
 };
 
 export function getTeacherClassAnalytics() {
   return apiGet<TeacherClassAnalytics[]>("/teacher/analytics/classes/");
 }
 
-/* =========================
-   CLASS STUDENTS
-   Backend: content/views.py teacher_class_students
-========================= */
+// ── Class Students ─────────────────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/classes/<id>/students/
 
-export type TeacherClassStudentAnalytics = {
-  student_id: number;
-  username: string;
-  total_attempts: number;
-  average_score: number;
-  pass_rate: number;
+export type TeacherClassStudent = {
+  id:                number;
+  username:          string;
+  display_name:      string;
+  total_lessons:     number;
+  completed_lessons: number;
 };
 
 export function getTeacherClassStudents(classId: number) {
-  return apiGet<TeacherClassStudentAnalytics[]>(
-    `/teacher/analytics/classes/${classId}/students/`
-  );
+  return apiGet<TeacherClassStudent[]>(`/teacher/analytics/classes/${classId}/students/`);
 }
 
-/* =========================
-   STUDENT DETAIL
-   Backend: content/views.py teacher_student_assessments
-========================= */
+// ── Student Assessment Detail ──────────────────────────────────────────────
+// GET /api/v1/teacher/analytics/classes/<id>/students/<id>/
 
-export type TeacherStudentAssessmentDetail = {
-  assessment_id: number;
+export type TeacherStudentAttempt = {
+  assessment_id:    number;
   assessment_title: string;
-  score: number;
-  passed: boolean;
-  submitted_at: string;
+  score:            number;
+  passed:           boolean;
+  submitted_at:     string;
 };
 
 export type TeacherStudentDetailResponse = {
   student_id: number;
-  username: string;
-  attempts: TeacherStudentAssessmentDetail[];
+  username:   string;
+  attempts:   TeacherStudentAttempt[];
 };
 
-export function getTeacherStudentAssessments(
-  classId: number,
-  studentId: number
-) {
+export function getTeacherStudentAssessments(classId: number, studentId: number) {
   return apiGet<TeacherStudentDetailResponse>(
     `/teacher/analytics/classes/${classId}/students/${studentId}/`
   );

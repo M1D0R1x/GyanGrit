@@ -787,20 +787,42 @@ def course_progress(request, course_id):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_course_analytics(request):
-    """GET /api/v1/teacher/analytics/courses/"""
+    """
+    GET /api/v1/teacher/analytics/courses/
+
+    FIX 2026-03-18: changed "id" → "course_id"; added "percentage" and
+    "completed_lessons" so the frontend can render progress bars correctly.
+    TEACHER role is scoped to their assigned subjects — other roles get all
+    courses in their scope via scope_queryset.
+    """
     qs   = scope_queryset(request.user, Course.objects.select_related("subject"))
     data = []
     for course in qs:
-        total     = Lesson.objects.filter(course=course).count()
-        enrolled  = (LessonProgress.objects.filter(lesson__course=course)
-                     .values("user").distinct().count())
-        completed = (LessonProgress.objects.filter(lesson__course=course, completed=True)
-                     .values("user").distinct().count())
+        total_lessons      = Lesson.objects.filter(course=course, is_published=True).count()
+        enrolled_students  = (
+            LessonProgress.objects.filter(lesson__course=course)
+            .values("user").distinct().count()
+        )
+        completed_students = (
+            LessonProgress.objects.filter(lesson__course=course, completed=True)
+            .values("user").distinct().count()
+        )
+        # completed_lessons = distinct lessons at least one student finished
+        completed_lessons = (
+            LessonProgress.objects.filter(lesson__course=course, completed=True)
+            .values("lesson").distinct().count()
+        )
+        percentage = round(completed_lessons / total_lessons * 100) if total_lessons else 0
         data.append({
-            "id": course.id, "title": course.title, "grade": course.grade,
-            "subject": course.subject.name,
-            "total_lessons": total, "enrolled_students": enrolled,
-            "completed_students": completed,
+            "course_id":          course.id,
+            "title":              course.title,
+            "grade":              course.grade,
+            "subject":            course.subject.name,
+            "total_lessons":      total_lessons,
+            "completed_lessons":  completed_lessons,
+            "percentage":         percentage,
+            "enrolled_students":  enrolled_students,
+            "completed_students": completed_students,
         })
     return JsonResponse(data, safe=False)
 
@@ -829,7 +851,15 @@ def teacher_lesson_analytics(request):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
-    """GET /api/v1/teacher/analytics/classes/"""
+    """
+    GET /api/v1/teacher/analytics/classes/
+
+    FIX 2026-03-18: changed "id"→"class_id", "name"→"class_name".
+    Added total_students and pass_rate (from AssessmentAttempts) so the
+    dashboard can show enriched class cards. TEACHER gets only their
+    assigned classrooms; others get scoped results.
+    """
+    from django.db.models import Q, Count
     user = request.user
     if user.role == "TEACHER":
         classroom_ids = (
@@ -842,11 +872,24 @@ def teacher_class_analytics(request):
     else:
         classrooms = scope_queryset(user, ClassRoom.objects.select_related("institution"))
 
-    return JsonResponse([
-        {"id": c.id, "name": c.name,
-         "institution": c.institution.name if c.institution else None}
-        for c in classrooms
-    ], safe=False)
+    data = []
+    for c in classrooms:
+        total_students = User.objects.filter(role="STUDENT", section__classroom=c).count()
+        attempts = AssessmentAttempt.objects.filter(
+            user__section__classroom=c, submitted_at__isnull=False
+        )
+        total_att = attempts.count()
+        pass_att  = attempts.filter(passed=True).count()
+        pass_rate = round(pass_att / total_att * 100) if total_att else 0
+        data.append({
+            "class_id":      c.id,
+            "class_name":    c.name,
+            "institution":   c.institution.name if c.institution else None,
+            "total_students": total_students,
+            "total_attempts": total_att,
+            "pass_rate":      pass_rate,
+        })
+    return JsonResponse(data, safe=False)
 
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -857,8 +900,9 @@ def teacher_class_students(request, class_id):
     students  = User.objects.filter(role="STUDENT", section__classroom=classroom)
     data = [
         {
-            "id": s.id, "username": s.username,
-            "display_name": s.display_name,
+            "id":                s.id,
+            "username":          s.username,
+            "display_name":      s.display_name,
             "total_lessons":     LessonProgress.objects.filter(user=s).count(),
             "completed_lessons": LessonProgress.objects.filter(user=s, completed=True).count(),
         }
@@ -870,7 +914,14 @@ def teacher_class_students(request, class_id):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
-    """GET /api/v1/teacher/analytics/assessments/"""
+    """
+    GET /api/v1/teacher/analytics/assessments/
+
+    FIX 2026-03-18: changed "id"→"assessment_id"; added "course" (title),
+    "unique_students", "fail_count", "pass_rate", "average_score" so the
+    frontend AssessmentPerformance section renders correctly. TEACHER is
+    scoped to their assigned subjects — no all-course bleed.
+    """
     user = request.user
     if user.role == "TEACHER":
         subject_ids = (
@@ -892,16 +943,27 @@ def teacher_assessment_analytics(request):
         attempts = AssessmentAttempt.objects.filter(
             assessment=a, submitted_at__isnull=False
         )
+        total_att      = attempts.count()
+        pass_count     = attempts.filter(passed=True).count()
+        fail_count     = total_att - pass_count
+        pass_rate      = round(pass_count / total_att * 100) if total_att else 0
+        unique_students = attempts.values("user").distinct().count()
+        avg_score      = round(attempts.aggregate(avg=Avg("score"))["avg"] or 0, 1)
         data.append({
-            "id": a.id, "title": a.title,
-            "grade": a.course.grade, "subject": a.course.subject.name,
-            "course_id": a.course_id,
-            "total_marks": a.total_marks, "pass_marks": a.pass_marks,
-            "total_attempts": attempts.count(),
-            "pass_count":     attempts.filter(passed=True).count(),
-            "avg_score":      round(
-                attempts.aggregate(avg=Avg("score"))["avg"] or 0, 1
-            ),
+            "assessment_id":   a.id,
+            "title":           a.title,
+            "grade":           a.course.grade,
+            "subject":         a.course.subject.name,
+            "course":          a.course.title,
+            "course_id":       a.course_id,
+            "total_marks":     a.total_marks,
+            "pass_marks":      a.pass_marks,
+            "total_attempts":  total_att,
+            "unique_students": unique_students,
+            "pass_count":      pass_count,
+            "fail_count":      fail_count,
+            "pass_rate":       pass_rate,
+            "average_score":   avg_score,
         })
     return JsonResponse(data, safe=False)
 

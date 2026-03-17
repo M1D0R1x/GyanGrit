@@ -1,6 +1,1 @@
 TODO
-in teacher join code
-end point is http://127.0.0.1:5173/teacher/users
-we are getting forbidden for users/ since she should only see the users she added update it to not show
-and also for the section selection only AAAA coming
-we should get 10 A, or someting like that more info

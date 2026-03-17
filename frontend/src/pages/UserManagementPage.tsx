@@ -46,7 +46,7 @@ type UserRow = {
 };
 
 type Institution = { id: number; name: string };
-type Section     = { id: number; name: string; classroom_id: number };
+type Section     = { id: number; name: string; classroom_id: number; grade: string; short_label: string; label: string };
 type Subject     = { id: number; name: string };
 type District    = { id: number; name: string };
 
@@ -437,7 +437,7 @@ export default function UserManagementPage() {
                     >
                       <option value="">— all sections —</option>
                       {sections.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>{s.short_label}</option>
                       ))}
                     </select>
                   ) : (

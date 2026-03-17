@@ -1,1 +1,42 @@
 TODO
+
+Page not found (404)
+Request Method:	GET
+Request URL:	http://127.0.0.1:8000/api/v1/teacher/analytics/classes/NaN/students/
+Using the URLconf defined in gyangrit.urls, Django tried these URL patterns, in this order:
+
+admin/
+api/v1/accounts/
+api/v1/academics/
+api/v1/ health/
+api/v1/ courses/by-slug/
+api/v1/ courses/
+api/v1/ courses/create/
+api/v1/ courses/<int:course_id>/
+api/v1/ courses/<int:course_id>/delete/
+api/v1/ courses/<int:course_id>/lessons/
+api/v1/ courses/<int:course_id>/lessons/all/
+api/v1/ courses/<int:course_id>/lessons/create/
+api/v1/ courses/<int:course_id>/section-lessons/
+api/v1/ lessons/<int:lesson_id>/
+api/v1/ lessons/<int:lesson_id>/update/
+api/v1/ lessons/<int:lesson_id>/delete/
+api/v1/ lessons/<int:lesson_id>/progress/
+api/v1/ lessons/<int:lesson_id>/notes/
+api/v1/ lessons/section/<int:lesson_id>/
+api/v1/ lessons/section/<int:lesson_id>/update/
+api/v1/ lessons/section/<int:lesson_id>/delete/
+api/v1/ courses/<int:course_id>/progress/
+api/v1/ teacher/analytics/courses/
+api/v1/ teacher/analytics/lessons/
+api/v1/ teacher/analytics/classes/
+api/v1/ teacher/analytics/assessments/
+api/v1/ teacher/analytics/classes/<int:class_id>/students/
+api/v1/ teacher/analytics/classes/<int:class_id>/students/<int:student_id>/
+api/v1/learning/
+api/v1/assessments/
+api/v1/roster/
+api/v1/media/
+api/v1/notifications/
+api/v1/gamification/
+The current path, api/v1/teacher/analytics/classes/NaN/students/, didn’t match any of these.

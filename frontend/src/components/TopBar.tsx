@@ -35,16 +35,16 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
     <div
       role="menu"
       style={{
-        position: "absolute",
-        top: "calc(100% + 8px)",
-        right: 0,
-        minWidth: 200,
-        background: "var(--bg-elevated)",
-        border: "1px solid var(--border-default)",
+        position:     "absolute",
+        top:          "calc(100% + 8px)",
+        right:        0,
+        minWidth:     200,
+        background:   "var(--bg-elevated)",
+        border:       "1px solid var(--border-default)",
         borderRadius: "var(--radius-md)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        zIndex: 9999,
-        overflow: "hidden",
+        boxShadow:    "0 8px 32px rgba(0,0,0,0.4)",
+        zIndex:       9999,
+        overflow:     "hidden",
       }}
     >
       <UserInfoHeader />
@@ -56,20 +56,20 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
           onMouseEnter={() => setHovered("profile")}
           onMouseLeave={() => setHovered(null)}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            width: "100%",
-            padding: "8px 16px",
-            background: hovered === "profile" ? "var(--bg-overlay)" : "none",
-            border: "none",
-            color: hovered === "profile" ? "var(--text-primary)" : "var(--text-secondary)",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-sm)",
-            fontWeight: 500,
-            cursor: "pointer",
-            textAlign: "left",
-            transition: "all 0.1s",
+            display:     "flex",
+            alignItems:  "center",
+            gap:         10,
+            width:       "100%",
+            padding:     "8px 16px",
+            background:  hovered === "profile" ? "var(--bg-overlay)" : "none",
+            border:      "none",
+            color:       hovered === "profile" ? "var(--text-primary)" : "var(--text-secondary)",
+            fontFamily:  "var(--font-body)",
+            fontSize:    "var(--text-sm)",
+            fontWeight:  500,
+            cursor:      "pointer",
+            textAlign:   "left",
+            transition:  "all 0.1s",
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -96,9 +96,9 @@ function UserInfoHeader() {
   if (!auth.user) return null;
   return (
     <div style={{
-      padding: "12px 16px",
+      padding:      "12px 16px",
       borderBottom: "1px solid var(--border-subtle)",
-      background: "var(--bg-surface)",
+      background:   "var(--bg-surface)",
     }}>
       <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
         {auth.user.username}
@@ -116,33 +116,28 @@ export default function TopBar({ title }: Props) {
   const auth     = useAuth();
   const navigate = useNavigate();
 
-  const [userMenuOpen, setUserMenuOpen]   = useState(false);
-  const [notifOpen, setNotifOpen]         = useState(false);
-  const [unreadCount, setUnreadCount]     = useState(0);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen]       = useState(false);
+  const [unreadCount, setUnreadCount]   = useState(0);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
 
-  // Poll unread count every 30 seconds while authenticated.
-  // Also re-fetches immediately when the browser tab becomes visible again
-  // (e.g. user switches back from another tab) so the badge is always fresh.
+  // Poll unread count every 30 seconds. Also refresh when tab becomes visible.
   const refreshUnread = useCallback(() => {
     if (!auth.authenticated) return;
     fetchNotifications()
       .then((data) => { if (data) setUnreadCount(data.unread); })
-      .catch(() => { /* silent — network errors shouldn't break the topbar */ });
+      .catch(() => { /* silent */ });
   }, [auth.authenticated]);
 
   useEffect(() => {
     refreshUnread();
     const interval = setInterval(refreshUnread, 30_000);
-
-    // Refresh immediately when the tab regains focus
     const onVisible = () => {
       if (document.visibilityState === "visible") refreshUnread();
     };
     document.addEventListener("visibilitychange", onVisible);
-
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
@@ -189,37 +184,43 @@ export default function TopBar({ title }: Props) {
     navigate(paths[auth.user.role] ?? "/");
   };
 
+  // "View all notifications" — closes panel then navigates
+  const handleViewAll = useCallback(() => {
+    setNotifOpen(false);
+    navigate("/notifications");
+  }, [navigate]);
+
   return (
     <header
       style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
+        position:       "sticky",
+        top:            0,
+        zIndex:         100,
+        display:        "flex",
+        alignItems:     "center",
         justifyContent: "space-between",
-        padding: "0 24px",
-        height: 56,
-        background: "var(--bg-surface)",
-        borderBottom: "1px solid var(--border-subtle)",
+        padding:        "0 24px",
+        height:         56,
+        background:     "var(--bg-surface)",
+        borderBottom:   "1px solid var(--border-subtle)",
         backdropFilter: "blur(8px)",
       }}
       role="banner"
     >
-      {/* Left: clickable logo + page title */}
+      {/* Left: logo + page title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={handleLogoClick}
           aria-label="Go to home"
           style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
+            background:   "none",
+            border:       "none",
+            padding:      0,
+            cursor:       "pointer",
+            display:      "flex",
+            alignItems:   "center",
             borderRadius: "var(--radius-sm)",
-            transition: "opacity 0.15s",
+            transition:   "opacity 0.15s",
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.75"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
@@ -230,11 +231,7 @@ export default function TopBar({ title }: Props) {
         {title && (
           <>
             <span style={{ color: "var(--border-strong)", fontSize: 16, userSelect: "none" }}>/</span>
-            <span style={{
-              fontSize: "var(--text-sm)",
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-            }}>
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>
               {title}
             </span>
           </>
@@ -259,6 +256,7 @@ export default function TopBar({ title }: Props) {
               <NotificationPanel
                 onClose={() => setNotifOpen(false)}
                 onUnreadChange={setUnreadCount}
+                onViewAll={handleViewAll}   // ← FIX: was missing, footer button never worked
               />
             )}
           </div>
@@ -267,11 +265,11 @@ export default function TopBar({ title }: Props) {
         {/* User pill */}
         {auth.loading ? (
           <div style={{
-            width: 140,
-            height: 34,
-            background: "var(--bg-elevated)",
+            width:        140,
+            height:       34,
+            background:   "var(--bg-elevated)",
             borderRadius: "var(--radius-full)",
-            animation: "shimmer 1.5s infinite linear",
+            animation:    "shimmer 1.5s infinite linear",
           }} />
         ) : auth.authenticated && auth.user ? (
           <div ref={userMenuRef} style={{ position: "relative" }}>
@@ -284,56 +282,56 @@ export default function TopBar({ title }: Props) {
               aria-expanded={userMenuOpen}
               aria-label="Open user menu"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "4px 12px 4px 6px",
-                background: userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
-                border: "1px solid",
+                display:     "flex",
+                alignItems:  "center",
+                gap:         8,
+                padding:     "4px 12px 4px 6px",
+                background:  userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
+                border:      "1px solid",
                 borderColor: userMenuOpen ? "var(--brand-primary)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-full)",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                fontFamily: "inherit",
+                cursor:      "pointer",
+                transition:  "all 0.15s",
+                fontFamily:  "inherit",
               }}
             >
               <div style={{
-                width: 26,
-                height: 26,
-                borderRadius: "50%",
-                background: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-                display: "flex",
-                alignItems: "center",
+                width:          26,
+                height:         26,
+                borderRadius:   "50%",
+                background:     ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+                display:        "flex",
+                alignItems:     "center",
                 justifyContent: "center",
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#fff",
-                flexShrink: 0,
+                fontSize:       10,
+                fontWeight:     700,
+                color:          "#fff",
+                flexShrink:     0,
               }}>
                 {getInitials(auth.user.username)}
               </div>
 
               <span style={{
-                fontSize: "var(--text-sm)",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                maxWidth: 100,
-                overflow: "hidden",
+                fontSize:     "var(--text-sm)",
+                fontWeight:   600,
+                color:        "var(--text-primary)",
+                maxWidth:     100,
+                overflow:     "hidden",
                 textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                whiteSpace:   "nowrap",
               }}>
                 {auth.user.username}
               </span>
 
               <span style={{
-                fontSize: 10,
-                fontWeight: 700,
-                padding: "2px 6px",
-                borderRadius: "var(--radius-full)",
-                background: (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
-                color: ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
+                fontSize:       10,
+                fontWeight:     700,
+                padding:        "2px 6px",
+                borderRadius:   "var(--radius-full)",
+                background:     (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
+                color:          ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+                letterSpacing:  "0.04em",
+                textTransform:  "uppercase",
               }}>
                 {auth.user.role}
               </span>
@@ -343,7 +341,7 @@ export default function TopBar({ title }: Props) {
                 stroke="var(--text-muted)" strokeWidth="2"
                 strokeLinecap="round" strokeLinejoin="round"
                 style={{
-                  transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transform:  userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
                   transition: "transform 0.15s",
                   flexShrink: 0,
                 }}

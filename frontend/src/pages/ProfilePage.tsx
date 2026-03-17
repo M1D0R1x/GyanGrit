@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { getMySummary, type MySummary } from "../services/gamification";
+import { getStudentGrades, type GradeEntry } from "../services/gradebook";
 import { apiPatch } from "../services/api";
 import TopBar from "../components/TopBar";
 import LogoutButton from "../components/LogoutButton";
@@ -20,6 +21,18 @@ type EditFields = {
 };
 
 type EditErrors = Partial<Record<keyof EditFields, string>>;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function pctColor(pct: number) {
+  if (pct >= 70) return "var(--success)";
+  if (pct >= 40) return "var(--warning)";
+  return "var(--error)";
+}
+
+function humanLabel(raw: string) {
+  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
@@ -48,16 +61,15 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
 }
 
 function FormField({
-  label, name, value, error, required, type = "text",
-  onChange,
+  label, name, value, error, required, type = "text", onChange,
 }: {
-  label:    string;
-  name:     keyof EditFields;
-  value:    string;
-  error?:   string;
+  label:     string;
+  name:      keyof EditFields;
+  value:     string;
+  error?:    string;
   required?: boolean;
-  type?:    string;
-  onChange: (name: keyof EditFields, val: string) => void;
+  type?:     string;
+  onChange:  (name: keyof EditFields, val: string) => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
@@ -96,6 +108,120 @@ function ProfileSkeleton() {
   );
 }
 
+// ── Grades section (students only) ────────────────────────────────────────
+
+function GradesSection({ studentId }: { studentId: number }) {
+  const [entries,  setEntries]  = useState<GradeEntry[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    getStudentGrades(studentId)
+      .then((d) => setEntries(d.entries))
+      .catch(() => { /* non-fatal — section stays empty */ })
+      .finally(() => setLoading(false));
+  }, [studentId]);
+
+  if (loading) {
+    return (
+      <div style={{ marginTop: "var(--space-8)" }}>
+        <div className="section-header" style={{ marginBottom: "var(--space-4)" }}>
+          <h3 className="section-header__title">My Grades</h3>
+        </div>
+        <div className="skeleton" style={{ height: 80, borderRadius: "var(--radius-lg)" }} />
+      </div>
+    );
+  }
+
+  if (entries.length === 0) return null;
+
+  // Group by subject
+  const bySubject: Record<string, GradeEntry[]> = {};
+  entries.forEach((e) => {
+    if (!bySubject[e.subject]) bySubject[e.subject] = [];
+    bySubject[e.subject].push(e);
+  });
+
+  const subjectKeys = Object.keys(bySubject).sort();
+  const shownKeys   = expanded ? subjectKeys : subjectKeys.slice(0, 3);
+
+  // Overall average
+  const avgPct = Math.round(
+    entries.reduce((s, e) => s + e.percentage, 0) / entries.length
+  );
+
+  return (
+    <div style={{ marginTop: "var(--space-8)" }}>
+      <div className="section-header" style={{ marginBottom: "var(--space-4)" }}>
+        <div>
+          <h3 className="section-header__title">My Grades</h3>
+          <p className="section-header__subtitle">
+            {entries.length} mark{entries.length !== 1 ? "s" : ""} across {subjectKeys.length} subject{subjectKeys.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <div style={{
+          fontFamily: "var(--font-display)", fontWeight: 800,
+          fontSize: "var(--text-2xl)", color: pctColor(avgPct),
+        }}>
+          {avgPct}%
+          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textAlign: "right" }}>avg</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        {shownKeys.map((subject) => {
+          const subEntries = bySubject[subject];
+          const subAvg     = Math.round(subEntries.reduce((s, e) => s + e.percentage, 0) / subEntries.length);
+          return (
+            <div key={subject} className="card" style={{ padding: "var(--space-4) var(--space-5)" }}>
+              {/* Subject header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
+                <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                  {subject}
+                </span>
+                <span style={{
+                  fontFamily: "var(--font-display)", fontWeight: 800,
+                  fontSize: "var(--text-lg)", color: pctColor(subAvg),
+                }}>
+                  {subAvg}%
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="progress-bar" style={{ marginBottom: "var(--space-3)" }}>
+                <div className="progress-bar__fill" style={{ width: `${subAvg}%`, background: pctColor(subAvg) }} />
+              </div>
+              {/* Entry rows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                {subEntries.map((e) => (
+                  <div key={e.id} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    fontSize: "var(--text-xs)", color: "var(--text-muted)",
+                  }}>
+                    <span>{humanLabel(e.term)} · {humanLabel(e.category)}</span>
+                    <span style={{ fontWeight: 700, color: pctColor(e.percentage) }}>
+                      {e.marks}/{e.total_marks} ({e.percentage}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {subjectKeys.length > 3 && (
+        <button
+          className="btn btn--secondary"
+          style={{ marginTop: "var(--space-3)", width: "100%", justifyContent: "center" }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Show less" : `Show all ${subjectKeys.length} subjects`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -104,17 +230,13 @@ export default function ProfilePage() {
   const user     = auth.user;
 
   const [gamification, setGamification] = useState<MySummary | null>(null);
-  const [editing, setEditing]           = useState(false);
-  const [saving, setSaving]             = useState(false);
-  const [saveError, setSaveError]       = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess]   = useState(false);
-  const [fields, setFields]             = useState<EditFields>({
-    first_name:       "",
-    middle_name:      "",
-    last_name:        "",
-    email:            "",
-    mobile_primary:   "",
-    mobile_secondary: "",
+  const [editing,      setEditing]      = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [saveError,    setSaveError]    = useState<string | null>(null);
+  const [saveSuccess,  setSaveSuccess]  = useState(false);
+  const [fields,       setFields]       = useState<EditFields>({
+    first_name: "", middle_name: "", last_name: "",
+    email: "", mobile_primary: "", mobile_secondary: "",
   });
   const [errors, setErrors] = useState<EditErrors>({});
 
@@ -195,7 +317,6 @@ export default function ProfilePage() {
     setEditing(false);
     setErrors({});
     setSaveError(null);
-    // Reset fields to current user values
     if (user) {
       setFields({
         first_name:       user.first_name       ?? "",
@@ -225,19 +346,12 @@ export default function ProfilePage() {
         {/* Avatar header */}
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-5)", marginBottom: "var(--space-8)" }}>
           <div style={{
-            width:          64,
-            height:         64,
-            borderRadius:   "50%",
-            background:     "var(--brand-primary-glow)",
-            border:         "2px solid var(--brand-primary)",
-            display:        "flex",
-            alignItems:     "center",
-            justifyContent: "center",
-            fontFamily:     "var(--font-display)",
-            fontSize:       "var(--text-xl)",
-            fontWeight:     800,
-            color:          "var(--brand-primary)",
-            flexShrink:     0,
+            width: 64, height: 64, borderRadius: "50%",
+            background: "var(--brand-primary-glow)",
+            border: "2px solid var(--brand-primary)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "var(--font-display)", fontSize: "var(--text-xl)",
+            fontWeight: 800, color: "var(--brand-primary)", flexShrink: 0,
           }}>
             {user
               ? `${(user.first_name ?? "").charAt(0)}${(user.last_name ?? "").charAt(0)}`.toUpperCase() || user.username.slice(0, 2).toUpperCase()
@@ -245,12 +359,9 @@ export default function ProfilePage() {
           </div>
           <div style={{ flex: 1 }}>
             <h1 style={{
-              fontFamily:    "var(--font-display)",
-              fontSize:      "var(--text-2xl)",
-              fontWeight:    800,
-              color:         "var(--text-primary)",
-              letterSpacing: "-0.03em",
-              marginBottom:  "var(--space-1)",
+              fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)",
+              fontWeight: 800, color: "var(--text-primary)",
+              letterSpacing: "-0.03em", marginBottom: "var(--space-1)",
             }}>
               {user?.display_name ?? user?.username ?? "—"}
             </h1>
@@ -260,7 +371,6 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
-          {/* Edit button — only when NOT editing */}
           {!editing && user && (
             <button
               className="btn btn--secondary"
@@ -282,13 +392,11 @@ export default function ProfilePage() {
         {user?.role === "STUDENT" && gamification && !editing && (
           <>
             <div style={{
-              display:             "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap:                 "var(--space-3)",
-              marginBottom:        "var(--space-6)",
+              display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+              gap: "var(--space-3)", marginBottom: "var(--space-6)",
             }}>
               {[
-                { icon: "⭐", value: gamification.total_points,  label: "Points" },
+                { icon: "⭐", value: gamification.total_points,   label: "Points" },
                 { icon: "🔥", value: gamification.current_streak, label: "Day Streak" },
                 { icon: "🏅", value: gamification.badge_count,    label: "Badges" },
               ].map(({ icon, value, label }) => (
@@ -304,7 +412,6 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {/* Badge shelf */}
             {gamification.badges.length > 0 && (
               <div style={{ marginBottom: "var(--space-8)" }}>
                 <div className="section-header" style={{ marginBottom: "var(--space-4)" }}>
@@ -312,21 +419,12 @@ export default function ProfilePage() {
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
                   {gamification.badges.map((badge) => (
-                    <div
-                      key={badge.code}
-                      style={{
-                        display:        "flex",
-                        flexDirection:  "column",
-                        alignItems:     "center",
-                        gap:            "var(--space-1)",
-                        padding:        "var(--space-3) var(--space-4)",
-                        background:     "rgba(245,158,11,0.06)",
-                        border:         "1px solid rgba(245,158,11,0.2)",
-                        borderRadius:   "var(--radius-lg)",
-                        minWidth:       80,
-                        textAlign:      "center",
-                      }}
-                    >
+                    <div key={badge.code} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      gap: "var(--space-1)", padding: "var(--space-3) var(--space-4)",
+                      background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)",
+                      borderRadius: "var(--radius-lg)", minWidth: 80, textAlign: "center",
+                    }}>
                       <div style={{ fontSize: 28 }}>{badge.emoji}</div>
                       <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.3 }}>
                         {badge.label}
@@ -339,6 +437,7 @@ export default function ProfilePage() {
           </>
         )}
 
+        {/* ── Content area ────────────────────────────────────────── */}
         {auth.loading ? (
           <ProfileSkeleton />
         ) : !user ? (
@@ -347,27 +446,24 @@ export default function ProfilePage() {
             <h3 className="empty-state__title">Not signed in</h3>
           </div>
         ) : editing ? (
-          /* ── Edit form ──────────────────────────────────────────── */
+          /* ── Edit form ────────────────────────────────────────── */
           <div>
             {saveError && (
               <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>
                 {saveError}
               </div>
             )}
-
             <div className="card" style={{ marginBottom: "var(--space-4)" }}>
               <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", marginBottom: "var(--space-5)" }}>
                 Edit Profile
               </h2>
-
-              <FormField label="First Name"      name="first_name"       value={fields.first_name}       required error={errors.first_name}       onChange={handleChange} />
-              <FormField label="Middle Name"     name="middle_name"      value={fields.middle_name}      error={errors.middle_name}      onChange={handleChange} />
-              <FormField label="Last Name"       name="last_name"        value={fields.last_name}        required error={errors.last_name}        onChange={handleChange} />
-              <FormField label="Email"           name="email"            value={fields.email}            required error={errors.email}            onChange={handleChange} type="email" />
-              <FormField label="Primary Mobile"  name="mobile_primary"   value={fields.mobile_primary}   required error={errors.mobile_primary}   onChange={handleChange} type="tel" />
-              <FormField label="Secondary Mobile" name="mobile_secondary" value={fields.mobile_secondary} error={errors.mobile_secondary} onChange={handleChange} type="tel" />
+              <FormField label="First Name"       name="first_name"       value={fields.first_name}       required error={errors.first_name}       onChange={handleChange} />
+              <FormField label="Middle Name"      name="middle_name"      value={fields.middle_name}                error={errors.middle_name}      onChange={handleChange} />
+              <FormField label="Last Name"        name="last_name"        value={fields.last_name}        required error={errors.last_name}        onChange={handleChange} />
+              <FormField label="Email"            name="email"            value={fields.email}            required error={errors.email}            onChange={handleChange} type="email" />
+              <FormField label="Primary Mobile"   name="mobile_primary"   value={fields.mobile_primary}   required error={errors.mobile_primary}   onChange={handleChange} type="tel" />
+              <FormField label="Secondary Mobile" name="mobile_secondary" value={fields.mobile_secondary}          error={errors.mobile_secondary} onChange={handleChange} type="tel" />
             </div>
-
             <div style={{ display: "flex", gap: "var(--space-3)" }}>
               <button
                 className="btn btn--primary btn--lg"
@@ -375,9 +471,7 @@ export default function ProfilePage() {
                 onClick={() => void handleSave()}
                 disabled={saving}
               >
-                {saving
-                  ? <><span className="btn__spinner" aria-hidden="true" /> Saving…</>
-                  : "Save Changes"}
+                {saving ? <><span className="btn__spinner" aria-hidden="true" /> Saving…</> : "Save Changes"}
               </button>
               <button
                 className="btn btn--secondary btn--lg"
@@ -390,7 +484,7 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : (
-          /* ── Read view ─────────────────────────────────────────── */
+          /* ── Read view ────────────────────────────────────────── */
           <>
             {saveSuccess && (
               <div className="alert alert--success" style={{ marginBottom: "var(--space-4)" }}>
@@ -415,6 +509,11 @@ export default function ProfilePage() {
               <ProfileField label="Section"     value={user.section} />
               <ProfileField label="District"    value={user.district} />
             </div>
+
+            {/* ── Grades section — students only ─────────────────── */}
+            {user.role === "STUDENT" && user.id && (
+              <GradesSection studentId={user.id} />
+            )}
           </>
         )}
 

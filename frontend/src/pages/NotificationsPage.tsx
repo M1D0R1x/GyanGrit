@@ -1,17 +1,34 @@
 // pages.NotificationsPage
+/**
+ * Tab layout:
+ *
+ * All roles see:
+ *   📥 My Notifications  — personal inbox history, searchable, paginated
+ *
+ * Staff roles (TEACHER, PRINCIPAL, OFFICIAL, ADMIN) additionally see:
+ *   📤 Send Message      — compose + send broadcast with file attachment
+ *   📋 Sent History      — all broadcasts sent by this user, searchable
+ */
+import { createPortal }          from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
+import { useAuth }               from "../auth/AuthContext";
+import TopBar                    from "../components/TopBar";
+import NotificationDetailModal   from "../components/NotificationDetailModal";
 import {
   getAudienceOptions,
+  getNotificationHistory,
   getSentHistory,
   getBroadcastDetail,
   sendNotification,
+  markRead,
+  markAllRead,
   type AudienceOptions,
   type AudienceType,
+  type AppNotification,
   type Broadcast,
   type BroadcastDetail,
   type NotificationType,
+  type NotificationFilterParams,
   type SendPayload,
   AUDIENCE_LABELS,
   NOTIFICATION_TYPE_LABELS,
@@ -21,7 +38,7 @@ import {
   NOTIFICATION_ALLOWED_EXTENSIONS,
 } from "../services/media";
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Constants & helpers ────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
   info:         "var(--brand-primary)",
@@ -31,6 +48,16 @@ const TYPE_COLORS: Record<string, string> = {
   announcement: "var(--role-principal)",
   assessment:   "var(--role-teacher)",
   lesson:       "var(--role-student)",
+};
+
+const TYPE_ICONS: Record<string, string> = {
+  info:         "ℹ",
+  success:      "✓",
+  warning:      "⚠",
+  error:        "✕",
+  announcement: "📢",
+  assessment:   "📝",
+  lesson:       "📖",
 };
 
 function relativeDate(iso: string) {
@@ -52,183 +79,222 @@ const needsInstitution = (a: AudienceType, role: string) =>
 
 function getFileIcon(name: string): string {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (ext === "pdf")                             return "📄";
-  if (["doc", "docx"].includes(ext))             return "📝";
-  if (["xls", "xlsx"].includes(ext))             return "📊";
-  if (["jpg", "jpeg", "png", "webp"].includes(ext)) return "🖼️";
+  if (ext === "pdf")                                  return "📄";
+  if (["doc", "docx"].includes(ext))                  return "📝";
+  if (["xls", "xlsx"].includes(ext))                  return "📊";
+  if (["jpg", "jpeg", "png", "webp"].includes(ext))   return "🖼️";
   return "📎";
 }
 
-// ── File uploader widget ───────────────────────────────────────────────────
+/** Returns a URL that opens the file for viewing (not downloading).
+ *  PDFs use Google Docs viewer; images open directly; others download. */
+function getViewUrl(url: string, name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+  // Images and other browser-renderable types open directly
+  return url;
+}
 
-type AttachmentState = {
-  url:  string;
-  name: string;
+// ── Filter bar — shared by inbox + sent history ────────────────────────────
+
+type FilterState = {
+  q:           string;
+  type:        string;
+  sent_after:  string;
+  sent_before: string;
 };
 
-function FileUploader({
-  value,
+function FilterBar({
+  filters,
   onChange,
-  onError,
+  showUnreadToggle,
+  unreadOnly,
+  onUnreadToggle,
 }: {
-  value:    AttachmentState | null;
-  onChange: (a: AttachmentState | null) => void;
-  onError:  (msg: string) => void;
+  filters:          FilterState;
+  onChange:         (f: FilterState) => void;
+  showUnreadToggle?: boolean;
+  unreadOnly?:      boolean;
+  onUnreadToggle?:  () => void;
 }) {
-  const inputRef  = useRef<HTMLInputElement>(null);
-  const abortRef  = useRef<AbortController | null>(null);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const set = (key: keyof FilterState, value: string) =>
+    onChange({ ...filters, [key]: value });
 
-  // Cancel ongoing upload on unmount
-  useEffect(() => {
-    return () => { abortRef.current?.abort(); };
-  }, []);
-
-  const startUpload = async (file: File) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setProgress(0);
-    onError("");
-
-    try {
-      const result = await uploadNotificationFile(
-        file,
-        (pct) => setProgress(pct),
-        controller.signal,
-      );
-      onChange({ url: result.url, name: result.display_name });
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return;
-      onError((err as Error).message ?? "Upload failed");
-    } finally {
-      setProgress(null);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) startUpload(file);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) startUpload(file);
-    // Reset input so re-selecting same file triggers onChange
-    e.target.value = "";
-  };
-
-  const handleRemove = () => {
-    abortRef.current?.abort();
-    onChange(null);
-    setProgress(null);
-  };
-
-  // File already attached
-  if (value) {
-    return (
-      <div style={{
-        display:      "flex",
-        alignItems:   "center",
-        gap:          "var(--space-3)",
-        padding:      "var(--space-3) var(--space-4)",
-        background:   "var(--bg-elevated)",
-        border:       "1px solid var(--border-subtle)",
-        borderRadius: "var(--radius-md)",
-      }}>
-        <span style={{ fontSize: 22 }}>{getFileIcon(value.name)}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {value.name}
-          </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--success)", marginTop: 2 }}>
-            ✓ Uploaded
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleRemove}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18, padding: "var(--space-1)", borderRadius: "var(--radius-sm)" }}
-          aria-label="Remove attachment"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  }
-
-  // Uploading in progress
-  if (progress !== null) {
-    return (
-      <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginBottom: "var(--space-2)" }}>
-          Uploading… {progress}%
-        </div>
-        <div style={{ height: 4, background: "var(--border-subtle)", borderRadius: 2, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-primary)", transition: "width 0.1s", borderRadius: 2 }} />
-        </div>
-        <button
-          type="button"
-          onClick={handleRemove}
-          style={{ marginTop: "var(--space-2)", background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--text-muted)", cursor: "pointer" }}
-        >
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  // Drop zone / file picker
   return (
-    <div
-      onClick={() => inputRef.current?.click()}
-      onDrop={handleDrop}
-      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      style={{
-        padding:      "var(--space-5)",
-        background:   dragging ? "rgba(59,130,246,0.06)" : "var(--bg-elevated)",
-        border:       `2px dashed ${dragging ? "var(--brand-primary)" : "var(--border-default)"}`,
-        borderRadius: "var(--radius-md)",
-        textAlign:    "center",
-        cursor:       "pointer",
-        transition:   "all 0.15s",
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Click or drag a file to attach"
-      onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
-    >
-      <div style={{ fontSize: 24, marginBottom: "var(--space-2)" }}>📎</div>
-      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: dragging ? "var(--brand-primary)" : "var(--text-secondary)" }}>
-        {dragging ? "Drop file here" : "Click or drag to attach a file"}
-      </div>
-      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
-        PDF, Word, Excel, or image · Max 10 MB
-      </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
       <input
-        ref={inputRef}
-        type="file"
-        accept={NOTIFICATION_ALLOWED_EXTENSIONS}
-        onChange={handleFileInput}
-        style={{ display: "none" }}
-        aria-hidden="true"
+        className="form-input"
+        type="text"
+        placeholder="Search subject or message…"
+        value={filters.q}
+        onChange={(e) => set("q", e.target.value)}
+        style={{ flex: "2 1 180px", minWidth: 120 }}
       />
+      <select
+        className="form-input"
+        value={filters.type}
+        onChange={(e) => set("type", e.target.value)}
+        style={{ flex: "1 1 140px", minWidth: 120 }}
+      >
+        <option value="">All types</option>
+        {Object.entries(NOTIFICATION_TYPE_LABELS).map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flex: "1 1 260px", minWidth: 200 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+          <label style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600 }}>
+            From
+          </label>
+          <input
+            className="form-input"
+            type="date"
+            value={filters.sent_after}
+            onChange={(e) => set("sent_after", e.target.value)}
+          />
+        </div>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", paddingTop: 18 }}>—</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+          <label style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600 }}>
+            To
+          </label>
+          <input
+            className="form-input"
+            type="date"
+            value={filters.sent_before}
+            onChange={(e) => set("sent_before", e.target.value)}
+          />
+        </div>
+      </div>
+      {showUnreadToggle && (
+        <button
+          onClick={onUnreadToggle}
+          style={{
+            padding:      "0 var(--space-4)",
+            background:   unreadOnly ? "var(--brand-primary)" : "var(--bg-elevated)",
+            border:       "1px solid var(--border-default)",
+            borderRadius: "var(--radius-sm)",
+            color:        unreadOnly ? "#fff" : "var(--text-secondary)",
+            fontSize:     "var(--text-xs)",
+            fontWeight:   600,
+            cursor:       "pointer",
+            whiteSpace:   "nowrap",
+          }}
+        >
+          {unreadOnly ? "✓ Unread only" : "All"}
+        </button>
+      )}
+      {(filters.q || filters.type || filters.sent_after || filters.sent_before) && (
+        <button
+          onClick={() => onChange({ q: "", type: "", sent_after: "", sent_before: "" })}
+          style={{ padding: "0 var(--space-3)", background: "none", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-muted)", fontSize: "var(--text-xs)", cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }
 
-// ── Sent history sub-components ───────────────────────────────────────────
+// ── Inbox notification row ─────────────────────────────────────────────────
+
+function InboxRow({
+  n,
+  onClick,
+}: {
+  n:       AppNotification;
+  onClick: (n: AppNotification) => void;
+}) {
+  const color = TYPE_COLORS[n.type] ?? "var(--brand-primary)";
+  const icon  = TYPE_ICONS[n.type]  ?? "ℹ";
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onClick(n)}
+      onKeyDown={(e) => e.key === "Enter" && onClick(n)}
+      style={{
+        display:      "flex",
+        gap:          "var(--space-4)",
+        padding:      "var(--space-4) var(--space-5)",
+        background:   n.is_read ? "var(--bg-elevated)" : "var(--bg-surface)",
+        border:       "1px solid var(--border-subtle)",
+        borderLeft:   `3px solid ${n.is_read ? "transparent" : color}`,
+        borderRadius: "var(--radius-md)",
+        cursor:       "pointer",
+        transition:   "background 0.1s",
+        animation:    "fadeInUp 0.15s ease both",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-overlay)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = n.is_read ? "var(--bg-elevated)" : "var(--bg-surface)")}
+    >
+      {/* Type icon */}
+      <div style={{
+        width:          36, height: 36, borderRadius: "50%",
+        background:     color + "22",
+        color,
+        display:        "flex", alignItems: "center", justifyContent: "center",
+        fontSize:       16, fontWeight: 700, flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+          <div style={{
+            fontWeight:   n.is_read ? 500 : 700,
+            fontSize:     "var(--text-sm)",
+            color:        "var(--text-primary)",
+            overflow:     "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {n.subject}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+            {!n.is_read && (
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />
+            )}
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+              {relativeDate(n.created_at)}
+            </span>
+          </div>
+        </div>
+        {n.message && (
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {n.message.replace(/[#*_`[\]()>]/g, "").slice(0, 160)}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)", alignItems: "center" }}>
+          {n.sender && n.sender !== "System" && (
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 500 }}>
+              From: {n.sender}
+            </span>
+          )}
+          {n.attachment_name && (
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>
+              {getFileIcon(n.attachment_name)} {n.attachment_name}
+            </span>
+          )}
+          {(n.link || n.attachment_url) && (
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", opacity: 0.8 }}>
+              Read more →
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sent card ─────────────────────────────────────────────────────────────
 
 function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => void }) {
   const color = TYPE_COLORS[b.notification_type] ?? "var(--brand-primary)";
   return (
     <div
-      className="card card--clickable page-enter"
+      className="card card--clickable"
       onClick={() => onClick(b)}
       role="button"
       tabIndex={0}
@@ -236,14 +302,14 @@ function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => voi
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", marginBottom: "var(--space-2)" }}>
             <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {NOTIFICATION_TYPE_LABELS[b.notification_type] ?? b.notification_type}
             </span>
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>·</span>
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{b.audience_label}</span>
           </div>
-          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)", marginBottom: "var(--space-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "var(--space-1)" }}>
             {b.subject}
           </div>
           {b.message && (
@@ -252,7 +318,7 @@ function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => voi
             </div>
           )}
           {b.attachment_name && (
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", marginTop: "var(--space-2)" }}>
+            <div style={{ display: "flex", gap: "var(--space-1)", alignItems: "center", marginTop: "var(--space-2)" }}>
               <span style={{ fontSize: 12 }}>{getFileIcon(b.attachment_name)}</span>
               <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>{b.attachment_name}</span>
             </div>
@@ -269,8 +335,10 @@ function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => voi
   );
 }
 
+// ── Broadcast detail modal ─────────────────────────────────────────────────
+
 function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number; onClose: () => void }) {
-  const [detail, setDetail] = useState<BroadcastDetail | null>(null);
+  const [detail, setDetail]   = useState<BroadcastDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -278,21 +346,19 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
   }, [broadcast_id]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
   }, [onClose]);
 
-  return (
+  const modal = (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "var(--space-16)", overflowY: "auto" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "5vh", overflowY: "auto" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: "min(560px, calc(100vw - 2rem))", maxHeight: "80vh", overflow: "auto", padding: "var(--space-6)", animation: "fadeInUp 0.15s ease both" }}>
+      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: "min(560px, calc(100vw - 2rem))", maxHeight: "85vh", overflow: "auto", padding: "var(--space-6)", animation: "fadeInUp 0.15s ease both", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-6)" }}>
-          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-lg)", color: "var(--text-primary)" }}>
-            Broadcast Detail
-          </h3>
+          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-lg)", color: "var(--text-primary)", margin: 0 }}>Broadcast Detail</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
         </div>
 
@@ -305,7 +371,7 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
             <div><div className="card__label">Subject</div><div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{detail.subject}</div></div>
-            {detail.message && <div><div className="card__label">Message</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{detail.message}</div></div>}
+            {detail.message && <div><div className="card__label">Message</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{detail.message}</div></div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
               <div><div className="card__label">Audience</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{detail.audience_label}</div></div>
               <div><div className="card__label">Sent</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{new Date(detail.sent_at).toLocaleString("en-IN")}</div></div>
@@ -313,17 +379,15 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
             {detail.attachment_name && (
               <div>
                 <div className="card__label">Attachment</div>
-                <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-                  <a href={detail.attachment_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-sm)", color: "var(--brand-primary)", display: "flex", alignItems: "center", gap: 4 }}>
-                    {getFileIcon(detail.attachment_name)} {detail.attachment_name}
-                  </a>
-                  <a href={detail.attachment_url} download={detail.attachment_name} style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    (download)
-                  </a>
+                <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)", alignItems: "center" }}>
+                  <span style={{ fontSize: 20 }}>{getFileIcon(detail.attachment_name)}</span>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>{detail.attachment_name}</span>
+                  <a href={getViewUrl(detail.attachment_url, detail.attachment_name)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", fontWeight: 600, textDecoration: "none" }}>View</a>
+                  <a href={detail.attachment_url} download={detail.attachment_name} style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textDecoration: "none" }}>Download</a>
                 </div>
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-surface)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
               {[
                 { label: "Sent to", value: detail.recipient_count, color: "var(--text-primary)" },
                 { label: "Read",    value: detail.read_count,      color: "var(--success)"      },
@@ -352,70 +416,202 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
+// ── File uploader widget ───────────────────────────────────────────────────
 
-type Tab = "send" | "history";
+type AttachmentState = { url: string; name: string };
+
+function FileUploader({ value, onChange, onError }: {
+  value:    AttachmentState | null;
+  onChange: (a: AttachmentState | null) => void;
+  onError:  (msg: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  const startUpload = async (file: File) => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setProgress(0);
+    onError("");
+    try {
+      const result = await uploadNotificationFile(file, (p) => setProgress(p), ctrl.signal);
+      onChange({ url: result.url, name: result.display_name });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      onError((err as Error).message ?? "Upload failed");
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  if (value) return (
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+      <span style={{ fontSize: 22 }}>{getFileIcon(value.name)}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value.name}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--success)", marginTop: 2 }}>✓ Uploaded</div>
+      </div>
+      <button type="button" onClick={() => { abortRef.current?.abort(); onChange(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
+    </div>
+  );
+
+  if (progress !== null) return (
+    <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginBottom: "var(--space-2)" }}>Uploading… {progress}%</div>
+      <div style={{ height: 4, background: "var(--border-subtle)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-primary)", transition: "width 0.1s", borderRadius: 2 }} />
+      </div>
+      <button type="button" onClick={() => { abortRef.current?.abort(); setProgress(null); }} style={{ marginTop: "var(--space-2)", background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--text-muted)", cursor: "pointer" }}>Cancel</button>
+    </div>
+  );
+
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) startUpload(f); }}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      style={{ padding: "var(--space-5)", background: dragging ? "rgba(59,130,246,0.06)" : "var(--bg-elevated)", border: `2px dashed ${dragging ? "var(--brand-primary)" : "var(--border-default)"}`, borderRadius: "var(--radius-md)", textAlign: "center", cursor: "pointer", transition: "all 0.15s" }}
+      role="button" tabIndex={0} aria-label="Attach a file"
+      onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+    >
+      <div style={{ fontSize: 24, marginBottom: "var(--space-2)" }}>📎</div>
+      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: dragging ? "var(--brand-primary)" : "var(--text-secondary)" }}>
+        {dragging ? "Drop file here" : "Click or drag to attach a file"}
+      </div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>PDF, Word, Excel, or image · Max 10 MB</div>
+      <input ref={inputRef} type="file" accept={NOTIFICATION_ALLOWED_EXTENSIONS} onChange={(e) => { const f = e.target.files?.[0]; if (f) startUpload(f); e.target.value = ""; }} style={{ display: "none" }} aria-hidden="true" />
+    </div>
+  );
+}
+
+// ── Tab types ──────────────────────────────────────────────────────────────
+
+type Tab = "inbox" | "send" | "history";
+
+// ── Main page ──────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
   const { user } = useAuth();
   const isSender = !!user?.role && ["TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"].includes(user.role);
 
-  const [activeTab, setActiveTab] = useState<Tab>(isSender ? "send" : "history");
+  const [activeTab, setActiveTab] = useState<Tab>("inbox");
 
-  // Send form
+  // ── Inbox state ──────────────────────────────────────────────────────────
+  const [inbox, setInbox]           = useState<AppNotification[]>([]);
+  const [inboxTotal, setInboxTotal] = useState(0);
+  const [inboxPages, setInboxPages] = useState(1);
+  const [inboxPage, setInboxPage]   = useState(1);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxFilters, setInboxFilters] = useState<FilterState>({ q: "", type: "", sent_after: "", sent_before: "" });
+  const [inboxUnreadOnly, setInboxUnreadOnly] = useState(false);
+  const [detailNotif, setDetailNotif] = useState<AppNotification | null>(null);
+
+  // ── Send form state ──────────────────────────────────────────────────────
   const [options, setOptions]         = useState<AudienceOptions | null>(null);
   const [form, setForm]               = useState<Partial<SendPayload>>({ notification_type: "announcement" });
-  const [attachment, setAttachment]   = useState<{ url: string; name: string } | null>(null);
-  const [uploadError, setUploadError] = useState<string>("");
+  const [attachment, setAttachment]   = useState<AttachmentState | null>(null);
+  const [uploadError, setUploadError] = useState("");
   const [sending, setSending]         = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError]     = useState<string | null>(null);
 
-  // History
-  const [history, setHistory]         = useState<Broadcast[]>([]);
-  const [histTotal, setHistTotal]     = useState(0);
-  const [histPage, setHistPage]       = useState(1);
-  const [histPages, setHistPages]     = useState(1);
-  const [histLoading, setHistLoading] = useState(false);
-  const [filters, setFilters]         = useState({ q: "", type: "", from: "", to: "" });
-  const [detailId, setDetailId]       = useState<number | null>(null);
+  // ── Sent history state ───────────────────────────────────────────────────
+  const [sentList, setSentList]       = useState<Broadcast[]>([]);
+  const [sentTotal, setSentTotal]     = useState(0);
+  const [sentPage, setSentPage]       = useState(1);
+  const [sentPages, setSentPages]     = useState(1);
+  const [sentLoading, setSentLoading] = useState(false);
+  const [sentFilters, setSentFilters] = useState<FilterState>({ q: "", type: "", sent_after: "", sent_before: "" });
+  const [broadcastDetailId, setBroadcastDetailId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (isSender) getAudienceOptions().then(setOptions).catch(() => {});
-  }, [isSender]);
+  // ── Loaders ──────────────────────────────────────────────────────────────
 
-  const loadHistory = useCallback(() => {
+  const loadInbox = useCallback(() => {
+    setInboxLoading(true);
+    const params: NotificationFilterParams = {
+      q:           inboxFilters.q    || undefined,
+      type:        (inboxFilters.type as NotificationType) || undefined,
+      sent_after:  inboxFilters.sent_after  || undefined,
+      sent_before: inboxFilters.sent_before || undefined,
+      unread_only: inboxUnreadOnly || undefined,
+      page:        inboxPage,
+      page_size:   20,
+    };
+    getNotificationHistory(params)
+      .then((d) => {
+        if (!d) return;
+        setInbox(d.results);
+        setInboxTotal(d.count);
+        setInboxPages(d.total_pages);
+        setInboxUnread(d.unread);
+      })
+      .finally(() => setInboxLoading(false));
+  }, [inboxFilters, inboxUnreadOnly, inboxPage]);
+
+  const loadSent = useCallback(() => {
     if (!isSender) return;
-    setHistLoading(true);
+    setSentLoading(true);
     getSentHistory({
-      q:    filters.q    || undefined,
-      type: (filters.type as NotificationType) || undefined,
-      from: filters.from || undefined,
-      to:   filters.to   || undefined,
-      page: histPage,
+      q:           sentFilters.q    || undefined,
+      type:        (sentFilters.type as NotificationType) || undefined,
+      sent_after:  sentFilters.sent_after  || undefined,
+      sent_before: sentFilters.sent_before || undefined,
+      page:        sentPage,
     })
       .then((d) => {
         if (!d) return;
-        setHistory(d.results);
-        setHistTotal(d.count);
-        setHistPages(d.total_pages);
+        setSentList(d.results);
+        setSentTotal(d.count);
+        setSentPages(d.total_pages);
       })
-      .finally(() => setHistLoading(false));
-  }, [isSender, filters, histPage]);
+      .finally(() => setSentLoading(false));
+  }, [isSender, sentFilters, sentPage]);
 
-  useEffect(() => {
-    if (activeTab === "history") loadHistory();
-  }, [activeTab, loadHistory]);
+  useEffect(() => { loadInbox(); },                        [loadInbox]);
+  useEffect(() => { if (activeTab === "history") loadSent(); }, [activeTab, loadSent]);
+  useEffect(() => { if (isSender) getAudienceOptions().then(setOptions).catch(() => {}); }, [isSender]);
+
+  // Reset page when filters change
+  const updateInboxFilters = (f: FilterState) => { setInboxFilters(f); setInboxPage(1); };
+  const updateSentFilters  = (f: FilterState) => { setSentFilters(f);  setSentPage(1);  };
+
+  // ── Inbox actions ─────────────────────────────────────────────────────────
+
+  const handleInboxItemClick = async (n: AppNotification) => {
+    if (!n.is_read) {
+      markRead(n.id).catch(() => {});
+      setInbox((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
+      setInboxUnread((c) => Math.max(0, c - 1));
+    }
+    setDetailNotif(n);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllRead().catch(() => {});
+    setInbox((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    setInboxUnread(0);
+  };
+
+  // ── Send ─────────────────────────────────────────────────────────────────
 
   const handleSend = async () => {
-    if (!form.subject?.trim())    { setSendError("Subject is required"); return; }
-    if (!form.audience_type)      { setSendError("Please select an audience"); return; }
-    if (needsClass(form.audience_type) && !form.class_id) {
+    if (!form.subject?.trim())   { setSendError("Subject is required"); return; }
+    if (!form.audience_type)     { setSendError("Please select an audience"); return; }
+    if (form.audience_type && needsClass(form.audience_type) && !form.class_id) {
       setSendError("Please select a class"); return;
     }
-    if (user && needsInstitution(form.audience_type, user.role) && !form.institution_id) {
+    if (user && form.audience_type && needsInstitution(form.audience_type, user.role) && !form.institution_id) {
       setSendError("Please select a school"); return;
     }
     if (uploadError) { setSendError("Fix the attachment error first"); return; }
@@ -433,9 +629,7 @@ export default function NotificationsPage() {
     try {
       const result = await sendNotification(payload);
       if (result) {
-        setSendSuccess(
-          `Sent to ${result.recipient_count} recipient${result.recipient_count !== 1 ? "s" : ""} — ${result.audience_label}`
-        );
+        setSendSuccess(`Sent to ${result.recipient_count} recipient${result.recipient_count !== 1 ? "s" : ""} — ${result.audience_label}`);
         setForm({ notification_type: "announcement" });
         setAttachment(null);
       }
@@ -446,134 +640,186 @@ export default function NotificationsPage() {
     }
   };
 
+  // ── Tabs config ───────────────────────────────────────────────────────────
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "inbox",   label: "📥 My Notifications" },
+    ...(isSender ? [
+      { key: "send"    as Tab, label: "📤 Send Message"  },
+      { key: "history" as Tab, label: "📋 Sent History"  },
+    ] : []),
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="page-shell">
       <TopBar title="Notifications" />
       <main className="page-content page-enter">
 
-        {/* Tab toggle */}
-        {isSender && (
-          <div style={{ display: "flex", marginBottom: "var(--space-6)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-            {(["send", "history"] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  flex:       1,
-                  padding:    "var(--space-3)",
-                  background: activeTab === tab ? "var(--brand-primary)" : "var(--bg-elevated)",
-                  border:     "none",
-                  color:      activeTab === tab ? "#fff" : "var(--text-muted)",
-                  fontSize:   "var(--text-sm)",
-                  fontWeight: activeTab === tab ? 700 : 400,
-                  cursor:     "pointer",
-                  transition: "all var(--transition-fast)",
-                  fontFamily: "var(--font-body)",
-                }}
-              >
-                {tab === "send" ? "📤 Send Message" : "📋 Sent History"}
-              </button>
-            ))}
-          </div>
+        {/* Tab bar */}
+        <div style={{ display: "flex", marginBottom: "var(--space-6)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                flex:       1,
+                padding:    "var(--space-3)",
+                background: activeTab === t.key ? "var(--brand-primary)" : "var(--bg-elevated)",
+                border:     "none",
+                color:      activeTab === t.key ? "#fff" : "var(--text-muted)",
+                fontSize:   "var(--text-sm)",
+                fontWeight: activeTab === t.key ? 700 : 400,
+                cursor:     "pointer",
+                transition: "all var(--transition-fast)",
+                fontFamily: "var(--font-body)",
+                position:   "relative",
+              }}
+            >
+              {t.label}
+              {/* Unread badge on the inbox tab */}
+              {t.key === "inbox" && inboxUnread > 0 && (
+                <span style={{ position: "absolute", top: 4, right: 8, background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 999 }}>
+                  {inboxUnread > 99 ? "99+" : inboxUnread}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── INBOX TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "inbox" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", margin: 0 }}>
+                {inboxTotal > 0 ? `${inboxTotal} notification${inboxTotal !== 1 ? "s" : ""}` : "Notifications"}
+                {inboxUnread > 0 && (
+                  <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", background: "#ef4444", color: "#fff", padding: "1px 7px", borderRadius: 999, fontWeight: 700 }}>
+                    {inboxUnread} unread
+                  </span>
+                )}
+              </h2>
+              {inboxUnread > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  style={{ background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--brand-primary)", cursor: "pointer", fontWeight: 600 }}
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            <FilterBar
+              filters={inboxFilters}
+              onChange={updateInboxFilters}
+              showUnreadToggle
+              unreadOnly={inboxUnreadOnly}
+              onUnreadToggle={() => { setInboxUnreadOnly((v) => !v); setInboxPage(1); }}
+            />
+
+            {inboxLoading ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 88, borderRadius: "var(--radius-md)" }} />)}
+              </div>
+            ) : inbox.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__icon">🔔</div>
+                <h3 className="empty-state__title">
+                  {inboxFilters.q || inboxFilters.type || inboxFilters.sent_after || inboxFilters.sent_before || inboxUnreadOnly
+                    ? "No notifications match your filters"
+                    : "No notifications yet"}
+                </h3>
+                <p className="empty-state__message">
+                  {inboxFilters.q || inboxFilters.type || inboxFilters.sent_after || inboxFilters.sent_before || inboxUnreadOnly
+                    ? "Try clearing some filters to see more."
+                    : "Important updates from your teachers and school will appear here."}
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                {inbox.map((n) => (
+                  <InboxRow key={n.id} n={n} onClick={handleInboxItemClick} />
+                ))}
+              </div>
+            )}
+
+            {inboxPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-8)", alignItems: "center" }}>
+                <button className="btn btn--secondary" disabled={inboxPage <= 1} onClick={() => setInboxPage((p) => p - 1)}>← Previous</button>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{inboxPage} / {inboxPages}</span>
+                <button className="btn btn--secondary" disabled={inboxPage >= inboxPages} onClick={() => setInboxPage((p) => p + 1)}>Next →</button>
+              </div>
+            )}
+          </>
         )}
 
-        {/* ── SEND FORM ─────────────────────────────────────────────────── */}
+        {/* ── SEND TAB ──────────────────────────────────────────────────── */}
         {activeTab === "send" && isSender && (
           <div style={{ maxWidth: 640 }}>
-            {sendSuccess && (
-              <div className="alert alert--success" style={{ marginBottom: "var(--space-5)" }}>✓ {sendSuccess}</div>
-            )}
-            {sendError && (
-              <div className="alert alert--error" style={{ marginBottom: "var(--space-5)" }}>{sendError}</div>
-            )}
+            {sendSuccess && <div className="alert alert--success" style={{ marginBottom: "var(--space-5)" }}>✓ {sendSuccess}</div>}
+            {sendError   && <div className="alert alert--error"   style={{ marginBottom: "var(--space-5)" }}>{sendError}</div>}
 
             <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
-
-              {/* Subject */}
               <div>
                 <label className="form-label">Subject <span style={{ color: "var(--error)" }}>*</span></label>
                 <input className="form-input" type="text" placeholder="e.g. Class test on Friday" value={form.subject ?? ""} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} maxLength={255} />
               </div>
 
-              {/* Message with Markdown hint */}
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-2)" }}>
                   <label className="form-label" style={{ margin: 0 }}>Message</label>
-                  <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    Markdown supported: **bold**, _italic_, - lists
-                  </span>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Markdown: **bold**, _italic_, - lists</span>
                 </div>
-                <textarea
-                  className="form-input"
-                  rows={5}
-                  placeholder={"Write your message here…\n\nYou can use **bold**, _italic_, and - lists.\nRecipients will see it formatted."}
-                  value={form.message ?? ""}
-                  onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                  style={{ resize: "vertical", fontFamily: "monospace", fontSize: "var(--text-sm)" }}
-                />
+                <textarea className="form-input" rows={5} placeholder={"Write your message…\n\n**Bold**, _italic_, and - bullet lists are supported."} value={form.message ?? ""} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} style={{ resize: "vertical", fontFamily: "monospace", fontSize: "var(--text-sm)" }} />
               </div>
 
-              {/* Type + Audience */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
                 <div>
                   <label className="form-label">Type</label>
                   <select className="form-input" value={form.notification_type ?? "announcement"} onChange={(e) => setForm((f) => ({ ...f, notification_type: e.target.value as NotificationType }))}>
-                    {Object.entries(NOTIFICATION_TYPE_LABELS).map(([v, l]) => (<option key={v} value={v}>{l}</option>))}
+                    {Object.entries(NOTIFICATION_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="form-label">Send to <span style={{ color: "var(--error)" }}>*</span></label>
                   <select className="form-input" value={form.audience_type ?? ""} onChange={(e) => setForm((f) => ({ ...f, audience_type: e.target.value as AudienceType, class_id: undefined, institution_id: undefined }))}>
                     <option value="">— Select audience —</option>
-                    {options?.allowed_audience_types.map((a) => (<option key={a} value={a}>{AUDIENCE_LABELS[a]}</option>))}
+                    {options?.allowed_audience_types.map((a) => <option key={a} value={a}>{AUDIENCE_LABELS[a]}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Class selector */}
               {form.audience_type && needsClass(form.audience_type) && options && options.classrooms.length > 0 && (
                 <div>
                   <label className="form-label">Select Class <span style={{ color: "var(--error)" }}>*</span></label>
                   <select className="form-input" value={form.class_id ?? ""} onChange={(e) => setForm((f) => ({ ...f, class_id: Number(e.target.value) || undefined }))}>
                     <option value="">— Select class —</option>
-                    {options.classrooms.map((c) => (<option key={c.id} value={c.id}>Class {c.name} · {c["institution__name"]}</option>))}
+                    {options.classrooms.map((c) => <option key={c.id} value={c.id}>Class {c.name} · {c["institution__name"]}</option>)}
                   </select>
                 </div>
               )}
 
-              {/* Institution selector */}
               {form.audience_type && user && needsInstitution(form.audience_type, user.role) && options && options.institutions.length > 0 && (
                 <div>
                   <label className="form-label">Select School <span style={{ color: "var(--error)" }}>*</span></label>
                   <select className="form-input" value={form.institution_id ?? ""} onChange={(e) => setForm((f) => ({ ...f, institution_id: Number(e.target.value) || undefined }))}>
                     <option value="">— Select school —</option>
-                    {options.institutions.map((i) => (<option key={i.id} value={i.id}>{i.name}</option>))}
+                    {options.institutions.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
                 </div>
               )}
 
-              {/* Link */}
               <div>
                 <label className="form-label">Link (optional)</label>
                 <input className="form-input" type="text" placeholder="Internal: /assessments/12  or  External: https://example.com" value={form.link ?? ""} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
-                  Must start with / (internal) or https:// (external)
-                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>Must start with / (internal) or https://</div>
               </div>
 
-              {/* File attachment — drag-and-drop uploader */}
               <div>
                 <label className="form-label">Attachment (optional)</label>
-                {uploadError && (
-                  <div className="alert alert--error" style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-xs)" }}>
-                    {uploadError}
-                  </div>
-                )}
-                <FileUploader
-                  value={attachment}
-                  onChange={setAttachment}
-                  onError={setUploadError}
-                />
+                {uploadError && <div className="alert alert--error" style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-xs)" }}>{uploadError}</div>}
+                <FileUploader value={attachment} onChange={setAttachment} onError={setUploadError} />
               </div>
 
               <button className="btn btn--primary" onClick={handleSend} disabled={sending} style={{ alignSelf: "flex-start" }}>
@@ -583,24 +829,16 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {/* ── SENT HISTORY ──────────────────────────────────────────────── */}
+        {/* ── SENT HISTORY TAB ──────────────────────────────────────────── */}
         {activeTab === "history" && isSender && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-6)" }}>
-              <input className="form-input" type="text" placeholder="Search subject or message…" value={filters.q} onChange={(e) => { setFilters((f) => ({ ...f, q: e.target.value })); setHistPage(1); }} />
-              <select className="form-input" value={filters.type} onChange={(e) => { setFilters((f) => ({ ...f, type: e.target.value })); setHistPage(1); }}>
-                <option value="">All types</option>
-                {Object.entries(NOTIFICATION_TYPE_LABELS).map(([v, l]) => (<option key={v} value={v}>{l}</option>))}
-              </select>
-              <input className="form-input" type="date" title="From date" value={filters.from} onChange={(e) => { setFilters((f) => ({ ...f, from: e.target.value })); setHistPage(1); }} />
-              <input className="form-input" type="date" title="To date"   value={filters.to}   onChange={(e) => { setFilters((f) => ({ ...f, to:   e.target.value })); setHistPage(1); }} />
-            </div>
+            <FilterBar filters={sentFilters} onChange={updateSentFilters} />
 
-            {histLoading ? (
+            {sentLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 90, borderRadius: "var(--radius-lg)" }} />)}
+                {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 90, borderRadius: "var(--radius-lg)" }} />)}
               </div>
-            ) : history.length === 0 ? (
+            ) : sentList.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state__icon">📭</div>
                 <h3 className="empty-state__title">No messages sent yet</h3>
@@ -609,18 +847,16 @@ export default function NotificationsPage() {
             ) : (
               <>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
-                  {histTotal} message{histTotal !== 1 ? "s" : ""}
+                  {sentTotal} message{sentTotal !== 1 ? "s" : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                  {history.map((b) => (
-                    <SentCard key={b.id} b={b} onClick={(x) => setDetailId(x.id)} />
-                  ))}
+                  {sentList.map((b) => <SentCard key={b.id} b={b} onClick={(x) => setBroadcastDetailId(x.id)} />)}
                 </div>
-                {histPages > 1 && (
-                  <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-8)" }}>
-                    <button className="btn btn--secondary" disabled={histPage <= 1} onClick={() => setHistPage((p) => p - 1)}>← Previous</button>
-                    <span style={{ alignSelf: "center", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{histPage} / {histPages}</span>
-                    <button className="btn btn--secondary" disabled={histPage >= histPages} onClick={() => setHistPage((p) => p + 1)}>Next →</button>
+                {sentPages > 1 && (
+                  <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-8)", alignItems: "center" }}>
+                    <button className="btn btn--secondary" disabled={sentPage <= 1} onClick={() => setSentPage((p) => p - 1)}>← Previous</button>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{sentPage} / {sentPages}</span>
+                    <button className="btn btn--secondary" disabled={sentPage >= sentPages} onClick={() => setSentPage((p) => p + 1)}>Next →</button>
                   </div>
                 )}
               </>
@@ -630,8 +866,14 @@ export default function NotificationsPage() {
 
       </main>
 
-      {detailId !== null && (
-        <BroadcastDetailModal broadcast_id={detailId} onClose={() => setDetailId(null)} />
+      {/* Portalled modals — outside page DOM to avoid stacking context issues */}
+      {detailNotif && createPortal(
+        <NotificationDetailModal notification={detailNotif} onClose={() => setDetailNotif(null)} />,
+        document.body
+      )}
+
+      {broadcastDetailId !== null && (
+        <BroadcastDetailModal broadcast_id={broadcastDetailId} onClose={() => setBroadcastDetailId(null)} />
       )}
     </div>
   );

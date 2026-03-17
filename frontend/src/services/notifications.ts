@@ -69,6 +69,15 @@ export type NotificationInbox = {
   notifications: AppNotification[];
 };
 
+/** Response shape for the full searchable inbox history endpoint */
+export type InboxHistoryResponse = {
+  count:       number;
+  page:        number;
+  total_pages: number;
+  unread:      number;   // global unread count (not filtered)
+  results:     AppNotification[];
+};
+
 export type Broadcast = {
   id:                number;
   subject:           string;
@@ -103,8 +112,8 @@ export type SentHistoryResponse = {
 export type AudienceOptions = {
   allowed_audience_types: AudienceType[];
   classrooms: {
-    id:               number;
-    name:             string;
+    id:                number;
+    name:              string;
     institution__name: string;
   }[];
   institutions: {
@@ -114,15 +123,15 @@ export type AudienceOptions = {
 };
 
 export type SendPayload = {
-  subject:           string;
-  message?:          string;
+  subject:            string;
+  message?:           string;
   notification_type?: NotificationType;
-  audience_type:     AudienceType;
-  class_id?:         number;
-  institution_id?:   number;
-  link?:             string;
-  attachment_url?:   string;
-  attachment_name?:  string;
+  audience_type:      AudienceType;
+  class_id?:          number;
+  institution_id?:    number;
+  link?:              string;
+  attachment_url?:    string;
+  attachment_name?:   string;
 };
 
 export type SendResult = {
@@ -132,17 +141,48 @@ export type SendResult = {
   audience_label:  string;
 };
 
+// ── Common filter params shape ────────────────────────────────────────────
+// Used by both getNotificationHistory and getSentHistory
+export type NotificationFilterParams = {
+  q?:           string;          // full-text search on subject + message
+  type?:        NotificationType; // filter by type
+  sent_after?:  string;          // ISO date YYYY-MM-DD, inclusive lower bound
+  sent_before?: string;          // ISO date YYYY-MM-DD, inclusive upper bound
+  unread_only?: boolean;         // true = only unread (inbox history only)
+  page?:        number;
+  page_size?:   number;
+};
+
 // ── Service functions ─────────────────────────────────────────────────────
 
+/** Quick inbox fetch — used by the bell panel (returns 20 items). */
 export const fetchNotifications = (params?: {
-  type?: NotificationType;
+  type?:        NotificationType;
   unread_only?: boolean;
 }) => {
   const qs = new URLSearchParams();
-  if (params?.type)         qs.set("type", params.type);
-  if (params?.unread_only)  qs.set("unread_only", "1");
+  if (params?.type)        qs.set("type", params.type);
+  if (params?.unread_only) qs.set("unread_only", "1");
   const query = qs.toString() ? `?${qs}` : "";
   return apiGet<NotificationInbox>(`/notifications/${query}`);
+};
+
+/**
+ * Full searchable inbox history — used by the Notifications page inbox tab.
+ * Available to all authenticated roles.
+ * Date params are sent_after / sent_before (YYYY-MM-DD).
+ */
+export const getNotificationHistory = (params?: NotificationFilterParams) => {
+  const qs = new URLSearchParams();
+  if (params?.q)           qs.set("q", params.q);
+  if (params?.type)        qs.set("type", params.type);
+  if (params?.sent_after)  qs.set("sent_after",  params.sent_after);
+  if (params?.sent_before) qs.set("sent_before", params.sent_before);
+  if (params?.unread_only) qs.set("unread_only", "1");
+  if (params?.page)        qs.set("page", String(params.page));
+  if (params?.page_size)   qs.set("page_size", String(params.page_size));
+  const query = qs.toString() ? `?${qs}` : "";
+  return apiGet<InboxHistoryResponse>(`/notifications/history/${query}`);
 };
 
 export const markRead = (id: number) =>
@@ -154,19 +194,18 @@ export const markAllRead = () =>
 export const sendNotification = (payload: SendPayload) =>
   apiPost<SendResult>("/notifications/send/", payload);
 
-export const getSentHistory = (params?: {
-  q?:     string;
-  type?:  NotificationType;
-  from?:  string;
-  to?:    string;
-  page?:  number;
-}) => {
+/**
+ * Sent history — only for staff roles.
+ * Date params renamed: sent_after / sent_before (replaces old from/to).
+ */
+export const getSentHistory = (params?: NotificationFilterParams) => {
   const qs = new URLSearchParams();
-  if (params?.q)    qs.set("q", params.q);
-  if (params?.type) qs.set("type", params.type);
-  if (params?.from) qs.set("from", params.from);
-  if (params?.to)   qs.set("to", params.to);
-  if (params?.page) qs.set("page", String(params.page));
+  if (params?.q)           qs.set("q", params.q);
+  if (params?.type)        qs.set("type", params.type);
+  if (params?.sent_after)  qs.set("sent_after",  params.sent_after);
+  if (params?.sent_before) qs.set("sent_before", params.sent_before);
+  if (params?.page)        qs.set("page", String(params.page));
+  if (params?.page_size)   qs.set("page_size", String(params.page_size));
   const query = qs.toString() ? `?${qs}` : "";
   return apiGet<SentHistoryResponse>(`/notifications/sent/${query}`);
 };

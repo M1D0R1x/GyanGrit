@@ -6,17 +6,23 @@
  *   - Subject
  *   - Sender + time
  *   - Full message body rendered as safe Markdown
- *   - Attachment card (view + download)
+ *   - Attachment card (View + Download — two distinct actions)
  *   - "Open link" button — only for valid https:// or internal / links
+ *
+ * Attachment behaviour:
+ *   View     → opens file for READING, no download:
+ *              PDF/docs → Google Docs viewer (bypasses Content-Disposition: attachment)
+ *              Images   → direct R2 URL (browsers render inline regardless of header)
+ *   Download → raw R2 URL with <a download> — always triggers browser download
  *
  * Security:
  *   - Markdown parsed with `marked`, sanitized with DOMPurify before
- *     dangerouslySetInnerHTML. String() cast resolves TrustedHTML type.
+ *     dangerouslySetInnerHTML. String() cast resolves TrustedHTML type (TS2345).
  *   - Allowed tags are a minimal prose subset — no script, img, iframe, style.
  *   - All <a href> values validated post-sanitize: only https:// and /
  *     survive. Everything else replaced with plain text.
  *   - External links get target="_blank" rel="noopener noreferrer".
- *   - attachment_url used only in <a download> — never iframe or embed.
+ *   - attachment_url used only in explicit <a> tags — never iframe or embed.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -126,6 +132,32 @@ function getFileIcon(name: string): string {
   if (["xls", "xlsx"].includes(ext))                  return "📊";
   if (["jpg", "jpeg", "png", "webp"].includes(ext))   return "🖼️";
   return "📎";
+}
+
+/** True for file types that browsers render inline (no proxy needed). */
+function isImage(name: string): boolean {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+}
+
+/**
+ * Returns the URL to use for the "View" button — opens without downloading.
+ *
+ * Why this is needed:
+ *   R2 sets Content-Disposition: attachment on every upload (see r2.py).
+ *   The raw R2 URL always triggers a download even with target="_blank".
+ *   There is no way to override this client-side.
+ *
+ * Fix:
+ *   - Images  → direct R2 URL. Browsers render images inline regardless of
+ *               Content-Disposition, so no proxy needed.
+ *   - PDF/docs → Google Docs viewer. It fetches the file server-side and
+ *               renders it as HTML, bypassing the Content-Disposition header
+ *               entirely. The user sees the document in their browser.
+ */
+function getViewUrl(url: string, name: string): string {
+  if (isImage(name)) return url;
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -358,12 +390,19 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                   {n.attachment_name}
                 </div>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-                  Attached file
+                  {isImage(n.attachment_name) ? "Image" : "Document"}
                 </div>
               </div>
               <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+
+                {/*
+                  VIEW — uses getViewUrl():
+                    Images  → direct R2 URL (browser renders inline)
+                    PDF/doc → Google Docs viewer (bypasses Content-Disposition: attachment)
+                  Never triggers a download.
+                */}
                 <a
-                  href={n.attachment_url}
+                  href={getViewUrl(n.attachment_url, n.attachment_name)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -380,6 +419,11 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                 >
                   View
                 </a>
+
+                {/*
+                  DOWNLOAD — raw R2 URL + download attribute.
+                  R2 Content-Disposition: attachment ensures browser downloads.
+                */}
                 <a
                   href={n.attachment_url}
                   download={n.attachment_name}

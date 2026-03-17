@@ -1,3 +1,4 @@
+// pages.AssessmentTakePage
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -142,10 +143,10 @@ function SubmitScreen({
   onConfirm: () => void;
   onBack: () => void;
 }) {
-  const answered  = Object.keys(answers).length;
-  const total     = assessment.questions.length;
+  const answered   = Object.keys(answers).length;
+  const total      = assessment.questions.length;
   const unanswered = total - answered;
-  const allDone   = unanswered === 0;
+  const allDone    = unanswered === 0;
 
   return (
     <div className="assessment-submit-screen">
@@ -204,8 +205,15 @@ function SubmitScreen({
 // ── Main ───────────────────────────────────────────────────────────────────
 
 export default function AssessmentTakePage() {
-  const { assessmentId } = useParams();
-  const navigate         = useNavigate();
+  // Route: /assessments/:grade/:subject/:assessmentId/take
+  const { grade: gradeParam, subject: subjectSlug, assessmentId } = useParams<{
+    grade: string;
+    subject: string;
+    assessmentId: string;
+  }>();
+  const navigate = useNavigate();
+
+  const grade = gradeParam ? Number(gradeParam) : null;
 
   const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
   const [attemptId, setAttemptId]   = useState<number | null>(null);
@@ -261,23 +269,32 @@ export default function AssessmentTakePage() {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    const a = assessRef.current;
+    const a  = assessRef.current;
     const id = attemptRef.current;
     if (!a || !id) return;
     try {
       sessionStorage.removeItem(storageKey);
       const result = await submitAssessment(a.id, {
-        attempt_id: id,
+        attempt_id:       id,
         selected_options: finalAnswers,
       });
-      navigate("/assessment-result", { state: { ...result, assessment_id: a.id } });
+      // Pass grade + subject slug in result state so AssessmentResultPage
+      // can build the correct history URL
+      navigate("/assessment-result", {
+        state: {
+          ...result,
+          assessment_id:  a.id,
+          grade:          grade,
+          subject_slug:   subjectSlug,
+        },
+      });
     } catch {
       submittingRef.current = false;
       setSubmitting(false);
       setError("Submission failed. Please try again.");
       setShowSubmit(false);
     }
-  }, [navigate, storageKey]);
+  }, [navigate, storageKey, grade, subjectSlug]);
 
   useEffect(() => {
     if (!timerActive) return;
@@ -326,14 +343,14 @@ export default function AssessmentTakePage() {
 
   if (!assessment) return null;
 
-  const total        = assessment.questions.length;
+  const total         = assessment.questions.length;
   const answeredCount = Object.keys(answers).length;
-  const progressPct  = total ? (answeredCount / total) * 100 : 0;
-  const isWarning    = timeLeft <= 300;
-  const isCritical   = timeLeft <= 60;
-  const timerClass   = isCritical ? "critical" : isWarning ? "warning" : "normal";
-  const currentQ     = assessment.questions[currentIdx];
-  const allReady     = answeredCount === total;
+  const progressPct   = total ? (answeredCount / total) * 100 : 0;
+  const isWarning     = timeLeft <= 300;
+  const isCritical    = timeLeft <= 60;
+  const timerClass    = isCritical ? "critical" : isWarning ? "warning" : "normal";
+  const currentQ      = assessment.questions[currentIdx];
+  const allReady      = answeredCount === total;
 
   return (
     <div className="assessment-take-shell">
@@ -390,7 +407,6 @@ export default function AssessmentTakePage() {
         </div>
       )}
 
-      {/* Question or submit screen */}
       {showSubmit ? (
         <SubmitScreen
           assessment={assessment}

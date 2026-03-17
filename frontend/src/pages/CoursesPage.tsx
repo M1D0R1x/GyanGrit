@@ -1,6 +1,8 @@
+// pages.CoursesPage
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
+import { courseDetailPath } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
@@ -115,10 +117,13 @@ export default function CoursesPage() {
                 key={course.id}
                 className="card card--clickable page-enter"
                 style={{ animationDelay: `${i * 50}ms` }}
-                onClick={() => navigate(`/courses/${course.id}`)}
+                onClick={() => navigate(courseDetailPath(course.grade, course.subject__name))}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && navigate(`/courses/${course.id}`)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" &&
+                  navigate(courseDetailPath(course.grade, course.subject__name))
+                }
               >
                 <div style={{
                   display: "flex",

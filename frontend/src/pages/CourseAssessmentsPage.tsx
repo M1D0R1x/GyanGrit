@@ -1,27 +1,40 @@
+// pages.CourseAssessmentsPage
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  getCourseAssessments,
-  type AssessmentListItem,
-} from "../services/assessments";
+import { getCourseAssessments, type AssessmentListItem } from "../services/assessments";
+import { getCourseBySlug } from "../services/content";
+import { assessmentPath, fromSlug } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
 export default function CourseAssessmentsPage() {
-  const { courseId } = useParams();
+  // Route: /courses/:grade/:subject/assessments
+  const { grade: gradeParam, subject: subjectSlug } = useParams<{
+    grade: string;
+    subject: string;
+  }>();
   const navigate = useNavigate();
+
+  const grade = gradeParam ? Number(gradeParam) : null;
+  const subjectLabel = subjectSlug ? fromSlug(subjectSlug) : "";
 
   const [assessments, setAssessments] = useState<AssessmentListItem[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
-    if (!courseId) return;
-    getCourseAssessments(Number(courseId))
+    if (!grade || !subjectSlug) {
+      setError("Invalid course URL.");
+      setLoading(false);
+      return;
+    }
+
+    getCourseBySlug(grade, subjectSlug)
+      .then((course) => getCourseAssessments(course.id))
       .then(setAssessments)
       .catch(() => setError("Failed to load assessments."))
       .finally(() => setLoading(false));
-  }, [courseId]);
+  }, [grade, subjectSlug]);
 
   return (
     <div className="page-shell">
@@ -39,7 +52,9 @@ export default function CourseAssessmentsPage() {
 
         <div className="section-header">
           <div>
-            <h2 className="section-header__title">Assessments</h2>
+            <h2 className="section-header__title">
+              {subjectLabel ? `${subjectLabel} — Assessments` : "Assessments"}
+            </h2>
             <p className="section-header__subtitle">
               Complete all assessments to finish this course
             </p>
@@ -94,7 +109,11 @@ export default function CourseAssessmentsPage() {
                   </div>
                   <button
                     className="btn btn--primary"
-                    onClick={() => navigate(`/assessments/${a.id}`)}
+                    onClick={() =>
+                      grade && subjectSlug
+                        ? navigate(assessmentPath(grade, subjectSlug, a.id))
+                        : navigate(`/assessments`)
+                    }
                     style={{ marginLeft: "var(--space-4)", flexShrink: 0 }}
                   >
                     Start

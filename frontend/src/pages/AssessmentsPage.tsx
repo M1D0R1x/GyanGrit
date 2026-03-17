@@ -1,7 +1,9 @@
+// pages.AssessmentsPage
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { type AssessmentWithStatus } from "../services/assessments";
+import { assessmentPath } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
@@ -156,12 +158,14 @@ export default function AssessmentsPage() {
         ) : (
           filtered.map((a, i) => {
             const isAttempted = (a.attempt_count ?? 0) > 0;
+            // Build human-readable URL: /assessments/:grade/:subject/:id
+            const detailPath  = assessmentPath(a.grade, a.subject, a.id);
             return (
               <button
                 key={a.id}
                 className="assessment-row page-enter"
                 style={{ animationDelay: `${i * 25}ms` }}
-                onClick={() => navigate(`/assessments/${a.id}`)}
+                onClick={() => navigate(detailPath)}
               >
                 <div className={`assessment-row__icon${isAttempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
                   {isAttempted && a.best_score !== null

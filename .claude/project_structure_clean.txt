@@ -1,0 +1,286 @@
+backend
+├── COMMANDS.md
+├── __init__.py
+├── apps
+│   ├── __init__.py
+│   ├── academics
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── constants.py
+│   │   ├── management
+│   │   │   └── commands
+│   │   │       └── seed_punjab.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── accesscontrol
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── permissions.py
+│   │   ├── scoped_service.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── accounts
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── middleware.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_joincode_subject.py
+│   │   │   ├── 0003_user_full_name_user_mobile_number_and_more.py
+│   │   │   ├── 0004_rename_mobile_number_user_mobile_primary_and_more.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── services.py
+│   │   ├── static
+│   │   │   └── admin
+│   │   │       └── js
+│   │   │           └── joincode_dynamic.js
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── assessments
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── content
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── management
+│   │   │   └── commands
+│   │   │       └── seed_content.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_lesson_pdf_url_lesson_updated_at_and_more.py
+│   │   │   ├── 0003_sectionlesson.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── gamification
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── learning
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── media
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── r2.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── notifications
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_remove_notification_title_remove_notification_type_and_more.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   └── roster
+│       ├── __init__.py
+│       ├── admin.py
+│       ├── api
+│       │   ├── __init__.py
+│       │   └── v1
+│       │       ├── __init__.py
+│       │       └── urls.py
+│       ├── apps.py
+│       ├── migrations
+│       │   └── __init__.py
+│       ├── models.py
+│       ├── services.py
+│       ├── tests.py
+│       └── views.py
+├── gyangrit
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── settings
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── dev.py
+│   │   └── prod.py
+│   ├── urls.py
+│   └── wsgi.py
+├── gyangrit_backup.dump
+├── manage.py
+├── package-lock.json
+├── package.json
+└── requirements
+    ├── base.txt
+    ├── dev.txt
+    └── prod.txt
+frontend
+├── eslint.config.js
+├── index.html
+├── package-lock.json
+├── package.json
+├── src
+│   ├── app
+│   │   └── router.tsx
+│   ├── auth
+│   │   ├── AuthContext.tsx
+│   │   ├── RequireRole.tsx
+│   │   ├── RoleBasedRedirect.tsx
+│   │   └── authTypes.ts
+│   ├── components
+│   │   ├── BottomNav.tsx
+│   │   ├── LessonItem.tsx
+│   │   ├── Logo.tsx
+│   │   ├── LogoutButton.tsx
+│   │   ├── NotificationDetailModal.tsx
+│   │   ├── NotificationPanel.tsx
+│   │   └── TopBar.tsx
+│   ├── index.css
+│   ├── main.tsx
+│   ├── pages
+│   │   ├── AdminAssessmentBuilderPage.tsx
+│   │   ├── AdminContentPage.tsx
+│   │   ├── AdminDashboardPage.tsx
+│   │   ├── AdminJoinCodesPage.tsx
+│   │   ├── AdminLessonEditorPage.tsx
+│   │   ├── AssessmentHistoryPage.tsx
+│   │   ├── AssessmentPage.tsx
+│   │   ├── AssessmentTakePage.tsx
+│   │   ├── AssessmentsPage.tsx
+│   │   ├── AssessmentsResultPage.tsx
+│   │   ├── CompleteProfilePage.tsx
+│   │   ├── CourseAssessmentsPage.tsx
+│   │   ├── CoursesPage.tsx
+│   │   ├── DashboardPage.tsx
+│   │   ├── LeaderboardPage.tsx
+│   │   ├── LearningPathPage.tsx
+│   │   ├── LearningPathsPage.tsx
+│   │   ├── LessonPage.tsx
+│   │   ├── LessonsPage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── NotificationsPage.tsx
+│   │   ├── OfficialDashboardPage.tsx
+│   │   ├── PrincipalDashboardPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   ├── RegisterPage.tsx
+│   │   ├── TeacherClassDetailPage.tsx
+│   │   ├── TeacherDashboardPage.tsx
+│   │   ├── TeacherStudentDetailPage.tsx
+│   │   ├── UserManagementPage.tsx
+│   │   ├── VerifyOtpPage.tsx
+│   │   └── errors
+│   │       ├── ErrorPage.tsx
+│   │       ├── ForbiddenPage.tsx
+│   │       ├── NetworkErrorPage.tsx
+│   │       ├── NotFoundPage.tsx
+│   │       └── ServerErrorPage.tsx
+│   ├── public
+│   │   └── favicon.svg
+│   └── services
+│       ├── api.ts
+│       ├── assessments.ts
+│       ├── content.ts
+│       ├── courseProgress.ts
+│       ├── gamification.ts
+│       ├── learningEnrollments.ts
+│       ├── learningPaths.ts
+│       ├── media.ts
+│       ├── notifications.ts
+│       ├── progress.ts
+│       └── teacherAnalytics.ts
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+docs
+├── API_AND_FRONTEND_END_POINTS.md
+├── DATA_MODEL.md
+├── DEPLOYMENT.md
+├── GAMIFICATION.md
+├── LEARNING_LOOP.md
+├── SIGNAL_CHAIN.md
+└── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
+
+62 directories, 222 files

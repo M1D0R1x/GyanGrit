@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.media.apps.MediaConfig",
     "apps.notifications",
     "apps.gamification",
+    "apps.gradebook.apps.GradebookConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -117,12 +118,12 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_AGE = 3600 # we need to think about this near to deployment
+SESSION_COOKIE_AGE = 3600
 SESSION_SAVE_EVERY_REQUEST = True
 
 # ─── Cloudflare R2 ───────────────────────────────────────────────
-CLOUDFLARE_R2_ACCOUNT_ID     = os.getenv("CLOUDFLARE_R2_ACCOUNT_ID", "")
-CLOUDFLARE_R2_ACCESS_KEY_ID  = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID", "")
+CLOUDFLARE_R2_ACCOUNT_ID        = os.getenv("CLOUDFLARE_R2_ACCOUNT_ID", "")
+CLOUDFLARE_R2_ACCESS_KEY_ID     = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID", "")
 CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
-CLOUDFLARE_R2_BUCKET_NAME    = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "gyangrit-media")
-CLOUDFLARE_R2_PUBLIC_URL     = os.getenv("CLOUDFLARE_R2_PUBLIC_URL", "")
+CLOUDFLARE_R2_BUCKET_NAME       = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "gyangrit-media")
+CLOUDFLARE_R2_PUBLIC_URL        = os.getenv("CLOUDFLARE_R2_PUBLIC_URL", "")

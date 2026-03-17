@@ -35,12 +35,9 @@ export default function TeacherClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate    = useNavigate();
 
-  // FIX 2026-03-18: use TeacherClassStudent (id, username, display_name,
-  // total_lessons, completed_lessons) — not the old TeacherClassStudentAnalytics
-  // which assumed backend returned attempt stats that it never sent.
   const [students, setStudents] = useState<TeacherClassStudent[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
 
   useEffect(() => {
     if (!classId) return;
@@ -50,9 +47,9 @@ export default function TeacherClassDetailPage() {
       .finally(() => setLoading(false));
   }, [classId]);
 
-  const totalStudents    = students.length;
-  const activeStudents   = students.filter((s) => s.completed_lessons > 0).length;
-  const avgProgress      = totalStudents > 0
+  const totalStudents  = students.length;
+  const activeStudents = students.filter((s) => s.completed_lessons > 0).length;
+  const avgProgress    = totalStudents > 0
     ? Math.round(
         students.reduce((sum, s) =>
           sum + (s.total_lessons > 0 ? s.completed_lessons / s.total_lessons * 100 : 0), 0
@@ -65,14 +62,28 @@ export default function TeacherClassDetailPage() {
       <TopBar title="Class Detail" />
       <main className="page-content page-enter">
 
-        <button className="back-btn" onClick={() => navigate("/teacher")}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            strokeLinejoin="round" aria-hidden="true">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back to Dashboard
-        </button>
+        {/* Nav row — back + gradebook shortcut */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-6)", flexWrap: "wrap", gap: "var(--space-3)" }}>
+          <button className="back-btn" style={{ marginBottom: 0 }} onClick={() => navigate("/teacher")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back to Dashboard
+          </button>
+          <button
+            className="btn btn--secondary"
+            onClick={() => navigate(`/teacher/classes/${classId}/gradebook`)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            Gradebook
+          </button>
+        </div>
 
         {/* Summary strip */}
         {!loading && !error && totalStudents > 0 && (
@@ -83,8 +94,8 @@ export default function TeacherClassDetailPage() {
             marginBottom:        "var(--space-6)",
           }}>
             {[
-              { label: "Students",   value: totalStudents,  color: "var(--text-primary)" },
-              { label: "Active",     value: activeStudents, color: "var(--brand-primary)" },
+              { label: "Students",     value: totalStudents,  color: "var(--text-primary)" },
+              { label: "Active",       value: activeStudents, color: "var(--brand-primary)" },
               { label: "Avg Progress", value: `${avgProgress}%`, color: avgProgress >= 70 ? "var(--success)" : "var(--warning)" },
             ].map(({ label, value, color }) => (
               <div key={label} className="card" style={{ textAlign: "center", padding: "var(--space-4)" }}>
@@ -153,19 +164,13 @@ export default function TeacherClassDetailPage() {
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                         <div style={{
-                          width:          28,
-                          height:         28,
-                          borderRadius:   "50%",
-                          background:     "var(--bg-elevated)",
-                          border:         "1px solid var(--border-subtle)",
-                          display:        "flex",
-                          alignItems:     "center",
-                          justifyContent: "center",
-                          fontSize:       "var(--text-xs)",
-                          fontWeight:     700,
-                          fontFamily:     "var(--font-display)",
-                          color:          "var(--text-secondary)",
-                          flexShrink:     0,
+                          width: 28, height: 28, borderRadius: "50%",
+                          background: "var(--bg-elevated)",
+                          border: "1px solid var(--border-subtle)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "var(--text-xs)", fontWeight: 700,
+                          fontFamily: "var(--font-display)",
+                          color: "var(--text-secondary)", flexShrink: 0,
                         }}>
                           {(s.display_name || s.username).slice(0, 2).toUpperCase()}
                         </div>
@@ -182,7 +187,6 @@ export default function TeacherClassDetailPage() {
                       </div>
                     </td>
 
-                    {/* Lesson count */}
                     <td style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
                       {s.completed_lessons}
                       {s.total_lessons > 0 && (
@@ -190,12 +194,10 @@ export default function TeacherClassDetailPage() {
                       )}
                     </td>
 
-                    {/* Progress bar */}
                     <td>
                       <LessonProgress completed={s.completed_lessons} total={s.total_lessons} />
                     </td>
 
-                    {/* CTA */}
                     <td>
                       <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>
                         View history →

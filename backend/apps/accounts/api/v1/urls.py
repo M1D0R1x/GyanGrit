@@ -31,4 +31,7 @@ urlpatterns = [
     path("join-codes/export/",                    views.export_join_codes),
     path("join-codes/<int:code_id>/revoke/",      views.revoke_join_code),
     path("join-codes/<int:code_id>/email/",       views.email_join_code),
+
+    # Admin system overview
+    path("system-stats/",       views.system_stats),
 ]

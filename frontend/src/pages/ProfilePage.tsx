@@ -3,9 +3,25 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { getMySummary, type MySummary } from "../services/gamification";
+import { apiPatch } from "../services/api";
 import TopBar from "../components/TopBar";
 import LogoutButton from "../components/LogoutButton";
 import BottomNav from "../components/BottomNav";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+type EditFields = {
+  first_name:       string;
+  middle_name:      string;
+  last_name:        string;
+  email:            string;
+  mobile_primary:   string;
+  mobile_secondary: string;
+};
+
+type EditErrors = Partial<Record<keyof EditFields, string>>;
+
+// ── Sub-components ─────────────────────────────────────────────────────────
 
 function ProfileField({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -20,13 +36,49 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
         {label}
       </span>
       <span style={{
-        fontSize:   "var(--text-sm)",
-        color:      value ? "var(--text-primary)" : "var(--text-muted)",
+        fontSize:  "var(--text-sm)",
+        color:     value ? "var(--text-primary)" : "var(--text-muted)",
         fontWeight: value ? 500 : 400,
         fontStyle:  value ? "normal" : "italic",
       }}>
         {value ?? "—"}
       </span>
+    </div>
+  );
+}
+
+function FormField({
+  label, name, value, error, required, type = "text",
+  onChange,
+}: {
+  label:    string;
+  name:     keyof EditFields;
+  value:    string;
+  error?:   string;
+  required?: boolean;
+  type?:    string;
+  onChange: (name: keyof EditFields, val: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
+      <label
+        htmlFor={`profile-${name}`}
+        style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
+        {label}{required && <span style={{ color: "var(--error)", marginLeft: 2 }}>*</span>}
+      </label>
+      <input
+        id={`profile-${name}`}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(name, e.target.value)}
+        className={`form-input${error ? " form-input--error" : ""}`}
+        placeholder={label}
+        autoComplete="off"
+      />
+      {error && (
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--error)" }}>{error}</span>
+      )}
     </div>
   );
 }
@@ -44,28 +96,117 @@ function ProfileSkeleton() {
   );
 }
 
+// ── Main ───────────────────────────────────────────────────────────────────
+
 export default function ProfilePage() {
   const auth     = useAuth();
   const navigate = useNavigate();
   const user     = auth.user;
 
   const [gamification, setGamification] = useState<MySummary | null>(null);
+  const [editing, setEditing]           = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [saveError, setSaveError]       = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess]   = useState(false);
+  const [fields, setFields]             = useState<EditFields>({
+    first_name:       "",
+    middle_name:      "",
+    last_name:        "",
+    email:            "",
+    mobile_primary:   "",
+    mobile_secondary: "",
+  });
+  const [errors, setErrors] = useState<EditErrors>({});
 
-  // Load gamification only for students
+  // Load gamification — students only
   useEffect(() => {
     if (user?.role !== "STUDENT") return;
     let cancelled = false;
-
     async function load() {
       try {
         const data = await getMySummary();
         if (!cancelled) setGamification(data);
       } catch { /* non-fatal */ }
     }
-
     void load();
     return () => { cancelled = true; };
   }, [user?.role]);
+
+  // Populate form fields when user data is available
+  useEffect(() => {
+    if (!user) return;
+    setFields({
+      first_name:       user.first_name       ?? "",
+      middle_name:      user.middle_name      ?? "",
+      last_name:        user.last_name        ?? "",
+      email:            user.email            ?? "",
+      mobile_primary:   user.mobile_primary   ?? "",
+      mobile_secondary: user.mobile_secondary ?? "",
+    });
+  }, [user]);
+
+  const handleChange = (name: keyof EditFields, val: string) => {
+    setFields((prev) => ({ ...prev, [name]: val }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
+
+  const validate = (): boolean => {
+    const errs: EditErrors = {};
+    if (!fields.first_name.trim())     errs.first_name     = "First name is required";
+    if (!fields.last_name.trim())      errs.last_name      = "Last name is required";
+    if (!fields.email.trim())          errs.email          = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email))
+                                       errs.email          = "Enter a valid email address";
+    if (!fields.mobile_primary.trim()) errs.mobile_primary = "Primary mobile is required";
+    else if (!/^\d{10}$/.test(fields.mobile_primary.replace(/\s/g, "")))
+                                       errs.mobile_primary = "Enter a 10-digit mobile number";
+    if (fields.mobile_secondary.trim() && !/^\d{10}$/.test(fields.mobile_secondary.replace(/\s/g, "")))
+                                       errs.mobile_secondary = "Enter a 10-digit mobile number";
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await apiPatch("/accounts/profile/", {
+        first_name:       fields.first_name.trim(),
+        middle_name:      fields.middle_name.trim() || "",
+        last_name:        fields.last_name.trim(),
+        email:            fields.email.trim(),
+        mobile_primary:   fields.mobile_primary.trim(),
+        mobile_secondary: fields.mobile_secondary.trim() || "",
+      });
+      await auth.refresh();
+      setEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save changes.";
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setErrors({});
+    setSaveError(null);
+    // Reset fields to current user values
+    if (user) {
+      setFields({
+        first_name:       user.first_name       ?? "",
+        middle_name:      user.middle_name      ?? "",
+        last_name:        user.last_name        ?? "",
+        email:            user.email            ?? "",
+        mobile_primary:   user.mobile_primary   ?? "",
+        mobile_secondary: user.mobile_secondary ?? "",
+      });
+    }
+  };
 
   return (
     <div className="page-shell">
@@ -99,17 +240,17 @@ export default function ProfilePage() {
             flexShrink:     0,
           }}>
             {user
-              ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase() || user.username.slice(0, 2).toUpperCase()
+              ? `${(user.first_name ?? "").charAt(0)}${(user.last_name ?? "").charAt(0)}`.toUpperCase() || user.username.slice(0, 2).toUpperCase()
               : "??"}
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h1 style={{
-              fontFamily:   "var(--font-display)",
-              fontSize:     "var(--text-2xl)",
-              fontWeight:   800,
-              color:        "var(--text-primary)",
+              fontFamily:    "var(--font-display)",
+              fontSize:      "var(--text-2xl)",
+              fontWeight:    800,
+              color:         "var(--text-primary)",
               letterSpacing: "-0.03em",
-              marginBottom: "var(--space-1)",
+              marginBottom:  "var(--space-1)",
             }}>
               {user?.display_name ?? user?.username ?? "—"}
             </h1>
@@ -119,22 +260,37 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
+          {/* Edit button — only when NOT editing */}
+          {!editing && user && (
+            <button
+              className="btn btn--secondary"
+              style={{ fontSize: "var(--text-sm)", flexShrink: 0 }}
+              onClick={() => { setEditing(true); setSaveSuccess(false); }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ marginRight: "var(--space-1)" }}>
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit
+            </button>
+          )}
         </div>
 
-        {/* ── Gamification summary (students only) ─────────────────── */}
-        {user?.role === "STUDENT" && gamification && (
+        {/* ── Gamification summary (students only) ────────────────── */}
+        {user?.role === "STUDENT" && gamification && !editing && (
           <>
-            {/* Points + streak */}
             <div style={{
-              display:   "grid",
+              display:             "grid",
               gridTemplateColumns: "1fr 1fr 1fr",
-              gap:       "var(--space-3)",
-              marginBottom: "var(--space-6)",
+              gap:                 "var(--space-3)",
+              marginBottom:        "var(--space-6)",
             }}>
               {[
-                { icon: "⭐", value: gamification.total_points, label: "Points" },
+                { icon: "⭐", value: gamification.total_points,  label: "Points" },
                 { icon: "🔥", value: gamification.current_streak, label: "Day Streak" },
-                { icon: "🏅", value: gamification.badge_count, label: "Badges" },
+                { icon: "🏅", value: gamification.badge_count,    label: "Badges" },
               ].map(({ icon, value, label }) => (
                 <div key={label} className="card" style={{ textAlign: "center", padding: "var(--space-4) var(--space-2)" }}>
                   <div style={{ fontSize: 22, marginBottom: "var(--space-1)" }}>{icon}</div>
@@ -159,25 +315,20 @@ export default function ProfilePage() {
                     <div
                       key={badge.code}
                       style={{
-                        display:      "flex",
-                        flexDirection: "column",
-                        alignItems:   "center",
-                        gap:          "var(--space-1)",
-                        padding:      "var(--space-3) var(--space-4)",
-                        background:   "rgba(245,158,11,0.06)",
-                        border:       "1px solid rgba(245,158,11,0.2)",
-                        borderRadius: "var(--radius-lg)",
-                        minWidth:     80,
-                        textAlign:    "center",
+                        display:        "flex",
+                        flexDirection:  "column",
+                        alignItems:     "center",
+                        gap:            "var(--space-1)",
+                        padding:        "var(--space-3) var(--space-4)",
+                        background:     "rgba(245,158,11,0.06)",
+                        border:         "1px solid rgba(245,158,11,0.2)",
+                        borderRadius:   "var(--radius-lg)",
+                        minWidth:       80,
+                        textAlign:      "center",
                       }}
                     >
                       <div style={{ fontSize: 28 }}>{badge.emoji}</div>
-                      <div style={{
-                        fontSize:   "var(--text-xs)",
-                        fontWeight: 600,
-                        color:      "var(--text-primary)",
-                        lineHeight: 1.3,
-                      }}>
+                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.3 }}>
                         {badge.label}
                       </div>
                     </div>
@@ -195,15 +346,65 @@ export default function ProfilePage() {
             <div className="empty-state__icon">👤</div>
             <h3 className="empty-state__title">Not signed in</h3>
           </div>
+        ) : editing ? (
+          /* ── Edit form ──────────────────────────────────────────── */
+          <div>
+            {saveError && (
+              <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>
+                {saveError}
+              </div>
+            )}
+
+            <div className="card" style={{ marginBottom: "var(--space-4)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", marginBottom: "var(--space-5)" }}>
+                Edit Profile
+              </h2>
+
+              <FormField label="First Name"      name="first_name"       value={fields.first_name}       required error={errors.first_name}       onChange={handleChange} />
+              <FormField label="Middle Name"     name="middle_name"      value={fields.middle_name}      error={errors.middle_name}      onChange={handleChange} />
+              <FormField label="Last Name"       name="last_name"        value={fields.last_name}        required error={errors.last_name}        onChange={handleChange} />
+              <FormField label="Email"           name="email"            value={fields.email}            required error={errors.email}            onChange={handleChange} type="email" />
+              <FormField label="Primary Mobile"  name="mobile_primary"   value={fields.mobile_primary}   required error={errors.mobile_primary}   onChange={handleChange} type="tel" />
+              <FormField label="Secondary Mobile" name="mobile_secondary" value={fields.mobile_secondary} error={errors.mobile_secondary} onChange={handleChange} type="tel" />
+            </div>
+
+            <div style={{ display: "flex", gap: "var(--space-3)" }}>
+              <button
+                className="btn btn--primary btn--lg"
+                style={{ flex: 1, justifyContent: "center" }}
+                onClick={() => void handleSave()}
+                disabled={saving}
+              >
+                {saving
+                  ? <><span className="btn__spinner" aria-hidden="true" /> Saving…</>
+                  : "Save Changes"}
+              </button>
+              <button
+                className="btn btn--secondary btn--lg"
+                style={{ flex: 1, justifyContent: "center" }}
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : (
+          /* ── Read view ─────────────────────────────────────────── */
           <>
+            {saveSuccess && (
+              <div className="alert alert--success" style={{ marginBottom: "var(--space-4)" }}>
+                ✓ Profile updated successfully
+              </div>
+            )}
+
             <div className="card" style={{ padding: "0 var(--space-6)", marginBottom: "var(--space-6)" }}>
-              <ProfileField label="First Name"  value={user.first_name} />
-              <ProfileField label="Middle Name" value={user.middle_name || null} />
-              <ProfileField label="Last Name"   value={user.last_name} />
-              <ProfileField label="Email"       value={user.email || null} />
-              <ProfileField label="Mobile 1"    value={user.mobile_primary || null} />
-              <ProfileField label="Mobile 2"    value={user.mobile_secondary || null} />
+              <ProfileField label="First Name"       value={user.first_name} />
+              <ProfileField label="Middle Name"      value={user.middle_name || null} />
+              <ProfileField label="Last Name"        value={user.last_name} />
+              <ProfileField label="Email"            value={user.email || null} />
+              <ProfileField label="Primary Mobile"   value={user.mobile_primary || null} />
+              <ProfileField label="Secondary Mobile" value={user.mobile_secondary || null} />
             </div>
 
             <div className="card" style={{ padding: "0 var(--space-6)" }}>

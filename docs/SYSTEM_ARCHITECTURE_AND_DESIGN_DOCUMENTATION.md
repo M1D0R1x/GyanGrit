@@ -21,7 +21,7 @@ Browser (React + Vite)
         ↓  HTTPS + Session Cookie + CSRF Token
 REST API (/api/v1/)
         ↓
-Django Backend (9 modular apps)
+Django Backend (10 modular apps)
         ↓
 PostgreSQL (Supabase — all environments)
 ```
@@ -34,7 +34,7 @@ The frontend and backend are deployed independently. The frontend is a SPA that 
 
 ### 3.1 App Structure
 
-The backend is divided into 9 independent Django apps under `backend/apps/`:
+The backend is divided into 10 independent Django apps under `backend/apps/`:
 
 | App | Responsibility |
 |---|---|
@@ -57,6 +57,8 @@ Each app owns its domain completely. Cross-app access goes through model relatio
 
 **Models:**
 - `User` — extends `AbstractUser` with `role`, `institution`, `section`, `district`, `public_id`
+- Extended name fields: `first_name`, `middle_name`, `last_name` (all required except middle)
+- Contact fields: `email` (required), `mobile_primary` (required), `mobile_secondary` (optional)
 - `JoinCode` — pre-generated codes that lock role and institution on registration
 - `OTPVerification` — 6-digit codes for non-student login verification
 - `DeviceSession` — stores session key to enforce single-device policy
@@ -112,12 +114,14 @@ Scoping rules:
 
 The scope maps use explicit ORM traversal strings (e.g., `"classroom__institution"`) rather than field introspection, to avoid silent data leakage on models with nested FK chains.
 
+This is a **pure library app** — no endpoints, no URL mount. Only imported by other apps.
+
 ---
 
 ### 3.5 Content App
 
 **Models:**
-- `Course` — belongs to a Subject and grade
+- `Course` — belongs to a Subject and grade. One course per (subject, grade) — 60 total.
 - `Lesson` — ordered within a course, supports text + video + HLS + PDF
 - `LessonProgress` — tracks completion and last position per user per lesson
 - `SectionLesson` — teacher-added supplementary lessons, linked to a course and section
@@ -127,6 +131,9 @@ The scope maps use explicit ORM traversal strings (e.g., `"classroom__institutio
 - `lesson_detail` returns `completed` and `last_position` inline — no separate progress GET endpoint needed by frontend.
 - `mark_opened()` is called on lesson open to enable resume logic.
 - `SectionLesson` allows TEACHER and PRINCIPAL to add content within their scope without touching the curriculum. Displayed merged with curriculum lessons in the lesson list.
+
+**Slug resolution endpoint:**
+`GET /api/v1/courses/by-slug/?grade=10&subject=punjabi` resolves human-readable URL slugs back to a course ID. Used by the frontend when navigating to `/courses/:grade/:subject`.
 
 ---
 
@@ -203,9 +210,18 @@ Returns per-row skip reasons so teachers can diagnose upload failures.
 ### 3.10 Notifications App
 
 **Models:**
-- `Notification` — `recipient` (FK → User), `message`, `notification_type`, `is_read`, `created_at`.
+- `Broadcast` — the send event: sender, subject, message, audience_type, audience_label, attachment_url, attachment_name, recipient_count, sent_at
+- `Notification` — one row per recipient per broadcast. Tracks `is_read` per user.
 
-Notifications are created by teachers (for their class), principals (for their school), and automatically by system events. Delivered via polling — no WebSocket required at this scale.
+**Design (fanout-on-write):** One broadcast creates N notification rows — one per recipient. Each user's read state is tracked independently. This is the correct pattern at GyanGrit's scale.
+
+**Audience types:** CLASS_STUDENTS, CLASS_TEACHERS, CLASS_ALL, SCHOOL_STUDENTS, SCHOOL_TEACHERS, SCHOOL_ALL, DISTRICT_STUDENTS, DISTRICT_TEACHERS, DISTRICT_PRINCIPALS, DISTRICT_ALL, SYSTEM.
+
+**SYSTEM broadcasts** include the sender — admin receives their own system announcements.
+
+**Delivered via polling** (30s interval + visibilitychange). No WebSocket required at this scale.
+
+**Attachments:** Files uploaded to Cloudflare R2 under `notification-files/` folder with sanitised name + 6-char hex suffix. PDFs viewed via Google Docs viewer (bypasses `Content-Disposition: attachment`). Markdown rendered via `marked` + `DOMPurify`.
 
 ---
 
@@ -214,6 +230,8 @@ Notifications are created by teachers (for their class), principals (for their s
 Handles Cloudflare R2 presigned upload and delete URLs. No database models — purely a pass-through service between the frontend and R2.
 
 - `r2.py` — generates presigned PUT and DELETE URLs using `boto3` with an R2-compatible endpoint.
+- `sanitize_filename()` — unicode→ASCII, lowercase, hyphens, 6-char hex collision guard.
+- `FOLDER_NOTIFICATIONS = "notification-files"` — dedicated folder for notification attachments.
 
 ---
 
@@ -290,7 +308,21 @@ Route access
 
 `AuthContext` stores the full `UserProfile` object. Pages read `auth.user.institution`, `auth.user.district` etc directly — no extra API calls needed per page.
 
-### 5.4 Component Architecture
+### 5.4 URL Slug System
+
+Student-facing course and assessment URLs use human-readable slugs instead of numeric IDs.
+
+**Course detail:** `/courses/:grade/:subject` e.g. `/courses/10/punjabi`, `/courses/8/social-studies`
+**Assessment detail:** `/assessments/:grade/:subject/:id` e.g. `/assessments/10/punjabi/5`
+
+The slug helper lives in `src/utils/slugs.ts`:
+- `toSlug(name)` — normalises a subject name to a URL slug (lowercase, hyphens, strip non-alphanumeric)
+- `courseDetailPath(grade, subjectName)` — builds the course URL
+- `assessmentPath(grade, subjectName, id)` — builds the assessment URL
+
+The backend `course_by_slug` endpoint resolves grade+slug → courseId when a page loads.
+
+### 5.5 Component Architecture
 
 ```
 src/
@@ -304,15 +336,18 @@ src/
 │   ├── LessonItem.tsx        — Accessible lesson row with completion state
 │   ├── Logo.tsx              — GyanGrit wordmark
 │   ├── LogoutButton.tsx      — Calls logout endpoint then navigates
-│   ├── NotificationPanel.tsx — Slide-in notification panel
-│   └── TopBar.tsx            — Sticky nav with user avatar, role badge, logout
+│   ├── NotificationPanel.tsx — Slide-in notification panel (bell dropdown)
+│   ├── NotificationDetailModal.tsx — Full notification view with Markdown + attachment
+│   └── TopBar.tsx            — Sticky nav with user avatar, role badge, notification bell
 ├── pages/                    — One file per route (30 pages)
 ├── services/                 — One file per API domain (11 files)
+├── utils/
+│   └── slugs.ts              — URL slug helpers
 └── app/
     └── router.tsx            — All routes with Protected() wrapper + lazy loading
 ```
 
-### 5.5 Route Protection
+### 5.6 Route Protection
 
 All non-public routes use the `Protected` wrapper:
 
@@ -330,7 +365,7 @@ function Protected({ role, children }) {
 
 This combines auth enforcement + lazy loading + consistent loading UI in one place.
 
-### 5.6 API Layer
+### 5.7 API Layer
 
 All API calls go through `src/services/api.ts`:
 - `apiGet<T>(path)` — GET with session cookie
@@ -341,7 +376,7 @@ All API calls go through `src/services/api.ts`:
 
 CSRF token is read from `gyangrit_csrftoken` cookie (renamed from Django's default to avoid collision with the admin panel cookie).
 
-### 5.7 Bottom Navigation (Student-only)
+### 5.8 Bottom Navigation (Student-only)
 
 Students have a 5-tab bottom navigation bar on mobile:
 
@@ -395,6 +430,7 @@ Any model not in the map is treated as globally readable (e.g. `Subject`, `Distr
 | Correct answers | `is_correct` never sent in any student-facing API response |
 | Session age | `SESSION_COOKIE_AGE = 3600` (1 hour), extended on every request |
 | Gamification | Point deduplication via `PointEvent` ledger — double-awarding is impossible |
+| Attachment names | `os.path.basename()` + null-byte strip + 100-char cap server-side |
 
 ---
 
@@ -451,3 +487,4 @@ Quick summary:
 - **No silent failures** — every error is logged with context; bare `except` clauses are prohibited
 - **Production-safe code** — no `print()`, no hardcoded secrets, no partial patches
 - **Non-blocking gamification** — all gamification signals are wrapped in `try/except` to never block core learning flows
+- **Human-readable URLs** — course and assessment URLs use grade+subject slugs, not numeric IDs

@@ -1,12 +1,1 @@
 TODO
-
-http://127.0.0.1:5173/assessments/5 for this
-can we make it assessments/10(class)/punjabi(subject)/assessmentid maybe?
-please take care of that
-
-http://127.0.0.1:5173/courses?subject_id=1 this is okay
-http://127.0.0.1:5173/courses/50 can we make this something like
-courses/punjabi10 or courses/10punjabi or courses/10/punjabi
-as it will be easy for admin and all
-
-

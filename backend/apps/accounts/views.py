@@ -1252,3 +1252,90 @@ def bulk_create_join_codes(request):
     ]
 
     return JsonResponse({"created": len(data), "codes": data}, status=201)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SYSTEM STATS  (ADMIN only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_roles(["ADMIN"])
+@require_http_methods(["GET"])
+def system_stats(request):
+    """
+    GET /api/v1/accounts/system-stats/
+
+    Returns a lightweight system overview for the Admin dashboard.
+    All counts are live — no caching. Queries are each O(1) COUNT(*).
+
+    Response:
+    {
+      "users": {
+        "total": 320,
+        "students": 280,
+        "teachers": 25,
+        "principals": 8,
+        "officials": 5,
+        "admins": 2
+      },
+      "active_sessions": 47,
+      "content": {
+        "courses": 60,
+        "lessons": 420,
+        "published_assessments": 95
+      },
+      "activity": {
+        "lessons_completed_today": 38,
+        "assessments_submitted_today": 12,
+        "notifications_sent_today": 4
+      }
+    }
+    """
+    from django.utils import timezone
+    from apps.content.models import Course, Lesson, LessonProgress
+    from apps.assessments.models import Assessment, AssessmentAttempt
+    from apps.notifications.models import Broadcast
+    from apps.accounts.models import DeviceSession
+
+    User = get_user_model()
+    today = timezone.now().date()
+
+    # ── User counts ───────────────────────────────────────────────────────────
+    all_users = User.objects.all()
+    user_counts = {
+        "total":      all_users.count(),
+        "students":   all_users.filter(role="STUDENT").count(),
+        "teachers":   all_users.filter(role="TEACHER").count(),
+        "principals": all_users.filter(role="PRINCIPAL").count(),
+        "officials":  all_users.filter(role="OFFICIAL").count(),
+        "admins":     all_users.filter(role="ADMIN").count(),
+    }
+
+    # ── Active sessions ───────────────────────────────────────────────────────
+    active_sessions = DeviceSession.objects.count()
+
+    # ── Content counts ────────────────────────────────────────────────────────
+    content = {
+        "courses":               Course.objects.count(),
+        "lessons":               Lesson.objects.filter(is_published=True).count(),
+        "published_assessments": Assessment.objects.filter(is_published=True).count(),
+    }
+
+    # ── Today's activity ──────────────────────────────────────────────────────
+    activity = {
+        "lessons_completed_today":    LessonProgress.objects.filter(
+            completed=True,
+            last_opened_at__date=today,
+        ).count(),
+        "assessments_submitted_today": AssessmentAttempt.objects.filter(
+            submitted_at__date=today,
+        ).count(),
+        "notifications_sent_today": Broadcast.objects.filter(
+            sent_at__date=today,
+        ).count(),
+    }
+
+    return JsonResponse({
+        "users":           user_counts,
+        "active_sessions": active_sessions,
+        "content":         content,
+        "activity":        activity,
+    })

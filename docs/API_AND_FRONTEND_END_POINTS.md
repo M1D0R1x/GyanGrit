@@ -1,7 +1,7 @@
 # GyanGrit — API & Frontend Endpoint Documentation
 
 > **Status: Current as of March 2026**
-> All 9 backend apps are fully implemented. This document reflects the actual
+> All 10 backend apps are fully implemented. This document reflects the actual
 > production-ready state of the system.
 
 ---
@@ -336,7 +336,18 @@ Base path: `/api/v1/` (mounted at root for historical reasons)
 
 ---
 
-### 4.2 Courses
+### 4.2 Course Slug Resolution
+**GET** `/api/v1/courses/by-slug/?grade=10&subject=punjabi`
+
+Resolves a human-readable URL slug back to a course object. Used by `LessonsPage` when navigating to `/courses/:grade/:subject`.
+
+Subject is the slug form of the subject name (lowercase, hyphenated). Returns 404 if no matching course, 400 if params missing, 403 if no access.
+
+Response shape is identical to a row in `GET /courses/`.
+
+---
+
+### 4.3 Courses
 **GET** `/api/v1/courses/`
 
 Response is scoped by role. Students see only enrolled subjects' courses.
@@ -1107,18 +1118,21 @@ OFFICIAL, ADMIN → must pass `?institution_id=` param.
 
 ### Student Routes
 
+Note: Course and assessment URLs use human-readable slugs (grade + subject name) instead of numeric IDs.
+Example: `/courses/10/punjabi`, `/assessments/8/social-studies/5`
+
 | Route | Component | Purpose |
 |---|---|---|
 | `/dashboard` | DashboardPage | Subject progress + gamification strip |
 | `/courses` | CoursesPage | All enrolled courses |
-| `/courses/:courseId` | LessonsPage | Lessons with completion status |
-| `/courses/:courseId/assessments` | CourseAssessmentsPage | Assessments for a course |
+| `/courses/:grade/:subject` | LessonsPage | Lessons for a course e.g. `/courses/10/punjabi` |
+| `/courses/:grade/:subject/assessments` | CourseAssessmentsPage | Assessments for a course |
 | `/lessons/:lessonId` | LessonPage | Lesson content + completion |
 | `/assessments` | AssessmentsPage | All accessible assessments |
 | `/assessments/history` | AssessmentHistoryPage | Full attempt history |
-| `/assessments/:assessmentId` | AssessmentPage | Take or view assessment |
-| `/assessments/:assessmentId/take` | AssessmentTakePage | Active assessment session |
-| `/assessments/:assessmentId/history` | AssessmentHistoryPage | Per-assessment history |
+| `/assessments/:grade/:subject/:assessmentId` | AssessmentPage | Assessment detail + start |
+| `/assessments/:grade/:subject/:assessmentId/take` | AssessmentTakePage | Active assessment session |
+| `/assessments/:grade/:subject/:assessmentId/history` | AssessmentHistoryPage | Per-assessment history |
 | `/assessment-result` | AssessmentResultPage | Score + points earned after submit |
 | `/learning` | LearningPathsPage | Learning path listing |
 | `/learning/:pathId` | LearningPathPage | Path detail with courses |

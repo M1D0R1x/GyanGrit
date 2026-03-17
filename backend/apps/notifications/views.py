@@ -513,8 +513,12 @@ def send_notification(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    # Exclude the sender — they don't receive their own broadcast
-    recipients = [r for r in recipients if r.id != user.id]
+    # SYSTEM-wide broadcasts: include the sender. The admin is also a
+    # platform member and should receive their own announcement.
+    # All other scoped broadcasts: exclude the sender (teachers should
+    # not receive their own class announcements in their inbox).
+    if audience_type != AudienceType.SYSTEM:
+        recipients = [r for r in recipients if r.id != user.id]
 
     if not recipients:
         return JsonResponse(

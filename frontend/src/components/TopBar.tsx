@@ -81,37 +81,6 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
           Profile
         </button>
 
-        <button
-          role="menuitem"
-          onClick={() => go("/notifications")}
-          onMouseEnter={() => setHovered("notifications")}
-          onMouseLeave={() => setHovered(null)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            width: "100%",
-            padding: "8px 16px",
-            background: hovered === "notifications" ? "var(--bg-overlay)" : "none",
-            border: "none",
-            color: hovered === "notifications" ? "var(--text-primary)" : "var(--text-secondary)",
-            fontFamily: "var(--font-body)",
-            fontSize: "var(--text-sm)",
-            fontWeight: 500,
-            cursor: "pointer",
-            textAlign: "left",
-            transition: "all 0.1s",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          Notifications
-        </button>
-
         <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
 
         <div style={{ padding: "4px 8px" }}>
@@ -154,18 +123,30 @@ export default function TopBar({ title }: Props) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
 
-  // Poll unread count every 60 seconds while authenticated
+  // Poll unread count every 30 seconds while authenticated.
+  // Also re-fetches immediately when the browser tab becomes visible again
+  // (e.g. user switches back from another tab) so the badge is always fresh.
   const refreshUnread = useCallback(() => {
     if (!auth.authenticated) return;
     fetchNotifications()
-      .then((data) => setUnreadCount(data.unread))
+      .then((data) => { if (data) setUnreadCount(data.unread); })
       .catch(() => { /* silent — network errors shouldn't break the topbar */ });
   }, [auth.authenticated]);
 
   useEffect(() => {
     refreshUnread();
-    const interval = setInterval(refreshUnread, 60_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(refreshUnread, 30_000);
+
+    // Refresh immediately when the tab regains focus
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshUnread();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refreshUnread]);
 
   // Close user menu on outside click
@@ -278,7 +259,6 @@ export default function TopBar({ title }: Props) {
               <NotificationPanel
                 onClose={() => setNotifOpen(false)}
                 onUnreadChange={setUnreadCount}
-                onViewAll={() => { setNotifOpen(false); navigate("/notifications"); }}
               />
             )}
           </div>

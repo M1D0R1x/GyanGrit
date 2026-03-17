@@ -1,21 +1,27 @@
+// pages.LessonsPage
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
+import { getCourseBySlug } from "../services/content";
 import { updateLessonProgress } from "../services/progress";
+import { fromSlug } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
 /**
- * LessonsPage — merged global + section lessons
+ * LessonsPage — merged global + section lessons.
+ *
+ * Route: /courses/:grade/:subject  e.g. /courses/10/punjabi
+ *
+ * We first resolve the course ID from the grade+subject slug via
+ * GET /api/v1/courses/by-slug/?grade=10&subject=punjabi
+ * then load lessons for that course_id as usual.
  *
  * The backend returns a unified sorted list where each item has:
  *   type: "global" | "section"
  *
- * Global lessons = government curriculum, same for all students in grade+subject
- * Section lessons = teacher-added supplemental content for this specific class
- *
- * Both types are shown in one list, ordered by `order` field.
- * Section lessons get a small "Teacher Added" tag so students know.
+ * Global lessons = government curriculum
+ * Section lessons = teacher-added supplemental content (shown with "Teacher Added" tag)
  */
 
 type LessonItem = {
@@ -180,20 +186,41 @@ function LessonRow({
 }
 
 export default function LessonsPage() {
-  const { courseId } = useParams();
-  const navigate     = useNavigate();
+  const { grade: gradeParam, subject: subjectSlug } = useParams<{
+    grade: string;
+    subject: string;
+  }>();
+  const navigate = useNavigate();
 
-  const [lessons, setLessons] = useState<LessonItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [courseId, setCourseId]   = useState<number | null>(null);
+  const [courseName, setCourseName] = useState<string>("");
+  const [lessons, setLessons]     = useState<LessonItem[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+
+  const grade = gradeParam ? Number(gradeParam) : null;
+  // Derive a human-readable subject label for the TopBar while loading
+  const subjectLabel = subjectSlug ? fromSlug(subjectSlug) : "";
 
   useEffect(() => {
-    if (!courseId) return;
-    apiGet<LessonItem[]>(`/courses/${courseId}/lessons/`)
+    if (!grade || !subjectSlug) {
+      setError("Invalid course URL.");
+      setLoading(false);
+      return;
+    }
+
+    // Step 1: resolve grade + subject slug → courseId
+    getCourseBySlug(grade, subjectSlug)
+      .then((course) => {
+        setCourseId(course.id);
+        setCourseName(course.title);
+        // Step 2: load lessons for that courseId
+        return apiGet<LessonItem[]>(`/courses/${course.id}/lessons/`);
+      })
       .then(setLessons)
-      .catch(() => setError("Failed to load lessons."))
+      .catch(() => setError("Course not found or you don't have access."))
       .finally(() => setLoading(false));
-  }, [courseId]);
+  }, [grade, subjectSlug]);
 
   const handleComplete = async (lessonId: number) => {
     await updateLessonProgress(lessonId, { completed: true });
@@ -217,9 +244,13 @@ export default function LessonsPage() {
     ? Math.round((completedCount / globalLessons.length) * 100)
     : 0;
 
+  const pageTitle = courseName || subjectLabel
+    ? `${subjectLabel} · Class ${grade ?? ""}`
+    : "Lessons";
+
   return (
     <div className="page-shell">
-      <TopBar />
+      <TopBar title={pageTitle} />
       <main className="page-content page-content--narrow page-enter has-bottom-nav">
 
         <button className="back-btn" onClick={() => navigate("/courses")}>
@@ -231,10 +262,17 @@ export default function LessonsPage() {
           Back to Courses
         </button>
 
-        {error && <div className="alert alert--error">{error}</div>}
+        {error && (
+          <div>
+            <div className="alert alert--error">{error}</div>
+            <button className="btn btn--secondary" style={{ marginTop: "var(--space-3)" }} onClick={() => navigate("/courses")}>
+              Go back to courses
+            </button>
+          </div>
+        )}
 
         {/* Progress card — only counts global (curriculum) lessons */}
-        {!loading && globalLessons.length > 0 && (
+        {!loading && !error && globalLessons.length > 0 && (
           <div className="card" style={{ marginBottom: "var(--space-6)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
               <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
@@ -262,22 +300,24 @@ export default function LessonsPage() {
         )}
 
         {/* Section header */}
-        <div className="section-header">
-          <h2 className="section-header__title">Lessons</h2>
-          {!loading && sectionLessons.length > 0 && (
-            <span style={{
-              fontSize: "var(--text-xs)",
-              color: "var(--brand-primary)",
-              fontWeight: 600,
-            }}>
-              +{sectionLessons.length} from your teacher
-            </span>
-          )}
-        </div>
+        {!error && (
+          <div className="section-header">
+            <h2 className="section-header__title">Lessons</h2>
+            {!loading && sectionLessons.length > 0 && (
+              <span style={{
+                fontSize: "var(--text-xs)",
+                color: "var(--brand-primary)",
+                fontWeight: 600,
+              }}>
+                +{sectionLessons.length} from your teacher
+              </span>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <LessonsSkeleton />
-        ) : lessons.length === 0 ? (
+        ) : !error && lessons.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state__icon">📝</div>
             <h3 className="empty-state__title">No lessons yet</h3>
@@ -285,7 +325,7 @@ export default function LessonsPage() {
               Lessons will appear here once your teacher publishes them.
             </p>
           </div>
-        ) : (
+        ) : !error ? (
           <ul style={{
             listStyle: "none",
             padding: 0,
@@ -306,6 +346,25 @@ export default function LessonsPage() {
               />
             ))}
           </ul>
+        ) : null}
+
+        {/* Assessments shortcut — shown once course is resolved */}
+        {!loading && !error && courseId && grade && subjectSlug && (
+          <div style={{ marginTop: "var(--space-6)" }}>
+            <button
+              className="history-shortcut"
+              onClick={() => navigate(`/courses/${grade}/${subjectSlug}/assessments`)}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                <span style={{ fontSize: 14 }}>📋</span>
+                View course assessments
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
         )}
       </main>
       <BottomNav />

@@ -1,12 +1,9 @@
 /**
  * content.ts — API service for courses, lessons, and progress.
  *
- * FIX (2026-03-15):
- *   Added `content` field to LessonItem type.
- *
- * FIX (2026-03-16):
- *   Removed CreatedCourse type — createCourse returns CourseItem directly.
- *   Added section lesson CRUD service functions.
+ * FIX (2026-03-15): Added `content` field to LessonItem type.
+ * FIX (2026-03-16): Removed CreatedCourse type; added section lesson CRUD.
+ * FIX (2026-03-17): Added getCourseBySlug() for human-readable URL resolution.
  */
 
 import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
@@ -114,7 +111,6 @@ export type CreateSectionLessonPayload = {
 
 // ── Course ────────────────────────────────────────────────────────────────────
 
-// createCourse returns CourseItem — backend returns subject__name + subject__id
 export async function createCourse(
   payload: CreateCoursePayload
 ): Promise<CourseItem> {
@@ -123,6 +119,21 @@ export async function createCourse(
 
 export const getCourses = () =>
   apiGet<CourseItem[]>("/courses/");
+
+/**
+ * Resolve a human-readable URL slug back to a CourseItem.
+ * Used by LessonsPage when navigated via /courses/:grade/:subject.
+ *
+ * GET /api/v1/courses/by-slug/?grade=10&subject=punjabi
+ */
+export async function getCourseBySlug(
+  grade: number,
+  subjectSlug: string
+): Promise<CourseItem> {
+  return apiGet<CourseItem>(
+    `/courses/by-slug/?grade=${grade}&subject=${encodeURIComponent(subjectSlug)}`
+  );
+}
 
 export const updateCourse = (
   courseId: number,
@@ -137,7 +148,7 @@ export const getCourseLessons = (courseId: number) =>
 export const getLessonDetail = (lessonId: number) =>
   apiGet<LessonDetail>(`/lessons/${lessonId}/`);
 
-// ── Lessons (admin/teacher editor — includes content, all publish states) ──────
+// ── Lessons (admin/teacher editor) ───────────────────────────────────────────
 
 export const getCourseAllLessons = (courseId: number) =>
   apiGet<LessonItem[]>(`/courses/${courseId}/lessons/all/`);

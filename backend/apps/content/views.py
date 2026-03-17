@@ -1,3 +1,4 @@
+# apps.content.views
 """
 content/views.py
 
@@ -12,6 +13,7 @@ BUG FIX (2026-03-15):
 """
 import json
 import logging
+import re
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -32,6 +34,22 @@ from .models import Course, Lesson, SectionLesson, LessonProgress, LessonNote
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SLUG HELPER — mirrors frontend utils/slugs.ts
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _subject_matches_slug(subject_name: str, slug: str) -> bool:
+    """
+    Check whether a subject name matches a URL slug.
+
+    Rules (must match frontend toSlug()):
+      lowercase → spaces/underscores → hyphens → strip non-alphanumeric-hyphen
+      → collapse hyphens → strip leading/trailing hyphens
+    """
+    normalised = re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "", re.sub(r"[\s_]+", "-", subject_name.lower()))).strip("-")
+    return normalised == slug.lower().strip()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,7 +141,7 @@ def _get_student_grade(user) -> int | None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# COURSES — LIST
+# COURSES
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
@@ -132,702 +150,598 @@ def courses(request):
     """
     GET /api/v1/courses/
 
-    STUDENT  → courses whose subject is in the student's StudentSubject set,
-               filtered to their grade (derived from section → classroom → name).
-    TEACHER  → courses for subjects they are assigned to teach.
-    PRINCIPAL / OFFICIAL / ADMIN → all courses, optional ?grade= ?subject= filters.
+    Returns courses scoped to the requesting user:
+      STUDENT  → courses in their grade × enrolled subjects
+      TEACHER  → courses for their assigned subjects (all grades)
+      PRINCIPAL/OFFICIAL/ADMIN → all courses in scope
+
+    Each course row includes subject__name, subject__id, and grade
+    so the frontend can build human-readable slugs without extra API calls.
     """
     user = request.user
 
-    if user.is_superuser or user.role == "ADMIN":
-        queryset = Course.objects.all()
+    base_qs = Course.objects.select_related("subject").order_by("grade", "subject__name")
 
-    elif user.role == "OFFICIAL":
-        if not user.district:
-            return JsonResponse({"detail": "No district assigned"}, status=400)
-        queryset = Course.objects.filter(
-            subject__classrooms__classroom__institution__district__name=user.district
-        ).distinct()
+    if user.role == "STUDENT":
+        # Filter to the student's enrolled subjects
+        enrolled_subjects = StudentSubject.objects.filter(student=user).values_list("subject_id", flat=True)
+        qs = base_qs.filter(subject_id__in=enrolled_subjects)
 
-    elif user.role == "PRINCIPAL":
-        if not user.institution:
-            return JsonResponse({"detail": "No institution assigned"}, status=400)
-        queryset = Course.objects.filter(
-            subject__classrooms__classroom__institution=user.institution
-        ).distinct()
-
-    elif user.role == "TEACHER":
-        subject_ids = user.teaching_assignments.values_list("subject_id", flat=True)
-        queryset = Course.objects.filter(subject_id__in=subject_ids)
-
-    elif user.role == "STUDENT":
-        subject_ids = StudentSubject.objects.filter(
-            student=user
-        ).values_list("subject_id", flat=True)
-        queryset = Course.objects.filter(subject_id__in=subject_ids)
-
-        # BUG FIX: Section has no `grade` field — grade is on section.classroom.name
+        # Also filter by grade — student's classroom.name
         grade = _get_student_grade(user)
         if grade is not None:
-            queryset = queryset.filter(grade=grade)
-        else:
-            logger.warning(
-                "Could not determine grade for student id=%s — returning all subject courses",
-                user.id,
-            )
+            qs = qs.filter(grade=grade)
+
+    elif user.role == "TEACHER":
+        assigned_subjects = user.teaching_assignments.values_list("subject_id", flat=True).distinct()
+        qs = base_qs.filter(subject_id__in=assigned_subjects)
 
     else:
-        queryset = Course.objects.none()
+        qs = scope_queryset(user, base_qs)
 
-    # Optional filters for staff roles
-    grade_filter = request.GET.get("grade")
-    subject_filter = request.GET.get("subject")
-    if grade_filter:
-        queryset = queryset.filter(grade=grade_filter)
-    if subject_filter:
-        queryset = queryset.filter(subject__name__icontains=subject_filter)
-
-    data = list(
-        queryset.select_related("subject")
-        .order_by("grade", "title")
-        .values("id", "title", "description", "grade", "is_core", "subject__name", "subject__id")
-    )
+    data = [
+        {
+            "id":           c.id,
+            "title":        c.title,
+            "description":  c.description,
+            "grade":        c.grade,
+            "subject__name": c.subject.name,
+            "subject__id":   c.subject.id,
+            "is_core":      c.is_core,
+        }
+        for c in qs
+    ]
     return JsonResponse(data, safe=False)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# COURSES — CREATE / UPDATE / DELETE (ADMIN only)
-# ─────────────────────────────────────────────────────────────────────────────
+@login_required
+@require_http_methods(["GET"])
+def course_by_slug(request):
+    """
+    GET /api/v1/courses/by-slug/?grade=10&subject=punjabi
 
-@csrf_exempt
-@require_roles(["ADMIN"])
+    Resolves a human-readable URL slug back to a course object.
+    Used by LessonsPage when the URL is /courses/:grade/:subject.
+
+    The subject param is a slug (lowercase, hyphenated).
+    We match it against all Subject names using the same normalisation
+    as the frontend toSlug() function.
+
+    Returns the same shape as a course row in GET /courses/.
+    Returns 404 if no matching course found.
+    Returns 400 if grade or subject params are missing.
+    """
+    grade_str = request.GET.get("grade", "").strip()
+    subject_slug = request.GET.get("subject", "").strip()
+
+    if not grade_str or not subject_slug:
+        return JsonResponse({"error": "grade and subject query params are required"}, status=400)
+
+    try:
+        grade = int(grade_str)
+    except ValueError:
+        return JsonResponse({"error": "grade must be an integer"}, status=400)
+
+    # Fetch all courses for this grade, then match subject by slug
+    candidates = (
+        Course.objects
+        .filter(grade=grade)
+        .select_related("subject")
+    )
+
+    course = None
+    for c in candidates:
+        if _subject_matches_slug(c.subject.name, subject_slug):
+            course = c
+            break
+
+    if course is None:
+        return JsonResponse({"error": "Course not found"}, status=404)
+
+    if not has_access_to_course(user=request.user, course=course):
+        return JsonResponse({"error": "You do not have access to this course"}, status=403)
+
+    return JsonResponse({
+        "id":            course.id,
+        "title":         course.title,
+        "description":   course.description,
+        "grade":         course.grade,
+        "subject__name": course.subject.name,
+        "subject__id":   course.subject.id,
+        "is_core":       course.is_core,
+    })
+
+
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["POST"])
+@csrf_exempt
 def create_course(request):
+    """POST /api/v1/courses/create/"""
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    subject_id  = body.get("subject_id")
-    grade       = body.get("grade")
-    title       = body.get("title", "").strip()
-    description = body.get("description", "").strip()
-    is_core     = body.get("is_core", True)
+    from apps.academics.models import Subject
+    subject_id = body.get("subject_id")
+    grade      = body.get("grade")
+    title      = body.get("title", "").strip()
 
-    if not all([subject_id, grade, title]):
+    if not subject_id or not grade or not title:
         return JsonResponse({"error": "subject_id, grade, and title are required"}, status=400)
 
-    from apps.academics.models import Subject
     subject = get_object_or_404(Subject, id=subject_id)
 
     course = Course.objects.create(
         subject=subject,
-        grade=int(grade),
+        grade=grade,
         title=title,
-        description=description,
-        is_core=bool(is_core),
+        description=body.get("description", ""),
+        is_core=body.get("is_core", True),
     )
 
-    logger.info(
-        "Course created: id=%s title='%s' by user=%s",
-        course.id, course.title, request.user.id,
-    )
+    logger.info("Course created: id=%s title=%s by user=%s", course.id, course.title, request.user.id)
 
-    # Return same shape as CourseItem in frontend — subject__name and subject__id
-    # must be present so setCourses(...prev, created) works without type mismatch
     return JsonResponse({
-        "id": course.id,
-        "title": course.title,
+        "id":          course.id,
+        "title":       course.title,
+        "grade":       course.grade,
+        "subject":     subject.name,
+        "subject_id":  subject.id,
         "description": course.description,
-        "grade": course.grade,
-        "is_core": course.is_core,
-        "subject__name": subject.name,
-        "subject__id": subject.id,
+        "is_core":     course.is_core,
     }, status=201)
 
 
-@csrf_exempt
-@require_roles(["ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["PATCH"])
+@csrf_exempt
 def update_course(request, course_id):
+    """PATCH /api/v1/courses/<id>/"""
+    course = get_scoped_object_or_403(request.user, Course.objects.all(), id=course_id)
+
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    course = get_object_or_404(Course, id=course_id)
-
     if "title" in body:
         course.title = body["title"].strip()
     if "description" in body:
-        course.description = body["description"].strip()
+        course.description = body["description"]
     if "is_core" in body:
-        course.is_core = bool(body["is_core"])
+        course.is_core = body["is_core"]
 
     course.save()
-    return JsonResponse({
-        "id": course.id,
-        "title": course.title,
-        "description": course.description,
-        "is_core": course.is_core,
-    })
+    return JsonResponse({"success": True, "id": course.id, "title": course.title})
 
 
-@csrf_exempt
 @require_roles(["ADMIN"])
 @require_http_methods(["DELETE"])
+@csrf_exempt
 def delete_course(request, course_id):
+    """DELETE /api/v1/courses/<id>/delete/"""
     course = get_object_or_404(Course, id=course_id)
     course.delete()
+    logger.info("Course deleted: id=%s by user=%s", course_id, request.user.id)
     return JsonResponse({"success": True})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LESSONS — LIST FOR COURSE (student view: global + section merged)
+# LESSONS
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["GET"])
 def course_lessons(request, course_id):
     """
-    GET /api/v1/courses/:id/lessons/
+    GET /api/v1/courses/<id>/lessons/
 
-    Returns a merged, ordered list of global lessons + section-specific lessons.
+    Merged list of global curriculum lessons + section lessons for this course.
+    Scoped to the requesting user's section.
 
-    STUDENT:
-      - Published global lessons for this course
-      - Published SectionLessons for their section + this course
-      - Each item annotated with completed=True/False
-
-    TEACHER:
-      - Same as STUDENT but uses teacher's own section assignment
-      - Sees both published + unpublished for authoring
-
-    PRINCIPAL / OFFICIAL / ADMIN:
-      - All global lessons + all section lessons (or ?section_id= filter)
+    Each item has:
+      type: "global" | "section"
+      completed: bool (from LessonProgress — global lessons only)
     """
     course = get_object_or_404(Course, id=course_id)
 
     if not has_access_to_course(request.user, course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    role = request.user.role
+    user = request.user
 
-    # ── Determine section scope ──────────────────────────────────────────────
-    if role == "STUDENT":
-        section = _get_student_section(request.user)
-        global_qs = course.lessons.filter(is_published=True).order_by("order")
-    elif role == "TEACHER":
-        section = _get_teacher_section(request.user)
-        global_qs = course.lessons.order_by("order")  # teachers see unpublished
-    else:
-        section = None
-        global_qs = course.lessons.filter(is_published=True).order_by("order")
+    # ── Global lessons ────────────────────────────────────────────────────────
+    global_lessons = list(
+        Lesson.objects
+        .filter(course=course)
+        .order_by("order")
+        .values("id", "title", "order", "has_video", "has_pdf", "has_content")
+    )
 
-    # ── Section lessons ──────────────────────────────────────────────────────
-    if section:
-        section_qs = SectionLesson.objects.filter(
-            course=course,
-            section=section,
-            is_published=True,
-        ).select_related("created_by").order_by("order")
-    elif role in ("ADMIN", "PRINCIPAL", "OFFICIAL"):
-        section_id_param = request.GET.get("section_id")
-        if section_id_param:
-            section_qs = SectionLesson.objects.filter(
-                course=course,
-                section_id=section_id_param,
-            ).select_related("created_by").order_by("order")
-        else:
-            section_qs = SectionLesson.objects.filter(
-                course=course
-            ).select_related("created_by", "section").order_by("order")
-    else:
-        section_qs = SectionLesson.objects.none()
+    # Fetch completed lesson IDs for this user in one query
+    completed_ids = set(
+        LessonProgress.objects
+        .filter(user=user, lesson_id__in=[l["id"] for l in global_lessons], completed=True)
+        .values_list("lesson_id", flat=True)
+    )
 
-    # ── Progress for student ─────────────────────────────────────────────────
-    completed_ids: set = set()
-    if role == "STUDENT":
-        completed_ids = set(
-            LessonProgress.objects.filter(
-                user=request.user,
-                lesson__course=course,
-                completed=True,
-            ).values_list("lesson_id", flat=True)
-        )
-
-    # ── Build result ─────────────────────────────────────────────────────────
-    result = []
-
-    for lesson in global_qs:
-        result.append({
-            "id": lesson.id,
+    global_rows = [
+        {
+            **lesson,
             "type": "global",
-            "title": lesson.title,
-            "order": lesson.order,
-            "completed": lesson.id in completed_ids,
-            "has_video": bool(lesson.video_url or lesson.hls_manifest_url),
-            "has_pdf": bool(lesson.pdf_url),
-            "has_content": bool(lesson.content.strip()),
-            "is_published": lesson.is_published,
-        })
-
-    for sl in section_qs:
-        entry = {
-            "id": sl.id,
-            "type": "section",
-            "title": sl.title,
-            "order": sl.order,
-            "completed": False,
-            "has_video": bool(sl.video_url or sl.hls_manifest_url),
-            "has_pdf": bool(sl.pdf_url),
-            "has_content": bool(sl.content.strip()),
-            "is_published": sl.is_published,
-            "created_by": sl.created_by.username if sl.created_by else None,
-            "section_label": "Added by teacher",
+            "completed": lesson["id"] in completed_ids,
         }
-        if hasattr(sl, "section") and sl.section:
-            entry["section_name"] = sl.section.name
-        result.append(entry)
+        for lesson in global_lessons
+    ]
 
-    result.sort(key=lambda x: (x["order"], x["id"]))
+    # ── Section lessons ───────────────────────────────────────────────────────
+    section = _get_student_section(user) if user.role == "STUDENT" else _get_teacher_section(user)
 
-    return JsonResponse(result, safe=False)
+    section_rows = []
+    if section:
+        section_lessons = list(
+            SectionLesson.objects
+            .filter(course=course, section=section)
+            .select_related("created_by")
+            .order_by("order")
+        )
+        section_rows = [
+            {
+                "id":          sl.id,
+                "type":        "section",
+                "title":       sl.title,
+                "order":       sl.order,
+                "completed":   False,  # section lessons don't track progress
+                "has_video":   bool(sl.video_url),
+                "has_pdf":     bool(sl.pdf_url),
+                "has_content": bool(sl.content),
+                "section_label": section.name,
+                "created_by":    sl.created_by.username if sl.created_by else None,
+            }
+            for sl in section_lessons
+        ]
 
+    combined = sorted(global_rows + section_rows, key=lambda x: x["order"])
+    return JsonResponse(combined, safe=False)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# LESSONS — ALL FOR COURSE (admin/teacher content view, includes unpublished)
-# ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["GET"])
 def course_lessons_all(request, course_id):
     """
-    GET /api/v1/courses/:id/lessons/all/
-    Admin/teacher/principal view — global lessons only, all publish states.
-    Includes full content field for the lesson editor.
+    GET /api/v1/courses/<id>/lessons/all/
+
+    All global lessons for this course — no section filtering.
+    Used by teacher/admin lesson editors.
     """
     course = get_object_or_404(Course, id=course_id)
+    lessons = list(
+        Lesson.objects
+        .filter(course=course)
+        .order_by("order")
+        .values("id", "title", "order", "has_video", "has_pdf", "has_content", "video_url", "pdf_url")
+    )
+    return JsonResponse(lessons, safe=False)
 
-    # PRINCIPAL added — they need to review and manage lessons in their school
-    if request.user.role not in ["ADMIN", "TEACHER", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    # PRINCIPAL and TEACHER: must have access to this course's subject
-    if request.user.role in ["TEACHER", "PRINCIPAL"]:
-        if not has_access_to_course(request.user, course):
-            return JsonResponse({"detail": "Forbidden"}, status=403)
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["POST"])
+@csrf_exempt
+def create_lesson(request, course_id):
+    """POST /api/v1/courses/<id>/lessons/create/"""
+    course = get_scoped_object_or_403(request.user, Course.objects.all(), id=course_id)
 
-    lessons = course.lessons.order_by("order")
-    data = [
-        {
-            "id": lesson.id,
-            "title": lesson.title,
-            "order": lesson.order,
-            "is_published": lesson.is_published,
-            "content": lesson.content,
-            "has_video": bool(lesson.video_url or lesson.hls_manifest_url),
-            "has_pdf": bool(lesson.pdf_url),
-            "has_text": bool(lesson.content),
-            "video_url": lesson.video_url,
-            "video_thumbnail_url": lesson.video_thumbnail_url,
-            "video_duration": lesson.video_duration,
-            "hls_manifest_url": lesson.hls_manifest_url,
-            "pdf_url": lesson.pdf_url,
-            "thumbnail_url": lesson.thumbnail_url,
-        }
-        for lesson in lessons
-    ]
-    return JsonResponse(data, safe=False)
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    title = body.get("title", "").strip()
+    if not title:
+        return JsonResponse({"error": "title is required"}, status=400)
+
+    last_order = Lesson.objects.filter(course=course).order_by("-order").values_list("order", flat=True).first()
+    order = (last_order or 0) + 1
+
+    lesson = Lesson.objects.create(
+        course=course,
+        title=title,
+        order=body.get("order", order),
+        content=body.get("content", ""),
+        video_url=body.get("video_url", ""),
+        video_type=body.get("video_type", "youtube"),
+        pdf_url=body.get("pdf_url", ""),
+    )
+
+    logger.info("Lesson created: id=%s course=%s by user=%s", lesson.id, course_id, request.user.id)
+
+    return JsonResponse({
+        "id":          lesson.id,
+        "title":       lesson.title,
+        "order":       lesson.order,
+        "has_video":   lesson.has_video,
+        "has_pdf":     lesson.has_pdf,
+        "has_content": lesson.has_content,
+    }, status=201)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LESSON DETAIL (global lesson)
+# SECTION LESSONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(["GET", "POST"])
+@csrf_exempt
+def section_lesson_list_create(request, course_id):
+    """
+    GET  /api/v1/courses/<id>/section-lessons/  — list teacher-added lessons
+    POST /api/v1/courses/<id>/section-lessons/  — create a new one
+    """
+    course = get_object_or_404(Course, id=course_id)
+
+    if request.method == "GET":
+        user    = request.user
+        section = _get_student_section(user) if user.role == "STUDENT" else _get_teacher_section(user)
+        if not section:
+            return JsonResponse([], safe=False)
+
+        lessons = list(
+            SectionLesson.objects
+            .filter(course=course, section=section)
+            .select_related("created_by")
+            .order_by("order")
+        )
+        data = [
+            {
+                "id":          sl.id,
+                "title":       sl.title,
+                "order":       sl.order,
+                "has_video":   bool(sl.video_url),
+                "has_pdf":     bool(sl.pdf_url),
+                "has_content": bool(sl.content),
+                "created_by":  sl.created_by.username if sl.created_by else None,
+            }
+            for sl in lessons
+        ]
+        return JsonResponse(data, safe=False)
+
+    # POST
+    if request.user.role not in ("TEACHER", "PRINCIPAL", "ADMIN"):
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    title = body.get("title", "").strip()
+    if not title:
+        return JsonResponse({"error": "title is required"}, status=400)
+
+    section_id = body.get("section_id")
+    if not section_id:
+        return JsonResponse({"error": "section_id is required"}, status=400)
+
+    from apps.academics.models import Section
+    section = get_object_or_404(Section, id=section_id)
+
+    last_order = SectionLesson.objects.filter(course=course, section=section).order_by("-order").values_list("order", flat=True).first()
+    order = (last_order or 0) + 1
+
+    sl = SectionLesson.objects.create(
+        course=course,
+        section=section,
+        title=title,
+        order=body.get("order", order),
+        content=body.get("content", ""),
+        video_url=body.get("video_url", ""),
+        pdf_url=body.get("pdf_url", ""),
+        created_by=request.user,
+    )
+
+    return JsonResponse({"id": sl.id, "title": sl.title, "order": sl.order}, status=201)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LESSON DETAIL + CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
-    """
-    GET /api/v1/lessons/:id/
-
-    Returns full lesson content + teacher notes visible to this student's section
-    + completion status.
-    """
-    lesson = get_object_or_404(Lesson, id=lesson_id, is_published=True)
+    """GET /api/v1/lessons/<id>/"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
 
     if not has_access_to_course(request.user, lesson.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
+    # Fetch or create progress row — marks opened for resume logic
     progress, _ = LessonProgress.objects.get_or_create(
-        lesson=lesson,
         user=request.user,
+        lesson=lesson,
+        defaults={"completed": False, "last_position": 0},
     )
     progress.mark_opened()
 
-    notes = list(
-        lesson.notes.filter(is_visible_to_students=True)
-        .select_related("author")
-        .values("id", "content", "author__username", "created_at")
-    )
-
     return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "content": lesson.content,
-        "order": lesson.order,
-        "video_url": lesson.video_url,
-        "video_thumbnail_url": lesson.video_thumbnail_url,
-        "video_duration": lesson.video_duration,
-        "hls_manifest_url": lesson.hls_manifest_url,
-        "pdf_url": lesson.pdf_url,
-        "thumbnail_url": lesson.thumbnail_url,
-        "completed": progress.completed,
+        "id":            lesson.id,
+        "title":         lesson.title,
+        "order":         lesson.order,
+        "content":       lesson.content,
+        "video_url":     lesson.video_url,
+        "video_type":    lesson.video_type,
+        "pdf_url":       lesson.pdf_url,
+        "has_video":     lesson.has_video,
+        "has_pdf":       lesson.has_pdf,
+        "has_content":   lesson.has_content,
+        "completed":     progress.completed,
         "last_position": progress.last_position,
-        "notes": notes,
-        "course": {
-            "id": lesson.course.id,
-            "title": lesson.course.title,
-            "grade": lesson.course.grade,
-            "subject": lesson.course.subject.name,
-        },
+        "course_id":     lesson.course_id,
+        "grade":         lesson.course.grade,
+        "subject_name":  lesson.course.subject.name,
     })
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECTION LESSON DETAIL
-# ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["GET"])
 def section_lesson_detail(request, lesson_id):
-    """GET /api/v1/lessons/section/:id/"""
-    lesson = get_object_or_404(SectionLesson, id=lesson_id)
+    """GET /api/v1/lessons/section/<id>/"""
+    sl = get_object_or_404(SectionLesson.objects.select_related("course__subject", "section"), id=lesson_id)
 
-    if request.user.role == "STUDENT":
-        student_section = _get_student_section(request.user)
-        if student_section != lesson.section:
-            return JsonResponse({"detail": "Forbidden"}, status=403)
+    if not has_access_to_course(request.user, sl.course):
+        return JsonResponse({"detail": "Forbidden"}, status=403)
 
     return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "content": lesson.content,
-        "order": lesson.order,
-        "video_url": lesson.video_url,
-        "video_thumbnail_url": lesson.video_thumbnail_url,
-        "video_duration": lesson.video_duration,
-        "hls_manifest_url": lesson.hls_manifest_url,
-        "pdf_url": lesson.pdf_url,
-        "completed": False,
-        "notes": [],
-        "type": "section",
-        "created_by": lesson.created_by.username if lesson.created_by else None,
-        "section": lesson.section.name if lesson.section else None,
-        "course": {
-            "id": lesson.course.id,
-            "title": lesson.course.title,
-            "grade": lesson.course.grade,
-            "subject": lesson.course.subject.name,
-        },
+        "id":           sl.id,
+        "title":        sl.title,
+        "order":        sl.order,
+        "content":      sl.content,
+        "video_url":    sl.video_url,
+        "pdf_url":      sl.pdf_url,
+        "has_video":    bool(sl.video_url),
+        "has_pdf":      bool(sl.pdf_url),
+        "has_content":  bool(sl.content),
+        "section_id":   sl.section_id,
+        "course_id":    sl.course_id,
+        "grade":        sl.course.grade,
+        "subject_name": sl.course.subject.name,
     })
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# LESSON CRUD (ADMIN + TEACHER)
-# ─────────────────────────────────────────────────────────────────────────────
-
-@csrf_exempt
-@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
-@require_http_methods(["POST"])
-def create_lesson(request, course_id):
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    course = get_object_or_404(Course, id=course_id)
-
-    # TEACHER and PRINCIPAL: must have subject access
-    if request.user.role in ["TEACHER", "PRINCIPAL"]:
-        if not has_access_to_course(request.user, course):
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    title = body.get("title", "").strip()
-    if not title:
-        return JsonResponse({"error": "title is required"}, status=400)
-
-    next_order = (
-        course.lessons.order_by("-order").values_list("order", flat=True).first() or 0
-    ) + 1
-
-    lesson = Lesson.objects.create(
-        course=course,
-        title=title,
-        order=body.get("order", next_order),
-        content=body.get("content", ""),
-        video_url=body.get("video_url") or None,
-        video_thumbnail_url=body.get("video_thumbnail_url") or None,
-        video_duration=body.get("video_duration", ""),
-        hls_manifest_url=body.get("hls_manifest_url") or None,
-        pdf_url=body.get("pdf_url") or None,
-        thumbnail_url=body.get("thumbnail_url") or None,
-        is_published=body.get("is_published", False),
-    )
-    logger.info(
-        "Lesson created: id=%s title='%s' course=%s by user=%s role=%s",
-        lesson.id, lesson.title, course.id, request.user.id, request.user.role,
-    )
-
-    return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "order": lesson.order,
-        "is_published": lesson.is_published,
-        "content": lesson.content,
-    }, status=201)
-
-
-@csrf_exempt
-@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["PATCH"])
+@csrf_exempt
 def update_lesson(request, lesson_id):
+    """PATCH /api/v1/lessons/<id>/update/"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-
-    # TEACHER and PRINCIPAL: must have subject access
-    if request.user.role in ["TEACHER", "PRINCIPAL"]:
-        if not has_access_to_course(request.user, lesson.course):
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    url_fields = {"video_url", "hls_manifest_url", "pdf_url", "thumbnail_url", "video_thumbnail_url"}
-    all_fields = [
-        "title", "content", "video_url", "video_thumbnail_url",
-        "video_duration", "hls_manifest_url", "pdf_url",
-        "thumbnail_url", "is_published", "order",
-    ]
-    update_fields = []
-    for field in all_fields:
+    for field in ("title", "content", "video_url", "video_type", "pdf_url"):
         if field in body:
-            value = body[field]
-            if field in url_fields and value == "":
-                value = None
-            setattr(lesson, field, value)
-            update_fields.append(field)
+            setattr(lesson, field, body[field])
+    if "order" in body:
+        lesson.order = int(body["order"])
 
-    if update_fields:
-        lesson.save(update_fields=update_fields)
-        logger.info(
-            "Lesson updated: id=%s fields=%s by user=%s role=%s",
-            lesson.id, update_fields, request.user.id, request.user.role,
-        )
-
-    return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "order": lesson.order,
-        "is_published": lesson.is_published,
-        "content": lesson.content,
-    })
+    lesson.save()
+    logger.info("Lesson updated: id=%s by user=%s", lesson_id, request.user.id)
+    return JsonResponse({"success": True, "id": lesson.id})
 
 
-@csrf_exempt
-@require_roles(["ADMIN"])
-@require_http_methods(["DELETE"])
-def delete_lesson(request, lesson_id):
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    lesson.delete()
-    return JsonResponse({"success": True})
-
-@csrf_exempt
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["PATCH"])
+@csrf_exempt
 def update_section_lesson(request, lesson_id):
-    """PATCH /api/v1/lessons/section/:id/update/"""
+    """PATCH /api/v1/lessons/section/<id>/update/"""
+    sl = get_object_or_404(SectionLesson, id=lesson_id)
+
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    lesson = get_object_or_404(SectionLesson, id=lesson_id)
-
-    # TEACHER: can only edit lessons in their own section
-    if request.user.role == "TEACHER":
-        teacher_section = _get_teacher_section(request.user)
-        if lesson.section != teacher_section:
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    # PRINCIPAL: can only edit lessons in their school
-    if request.user.role == "PRINCIPAL":
-        if not request.user.institution:
-            return JsonResponse({"detail": "No institution assigned"}, status=403)
-        if lesson.section.classroom.institution != request.user.institution:
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    url_fields = {"video_url", "video_thumbnail_url", "pdf_url"}
-    all_fields = [
-        "title", "content", "video_url", "video_thumbnail_url",
-        "pdf_url", "is_published", "order",
-    ]
-    update_fields = []
-    for field in all_fields:
+    for field in ("title", "content", "video_url", "pdf_url"):
         if field in body:
-            value = body[field]
-            if field in url_fields and value == "":
-                value = None
-            setattr(lesson, field, value)
-            update_fields.append(field)
+            setattr(sl, field, body[field])
+    if "order" in body:
+        sl.order = int(body["order"])
 
-    if update_fields:
-        lesson.save(update_fields=update_fields)
-
-    logger.info(
-        "SectionLesson updated: id=%s by user=%s role=%s",
-        lesson.id, request.user.id, request.user.role,
-    )
-
-    return JsonResponse({
-        "id": lesson.id,
-        "title": lesson.title,
-        "order": lesson.order,
-        "is_published": lesson.is_published,
-    })
+    sl.save()
+    return JsonResponse({"success": True, "id": sl.id})
 
 
-@csrf_exempt
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
-@require_http_methods(["DELETE", "POST"])
-def delete_section_lesson(request, lesson_id):
-    """DELETE /api/v1/lessons/section/:id/delete/"""
-    lesson = get_object_or_404(SectionLesson, id=lesson_id)
-
-    # TEACHER: can only delete their own section's lessons
-    if request.user.role == "TEACHER":
-        teacher_section = _get_teacher_section(request.user)
-        if lesson.section != teacher_section:
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    # PRINCIPAL: can only delete lessons in their school
-    if request.user.role == "PRINCIPAL":
-        if not request.user.institution:
-            return JsonResponse({"detail": "No institution assigned"}, status=403)
-        if lesson.section.classroom.institution != request.user.institution:
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
+@require_http_methods(["DELETE"])
+@csrf_exempt
+def delete_lesson(request, lesson_id):
+    """DELETE /api/v1/lessons/<id>/delete/"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
     lesson.delete()
-    logger.info(
-        "SectionLesson deleted: id=%s by user=%s role=%s",
-        lesson_id, request.user.id, request.user.role,
-    )
+    logger.info("Lesson deleted: id=%s by user=%s", lesson_id, request.user.id)
     return JsonResponse({"success": True})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SECTION LESSON CRUD (TEACHER)
-# ─────────────────────────────────────────────────────────────────────────────
-
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
-@require_http_methods(["GET", "POST"])
-def section_lesson_list_create(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-
-    # PRINCIPAL uses institution scope — they can manage any section in their school
-    if request.user.role == "PRINCIPAL":
-        section = None  # PRINCIPAL manages all sections — no single section scope
-    else:
-        section = _get_teacher_section(request.user)
-
-    if not section and request.user.role == "TEACHER":
-        return JsonResponse({"error": "No section assigned to this teacher"}, status=400)
-
-    if request.method == "GET":
-        qs = SectionLesson.objects.filter(course=course)
-        if section:
-            qs = qs.filter(section=section)
-        data = [
-            {
-                "id": sl.id,
-                "title": sl.title,
-                "order": sl.order,
-                "has_video": bool(sl.video_url),
-                "has_pdf": bool(sl.pdf_url),
-                "has_content": bool(sl.content.strip()),
-                "created_by": sl.created_by.username if sl.created_by else None,
-                "is_published": sl.is_published,
-            }
-            for sl in qs.order_by("order")
-        ]
-        return JsonResponse(data, safe=False)
-
-    # POST
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    title = body.get("title", "").strip()
-    if not title:
-        return JsonResponse({"error": "title is required"}, status=400)
-
-    sl = SectionLesson.objects.create(
-        course=course,
-        section=section,
-        created_by=request.user,
-        title=title,
-        content=body.get("content", ""),
-        order=body.get("order", 0),
-        video_url=body.get("video_url") or None,
-        video_thumbnail_url=body.get("video_thumbnail_url") or None,
-        pdf_url=body.get("pdf_url") or None,
-        is_published=body.get("is_published", True),
-    )
-    return JsonResponse({"id": sl.id, "title": sl.title}, status=201)
+@require_http_methods(["DELETE"])
+@csrf_exempt
+def delete_section_lesson(request, lesson_id):
+    """DELETE /api/v1/lessons/section/<id>/delete/"""
+    sl = get_object_or_404(SectionLesson, id=lesson_id)
+    sl.delete()
+    return JsonResponse({"success": True})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LESSON PROGRESS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@csrf_exempt
 @login_required
-@require_http_methods(["PATCH"])
+@require_http_methods(["POST"])
+@csrf_exempt
 def lesson_progress(request, lesson_id):
-    """PATCH /api/v1/lessons/:id/progress/"""
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    """
+    POST /api/v1/lessons/<id>/progress/
 
+    Body: { "completed": true, "last_position": 45 }
+    """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
     if not has_access_to_course(request.user, lesson.course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    progress, _ = LessonProgress.objects.get_or_create(
-        lesson=lesson,
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    progress, created = LessonProgress.objects.get_or_create(
         user=request.user,
+        lesson=lesson,
+        defaults={"completed": False, "last_position": 0},
     )
 
-    update_fields = []
-    if "completed" in body:
-        progress.completed = bool(body["completed"])
-        update_fields.append("completed")
+    if "completed" in body and body["completed"]:
+        progress.completed = True
     if "last_position" in body:
         progress.last_position = int(body["last_position"])
-        update_fields.append("last_position")
 
-    if update_fields:
-        progress.save(update_fields=update_fields)
+    progress.save()
 
     return JsonResponse({
-        "lesson_id": lesson.id,
-        "completed": progress.completed,
+        "completed":     progress.completed,
         "last_position": progress.last_position,
     })
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def add_lesson_note(request, lesson_id):
+    """POST /api/v1/lessons/<id>/notes/"""
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+
+    if not has_access_to_course(request.user, lesson.course):
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    text = body.get("text", "").strip()
+    if not text:
+        return JsonResponse({"error": "text is required"}, status=400)
+
+    note = LessonNote.objects.create(
+        user=request.user,
+        lesson=lesson,
+        text=text,
+    )
+    return JsonResponse({"id": note.id, "text": note.text}, status=201)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -837,309 +751,185 @@ def lesson_progress(request, lesson_id):
 @login_required
 @require_http_methods(["GET"])
 def course_progress(request, course_id):
-    """GET /api/v1/courses/:id/progress/"""
+    """
+    GET /api/v1/courses/<id>/progress/
+
+    Returns derived progress — not stored anywhere.
+    total_lessons: count of global lessons only
+    completed_lessons: how many the user has completed
+    percentage: 0–100 int
+    """
     course = get_object_or_404(Course, id=course_id)
 
     if not has_access_to_course(request.user, course):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    lessons = course.lessons.filter(is_published=True)
-    total = lessons.count()
-    progresses = LessonProgress.objects.filter(lesson__course=course, user=request.user)
-    completed = progresses.filter(completed=True).count()
-    percentage = int((completed / total) * 100) if total else 0
+    total     = Lesson.objects.filter(course=course).count()
+    completed = LessonProgress.objects.filter(
+        user=request.user, lesson__course=course, completed=True
+    ).count()
 
-    resume = (
-        progresses.filter(completed=False)
-        .order_by("-last_opened_at")
-        .first()
-    )
-    if not resume:
-        completed_ids = set(progresses.filter(completed=True).values_list("lesson_id", flat=True))
-        first = lessons.exclude(id__in=completed_ids).order_by("order").first()
-        resume_id = first.id if first else None
-    else:
-        resume_id = resume.lesson_id
+    percentage = round((completed / total) * 100) if total else 0
 
     return JsonResponse({
-        "course_id": course.id,
-        "completed": completed,
-        "total": total,
-        "percentage": percentage,
-        "resume_lesson_id": resume_id,
+        "course_id":          course_id,
+        "total_lessons":      total,
+        "completed_lessons":  completed,
+        "percentage":         percentage,
     })
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LESSON NOTES (TEACHER)
-# ─────────────────────────────────────────────────────────────────────────────
-
-@csrf_exempt
-@require_roles(["TEACHER", "ADMIN"])
-@require_http_methods(["POST"])
-def add_lesson_note(request, lesson_id):
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-
-    if request.user.role == "TEACHER" and not has_access_to_course(request.user, lesson.course):
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    content = body.get("content", "").strip()
-    if not content:
-        return JsonResponse({"error": "content is required"}, status=400)
-
-    note = LessonNote.objects.create(
-        lesson=lesson,
-        author=request.user,
-        content=content,
-        is_visible_to_students=body.get("is_visible_to_students", True),
-    )
-    return JsonResponse({
-        "id": note.id,
-        "content": note.content,
-        "author": request.user.username,
-        "created_at": note.created_at.isoformat(),
-    }, status=201)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TEACHER ANALYTICS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_course_analytics(request):
     """GET /api/v1/teacher/analytics/courses/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    courses_qs = scope_queryset(request.user, Course.objects.all())
-
-    # TEACHER sees only courses for subjects they teach — not all courses at institution
-    if request.user.role == "TEACHER":
-        subject_ids = request.user.teaching_assignments.values_list(
-            "subject_id", flat=True
-        )
-        courses_qs = courses_qs.filter(subject_id__in=subject_ids)
+    courses_qs = scope_queryset(request.user, Course.objects.select_related("subject"))
 
     data = []
-    for course in courses_qs.select_related("subject"):
-        total_lessons = course.lessons.filter(is_published=True).count()
-        completed_lessons = LessonProgress.objects.filter(
-            lesson__course=course, completed=True
-        ).count()
-        percentage = int((completed_lessons / total_lessons) * 100) if total_lessons else 0
+    for course in courses_qs:
+        total     = Lesson.objects.filter(course=course).count()
+        enrolled  = LessonProgress.objects.filter(lesson__course=course).values("user").distinct().count()
+        completed = LessonProgress.objects.filter(lesson__course=course, completed=True).values("user").distinct().count()
         data.append({
-            "course_id": course.id,
-            "title": course.title,
-            "subject": course.subject.name,
-            "grade": course.grade,
-            "total_lessons": total_lessons,
-            "completed_lessons": completed_lessons,
-            "percentage": percentage,
+            "id":          course.id,
+            "title":       course.title,
+            "grade":       course.grade,
+            "subject":     course.subject.name,
+            "total_lessons": total,
+            "enrolled_students": enrolled,
+            "completed_students": completed,
         })
 
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_lesson_analytics(request):
     """GET /api/v1/teacher/analytics/lessons/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
+    course_id = request.GET.get("course_id")
+    if not course_id:
+        return JsonResponse({"error": "course_id is required"}, status=400)
 
-    lessons_qs = scope_queryset(request.user, Lesson.objects.all())
-
-    # TEACHER sees only lessons for subjects they teach
-    if request.user.role == "TEACHER":
-        subject_ids = request.user.teaching_assignments.values_list(
-            "subject_id", flat=True
-        )
-        lessons_qs = lessons_qs.filter(course__subject_id__in=subject_ids)
+    course = get_scoped_object_or_403(request.user, Course.objects.all(), id=course_id)
+    lessons = Lesson.objects.filter(course=course).order_by("order")
 
     data = []
-    for lesson in lessons_qs.select_related("course"):
-        agg = LessonProgress.objects.filter(lesson=lesson).aggregate(
-            total=Count("id"),
-            completed=Count("id", filter=Q(completed=True)),
-            avg_pos=Avg("last_position"),
-        )
+    for lesson in lessons:
+        views     = LessonProgress.objects.filter(lesson=lesson).count()
+        completed = LessonProgress.objects.filter(lesson=lesson, completed=True).count()
         data.append({
-            "lesson_id": lesson.id,
-            "lesson_title": lesson.title,
-            "course_title": lesson.course.title,
-            "completed_count": agg["completed"] or 0,
-            "total_attempts": agg["total"] or 0,
-            "avg_position": int(agg["avg_pos"] or 0),
+            "id":        lesson.id,
+            "title":     lesson.title,
+            "order":     lesson.order,
+            "views":     views,
+            "completed": completed,
         })
 
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
     """GET /api/v1/teacher/analytics/classes/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    classes = scope_queryset(request.user, ClassRoom.objects.all())
-
-    if request.user.role == "TEACHER":
-        classes = ClassRoom.objects.filter(
-            sections__teaching_assignments__teacher=request.user
-        ).distinct().order_by(Cast("name", IntegerField()))
-    elif request.user.role == "PRINCIPAL":
-        if not request.user.institution:
-            return JsonResponse({"detail": "No institution assigned"}, status=400)
-        classes = ClassRoom.objects.filter(
-            institution=request.user.institution
-        ).order_by(Cast("name", IntegerField()))
-    elif request.user.role == "OFFICIAL":
-        if not request.user.district:
-            return JsonResponse({"detail": "No district assigned"}, status=400)
-        classes = ClassRoom.objects.filter(
-            institution__district__name=request.user.district
-        ).order_by(Cast("name", IntegerField()))
-    else:
-        classes = ClassRoom.objects.all().order_by(Cast("name", IntegerField()))
-
-    data = []
-    for classroom in classes.select_related("institution"):
-        student_ids = list(
-            User.objects.filter(
-                role="STUDENT", section__classroom=classroom
-            ).values_list("id", flat=True)
+    user = request.user
+    if user.role == "TEACHER":
+        classroom_ids = (
+            user.teaching_assignments
+            .values_list("section__classroom_id", flat=True)
+            .distinct()
         )
-        total_students = len(student_ids)
+        classrooms = ClassRoom.objects.filter(id__in=classroom_ids).select_related("institution")
+    else:
+        classrooms = scope_queryset(user, ClassRoom.objects.select_related("institution"))
 
-        if student_ids:
-            agg = AssessmentAttempt.objects.filter(
-                user_id__in=student_ids, submitted_at__isnull=False
-            ).aggregate(
-                total=Count("id"),
-                avg=Avg("score"),
-                passes=Count("id", filter=Q(passed=True)),
-            )
-            total_attempts = agg["total"] or 0
-            avg_score = agg["avg"] or 0
-            pass_count = agg["passes"] or 0
-        else:
-            total_attempts = avg_score = pass_count = 0
-
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
-
-        data.append({
-            "class_id": classroom.id,
-            "class_name": classroom.name,
-            "institution": classroom.institution.name,
-            "total_students": total_students,
-            "total_attempts": total_attempts,
-            "average_score": round(avg_score, 2),
-            "pass_rate": round(pass_rate, 2),
-        })
-
+    data = [
+        {
+            "id":          c.id,
+            "name":        c.name,
+            "institution": c.institution.name if c.institution else None,
+        }
+        for c in classrooms
+    ]
     return JsonResponse(data, safe=False)
 
 
-@login_required
-@require_http_methods(["GET"])
-def teacher_assessment_analytics(request):
-    """GET /api/v1/teacher/analytics/assessments/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    if request.user.role == "TEACHER":
-        subject_ids = request.user.teaching_assignments.values_list("subject_id", flat=True)
-        assessments = Assessment.objects.filter(course__subject_id__in=subject_ids)
-    else:
-        assessments = scope_queryset(request.user, Assessment.objects.all())
-
-    data = []
-    for assessment in assessments.select_related("course", "course__subject").order_by("course__grade", "title"):
-        attempts = assessment.attempts.filter(submitted_at__isnull=False)
-        agg = attempts.aggregate(
-            total=Count("id"),
-            avg=Avg("score"),
-            passes=Count("id", filter=Q(passed=True)),
-        )
-        total_attempts = agg["total"] or 0
-        unique_students = attempts.values("user").distinct().count()
-        avg_score = agg["avg"] or 0
-        pass_count = agg["passes"] or 0
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
-
-        data.append({
-            "assessment_id": assessment.id,
-            "title": assessment.title,
-            "course": assessment.course.title,
-            "subject": assessment.course.subject.name if assessment.course.subject else None,
-            "total_attempts": total_attempts,
-            "unique_students": unique_students,
-            "average_score": round(avg_score, 2),
-            "pass_count": pass_count,
-            "fail_count": total_attempts - pass_count,
-            "pass_rate": round(pass_rate, 2),
-        })
-
-    return JsonResponse(data, safe=False)
-
-
-@login_required
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
-    """GET /api/v1/teacher/analytics/classes/:id/students/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
-
-    if request.user.role == "TEACHER":
-        if not request.user.teaching_assignments.filter(section__classroom=classroom).exists():
-            return JsonResponse({"detail": "Forbidden"}, status=403)
-
-    students = User.objects.filter(role="STUDENT", section__classroom=classroom)
+    """GET /api/v1/teacher/analytics/classes/<id>/students/"""
+    classroom = get_object_or_404(ClassRoom, id=class_id)
+    students  = User.objects.filter(role="STUDENT", section__classroom=classroom)
 
     data = []
     for student in students:
-        agg = AssessmentAttempt.objects.filter(
-            user=student, submitted_at__isnull=False
-        ).aggregate(
-            total=Count("id"),
-            avg=Avg("score"),
-            passes=Count("id", filter=Q(passed=True)),
-        )
-        total_attempts = agg["total"] or 0
-        avg_score = agg["avg"] or 0
-        pass_count = agg["passes"] or 0
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
-
+        total     = LessonProgress.objects.filter(user=student).count()
+        completed = LessonProgress.objects.filter(user=student, completed=True).count()
         data.append({
-            "student_id": student.id,
-            "username": student.username,
-            "total_attempts": total_attempts,
-            "average_score": round(avg_score, 2),
-            "pass_rate": round(pass_rate, 2),
+            "id":                student.id,
+            "username":          student.username,
+            "display_name":      student.display_name,
+            "total_lessons":     total,
+            "completed_lessons": completed,
         })
 
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["GET"])
+def teacher_assessment_analytics(request):
+    """GET /api/v1/teacher/analytics/assessments/"""
+    user = request.user
+
+    if user.role == "TEACHER":
+        subject_ids = (
+            user.teaching_assignments
+            .values_list("subject_id", flat=True)
+            .distinct()
+        )
+        assessments = Assessment.objects.filter(
+            course__subject_id__in=subject_ids
+        ).select_related("course__subject")
+    else:
+        courses     = scope_queryset(user, Course.objects.all())
+        course_ids  = list(courses.values_list("id", flat=True))
+        assessments = Assessment.objects.filter(
+            course_id__in=course_ids
+        ).select_related("course__subject")
+
+    data = []
+    for a in assessments:
+        attempts = AssessmentAttempt.objects.filter(assessment=a, submitted_at__isnull=False)
+        data.append({
+            "id":             a.id,
+            "title":          a.title,
+            "grade":          a.course.grade,
+            "subject":        a.course.subject.name,
+            "course_id":      a.course_id,
+            "total_marks":    a.total_marks,
+            "pass_marks":     a.pass_marks,
+            "total_attempts": attempts.count(),
+            "pass_count":     attempts.filter(passed=True).count(),
+            "avg_score":      round(attempts.aggregate(avg=Avg("score"))["avg"] or 0, 1),
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_student_assessments(request, class_id, student_id):
-    """GET /api/v1/teacher/analytics/classes/:class_id/students/:student_id/"""
-    if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
-        return JsonResponse({"detail": "Forbidden"}, status=403)
+    """GET /api/v1/teacher/analytics/classes/<id>/students/<id>/"""
+    classroom = get_object_or_404(ClassRoom, id=class_id)
 
-    classroom = get_scoped_object_or_403(request.user, ClassRoom.objects, id=class_id)
     student_qs = scope_queryset(request.user, User.objects.filter(role="STUDENT"))
-    student = get_object_or_404(student_qs, id=student_id)
+    student    = get_object_or_404(student_qs, id=student_id)
 
     if student.section and student.section.classroom != classroom:
         return JsonResponse({"detail": "Student not in this class"}, status=400)
@@ -1153,17 +943,17 @@ def teacher_student_assessments(request, class_id, student_id):
 
     data = [
         {
-            "assessment_id": a.assessment.id,
+            "assessment_id":    a.assessment.id,
             "assessment_title": a.assessment.title,
-            "score": a.score,
-            "passed": a.passed,
-            "submitted_at": a.submitted_at.isoformat(),
+            "score":            a.score,
+            "passed":           a.passed,
+            "submitted_at":     a.submitted_at.isoformat(),
         }
         for a in attempts
     ]
 
     return JsonResponse({
         "student_id": student.id,
-        "username": student.username,
-        "attempts": data,
+        "username":   student.username,
+        "attempts":   data,
     })

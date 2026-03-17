@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getMySummary, type MySummary } from "../services/gamification";
+import { assessmentHistoryPath } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
@@ -12,6 +13,9 @@ type ResultState = {
   pass_marks:    number;
   assessment_id: number;
   attempt_id:    number;
+  // Passed through from AssessmentTakePage for slug-based navigation
+  grade?:        number | null;
+  subject_slug?: string | null;
 };
 
 export default function AssessmentResultPage() {
@@ -20,18 +24,15 @@ export default function AssessmentResultPage() {
 
   const [summary, setSummary] = useState<MySummary | null>(null);
 
-  // Fetch gamification summary to show points earned
   useEffect(() => {
     if (!state) return;
     let cancelled = false;
-
     async function load() {
       try {
         const data = await getMySummary();
         if (!cancelled) setSummary(data);
-      } catch { /* gamification failure is non-fatal */ }
+      } catch { /* non-fatal */ }
     }
-
     void load();
     return () => { cancelled = true; };
   }, [state]);
@@ -63,10 +64,14 @@ export default function AssessmentResultPage() {
 
   const isPerfect = state.score === state.total_marks && state.total_marks > 0;
 
-  // Estimate points earned this attempt
   let pointsEarned = 5; // attempt bonus always
   if (state.passed)  pointsEarned += 25;
   if (isPerfect)     pointsEarned += 50;
+
+  // Build the history path using slug params if available, else fall back
+  const histPath = (state.grade && state.subject_slug)
+    ? assessmentHistoryPath(state.grade, state.subject_slug, state.assessment_id)
+    : "/assessments/history";
 
   return (
     <div className="page-shell">
@@ -93,13 +98,13 @@ export default function AssessmentResultPage() {
 
           {/* Raw scores */}
           <div style={{
-            display:         "flex",
-            gap:             "var(--space-8)",
-            justifyContent:  "center",
-            marginBottom:    "var(--space-6)",
-            padding:         "var(--space-5)",
-            background:      "var(--bg-elevated)",
-            borderRadius:    "var(--radius-md)",
+            display:        "flex",
+            gap:            "var(--space-8)",
+            justifyContent: "center",
+            marginBottom:   "var(--space-6)",
+            padding:        "var(--space-5)",
+            background:     "var(--bg-elevated)",
+            borderRadius:   "var(--radius-md)",
           }}>
             {[
               { label: "Your Score",  value: state.score },
@@ -124,15 +129,15 @@ export default function AssessmentResultPage() {
 
           {/* Points earned banner */}
           <div style={{
-            display:      "flex",
-            alignItems:   "center",
+            display:        "flex",
+            alignItems:     "center",
             justifyContent: "center",
-            gap:          "var(--space-3)",
-            padding:      "var(--space-4)",
-            background:   "rgba(59,130,246,0.06)",
-            border:       "1px solid rgba(59,130,246,0.15)",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "var(--space-6)",
+            gap:            "var(--space-3)",
+            padding:        "var(--space-4)",
+            background:     "rgba(59,130,246,0.06)",
+            border:         "1px solid rgba(59,130,246,0.15)",
+            borderRadius:   "var(--radius-md)",
+            marginBottom:   "var(--space-6)",
           }}>
             <span style={{ fontSize: 24 }}>⭐</span>
             <div>
@@ -163,7 +168,7 @@ export default function AssessmentResultPage() {
           <div className="result-card__actions">
             <button
               className="btn btn--secondary"
-              onClick={() => navigate(`/assessments/${state.assessment_id}/history`)}
+              onClick={() => navigate(histPath)}
             >
               View History
             </button>

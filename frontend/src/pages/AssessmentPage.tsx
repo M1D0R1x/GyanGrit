@@ -1,3 +1,4 @@
+// pages.AssessmentPage
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -7,12 +8,12 @@ import {
   type AssessmentDetail,
   type AttemptHistoryItem,
 } from "../services/assessments";
+import { assessmentTakePath, assessmentHistoryPath } from "../utils/slugs";
 import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
 const DURATION_MINUTES = 30;
-
 const STAFF_ROLES = ["ADMIN", "TEACHER", "PRINCIPAL", "OFFICIAL"] as const;
 
 function timeAgo(iso: string): string {
@@ -26,10 +27,16 @@ function timeAgo(iso: string): string {
 }
 
 export default function AssessmentPage() {
-  const { assessmentId } = useParams();
-  const navigate         = useNavigate();
-  const { user }         = useAuth();
+  // Route: /assessments/:grade/:subject/:assessmentId
+  const { grade: gradeParam, subject: subjectSlug, assessmentId } = useParams<{
+    grade: string;
+    subject: string;
+    assessmentId: string;
+  }>();
+  const navigate    = useNavigate();
+  const { user }    = useAuth();
 
+  const grade   = gradeParam ? Number(gradeParam) : null;
   const role    = user?.role ?? "STUDENT";
   const isStaff = (STAFF_ROLES as readonly string[]).includes(role);
 
@@ -43,13 +50,11 @@ export default function AssessmentPage() {
     const id = Number(assessmentId);
 
     if (isStaff) {
-      // Staff: use admin endpoint — works on unpublished, no attempt fetch needed
       getAssessmentAdmin(id)
         .then(setAssessment)
         .catch(() => setError("Failed to load assessment."))
         .finally(() => setLoading(false));
     } else {
-      // Student: published-only endpoint + their attempt history
       Promise.all([getAssessment(id), getMyAttempts(id)])
         .then(([a, att]) => {
           setAssessment(a);
@@ -64,6 +69,15 @@ export default function AssessmentPage() {
     ? attempts.reduce((best, a) => a.score > best.score ? a : best, attempts[0])
     : null;
   const hasPassedBefore = attempts.some((a) => a.passed);
+
+  // Build slug-based take URL — fall back to /assessments if params missing
+  const takePath = (grade && subjectSlug && assessmentId)
+    ? assessmentTakePath(grade, subjectSlug, Number(assessmentId))
+    : "/assessments";
+
+  const historyPath = (grade && subjectSlug && assessmentId)
+    ? assessmentHistoryPath(grade, subjectSlug, Number(assessmentId))
+    : "/assessments/history";
 
   if (loading) {
     return (
@@ -228,7 +242,7 @@ export default function AssessmentPage() {
           <button
             className="btn btn--primary btn--lg"
             style={{ width: "100%", justifyContent: "center" }}
-            onClick={() => navigate(`/assessments/${assessmentId}/take`)}
+            onClick={() => navigate(takePath)}
           >
             {attempts.length === 0 ? "Start Assessment" : "Attempt Again"}
           </button>
@@ -265,7 +279,7 @@ export default function AssessmentPage() {
               <button
                 className="btn btn--ghost"
                 style={{ fontSize: "var(--text-xs)" }}
-                onClick={() => navigate(`/assessments/${assessmentId}/history`)}
+                onClick={() => navigate(historyPath)}
               >
                 View all
               </button>
@@ -297,7 +311,6 @@ export default function AssessmentPage() {
         )}
 
       </main>
-      {/* BottomNav only for students — staff use their own dashboards */}
       {!isStaff && <BottomNav />}
     </div>
   );

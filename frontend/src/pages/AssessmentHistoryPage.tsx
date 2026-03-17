@@ -1,6 +1,8 @@
+// pages.AssessmentHistoryPage
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getAllMyAttempts, type AttemptWithContext } from "../services/assessments";
+import { assessmentPath } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 
 function formatDate(iso: string): string {
@@ -35,6 +37,15 @@ function SkeletonRow() {
 
 export default function AssessmentHistoryPage() {
   const navigate = useNavigate();
+
+  // This page is used for two routes:
+  //   1. /assessments/history           — all attempts across all assessments
+  //   2. /assessments/:grade/:subject/:assessmentId/history — specific assessment history
+  // In case 2 the URL params are present; we filter client-side since getAllMyAttempts
+  // returns everything and the list is small enough.
+  const { assessmentId: assessmentIdParam } = useParams<{ assessmentId?: string }>();
+  const assessmentIdFilter = assessmentIdParam ? Number(assessmentIdParam) : null;
+
   const [attempts, setAttempts]           = useState<AttemptWithContext[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
@@ -47,30 +58,48 @@ export default function AssessmentHistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const subjects = ["all", ...Array.from(new Set(attempts.map((a) => a.subject))).sort()];
-  const filtered = subjectFilter === "all" ? attempts : attempts.filter((a) => a.subject === subjectFilter);
+  // If we're on a per-assessment history route, pre-filter
+  const base = assessmentIdFilter
+    ? attempts.filter((a) => a.assessment_id === assessmentIdFilter)
+    : attempts;
+
+  const subjects = ["all", ...Array.from(new Set(base.map((a) => a.subject))).sort()];
+  const filtered = subjectFilter === "all" ? base : base.filter((a) => a.subject === subjectFilter);
 
   const passedCount = filtered.filter((a) => a.passed).length;
   const avgScore    = filtered.length > 0
     ? Math.round(filtered.reduce((s, a) => s + (a.score / a.total_marks) * 100, 0) / filtered.length)
     : 0;
 
+  const pageTitle = assessmentIdFilter
+    ? (base[0]?.assessment_title ?? "Assessment History")
+    : "History";
+
   return (
     <div className="page-shell">
-      <TopBar title="History" />
+      <TopBar title={pageTitle} />
       <main className="page-enter" style={{ flex: 1 }}>
 
         <div className="page-header">
-          <button className="back-btn" onClick={() => navigate("/assessments")}
-            style={{ marginBottom: "var(--space-3)" }}>
+          <button
+            className="back-btn"
+            onClick={() => navigate(assessmentIdFilter ? -1 as never : "/assessments")}
+            style={{ marginBottom: "var(--space-3)" }}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back to Assessments
+            {assessmentIdFilter ? "Back to Assessment" : "Back to Assessments"}
           </button>
-          <h2 className="page-header__title">Attempt History</h2>
-          <p className="page-header__sub">All your submitted attempts across all subjects</p>
+          <h2 className="page-header__title">
+            {assessmentIdFilter ? "Attempt History" : "All Attempt History"}
+          </h2>
+          <p className="page-header__sub">
+            {assessmentIdFilter
+              ? "All your attempts for this assessment"
+              : "All your submitted attempts across all subjects"}
+          </p>
 
           {!loading && filtered.length > 0 && (
             <div className="stats-row">
@@ -90,8 +119,8 @@ export default function AssessmentHistoryPage() {
           )}
         </div>
 
-        {/* Subject filter */}
-        {!loading && subjects.length > 2 && (
+        {/* Subject filter — only show when viewing all (not per-assessment) */}
+        {!loading && !assessmentIdFilter && subjects.length > 2 && (
           <div className="filter-pills">
             {subjects.map((s) => (
               <button
@@ -128,7 +157,7 @@ export default function AssessmentHistoryPage() {
               key={attempt.id}
               className="assessment-row page-enter"
               style={{ animationDelay: `${i * 25}ms` }}
-              onClick={() => navigate(`/assessments/${attempt.assessment_id}`)}
+              onClick={() => navigate(assessmentPath(attempt.grade, attempt.subject, attempt.assessment_id))}
             >
               <ScorePill score={attempt.score} total={attempt.total_marks} passed={attempt.passed} />
 
@@ -142,8 +171,10 @@ export default function AssessmentHistoryPage() {
                 </div>
               </div>
 
-              <span className={`badge${attempt.passed ? " badge--success" : " badge--error"}`}
-                style={{ fontSize: 10, flexShrink: 0 }}>
+              <span
+                className={`badge${attempt.passed ? " badge--success" : " badge--error"}`}
+                style={{ fontSize: 10, flexShrink: 0 }}
+              >
                 {attempt.passed ? "PASS" : "FAIL"}
               </span>
             </button>

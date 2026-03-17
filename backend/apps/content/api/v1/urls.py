@@ -7,7 +7,7 @@ Mounted at: /api/v1/ (root mount in gyangrit/urls.py)
 Conventions:
 - All views live in apps.content.views
 - Section lesson endpoints use /lessons/section/ prefix
-- No trailing slash inconsistency — Django enforces APPEND_SLASH
+- Static routes (by-slug, create) must come BEFORE dynamic <int:id> routes
 """
 
 from django.urls import path
@@ -16,6 +16,10 @@ from apps.content import views
 urlpatterns = [
     # ── Health ────────────────────────────────────────────────────────────────
     path("health/", views.health),
+
+    # ── Course slug resolution (MUST be before <int:course_id>) ──────────────
+    # GET /api/v1/courses/by-slug/?grade=10&subject=punjabi
+    path("courses/by-slug/", views.course_by_slug),
 
     # ── Courses ───────────────────────────────────────────────────────────────
     path("courses/",                        views.courses),

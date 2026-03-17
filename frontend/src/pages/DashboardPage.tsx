@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { getMySummary, type MySummary } from "../services/gamification";
 import { type AssessmentWithStatus } from "../services/assessments";
+import { getCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
@@ -16,7 +17,11 @@ type StudentSubject = {
   total_lessons:     number;
   completed_lessons: number;
   progress:          number;
+  course_id:         number | null;
 };
+
+// Map of courseId → resumeLessonId (null means no progress yet)
+type ResumeMap = Record<number, number | null>;
 
 // ── Skeletons ──────────────────────────────────────────────────────────────
 
@@ -51,12 +56,39 @@ function AssessmentRowSkeleton() {
 
 // ── Subject card ───────────────────────────────────────────────────────────
 
-function SubjectCard({ subject }: { subject: StudentSubject }) {
+function SubjectCard({
+  subject,
+  resumeLessonId,
+}: {
+  subject: StudentSubject;
+  resumeLessonId: number | null | undefined;
+}) {
   const navigate = useNavigate();
   const progressColor =
     subject.progress >= 80 ? "var(--success)" :
     subject.progress >= 40 ? "var(--warning)" :
     "var(--brand-primary)";
+
+  // resumeLessonId === undefined  → progress not yet loaded (or no course)
+  // resumeLessonId === null       → course exists but no progress yet → "Start"
+  // resumeLessonId === number     → navigate directly to that lesson → "Continue"
+  const hasCourse  = subject.course_id != null;
+  const hasResume  = typeof resumeLessonId === "number";
+  const showButton = hasCourse && subject.total_lessons > 0;
+
+  function handleContinue(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (hasResume) {
+      navigate(`/lessons/${resumeLessonId}`);
+    } else {
+      navigate(`/courses?subject_id=${subject.id}`);
+    }
+  }
+
+  const buttonLabel =
+    hasResume         ? "Continue" :
+    subject.progress === 0 ? "Start" :
+    "Resume";
 
   return (
     <div
@@ -75,11 +107,33 @@ function SubjectCard({ subject }: { subject: StudentSubject }) {
       <div className="progress-bar">
         <div className="progress-bar__fill" style={{ width: `${subject.progress}%`, background: progressColor }} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-1)" }}>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Progress</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
         <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: progressColor, fontFamily: "var(--font-display)" }}>
           {subject.progress}%
         </span>
+        {showButton && (
+          <button
+            className="btn btn--primary"
+            style={{
+              padding:    "var(--space-1) var(--space-3)",
+              fontSize:   "var(--text-xs)",
+              fontWeight: 700,
+              gap:        "var(--space-1)",
+              lineHeight: 1.4,
+            }}
+            onClick={handleContinue}
+            aria-label={`${buttonLabel} ${subject.name}`}
+          >
+            {buttonLabel}
+            <svg
+              width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -91,7 +145,6 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
   const navigate    = useNavigate();
   const isAttempted = (a.attempt_count ?? 0) > 0;
 
-  // Score ring
   const pct    = (a.best_score != null && a.total_marks > 0) ? a.best_score / a.total_marks : 0;
   const size   = 40;
   const r      = (size - 6) / 2;
@@ -120,7 +173,6 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
       onClick={() => navigate(assessmentPath(a.grade, a.subject, a.id))}
     >
-      {/* Score ring or placeholder icon */}
       {isAttempted && a.best_score !== null ? (
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg-elevated)" strokeWidth={5} />
@@ -136,16 +188,12 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
         </svg>
       ) : (
         <div style={{
-          width:          size,
-          height:         size,
-          borderRadius:   "var(--radius-md)",
-          background:     "var(--bg-elevated)",
-          border:         "1px solid var(--border-subtle)",
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "center",
-          flexShrink:     0,
-          color:          "var(--text-muted)",
+          width: size, height: size,
+          borderRadius: "var(--radius-md)",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-subtle)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, color: "var(--text-muted)",
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -155,15 +203,10 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
         </div>
       )}
 
-      {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize:     "var(--text-sm)",
-          fontWeight:   600,
-          color:        "var(--text-primary)",
-          overflow:     "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace:   "nowrap",
+          fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {a.title}
         </div>
@@ -177,7 +220,6 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
         </div>
       </div>
 
-      {/* Status badge */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         {a.passed ? (
           <span className="badge badge--success" style={{ fontSize: 10 }}>Passed</span>
@@ -190,7 +232,6 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
         )}
       </div>
 
-      {/* Chevron */}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
         stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         style={{ flexShrink: 0 }}>
@@ -208,11 +249,13 @@ export default function DashboardPage() {
   const [subjects,      setSubjects]      = useState<StudentSubject[]>([]);
   const [assessments,   setAssessments]   = useState<AssessmentWithStatus[]>([]);
   const [gamification,  setGamification]  = useState<MySummary | null>(null);
+  const [resumeMap,     setResumeMap]     = useState<ResumeMap>({});
   const [loadingSubj,   setLoadingSubj]   = useState(true);
   const [loadingAssess, setLoadingAssess] = useState(true);
   const [assessError,   setAssessError]   = useState(false);
   const [error,         setError]         = useState<string | null>(null);
 
+  // ── Phase 1: subjects, assessments, gamification ──────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -248,7 +291,40 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Pending (not yet passed) first, then passed — show up to 4
+  // ── Phase 2: fetch resume_lesson_id for each subject that has a course ──
+  // Fires after subjects load. N parallel requests, one per subject with a course_id.
+  // Cheap: each call is a single DB lookup (LessonProgress aggregate).
+  useEffect(() => {
+    if (subjects.length === 0) return;
+
+    const coursedSubjects = subjects.filter((s) => s.course_id != null);
+    if (coursedSubjects.length === 0) return;
+
+    let cancelled = false;
+
+    async function loadResume() {
+      const results = await Promise.allSettled(
+        coursedSubjects.map((s) => getCourseProgress(s.course_id!))
+      );
+
+      if (cancelled) return;
+
+      const map: ResumeMap = {};
+      results.forEach((result, idx) => {
+        const courseId = coursedSubjects[idx].course_id!;
+        if (result.status === "fulfilled") {
+          map[courseId] = result.value.resume_lesson_id;
+        }
+        // On failure: courseId absent from map → SubjectCard shows no button
+      });
+
+      setResumeMap(map);
+    }
+
+    void loadResume();
+    return () => { cancelled = true; };
+  }, [subjects]);
+
   const prioritisedAssessments = [
     ...assessments.filter((a) => !a.passed),
     ...assessments.filter((a) => a.passed),
@@ -264,18 +340,12 @@ export default function DashboardPage() {
         {/* ── Gamification strip ──────────────────────────────────────── */}
         {gamification && (
           <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-6)", flexWrap: "wrap" }}>
-
-            {/* Points */}
             <div
               className="card card--clickable"
               style={{
-                flex:        "1 1 140px",
-                display:     "flex",
-                alignItems:  "center",
-                gap:         "var(--space-3)",
-                padding:     "var(--space-4)",
-                borderColor: "rgba(59,130,246,0.2)",
-                background:  "rgba(59,130,246,0.04)",
+                flex: "1 1 140px", display: "flex", alignItems: "center",
+                gap: "var(--space-3)", padding: "var(--space-4)",
+                borderColor: "rgba(59,130,246,0.2)", background: "rgba(59,130,246,0.04)",
               }}
               onClick={() => navigate("/leaderboard")}
               role="button" tabIndex={0}
@@ -292,15 +362,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Streak */}
             <div style={{
-              flex:         "1 1 140px",
-              display:      "flex",
-              alignItems:   "center",
-              gap:          "var(--space-3)",
-              padding:      "var(--space-4)",
-              background:   gamification.current_streak >= 3 ? "rgba(245,158,11,0.06)" : "var(--bg-elevated)",
-              border:       `1px solid ${gamification.current_streak >= 3 ? "rgba(245,158,11,0.2)" : "var(--border-subtle)"}`,
+              flex: "1 1 140px", display: "flex", alignItems: "center",
+              gap: "var(--space-3)", padding: "var(--space-4)",
+              background: gamification.current_streak >= 3 ? "rgba(245,158,11,0.06)" : "var(--bg-elevated)",
+              border: `1px solid ${gamification.current_streak >= 3 ? "rgba(245,158,11,0.2)" : "var(--border-subtle)"}`,
               borderRadius: "var(--radius-lg)",
             }}>
               <div style={{ fontSize: 28 }}>
@@ -314,7 +380,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Badges */}
             {gamification.badge_count > 0 && (
               <div
                 className="card card--clickable"
@@ -353,35 +418,24 @@ export default function DashboardPage() {
           </svg>
         </button>
 
-        {/* ── Assessments section — shown BEFORE subjects so it's above the fold ── */}
+        {/* ── Assessments section ─────────────────────────────────────── */}
         <div className="section-header">
           <div>
             <h2 className="section-header__title">
               Assessments
               {pendingCount > 0 && !loadingAssess && (
                 <span style={{
-                  marginLeft:   "var(--space-2)",
-                  fontSize:     "var(--text-xs)",
-                  fontWeight:   700,
-                  padding:      "2px 8px",
-                  borderRadius: "var(--radius-full)",
-                  background:   "rgba(239,68,68,0.12)",
-                  color:        "var(--error)",
-                  verticalAlign: "middle",
+                  marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700,
+                  padding: "2px 8px", borderRadius: "var(--radius-full)",
+                  background: "rgba(239,68,68,0.12)", color: "var(--error)", verticalAlign: "middle",
                 }}>
                   {pendingCount} pending
                 </span>
               )}
             </h2>
-            <p className="section-header__subtitle">
-              Your tests — attempt them to earn points
-            </p>
+            <p className="section-header__subtitle">Your tests — attempt them to earn points</p>
           </div>
-          <button
-            className="btn btn--ghost"
-            style={{ fontSize: "var(--text-sm)" }}
-            onClick={() => navigate("/assessments")}
-          >
+          <button className="btn btn--ghost" style={{ fontSize: "var(--text-sm)" }} onClick={() => navigate("/assessments")}>
             View all →
           </button>
         </div>
@@ -389,11 +443,7 @@ export default function DashboardPage() {
         {assessError ? (
           <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>
             Failed to load assessments.
-            <button
-              className="btn btn--ghost"
-              style={{ marginLeft: "var(--space-3)", fontSize: "var(--text-xs)" }}
-              onClick={() => window.location.reload()}
-            >
+            <button className="btn btn--ghost" style={{ marginLeft: "var(--space-3)", fontSize: "var(--text-xs)" }} onClick={() => window.location.reload()}>
               Retry
             </button>
           </div>
@@ -404,25 +454,17 @@ export default function DashboardPage() {
         ) : prioritisedAssessments.length === 0 ? (
           <div style={{ marginBottom: "var(--space-8)" }}>
             <div style={{
-              padding:      "var(--space-6) var(--space-5)",
-              background:   "var(--bg-elevated)",
-              border:       "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-lg)",
-              textAlign:    "center",
+              padding: "var(--space-6) var(--space-5)", background: "var(--bg-elevated)",
+              border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", textAlign: "center",
             }}>
               <div style={{ fontSize: 36, marginBottom: "var(--space-3)" }}>📋</div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", marginBottom: "var(--space-2)" }}>
                 No assessments yet
               </div>
               <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-5)", lineHeight: 1.6 }}>
-                Tests will appear here once your teacher publishes them.
-                Complete your lessons first to prepare!
+                Tests will appear here once your teacher publishes them. Complete your lessons first!
               </p>
-              <button
-                className="btn btn--primary"
-                onClick={() => navigate("/assessments")}
-                style={{ justifyContent: "center" }}
-              >
+              <button className="btn btn--primary" onClick={() => navigate("/assessments")} style={{ justifyContent: "center" }}>
                 Browse all assessments
               </button>
             </div>
@@ -435,11 +477,7 @@ export default function DashboardPage() {
               ))}
             </div>
             {assessments.length > 4 && (
-              <button
-                className="history-shortcut"
-                style={{ marginBottom: "var(--space-8)" }}
-                onClick={() => navigate("/assessments")}
-              >
+              <button className="history-shortcut" style={{ marginBottom: "var(--space-8)" }} onClick={() => navigate("/assessments")}>
                 <span>View all {assessments.length} assessments</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -468,15 +506,20 @@ export default function DashboardPage() {
           <div className="empty-state">
             <div className="empty-state__icon">📚</div>
             <h3 className="empty-state__title">No subjects yet</h3>
-            <p className="empty-state__message">
-              Your subjects will appear here once your teacher assigns them.
-            </p>
+            <p className="empty-state__message">Your subjects will appear here once your teacher assigns them.</p>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
             {subjects.map((subject, i) => (
               <div key={subject.id} className="page-enter" style={{ animationDelay: `${i * 60}ms` }}>
-                <SubjectCard subject={subject} />
+                <SubjectCard
+                  subject={subject}
+                  resumeLessonId={
+                    subject.course_id != null
+                      ? resumeMap[subject.course_id]
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>

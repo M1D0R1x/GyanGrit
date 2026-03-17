@@ -112,7 +112,6 @@ def sections(request):
             )
 
     # Sort: institution name A-Z, then grade numerically, then section name A-Z
-    # Grade is stored as string ("6", "7"...) so we cast for ordering
     queryset = queryset.order_by(
         "classroom__institution__name",
         "classroom__name",
@@ -127,7 +126,6 @@ def sections(request):
             "grade": s.classroom.name,
             "institution_id": s.classroom.institution_id,
             "institution_name": s.classroom.institution.name,
-            # Full label: "Class 8-A" or with school name when needed
             "label": f"Class {s.classroom.name}-{s.name} — {s.classroom.institution.name}",
             "short_label": f"Class {s.classroom.name}-{s.name}",
         }
@@ -155,7 +153,6 @@ def subjects(request):
         return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
     elif request.user.role == "PRINCIPAL":
-        # Principal sees subjects taught in their institution only
         if not request.user.institution:
             return JsonResponse({"detail": "No institution assigned"}, status=400)
         queryset = Subject.objects.filter(
@@ -164,7 +161,6 @@ def subjects(request):
         return JsonResponse(list(queryset.values("id", "name")), safe=False)
 
     elif request.user.role == "OFFICIAL":
-        # Official sees subjects across their district
         if not request.user.district:
             return JsonResponse({"detail": "No district assigned"}, status=400)
         queryset = Subject.objects.filter(
@@ -184,6 +180,10 @@ def _subjects_for_student(request):
     Optimised subject+progress query for a student.
     Avoids N+1 by computing progress in a single annotated queryset
     per subject, then assembling the response.
+
+    Response includes `course_id` (primary course for this subject+grade) so
+    the frontend can call GET /courses/:id/progress/ to fetch resume_lesson_id
+    without needing a separate subject→course resolution endpoint.
     """
     student = request.user
 
@@ -221,6 +221,7 @@ def _subjects_for_student(request):
                 "total_lessons": 0,
                 "completed_lessons": 0,
                 "progress": 0,
+                "course_id": None,
             })
             continue
 
@@ -238,6 +239,7 @@ def _subjects_for_student(request):
                 "total_lessons": 0,
                 "completed_lessons": 0,
                 "progress": 0,
+                "course_id": None,
             })
             continue
 
@@ -264,6 +266,10 @@ def _subjects_for_student(request):
             "total_lessons": total_lessons,
             "completed_lessons": completed_lessons,
             "progress": progress,
+            # Primary course for this subject+grade.
+            # Used by DashboardPage to fetch resume_lesson_id via
+            # GET /courses/:id/progress/ without a round-trip to resolve the slug.
+            "course_id": course_ids[0],
         })
 
     return JsonResponse(data, safe=False)

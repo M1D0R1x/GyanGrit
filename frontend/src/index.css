@@ -2397,3 +2397,87 @@ a:hover {
   }
 }
 
+/* ── Notification body — Markdown rendered output ──────────────────────────
+   Append this block to the END of src/index.css
+   These styles scope all Markdown output safely to .notification-body
+   ─────────────────────────────────────────────────────────────────────── */
+
+.notification-body {
+  font-size:   var(--text-sm);
+  line-height: 1.75;
+  color:       var(--text-secondary);
+}
+
+.notification-body p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.notification-body p:last-child {
+  margin-bottom: 0;
+}
+
+.notification-body strong,
+.notification-body b {
+  font-weight: 700;
+  color:       var(--text-primary);
+}
+
+.notification-body em,
+.notification-body i {
+  font-style: italic;
+}
+
+.notification-body ul,
+.notification-body ol {
+  margin:       0 0 var(--space-3) var(--space-5);
+  padding:      0;
+}
+
+.notification-body li {
+  margin-bottom: var(--space-1);
+}
+
+.notification-body blockquote {
+  margin:      0 0 var(--space-3) 0;
+  padding:     var(--space-2) var(--space-4);
+  border-left: 3px solid var(--border-strong);
+  color:       var(--text-muted);
+  font-style:  italic;
+}
+
+.notification-body code {
+  font-family:      monospace;
+  font-size:        0.9em;
+  background:       var(--bg-elevated);
+  border:           1px solid var(--border-subtle);
+  border-radius:    var(--radius-sm);
+  padding:          1px 5px;
+}
+
+.notification-body pre {
+  background:    var(--bg-elevated);
+  border:        1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding:       var(--space-4);
+  overflow-x:    auto;
+  margin-bottom: var(--space-3);
+}
+
+.notification-body pre code {
+  background:   none;
+  border:       none;
+  padding:      0;
+  font-size:    var(--text-xs);
+}
+
+/* Safe link styles — only https:// and / links survive DOMPurify */
+.notification-body a {
+  color:           var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition:      opacity 0.1s;
+}
+
+.notification-body a:hover {
+  opacity: 0.75;
+}

@@ -1,12 +1,13 @@
 // components.NotificationPanel
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   fetchNotifications,
   markRead,
   markAllRead,
   type AppNotification,
 } from "../services/notifications";
+import NotificationDetailModal from "./NotificationDetailModal";
 
 const TYPE_COLORS: Record<string, string> = {
   info:         "#3b82f6",
@@ -122,11 +123,12 @@ type Props = {
 };
 
 export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props) {
-  const navigate  = useNavigate();
   const panelRef  = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading]             = useState(true);
   const [markingAll, setMarkingAll]       = useState(false);
+  // null = no modal open; AppNotification = show detail modal for that item
+  const [detailNotif, setDetailNotif]     = useState<AppNotification | null>(null);
 
   const load = useCallback(() => {
     fetchNotifications()
@@ -141,8 +143,9 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
 
   useEffect(() => { load(); }, [load]);
 
-  // Close on outside click
+  // Close panel on outside click — suppressed while detail modal is open
   useEffect(() => {
+    if (detailNotif) return; // modal handles its own dismiss
     const handler = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose();
@@ -150,28 +153,29 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
+  }, [onClose, detailNotif]);
 
-  // Close on Escape
+  // Close panel on Escape — suppressed while detail modal is open
   useEffect(() => {
+    if (detailNotif) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [onClose, detailNotif]);
 
-  const handleMarkRead = async (n: AppNotification) => {
-    if (n.is_read) return;
-    await markRead(n.id).catch(() => {});
-    setNotifications((prev) =>
-      prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
-    );
-    onUnreadChange(
-      Math.max(0, notifications.filter((x) => !x.is_read).length - 1)
-    );
-    if (n.link) {
-      onClose();
-      navigate(n.link);
+  // Clicking a row: mark read optimistically then open the detail modal.
+  // Never auto-navigate — the modal has an explicit "Open link" button.
+  const handleItemClick = async (n: AppNotification) => {
+    if (!n.is_read) {
+      markRead(n.id).catch(() => {});
+      setNotifications((prev) =>
+        prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
+      );
+      onUnreadChange(
+        Math.max(0, notifications.filter((x) => !x.is_read).length - 1)
+      );
     }
+    setDetailNotif(n);
   };
 
   const handleMarkAllRead = async () => {
@@ -185,6 +189,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
+    <>
     <div
       ref={panelRef}
       role="dialog"
@@ -257,7 +262,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
           notifications.map((n) => (
             <button
               key={n.id}
-              onClick={() => handleMarkRead(n)}
+              onClick={() => handleItemClick(n)}
               style={{
                 display: "flex",
                 gap: 12,
@@ -266,13 +271,12 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                 background: n.is_read ? "transparent" : "var(--bg-overlay)",
                 border: "none",
                 borderBottom: "1px solid var(--border-subtle)",
-                cursor: n.link ? "pointer" : "default",
+                cursor: "pointer",
                 textAlign: "left",
                 transition: "background 0.1s",
               }}
               onMouseEnter={(e) => {
-                if (!n.is_read || n.link)
-                  (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background =
@@ -375,5 +379,20 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
         </div>
       )}
     </div>
+
+    {/*
+      Portal: renders the modal directly into document.body.
+      This breaks it out of the TopBar stacking context entirely —
+      no matter what z-index the TopBar or panel have, the modal
+      always sits on top of everything.
+    */}
+    {detailNotif && createPortal(
+      <NotificationDetailModal
+        notification={detailNotif}
+        onClose={() => setDetailNotif(null)}
+      />,
+      document.body
+    )}
+  </>
   );
 }

@@ -52,6 +52,9 @@ const AdminAssessmentBuilderPage = lazy(() => import("../pages/AdminAssessmentBu
 const AdminJoinCodesPage         = lazy(() => import("../pages/AdminJoinCodesPage"));
 const UserManagementPage         = lazy(() => import("../pages/UserManagementPage"));
 
+// ── Shared (all authenticated roles) ─────────────────────────────────────
+const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
+
 function PageLoader() {
   return (
     <div className="auth-loading">
@@ -85,6 +88,9 @@ export const router = createBrowserRouter([
   { path: "/register",         element: <RegisterPage /> },
   { path: "/verify-otp",       element: <VerifyOtpPage /> },
   { path: "/complete-profile", element: <CompleteProfilePage /> },
+
+  // ── Shared — all authenticated roles ──────────────────────────────────────
+  { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },
 
   // ── Student ───────────────────────────────────────────────────────────────
   { path: "/dashboard",         element: <Protected role="STUDENT"><DashboardPage /></Protected> },

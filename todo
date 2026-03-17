@@ -15,3 +15,14 @@ we should allocate the instance of it i mean so that teachers, principals
 can edit the lessons and assessments accordingly
 rather than one change and whole main lessones only changes for every school this should not happen
 
+Backend:
+  1. apps/media/r2.py              ← extend with presign_upload() function
+  2. apps/media/views.py           ← add presign endpoint
+  3. apps/media/api/v1/urls.py     ← add route
+  4. apps/notifications/models.py  ← add link URLValidator, attachment_name sanitizer
+
+Frontend:
+  5. services/media.ts             ← add presignUpload(), upload via XHR with progress
+  6. components/NotificationDetailModal.tsx  ← safe Markdown, attachment, link handling
+  7. components/NotificationPanel.tsx        ← click opens modal instead of navigating
+  8. pages/NotificationsPage.tsx             ← accordion expand + file uploader widget

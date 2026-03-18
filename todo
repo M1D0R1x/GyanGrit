@@ -1,1 +1,72 @@
-TODO
+GyanGrit TODO — updated 2026-03-18
+
+========================================
+DONE THIS SESSION
+========================================
+
+[x] NavMenu component — frontend/src/components/NavMenu.tsx
+    Role-aware dropdown showing all routes for current role.
+    Temporary supervisor demo. Has ⚠️ warning in UI.
+
+[x] TopBar updated — NavMenu wired in.
+    frontend/src/components/TopBar.tsx
+
+[x] DATA_MODEL.md — updated
+    - Gradebook app section (GradeEntry model, endpoints table)
+    - Notifications split into Notification + Broadcast
+    - Section.short_label documented
+    - StudentSubject.course_id documented
+    - LessonProgress.resume_lesson_id documented
+    - Constraints table updated
+
+[x] API_AND_FRONTEND_END_POINTS.md — updated
+    - Section 7b: Notifications (6 endpoints)
+    - Section 8b: Gradebook (6 endpoints)
+    - Section 9 routes: GradebookPage added, dashboard notes
+    - Section 10 services: gradebook.ts added, others corrected
+    - Section 11: NavMenu demo note
+
+[x] SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md — updated
+    - 11 apps, 31 pages
+    - Sections 3.7 (Notifications) and 3.8 (Gradebook) added
+    - LessonPage media handling table
+    - NavMenu note with TODOs
+    - Migration state table
+
+
+========================================
+PENDING — NEXT SESSION
+========================================
+
+[ ] VERIFY: NavMenu works in browser for all 5 roles
+    Login as STUDENT, TEACHER, PRINCIPAL, OFFICIAL, ADMIN
+    Click every route in the dropdown to confirm navigation
+
+[ ] VERIFY E2E: Notification send form
+    Teacher: send broadcast to a class
+    Student in that class: check inbox → notification should appear
+
+[ ] VERIFY E2E: Gradebook
+    Teacher opens /teacher/classes/:id/gradebook
+    Add a mark (18/25 → should show 72%)
+    Edit mark
+    Delete mark
+    Verify expandable row updates correctly
+
+[ ] BUG CHECK: RosterPage section dropdown
+    Check frontend/src/pages/ for RosterPage or similar
+    If sections are displayed, verify using short_label not name
+    Same bug as UserManagementPage — already fixed there
+
+[ ] POST-CAPSTONE: NavMenu redesign
+    Replace with sidebar drawer for staff roles
+    Remove from student view (BottomNav is sufficient)
+    Delete ⚠️ warning banner
+
+[ ] POST-CAPSTONE: Deployment
+    Use separate GyanGrit — Deployment chat
+
+[ ] POST-CAPSTONE: PWA / offline sync
+[ ] POST-CAPSTONE: AI chatbot
+[ ] POST-CAPSTONE: Competition rooms
+[ ] POST-CAPSTONE: Chat rooms

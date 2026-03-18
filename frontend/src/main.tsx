@@ -3,6 +3,7 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
 import "./index.css";
+import "./nav-menu-animation.css";
 
 createRoot(document.getElementById("root")!).render(
   <AuthProvider>

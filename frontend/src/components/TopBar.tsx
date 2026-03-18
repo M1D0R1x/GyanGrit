@@ -1,10 +1,13 @@
+// components.TopBar
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import LogoutButton from "./LogoutButton";
 import Logo from "./Logo";
+import NavMenu from "./NavMenu";
 import { NotificationBell, NotificationPanel } from "./NotificationPanel";
 import { fetchNotifications } from "../services/notifications";
+import type { Role } from "../auth/authTypes";
 
 type Props = {
   title?: string;
@@ -207,7 +210,7 @@ export default function TopBar({ title }: Props) {
       }}
       role="banner"
     >
-      {/* Left: logo + page title */}
+      {/* ── Left: logo + page title ─────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={handleLogoClick}
@@ -221,6 +224,7 @@ export default function TopBar({ title }: Props) {
             alignItems:   "center",
             borderRadius: "var(--radius-sm)",
             transition:   "opacity 0.15s",
+            flexShrink:   0,
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.75"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
@@ -238,8 +242,20 @@ export default function TopBar({ title }: Props) {
         )}
       </div>
 
-      {/* Right: notification bell + user pill */}
+      {/* ── Right: nav menu + notification bell + user pill ─────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+        {/*
+          ⚠️ NAV MENU — TEMPORARY SUPERVISOR DEMO
+          Shows all role-specific routes in a dropdown.
+          TODO: remove / redesign post-capstone.
+        */}
+        {auth.authenticated && auth.user && (
+          <NavMenu
+            role={auth.user.role as Role}
+            username={auth.user.username}
+          />
+        )}
 
         {/* Notification bell */}
         {auth.authenticated && (
@@ -256,7 +272,7 @@ export default function TopBar({ title }: Props) {
               <NotificationPanel
                 onClose={() => setNotifOpen(false)}
                 onUnreadChange={setUnreadCount}
-                onViewAll={handleViewAll}   // ← FIX: was missing, footer button never worked
+                onViewAll={handleViewAll}
               />
             )}
           </div>
@@ -282,17 +298,17 @@ export default function TopBar({ title }: Props) {
               aria-expanded={userMenuOpen}
               aria-label="Open user menu"
               style={{
-                display:     "flex",
-                alignItems:  "center",
-                gap:         8,
-                padding:     "4px 12px 4px 6px",
-                background:  userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
-                border:      "1px solid",
-                borderColor: userMenuOpen ? "var(--brand-primary)" : "var(--border-subtle)",
+                display:      "flex",
+                alignItems:   "center",
+                gap:          8,
+                padding:      "4px 12px 4px 6px",
+                background:   userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
+                border:       "1px solid",
+                borderColor:  userMenuOpen ? "var(--brand-primary)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-full)",
-                cursor:      "pointer",
-                transition:  "all 0.15s",
-                fontFamily:  "inherit",
+                cursor:       "pointer",
+                transition:   "all 0.15s",
+                fontFamily:   "inherit",
               }}
             >
               <div style={{
@@ -324,14 +340,14 @@ export default function TopBar({ title }: Props) {
               </span>
 
               <span style={{
-                fontSize:       10,
-                fontWeight:     700,
-                padding:        "2px 6px",
-                borderRadius:   "var(--radius-full)",
-                background:     (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
-                color:          ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-                letterSpacing:  "0.04em",
-                textTransform:  "uppercase",
+                fontSize:      10,
+                fontWeight:    700,
+                padding:       "2px 6px",
+                borderRadius:  "var(--radius-full)",
+                background:    (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
+                color:         ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
               }}>
                 {auth.user.role}
               </span>

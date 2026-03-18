@@ -1,5 +1,7 @@
 # GyanGrit — System Architecture & Design Documentation
 
+> **Updated: 2026-03-18** — 11 backend apps, 31 frontend pages, all operational.
+
 ---
 
 ## 1. Introduction
@@ -21,9 +23,11 @@ Browser (React + Vite)
         ↓  HTTPS + Session Cookie + CSRF Token
 REST API (/api/v1/)
         ↓
-Django Backend (10 modular apps)
+Django Backend (11 modular apps)
         ↓
 PostgreSQL (Supabase — all environments)
+        ↓
+Cloudflare R2 (media storage — video, PDF, attachments)
 ```
 
 The frontend and backend are deployed independently. The frontend is a SPA that communicates exclusively through the versioned REST API. Django templates are used only for the admin panel.
@@ -34,20 +38,21 @@ The frontend and backend are deployed independently. The frontend is a SPA that 
 
 ### 3.1 App Structure
 
-The backend is divided into 10 independent Django apps under `backend/apps/`:
+The backend is divided into **11 independent Django apps** under `backend/apps/`:
 
 | App | Responsibility |
 |---|---|
-| `accounts` | Users, authentication, OTP, join codes, device sessions |
+| `accounts` | Users, authentication, OTP, join codes, device sessions, profile |
 | `academics` | Districts, institutions, classrooms, sections, subjects, teaching assignments |
-| `accesscontrol` | Role-based permission decorators and queryset scoping |
+| `accesscontrol` | Role-based permission decorators and queryset scoping (no models, no endpoints) |
 | `content` | Courses, lessons, section lessons, lesson progress, teacher analytics |
 | `learning` | Enrollments, learning paths, student dashboard |
 | `assessments` | Assessments, questions, options, attempts, scoring, assessment builder |
 | `roster` | Bulk student pre-registration via Excel upload |
-| `gamification` | Points, badges, streaks, leaderboard |
-| `notifications` | In-app notification delivery and read-status tracking |
-| `media` | Cloudflare R2 media management (presigned upload/delete URLs) |
+| `gamification` | Points ledger, badges, streaks, class/school leaderboard |
+| `notifications` | Broadcasts, per-recipient notifications, read-status, audience targeting |
+| `media` | Cloudflare R2 media management (presigned upload/delete URLs, filename sanitization) |
+| `gradebook` | Manual marks (oral, practical, project, paper-based) per student/subject/term |
 
 Each app owns its domain completely. Cross-app access goes through model relationships and signals — never through direct view imports.
 
@@ -57,13 +62,13 @@ Each app owns its domain completely. Cross-app access goes through model relatio
 
 **Models:**
 - `User` — extends `AbstractUser` with `role`, `institution`, `section`, `district`, `public_id`
-- Extended name fields: `first_name`, `middle_name`, `last_name` (all required except middle)
 - Contact fields: `email` (required), `mobile_primary` (required), `mobile_secondary` (optional)
-- `JoinCode` — pre-generated codes that lock role and institution on registration
+- `profile_complete` — set to True once all required contact fields are present
+- `JoinCode` — pre-generated codes that lock role, institution, section, and subject on registration
 - `OTPVerification` — 6-digit codes for non-student login verification
 - `DeviceSession` — stores session key to enforce single-device policy
-- `StudentRegistrationRecord` — pre-loaded student records for self-registration
-- `AuditLog` — tracks sensitive operations
+- `StudentRegistrationRecord` — pre-loaded student records for roster-based self-registration
+- `AuditLog` — tracks sensitive operations (code regeneration, etc.)
 
 **Role hierarchy:**
 ```
@@ -72,323 +77,181 @@ ADMIN (5) > OFFICIAL (4) > PRINCIPAL (3) > TEACHER (2) > STUDENT (1)
 
 **Login flows:**
 - STUDENT / ADMIN: direct session login, no OTP
-- TEACHER / PRINCIPAL / OFFICIAL: OTP verification required after credentials
+- TEACHER / PRINCIPAL / OFFICIAL: OTP verification required after credentials check
 
 **Single-device enforcement:**
-`SingleActiveSessionMiddleware` runs on every authenticated request. It compares the current session key against the stored `DeviceSession`. If they differ, the old session is terminated.
+`SingleActiveSessionMiddleware` runs on every authenticated request. It compares the current session key against the stored `DeviceSession`. If they differ, the existing session is terminated — the user is logged out on their old device silently.
 
 ---
 
 ### 3.3 Academics App
 
-**Models:**
-- `District` → `Institution` → `ClassRoom` → `Section` (hierarchy)
-- `Subject` (global — not institution-scoped)
-- `ClassSubject` — which subjects are taught in which classroom
-- `StudentSubject` — which subjects a student is enrolled in
-- `TeachingAssignment` — teacher × subject × section
+**Models:** `District`, `Institution`, `ClassRoom`, `Section`, `Subject`, `ClassSubject`, `StudentSubject`, `TeachingAssignment`
 
-**Seeding:**
-All 23 Punjab districts, ~46 government schools, and 12 subjects are seeded automatically via a `post_migrate` signal in `AcademicsConfig.ready()`.
-
-The `seed_punjab` management command creates classrooms and sections on top of the seeded base data.
+**Key design:**
+- All 23 Punjab districts are seeded at first migration
+- `ClassRoom.name` stores grade as a string (`"8"`) — numeric coercion done at query time via `Cast` to allow future non-numeric grades
+- `Section.short_label` (`"Class 8-A"`) is a serializer-computed field — always use this in dropdowns, not `name` (which is just `"A"`)
+- `StudentSubject` API response includes `course_id` for the dashboard resume-lesson flow
 
 ---
 
-### 3.4 AccessControl App
+### 3.4 Content App
 
-Two components:
+**Models:** `Course`, `Lesson`, `SectionLesson`, `LessonProgress`
 
-**`permissions.py`** — view-level decorators:
-- `@require_auth` — blocks unauthenticated requests (401)
-- `@require_roles(["TEACHER", "ADMIN"])` — blocks insufficient roles (403)
-
-**`scoped_service.py`** — queryset-level data scoping:
-- `scope_queryset(user, queryset)` — filters queryset to user's visible scope
-- `get_scoped_object_or_403(user, queryset, **lookup)` — scoped single object fetch
-
-Scoping rules:
-- ADMIN / superuser → unrestricted
-- OFFICIAL → district scope (via `DISTRICT_SCOPE_MAP`)
-- PRINCIPAL / TEACHER / STUDENT → institution scope (via `INSTITUTION_SCOPE_MAP`)
-
-The scope maps use explicit ORM traversal strings (e.g., `"classroom__institution"`) rather than field introspection, to avoid silent data leakage on models with nested FK chains.
-
-This is a **pure library app** — no endpoints, no URL mount. Only imported by other apps.
+**Key design:**
+- `Lesson` supports: video (YouTube/Vimeo/R2 direct), HLS manifest, PDF attachment, Markdown content
+- `SectionLesson` — teacher-added supplementary content, separate from admin curriculum
+- `LessonProgress.last_opened_at` drives the resume logic. `resume_lesson_id` returned by `/courses/:id/progress/`
+- Teacher analytics endpoints: `/teacher/analytics/courses/`, `/teacher/analytics/classes/`, `/teacher/analytics/assessments/`, `/teacher/analytics/classes/:id/students/`
 
 ---
 
-### 3.5 Content App
+### 3.5 Assessments App
 
-**Models:**
-- `Course` — belongs to a Subject and grade. One course per (subject, grade) — 60 total.
-- `Lesson` — ordered within a course, supports text + video + HLS + PDF
-- `LessonProgress` — tracks completion and last position per user per lesson
-- `SectionLesson` — teacher-added supplementary lessons, linked to a course and section
+**Models:** `Assessment`, `Question`, `QuestionOption`, `AssessmentAttempt`
 
-**Design decisions:**
-- Course-level progress is **derived**, not stored. Computed from `LessonProgress` counts at request time.
-- `lesson_detail` returns `completed` and `last_position` inline — no separate progress GET endpoint needed by frontend.
-- `mark_opened()` is called on lesson open to enable resume logic.
-- `SectionLesson` allows TEACHER and PRINCIPAL to add content within their scope without touching the curriculum. Displayed merged with curriculum lessons in the lesson list.
+**Security invariant:** `is_correct` is NEVER returned in student-facing responses. This is enforced at the serializer level — not a convention, a hard rule.
 
-**Slug resolution endpoint:**
-`GET /api/v1/courses/by-slug/?grade=10&subject=punjabi` resolves human-readable URL slugs back to a course ID. Used by the frontend when navigating to `/courses/:grade/:subject`.
+**Scoring:** `AssessmentAttempt.calculate_score_and_pass()` scores in a single query — fetches all selected options for submitted `question_id` keys, filters `is_correct=True`, sums `question.marks`.
+
+**`total_marks`** is auto-computed by a signal whenever a `Question` is created/updated/deleted — never editable.
 
 ---
 
-### 3.6 Assessments App
+### 3.6 Gamification App
 
-**Models:**
-- `Assessment` — belongs to a Course; has `total_marks` (auto-computed from questions)
-- `Question` — ordered within an assessment, has mark weight
-- `QuestionOption` — one correct option per question (enforced by `clean()`)
-- `AssessmentAttempt` — tracks selected options, score, and pass/fail
+**Models:** `PointEvent`, `StudentPoints`, `StudentBadge`, `StudentStreak`
 
-**Scoring:**
-`calculate_score_and_pass()` fetches all selected options in a single query and sums marks for correct ones. This is a set-based query — no N+1.
+**Design:** All gamification is signal-driven. No gamification logic lives in views. Signals are wrapped in `try/except` — a gamification failure never blocks a core learning action.
 
-`total_marks` is kept up-to-date via `post_save` and `post_delete` signals on `Question`.
+**Deduplication:** Before awarding, a `PointEvent` ledger check prevents double-awarding for the same `(user, reason, lesson_id/assessment_id)`.
 
-**Security:** `is_correct` is never sent to the frontend in any student-facing API response. The builder endpoint (`/admin/`) returns it exclusively for TEACHER, PRINCIPAL, and ADMIN.
-
-**Role access:** TEACHER and PRINCIPAL can create and manage assessments for courses within their subject scope.
+**Leaderboard:** Denormalized via `StudentPoints` — never sums the full `PointEvent` table per request.
 
 ---
 
-### 3.7 Learning App
+### 3.7 Notifications App
 
-**Models:**
-- `Enrollment` — user × course, with status (`enrolled`, `completed`, `dropped`)
-- `LearningPath` — named collection of courses
-- `LearningPathCourse` — ordered course within a path
+**Models:** `Broadcast`, `Notification`
 
-**Auto-enrollment:** Handled by signals. See Section 4.
+**Design:**
+- `Broadcast` = one outgoing message from a sender
+- `Notification` = per-recipient inbox item (created automatically when a broadcast is sent, or by signals on lesson/assessment publish)
+- Audience types: `class`, `institution`, `district`, `all` — scoped to the sender's permissions
+- Attachments stored on Cloudflare R2
 
----
-
-### 3.8 Roster App
-
-Service-based architecture. No models — uses `StudentRegistrationRecord` from accounts.
-
-- `process_roster_upload()` — parses Excel, validates rows, creates registration records
-- `list_registration_records()` — scoped record listing
-- `regenerate_student_code()` — generates new code for unregistered student
-
-Returns per-row skip reasons so teachers can diagnose upload failures.
+**Signal automation:**
+- Lesson published → notifies all enrolled students
+- Assessment published → notifies all enrolled students
 
 ---
 
-### 3.9 Gamification App
+### 3.8 Gradebook App
 
-**Models:**
-- `PointEvent` — immutable append-only ledger of every point award. Never updated — only inserted.
-- `StudentPoints` — denormalized running total per student. Updated atomically by signals using `select_for_update`.
-- `StudentBadge` — earned badge per student. Unique per `(user, badge_code)`.
-- `StudentStreak` — daily activity streak tracking (`current_streak`, `longest_streak`, `last_activity_date`).
+**Models:** `GradeEntry`
 
-**Design decisions:**
-- `PointEvent` is a ledger, not a counter. This gives a full audit trail and prevents double-awarding. Before awarding, signals check if a `PointEvent` already exists for the same `(user, reason, lesson_id/assessment_id)` combination.
-- `StudentPoints.total_points` is a denormalized cache. Updated atomically with `select_for_update` to prevent race conditions on the same row.
-- All signal handlers are wrapped in `try/except` — a gamification failure **never blocks lesson completion or assessment submission**.
-- Streak uses `date` (not `datetime`) to prevent timezone-related double-counting within a single day.
+**Purpose:** Manual mark entry for assessments that the digital quiz engine doesn't cover — oral exams, practicals, projects, paper-based mid-terms.
 
-**Points awarded:**
-| Reason | Points |
+**Design:**
+- Unique per `(student, subject, term, category)` — update via PATCH, not re-insert
+- `percentage` always computed server-side on save — client value ignored
+- Scoped: TEACHER sees only their students; PRINCIPAL sees their institution
+
+---
+
+## 4. Frontend Architecture
+
+### 4.1 Stack
+
+- **React 18** + Vite + TypeScript (strict mode)
+- **Routing:** React Router v6 with lazy-loaded pages
+- **Auth state:** `AuthContext` — wraps `useAuth()` hook, calls `/api/v1/accounts/me/` on mount
+- **API calls:** All through `src/services/api.ts` — `apiGet`, `apiPost`, `apiPatch`, `apiDelete`
+- **Styling:** Custom CSS design system in `src/index.css` (CSS custom properties only — no Tailwind, no CSS Modules, no external UI libraries)
+
+### 4.2 Design System
+
+All visual tokens are CSS custom properties defined in `src/index.css` (~1600 lines):
+
+```css
+--role-student:   #3b82f6;
+--role-teacher:   #10b981;
+--role-principal: #f59e0b;
+--role-official:  #8b5cf6;
+--role-admin:     #ef4444;
+
+--font-display:   "Sora", sans-serif;
+--font-body:      "DM Sans", sans-serif;
+```
+
+**Rule:** Extend `src/index.css`, never replace it. All new components use the existing variable names.
+
+### 4.3 Page Count
+
+**31 pages** across all roles:
+
+| Category | Pages |
 |---|---|
-| `lesson_complete` | 10 |
-| `assessment_attempt` | 5 |
-| `assessment_pass` | 25 |
-| `perfect_score` | 50 |
-| `streak_3` | 15 |
-| `streak_7` | 50 |
+| Auth | LoginPage, RegisterPage, VerifyOtpPage, CompleteProfilePage |
+| Student | DashboardPage, CoursesPage, LessonsPage, LessonPage, AssessmentsPage, AssessmentPage, AssessmentTakePage, AssessmentResultPage, AssessmentHistoryPage, CourseAssessmentsPage, LearningPathsPage, LearningPathPage, ProfilePage, LeaderboardPage |
+| Teacher | TeacherDashboardPage, TeacherClassDetailPage, TeacherStudentDetailPage, GradebookPage |
+| Staff shared | AdminLessonEditorPage, AdminAssessmentBuilderPage, UserManagementPage, AdminJoinCodesPage |
+| Dashboards | PrincipalDashboardPage, OfficialDashboardPage, AdminDashboardPage, AdminContentPage |
+| Shared | NotificationsPage |
+| Errors | NotFoundPage, ForbiddenPage, ServerErrorPage, NetworkErrorPage |
 
-**Badges:** `first_lesson`, `lesson_10`, `lesson_50`, `first_pass`, `perfect_score`, `streak_3`, `streak_7`, `points_100`, `points_500`.
+### 4.4 Route Protection
 
----
+`<RequireRole role="X">` wraps every non-public page. Role rank is checked — insufficient rank shows `ForbiddenPage`. Not authenticated → redirect to `/login`.
 
-### 3.10 Notifications App
+### 4.5 Human-Readable URLs
 
-**Models:**
-- `Broadcast` — the send event: sender, subject, message, audience_type, audience_label, attachment_url, attachment_name, recipient_count, sent_at
-- `Notification` — one row per recipient per broadcast. Tracks `is_read` per user.
+Courses and assessments use slug-based URLs:
+- `/courses/8/mathematics` (not `/courses/5`)
+- `/assessments/8/mathematics/3`
 
-**Design (fanout-on-write):** One broadcast creates N notification rows — one per recipient. Each user's read state is tracked independently. This is the correct pattern at GyanGrit's scale.
+Numeric IDs are resolved server-side via `/courses/by-slug/?grade=8&subject=mathematics`.
 
-**Audience types:** CLASS_STUDENTS, CLASS_TEACHERS, CLASS_ALL, SCHOOL_STUDENTS, SCHOOL_TEACHERS, SCHOOL_ALL, DISTRICT_STUDENTS, DISTRICT_TEACHERS, DISTRICT_PRINCIPALS, DISTRICT_ALL, SYSTEM.
+### 4.6 LessonPage Media Handling
 
-**SYSTEM broadcasts** include the sender — admin receives their own system announcements.
+The `LessonPage` component handles all media types without external libraries:
 
-**Delivered via polling** (30s interval + visibilitychange). No WebSocket required at this scale.
-
-**Attachments:** Files uploaded to Cloudflare R2 under `notification-files/` folder with sanitised name + 6-char hex suffix. PDFs viewed via Google Docs viewer (bypasses `Content-Disposition: attachment`). Markdown rendered via `marked` + `DOMPurify`.
-
----
-
-### 3.11 Media App
-
-Handles Cloudflare R2 presigned upload and delete URLs. No database models — purely a pass-through service between the frontend and R2.
-
-- `r2.py` — generates presigned PUT and DELETE URLs using `boto3` with an R2-compatible endpoint.
-- `sanitize_filename()` — unicode→ASCII, lowercase, hyphens, 6-char hex collision guard.
-- `FOLDER_NOTIFICATIONS = "notification-files"` — dedicated folder for notification attachments.
-
----
-
-## 4. Signal Architecture
-
-Signals handle automatic assignment, enrollment, and gamification. Each app owns its domain:
-
-```
-User.post_save (new STUDENT)
-    → academics/signals.py: auto_assign_subjects()
-        creates StudentSubject for each ClassSubject in classroom
-            → learning/signals.py: auto_enroll_core_courses()
-                creates Enrollment for each is_core=True Course
-
-ClassSubject.post_save (new subject added to classroom)
-    → academics/signals.py: auto_assign_students_for_new_class_subject()
-        creates StudentSubject for existing students
-            → learning/signals.py: auto_enroll_core_courses()
-                creates Enrollment for each is_core=True Course
-
-Question.post_save / Question.post_delete
-    → assessments/signals.py: update_total_marks_on_save/delete()
-        calls assessment.recalculate_total_marks()
-
-LessonProgress.post_save (completed = True, first time)
-    → gamification/signals.py: on_lesson_progress_save()
-        awards +10 pts, updates streak, checks streak bonuses, checks badges
-
-AssessmentAttempt.post_save (submitted_at just set)
-    → gamification/signals.py: on_assessment_attempt_save()
-        awards +5 attempt, +25 pass (if passed), +50 perfect (if 100%)
-        updates streak, checks streak bonuses, checks badges
-```
-
-See `docs/SIGNAL_CHAIN.md` for the complete diagram including guards and deduplication logic.
-
----
-
-## 5. Frontend Architecture
-
-### 5.1 Technology Stack
-
-- React 18 with TypeScript
-- Vite for build and dev server
-- React Router v6 for client-side routing
-- CSS custom properties (design system in `src/index.css`)
-- No UI component library — all components are custom
-
-### 5.2 Design System
-
-All visual tokens are defined as CSS custom properties in `src/index.css` (~1600 lines):
-
-- **Colors:** `--bg-base`, `--bg-surface`, `--bg-elevated`, `--text-primary`, `--brand-primary`, etc.
-- **Role colors:** `--role-student` (blue), `--role-teacher` (emerald), `--role-principal` (amber), `--role-official` (violet), `--role-admin` (rose)
-- **Typography:** `Sora` (display/headings) + `DM Sans` (body)
-- **Spacing scale:** `--space-1` through `--space-16`
-- **Animations:** `shimmer` (skeleton loading), `fadeInUp` (page entry), `spin` (loaders)
-
-The design system is extended, never replaced. No Tailwind, no styled-components, no CSS modules.
-
-### 5.3 Authentication Flow
-
-```
-App mount
-    → initCsrf() — seeds gyangrit_csrftoken cookie
-    → apiGet("/accounts/me/") — checks session
-    → AuthContext stores UserProfile (id, username, role, institution, section, district, ...)
-
-Route access
-    → RequireRole checks auth.loading, auth.authenticated, roleRank
-    → Redirects to /login or shows 403 screen
-    → RoleBasedRedirect routes authenticated users to role-appropriate dashboard
-```
-
-`AuthContext` stores the full `UserProfile` object. Pages read `auth.user.institution`, `auth.user.district` etc directly — no extra API calls needed per page.
-
-### 5.4 URL Slug System
-
-Student-facing course and assessment URLs use human-readable slugs instead of numeric IDs.
-
-**Course detail:** `/courses/:grade/:subject` e.g. `/courses/10/punjabi`, `/courses/8/social-studies`
-**Assessment detail:** `/assessments/:grade/:subject/:id` e.g. `/assessments/10/punjabi/5`
-
-The slug helper lives in `src/utils/slugs.ts`:
-- `toSlug(name)` — normalises a subject name to a URL slug (lowercase, hyphens, strip non-alphanumeric)
-- `courseDetailPath(grade, subjectName)` — builds the course URL
-- `assessmentPath(grade, subjectName, id)` — builds the assessment URL
-
-The backend `course_by_slug` endpoint resolves grade+slug → courseId when a page loads.
-
-### 5.5 Component Architecture
-
-```
-src/
-├── auth/
-│   ├── AuthContext.tsx       — UserProfile state, refresh()
-│   ├── authTypes.ts          — Role, UserProfile, AuthState, ROLE_PATHS
-│   ├── RequireRole.tsx       — Auth + role guard with loading/403 screens
-│   └── RoleBasedRedirect.tsx — Post-login role routing
-├── components/
-│   ├── BottomNav.tsx         — Mobile bottom navigation (student-only, 5 tabs)
-│   ├── LessonItem.tsx        — Accessible lesson row with completion state
-│   ├── Logo.tsx              — GyanGrit wordmark
-│   ├── LogoutButton.tsx      — Calls logout endpoint then navigates
-│   ├── NotificationPanel.tsx — Slide-in notification panel (bell dropdown)
-│   ├── NotificationDetailModal.tsx — Full notification view with Markdown + attachment
-│   └── TopBar.tsx            — Sticky nav with user avatar, role badge, notification bell
-├── pages/                    — One file per route (30 pages)
-├── services/                 — One file per API domain (11 files)
-├── utils/
-│   └── slugs.ts              — URL slug helpers
-└── app/
-    └── router.tsx            — All routes with Protected() wrapper + lazy loading
-```
-
-### 5.6 Route Protection
-
-All non-public routes use the `Protected` wrapper:
-
-```tsx
-function Protected({ role, children }) {
-  return (
-    <RequireRole role={role}>
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
-    </RequireRole>
-  );
-}
-```
-
-This combines auth enforcement + lazy loading + consistent loading UI in one place.
-
-### 5.7 API Layer
-
-All API calls go through `src/services/api.ts`:
-- `apiGet<T>(path)` — GET with session cookie
-- `apiPost<T>(path, body)` — POST with CSRF token
-- `apiPatch<T>(path, body)` — PATCH with CSRF token
-- `apiDelete<T>(path)` — DELETE with CSRF token
-- `initCsrf()` — seeds CSRF cookie on mount
-
-CSRF token is read from `gyangrit_csrftoken` cookie (renamed from Django's default to avoid collision with the admin panel cookie).
-
-### 5.8 Bottom Navigation (Student-only)
-
-Students have a 5-tab bottom navigation bar on mobile:
-
-| Tab | Route | Icon |
+| Media type | Detection | Rendering |
 |---|---|---|
-| Home | `/dashboard` | House |
-| Courses | `/courses` (also active for `/lessons`, `/learning`) | Book |
-| Tests | `/assessments` (also active for `/assessment-result`) | Checkmark |
-| Ranks | `/leaderboard` | Bar chart |
-| Profile | `/profile` | Person |
+| YouTube | URL contains `youtube.com` / `youtu.be` | Lazy iframe embed, click-to-play |
+| Vimeo | URL contains `vimeo.com` | Lazy iframe embed |
+| Direct video / R2 | `.mp4`/`.webm` or `r2.dev` domain | Native `<video>` with Download button |
+| HLS | `hls_manifest_url` field | Same `<video>` element |
+| PDF | `pdf_url` field | Collapsible inline iframe + Open/Download |
+| Markdown | `content` field | Custom lightweight renderer (no external lib) |
 
-Hidden on screens wider than 640px (`@media (min-width: 641px)`). Pages using BottomNav add `has-bottom-nav` to `<main>` to add bottom padding.
+### 4.7 TopBar NavMenu (Temporary)
+
+> ⚠️ **To be redesigned post-capstone**
+
+A `NavMenu` component is mounted in `TopBar`, showing all accessible routes for the current role in a dropdown. This was added for supervisor demo navigation. See `src/components/NavMenu.tsx`.
+
+**TODOs before production:**
+- Replace with sidebar drawer for staff roles
+- Remove from student view (already has `BottomNav`)
+- Remove "⚠️ Demo nav" warning once replaced
+
+---
+
+## 5. Signal Architecture
+
+See `docs/SIGNAL_CHAIN.md` for the full signal graph. Summary:
+
+| Signal | Trigger | Effect |
+|---|---|---|
+| `post_save` on `ClassSubject` | New subject added to classroom | Retroactively assign to all existing students |
+| `post_save` on `StudentSubject` | New student-subject assignment | Auto-enroll in all `is_core=True` courses for that subject+grade |
+| `post_save` on `LessonProgress` | `completed` set to True | Award points, check badges, update streak |
+| `post_save` on `AssessmentAttempt` | `submitted_at` set | Award points, check badges |
+| `post_save` on `Lesson` | `is_published` set to True | Create `Notification` for all enrolled students |
+| `post_save` on `Assessment` | `is_published` set to True | Create `Notification` for all enrolled students |
 
 ---
 
@@ -421,16 +284,17 @@ Any model not in the map is treated as globally readable (e.g. `Subject`, `Distr
 
 | Concern | Implementation |
 |---|---|
-| Authentication | Django session cookies (HttpOnly) |
-| CSRF | Custom cookie name `gyangrit_csrftoken`, verified on all POST/PATCH/DELETE |
+| Authentication | Django session cookies (HttpOnly), named `gyangrit_sessionid` |
+| CSRF | Custom cookie `gyangrit_csrftoken`, verified on all POST/PATCH/DELETE |
 | Single device | `SingleActiveSessionMiddleware` + `DeviceSession` model |
 | Role enforcement | `@require_roles()` decorator on all protected views |
 | Data scoping | `scope_queryset()` on all list endpoints |
 | OTP brute force | 5-attempt limit, 10-minute expiry |
-| Correct answers | `is_correct` never sent in any student-facing API response |
+| Correct answers | `is_correct` NEVER sent in any student-facing API response |
 | Session age | `SESSION_COOKIE_AGE = 3600` (1 hour), extended on every request |
 | Gamification | Point deduplication via `PointEvent` ledger — double-awarding is impossible |
-| Attachment names | `os.path.basename()` + null-byte strip + 100-char cap server-side |
+| Attachment security | `os.path.basename()` + null-byte strip + 100-char cap server-side |
+| Gradebook access | Only the creating teacher or principal can update/delete a `GradeEntry` |
 
 ---
 
@@ -443,7 +307,7 @@ backend/gyangrit/settings/
 └── prod.py    — HTTPS flags, locked CORS, Supabase PostgreSQL, WhiteNoise
 ```
 
-Cookie names are renamed to prevent collision between the Django admin session and the GyanGrit frontend session:
+Cookie names are renamed to prevent collision with the Django admin session:
 ```python
 SESSION_COOKIE_NAME = "gyangrit_sessionid"
 CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
@@ -458,9 +322,24 @@ CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
 `DATABASE_URL` is always read from environment variables — never hardcoded.
 
 Production-specific requirements:
-- `DISABLE_SERVER_SIDE_CURSORS = True` — required for pgBouncer transaction-mode pooling (Supabase pooler)
+- `DISABLE_SERVER_SIDE_CURSORS = True` — required for pgBouncer transaction-mode pooling
 - `sslmode=require` on all connections
 - Standard `psycopg2` + Django ORM only — no Supabase-specific client libraries
+
+### Migration State (as of 2026-03-18)
+
+| App | Migrations |
+|---|---|
+| accounts | 0001–0004 |
+| academics | 0001 |
+| assessments | 0001 |
+| content | 0001 |
+| gamification | 0001 |
+| gradebook | 0001–0002 |
+| learning | 0001 |
+| media | 0001 |
+| notifications | 0001–0002 |
+| roster | 0001 |
 
 ---
 
@@ -473,7 +352,7 @@ Quick summary:
 - Frontend: `npm run build` → serve `dist/` via CDN or static host (Vercel/Netlify/Cloudflare Pages)
 - Database: Supabase PostgreSQL (managed)
 - Static files: WhiteNoise middleware (`collectstatic` required before deploy)
-- Environment: `SECRET_KEY`, `DATABASE_URL` in environment variables — never in code
+- Media: Cloudflare R2 bucket with presigned URLs — no direct browser access to bucket
 
 ---
 
@@ -484,7 +363,8 @@ Quick summary:
 - **Explicit scoping** — data visibility is enforced at the queryset level, not assumed
 - **Defensive validation** — `clean()` methods on all models with business rules
 - **Signal-driven automation** — enrollment, assignment, and gamification happen via signals, not in views
-- **No silent failures** — every error is logged with context; bare `except` clauses are prohibited
-- **Production-safe code** — no `print()`, no hardcoded secrets, no partial patches
-- **Non-blocking gamification** — all gamification signals are wrapped in `try/except` to never block core learning flows
+- **No silent failures** — every error is logged; bare `except` clauses are prohibited
+- **Production-safe code** — no `print()`, no hardcoded secrets
+- **Non-blocking gamification** — all gamification signals are wrapped in `try/except`
 - **Human-readable URLs** — course and assessment URLs use grade+subject slugs, not numeric IDs
+- **Rural-context aware** — low bandwidth (lazy video loading, PDF fallback), low-literacy UX (clear labels, icons), sibling edge cases handled at model level

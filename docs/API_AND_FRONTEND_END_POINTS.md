@@ -1,8 +1,10 @@
 # GyanGrit — API & Frontend Endpoint Documentation
 
-> **Status: Current as of March 2026**
-> All 10 backend apps are fully implemented. This document reflects the actual
+> **Status: Updated 2026-03-18**
+> All 11 backend apps are fully implemented. This document reflects the actual
 > production-ready state of the system.
+> Latest additions: Gradebook app (section 8b), Broadcast model (section 7 notifications),
+> updated frontend routes (section 9), updated service files (section 10).
 
 ---
 
@@ -58,51 +60,18 @@ Request:
 Response:
 ```json
 {
-  "id": 1,
-  "public_id": "S-2026-a1b2c3d4",
-  "username": "student1",
+  "success": true,
   "role": "STUDENT",
-  "institution": "Government Senior Secondary School Amritsar",
-  "section": "A"
+  "requires_otp": false,
+  "redirect_to": "/complete-profile"
 }
 ```
 
-Notes:
-- Role is locked by the join code — not chosen by the user
-- For TEACHER role, automatically creates `TeachingAssignment` records for grades 6–10
-- Join code is marked as used after successful registration
+Non-student roles always set `requires_otp: true`. The frontend redirects to `/verify-otp`.
 
 ---
 
-### 2.3 Student Self-Register (Public)
-**POST** `/api/v1/accounts/student-register/`
-
-Used when a teacher has pre-loaded a student via roster upload.
-
-Request:
-```json
-{
-  "registration_code": "abc123def456",
-  "username": "student2",
-  "password": "securepass",
-  "dob": "2010-05-15"
-}
-```
-
-Response:
-```json
-{
-  "id": 2,
-  "public_id": "S-2026-e5f6g7h8",
-  "username": "student2",
-  "section": "A",
-  "institution": "Government Senior Secondary School Amritsar"
-}
-```
-
----
-
-### 2.4 Login (Public)
+### 2.3 Login (Public)
 **POST** `/api/v1/accounts/login/`
 
 Request:
@@ -113,138 +82,149 @@ Request:
 }
 ```
 
-Response (STUDENT or ADMIN — direct login):
+Response:
 ```json
 {
-  "otp_required": false,
-  "id": 3,
-  "username": "teacher1",
-  "role": "STUDENT"
-}
-```
-
-Response (TEACHER / PRINCIPAL / OFFICIAL — OTP required):
-```json
-{
-  "otp_required": true,
-  "id": 3,
-  "username": "teacher1",
+  "success": true,
   "role": "TEACHER",
+  "requires_otp": true,
   "otp_code": "123456"
 }
 ```
 
-Notes:
-- `otp_code` is only included when `DEBUG=True`. Never present in production.
-- After successful login, a `DeviceSession` is created to enforce single-device policy.
+`otp_code` is only present when `DEBUG=True`. Never in production.
+On success, a session cookie is set.
 
 ---
 
-### 2.5 Verify OTP (Public)
+### 2.4 Verify OTP (Public)
 **POST** `/api/v1/accounts/verify-otp/`
 
 Request:
 ```json
 {
-  "username": "teacher1",
-  "otp": "123456"
+  "otp_code": "123456"
 }
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "role": "TEACHER"
-}
-```
+Response: `{ "success": true, "redirect_to": "/teacher" }`
 
-Notes:
-- Maximum 5 attempts before lockout
-- OTP expires after 10 minutes
-- Creates `DeviceSession` on success
+Attempts are counted. After 5 wrong attempts, the OTP is invalidated and the user must login again.
 
 ---
 
-### 2.6 Logout
+### 2.5 Logout
 **POST** `/api/v1/accounts/logout/`
 
-Clears Django session and deletes `DeviceSession` record.
-
-Response:
-```json
-{ "success": true }
-```
+Clears session and DeviceSession record.
 
 ---
 
-### 2.7 Me (Current User)
+### 2.6 Me (Authenticated)
 **GET** `/api/v1/accounts/me/`
 
-Returns full profile of the currently authenticated user.
-
-Response:
+Response when authenticated:
 ```json
 {
   "authenticated": true,
-  "id": 1,
-  "public_id": "T-2026-a1b2c3d4",
-  "username": "teacher1",
-  "role": "TEACHER",
+  "id": 5,
+  "public_id": "S-2026-a1b2c3d4",
+  "username": "gurpreet_s",
+  "role": "STUDENT",
+  "first_name": "Gurpreet",
+  "middle_name": "",
+  "last_name": "Singh",
+  "display_name": "Gurpreet Singh",
+  "email": "gurpreet@example.com",
+  "mobile_primary": "9876543210",
+  "mobile_secondary": "",
+  "profile_complete": true,
   "institution": "Government Senior Secondary School Amritsar",
-  "institution_id": 5,
-  "section": null,
-  "section_id": null,
+  "institution_id": 1,
+  "section": "8-A",
+  "section_id": 3,
   "district": "Amritsar"
 }
 ```
 
-Response (unauthenticated):
-```json
-{ "authenticated": false }
-```
+Response when not authenticated: `{ "authenticated": false }`
 
 ---
 
-### 2.8 Validate Join Code (Public)
-**POST** `/api/v1/accounts/validate-join-code/`
+### 2.7 Update Profile
+**PATCH** `/api/v1/accounts/profile/`
 
-Used by the register page to preview role before submission.
-
-Request:
-```json
-{ "join_code": "abc123def456" }
-```
-
-Response:
+Request (all fields optional):
 ```json
 {
-  "valid": true,
-  "role": "TEACHER",
-  "institution": "Government Senior Secondary School Amritsar",
-  "section": null,
-  "district": "Amritsar",
-  "subject": "Mathematics"
+  "first_name": "Gurpreet",
+  "middle_name": "",
+  "last_name": "Singh",
+  "email": "gurpreet@example.com",
+  "mobile_primary": "9876543210",
+  "mobile_secondary": ""
+}
+```
+
+When all required fields (`first_name`, `last_name`, `email`, `mobile_primary`) are present,
+`profile_complete` is auto-set to `true`.
+
+---
+
+### 2.8 System Stats (ADMIN only)
+**GET** `/api/v1/accounts/system-stats/`
+
+```json
+{
+  "users": { "total": 1450, "students": 1300, "teachers": 120, "principals": 25, "officials": 5 },
+  "courses": 42,
+  "lessons": 380,
+  "assessments": 95,
+  "attempts": 4200
 }
 ```
 
 ---
 
-### 2.9 Scoped User Lists (Role-restricted)
+### 2.9 Teachers List (PRINCIPAL, OFFICIAL, ADMIN)
+**GET** `/api/v1/accounts/teachers/`
 
-| Endpoint | Allowed Roles | Returns |
-|---|---|---|
-| **GET** `/api/v1/accounts/users/` | ADMIN, OFFICIAL, PRINCIPAL | `[{id, username, role}]` |
-| **GET** `/api/v1/accounts/teachers/` | ADMIN, OFFICIAL, PRINCIPAL | `[{id, username}]` |
-| **GET** `/api/v1/accounts/sections/` | ADMIN, OFFICIAL, PRINCIPAL, TEACHER | `[{id, name}]` |
-| **GET** `/api/v1/accounts/subjects/` | ADMIN, OFFICIAL, PRINCIPAL, TEACHER | `[{id, name}]` |
-| **GET** `/api/v1/accounts/institutions/` | ADMIN, OFFICIAL, PRINCIPAL | `[{id, name, district__name}]` |
+Returns teachers scoped to the requester's institution or district.
 
-All list endpoints are automatically scoped by role:
-- ADMIN → all records
-- OFFICIAL → district scope
-- PRINCIPAL → institution scope
-- TEACHER → institution scope
+```json
+[
+  { "id": 10, "username": "raminder_t" },
+  { "id": 11, "username": "kuldeep_t" }
+]
+```
+
+---
+
+### 2.10 Users List (TEACHER, PRINCIPAL, OFFICIAL, ADMIN)
+**GET** `/api/v1/accounts/users/`
+
+TEACHER → returns only STUDENT users in their institution.
+PRINCIPAL → institution-scoped all roles.
+OFFICIAL → district-scoped.
+ADMIN → all users.
+
+Used by `UserManagementPage`.
+
+---
+
+### 2.11 Student Self-Register (Public)
+**POST** `/api/v1/accounts/student-register/`
+
+```json
+{
+  "registration_code": "abc123",
+  "username": "gurpreet_s",
+  "password": "securepass",
+  "dob": "2010-05-15"
+}
+```
+
+DOB is validated against the `StudentRegistrationRecord`. Mismatch → 400.
 
 ---
 
@@ -252,296 +232,227 @@ All list endpoints are automatically scoped by role:
 
 Base path: `/api/v1/academics/`
 
-### 3.1 Public Endpoints (No Auth)
+### 3.1 Districts (Public)
+**GET** `/api/v1/academics/districts/`
 
-**GET** `/api/v1/academics/districts/?q=amritsar`
+All 23 Punjab districts. Used in registration + join code forms.
 
-Used during registration to populate district dropdown.
+### 3.2 Institutions
+**GET** `/api/v1/academics/institutions/?district_id=5`
 
-Response: `[{id, name}]`
+Filterable by `district_id`. Used in join code creation forms.
 
----
+### 3.3 Classrooms
+**GET** `/api/v1/academics/classrooms/?institution_id=1`
 
-**GET** `/api/v1/academics/schools/?district_id=1&q=govt`
+### 3.4 Sections
+**GET** `/api/v1/academics/sections/?classroom__institution_id=1`
 
-Used during registration to populate school dropdown.
+Returns:
+```json
+[
+  {
+    "id": 3,
+    "name": "A",
+    "classroom_id": 1,
+    "grade": "8",
+    "short_label": "Class 8-A",
+    "label": "Class 8-A — Government Senior Secondary School Amritsar"
+  }
+]
+```
 
-Response: `[{id, name, district__name, is_government}]`
+**Important:** Use `short_label` in dropdowns, not `name` (which is just "A").
 
----
+### 3.5 Subjects (Authenticated)
+**GET** `/api/v1/academics/subjects/`
 
-### 3.2 Academic Structure (Auth Required)
-
-| Endpoint | Description | Roles |
-|---|---|---|
-| **GET** `/api/v1/academics/institutions/` | Scoped institution list | ADMIN, OFFICIAL, PRINCIPAL |
-| **GET** `/api/v1/academics/classes/` | ClassRooms in scope | All authenticated |
-| **GET** `/api/v1/academics/sections/?classroom_id=1` | Sections in scope | All authenticated |
-| **GET** `/api/v1/academics/subjects/` | Subjects with progress for STUDENT | All authenticated |
-
-### 3.3 Subject Response (STUDENT role)
-
-When called by a STUDENT, `/api/v1/academics/subjects/` returns progress data:
+For STUDENT: returns their enrolled subjects with progress + `course_id` for resume logic.
+For staff roles: returns the global subject catalog.
 
 ```json
 [
   {
-    "id": 1,
+    "id": 2,
     "name": "Mathematics",
     "total_lessons": 20,
     "completed_lessons": 8,
-    "progress": 40
+    "progress": 40,
+    "course_id": 5
   }
 ]
 ```
 
----
-
-### 3.4 Teaching Assignments
-
-| Endpoint | Description | Roles |
-|---|---|---|
-| **GET** `/api/v1/academics/teaching-assignments/` | All assignments in scope | ADMIN, OFFICIAL, PRINCIPAL |
-| **GET** `/api/v1/academics/my-assignments/` | Current teacher's assignments | TEACHER only |
-
-My assignments response:
-```json
-[
-  {
-    "subject_id": 1,
-    "subject_name": "Mathematics",
-    "section_id": 3,
-    "section_name": "A",
-    "class_name": "8"
-  }
-]
-```
+`course_id` is the primary course for this subject+grade. Used by DashboardPage
+to fetch `resume_lesson_id` from `/courses/:id/progress/`.
 
 ---
 
 ## 4. Content App
 
-Base path: `/api/v1/` (mounted at root for historical reasons)
+Base path: `/api/v1/`
 
-### 4.1 Health Check
-**GET** `/api/v1/health/`
-
-```json
-{
-  "status": "ok",
-  "service": "gyangrit-backend",
-  "timestamp": "2026-03-15T10:30:00+05:30"
-}
-```
-
----
-
-### 4.2 Course Slug Resolution
-**GET** `/api/v1/courses/by-slug/?grade=10&subject=punjabi`
-
-Resolves a human-readable URL slug back to a course object. Used by `LessonsPage` when navigating to `/courses/:grade/:subject`.
-
-Subject is the slug form of the subject name (lowercase, hyphenated). Returns 404 if no matching course, 400 if params missing, 403 if no access.
-
-Response shape is identical to a row in `GET /courses/`.
-
----
-
-### 4.3 Courses
+### 4.1 List Courses
 **GET** `/api/v1/courses/`
 
-Response is scoped by role. Students see only enrolled subjects' courses.
+Optional filters: `?subject_id=`, `?grade=`, `?is_core=true`
 
 ```json
 [
   {
-    "id": 1,
-    "title": "Mathematics Class 8",
-    "description": "Core mathematics curriculum",
+    "id": 5,
+    "subject": "Mathematics",
     "grade": 8,
+    "title": "Mathematics Class 8",
+    "description": "...",
     "is_core": true,
-    "subject__name": "Mathematics"
+    "slug": "mathematics",
+    "total_lessons": 20
   }
 ]
 ```
 
----
+### 4.2 Course by Slug
+**GET** `/api/v1/courses/by-slug/?grade=8&subject=mathematics`
 
-### 4.3 Course Lessons
-**GET** `/api/v1/courses/{course_id}/lessons/`
+Resolves slug to course ID. Used by `LessonsPage` to handle human-readable URLs.
 
-Returns curriculum lessons merged with teacher-added section lessons, ordered correctly.
-
-```json
-[
-  {
-    "id": 1,
-    "title": "Introduction to Algebra",
-    "order": 1,
-    "completed": false,
-    "source": "curriculum"
-  },
-  {
-    "id": 201,
-    "title": "Extra Practice Problems",
-    "order": 2,
-    "completed": false,
-    "source": "section"
-  }
-]
-```
-
-`completed` is derived from `LessonProgress` for the current user.
-`source` is `"curriculum"` for admin-created lessons and `"section"` for teacher-added lessons.
-
----
-
-### 4.4 Lesson Detail
-**GET** `/api/v1/lessons/{lesson_id}/`
-
-Side effect: updates `last_opened_at` in `LessonProgress`.
+### 4.3 Create Course (ADMIN only)
+**POST** `/api/v1/courses/`
 
 ```json
 {
-  "id": 1,
-  "title": "Introduction to Algebra",
-  "content": "Lesson text content...",
-  "video_url": null,
+  "subject_id": 2,
+  "grade": 8,
+  "title": "Mathematics Class 8",
+  "description": "...",
+  "is_core": true
+}
+```
+
+### 4.4 Course Lessons (Authenticated)
+**GET** `/api/v1/courses/:id/lessons/`
+
+Returns merged list of curriculum lessons + teacher-added section lessons.
+Each item is tagged with `"source": "curriculum"` or `"source": "section"`.
+
+Includes `completed` field per lesson for the requesting user.
+
+### 4.5 Lesson Detail (Authenticated)
+**GET** `/api/v1/lessons/:id/`
+
+```json
+{
+  "id": 12,
+  "title": "Algebra Basics",
+  "order": 3,
+  "content": "# Introduction\n...",
+  "video_url": "https://youtube.com/...",
   "hls_manifest_url": null,
-  "thumbnail_url": null,
-  "pdf_url": null,
+  "video_thumbnail_url": "...",
+  "video_duration": "12:30",
+  "pdf_url": "https://r2.cloudflarestorage.com/...",
+  "is_published": true,
   "completed": false,
-  "last_position": 0
+  "notes": [
+    { "id": 1, "content": "Focus on factorisation", "author__username": "raminder_t" }
+  ]
 }
 ```
 
-Note: `completed` and `last_position` are returned inline. No separate progress GET needed.
+### 4.6 Create/Update Lesson (TEACHER, PRINCIPAL, ADMIN)
+**POST** `/api/v1/courses/:id/lessons/` — create curriculum lesson
 
----
+**PATCH** `/api/v1/lessons/:id/` — update
 
-### 4.5 Lesson Progress
-**PATCH** `/api/v1/lessons/{lesson_id}/progress/`
+**POST** `/api/v1/courses/:id/section-lessons/` — create teacher-added lesson
 
-Request:
+### 4.7 Lesson Progress
+**PATCH** `/api/v1/lessons/:id/progress/`
+
 ```json
-{ "completed": true, "last_position": 240 }
+{ "completed": true, "last_position": 720 }
 ```
 
-Response:
-```json
-{ "lesson_id": 1, "completed": true, "last_position": 240 }
-```
+Triggers gamification signals when `completed` is first set to `true`.
 
-Rules:
-- Only provided fields are updated
-- Idempotent — safe to retry
-- Triggers gamification signal on first completion (lesson points, streak update, badge checks)
-
----
-
-### 4.6 Course Progress
-**GET** `/api/v1/courses/{course_id}/progress/`
+### 4.8 Course Progress
+**GET** `/api/v1/courses/:id/progress/`
 
 ```json
 {
-  "course_id": 1,
-  "completed": 3,
-  "total": 10,
-  "percentage": 30,
-  "resume_lesson_id": 4
+  "course_id": 5,
+  "total_lessons": 20,
+  "completed_lessons": 8,
+  "percentage": 40,
+  "resume_lesson_id": 12
 }
 ```
 
-Resume priority:
-1. Most recently opened incomplete lesson
-2. First uncompleted lesson by order
-3. `null` if course complete
+`resume_lesson_id` is the first lesson where `completed=False`, sorted by `order`.
+`null` if all lessons complete.
 
----
+### 4.9 Teacher Analytics
 
-### 4.7 Section Lessons (Teacher-Added Content)
+All endpoints require TEACHER role (or higher). TEACHER sees only their assigned subjects.
+PRINCIPAL/OFFICIAL/ADMIN see institution- or district-scoped data.
 
-TEACHER, PRINCIPAL, and ADMIN can add supplementary lessons to a course. These appear alongside curriculum lessons in the lesson list.
-
-| Endpoint | Method | Roles | Description |
-|---|---|---|---|
-| `/api/v1/lessons/section/{course_id}/` | GET | All authenticated | List section lessons for a course |
-| `/api/v1/lessons/section/{course_id}/` | POST | TEACHER, PRINCIPAL, ADMIN | Create a section lesson |
-| `/api/v1/lessons/section/{lesson_id}/update/` | PATCH | TEACHER, PRINCIPAL, ADMIN | Update a section lesson |
-| `/api/v1/lessons/section/{lesson_id}/delete/` | DELETE | TEACHER, PRINCIPAL, ADMIN | Delete a section lesson |
-
-TEACHER and PRINCIPAL are scoped — they can only manage lessons for courses within their institution.
-
-Create request:
-```json
-{
-  "title": "Extra Practice Problems",
-  "content": "Supplementary text...",
-  "video_url": null,
-  "order": 3
-}
-```
-
----
-
-### 4.8 Teacher Analytics
-
-All analytics endpoints are scoped by role automatically. TEACHER sees their subjects, PRINCIPAL sees their institution, OFFICIAL sees their district, ADMIN sees all.
-
-| Endpoint | Description |
-|---|---|
-| **GET** `/api/v1/teacher/analytics/courses/` | Course completion rates |
-| **GET** `/api/v1/teacher/analytics/lessons/` | Lesson engagement stats |
-| **GET** `/api/v1/teacher/analytics/classes/` | Class-level assessment stats (numerically sorted by class name) |
-| **GET** `/api/v1/teacher/analytics/assessments/` | Assessment pass rates with `course_id` |
-| **GET** `/api/v1/teacher/analytics/classes/{class_id}/students/` | Student list with stats |
-| **GET** `/api/v1/teacher/analytics/classes/{class_id}/students/{student_id}/` | Individual student assessment history |
-
-Course analytics response:
+**GET** `/api/v1/teacher/analytics/courses/`
 ```json
 [
   {
-    "course_id": 1,
+    "course_id": 5,
     "title": "Mathematics Class 8",
     "subject": "Mathematics",
     "grade": 8,
-    "total_lessons": 10,
-    "completed_lessons": 6,
-    "percentage": 60
+    "total_lessons": 20,
+    "completed_lessons": 8,
+    "percentage": 40
   }
 ]
 ```
 
-Assessment analytics response:
-```json
-[
-  {
-    "assessment_id": 1,
-    "course_id": 1,
-    "title": "Chapter 1 Quiz",
-    "course": "Mathematics Class 8",
-    "subject": "Mathematics",
-    "total_attempts": 24,
-    "unique_students": 18,
-    "average_score": 14.5,
-    "pass_count": 16,
-    "fail_count": 8,
-    "pass_rate": 66.67
-  }
-]
-```
-
-Class analytics response:
+**GET** `/api/v1/teacher/analytics/classes/`
 ```json
 [
   {
     "class_id": 1,
-    "class_name": "8",
+    "class_name": "Class 8-A",
     "institution": "Government Senior Secondary School Amritsar",
-    "total_students": 32,
-    "total_attempts": 96,
-    "average_score": 14.5,
-    "pass_rate": 72.9
+    "total_students": 35,
+    "total_attempts": 120,
+    "pass_rate": 72
+  }
+]
+```
+
+**GET** `/api/v1/teacher/analytics/classes/:id/students/`
+```json
+[
+  {
+    "id": 5,
+    "username": "gurpreet_s",
+    "display_name": "Gurpreet Singh",
+    "total_lessons": 20,
+    "completed_lessons": 8
+  }
+]
+```
+
+**GET** `/api/v1/teacher/analytics/assessments/`
+```json
+[
+  {
+    "assessment_id": 3,
+    "title": "Chapter 1 Quiz",
+    "course": "Mathematics Class 8",
+    "subject": "Mathematics",
+    "total_attempts": 28,
+    "unique_students": 20,
+    "average_score": 18,
+    "pass_count": 14,
+    "fail_count": 6,
+    "pass_rate": 70
   }
 ]
 ```
@@ -552,255 +463,70 @@ Class analytics response:
 
 Base path: `/api/v1/assessments/`
 
-### 5.1 Course Assessments
-**GET** `/api/v1/assessments/course/{course_id}/`
+### 5.1 List Assessments
+**GET** `/api/v1/assessments/`
 
-Returns published assessments for a course. Student role only.
+For STUDENT: returns assessments with attempt history fields (`attempt_count`, `best_score`, `passed`).
+For TEACHER+: returns raw list for management.
 
-```json
-[
-  {
-    "id": 1,
-    "title": "Chapter 1 Quiz",
-    "description": "Tests algebraic fundamentals",
-    "total_marks": 20,
-    "pass_marks": 12
-  }
-]
-```
-
----
-
-### 5.2 Assessment Detail (Student)
-**GET** `/api/v1/assessments/{assessment_id}/`
-
-`is_correct` is intentionally absent from all options. Never expose answers to client.
-
-```json
-{
-  "id": 1,
-  "title": "Chapter 1 Quiz",
-  "description": "Tests algebraic fundamentals",
-  "total_marks": 20,
-  "pass_marks": 12,
-  "questions": [
-    {
-      "id": 1,
-      "text": "What is 2x when x = 5?",
-      "marks": 2,
-      "order": 1,
-      "options": [
-        { "id": 1, "text": "8" },
-        { "id": 2, "text": "10" },
-        { "id": 3, "text": "12" },
-        { "id": 4, "text": "25" }
-      ]
-    }
-  ]
-}
-```
-
----
-
-### 5.3 Assessment Detail (Admin/Builder)
-**GET** `/api/v1/assessments/{assessment_id}/admin/`
-
-Returns `is_correct` on each option. Used exclusively by the assessment builder UI.
-Requires ADMIN, TEACHER, or PRINCIPAL role. TEACHER and PRINCIPAL are subject-scoped.
-
-```json
-{
-  "id": 1,
-  "title": "Chapter 1 Quiz",
-  "is_published": true,
-  "total_marks": 20,
-  "pass_marks": 12,
-  "questions": [
-    {
-      "id": 1,
-      "text": "What is 2x when x = 5?",
-      "marks": 2,
-      "order": 1,
-      "options": [
-        { "id": 1, "text": "8",  "is_correct": false },
-        { "id": 2, "text": "10", "is_correct": true  },
-        { "id": 3, "text": "12", "is_correct": false },
-        { "id": 4, "text": "25", "is_correct": false }
-      ]
-    }
-  ]
-}
-```
-
----
-
-### 5.4 Assessment CRUD
-
-| Endpoint | Method | Roles | Description |
-|---|---|---|---|
-| `/api/v1/assessments/course/{course_id}/create/` | POST | ADMIN, TEACHER, PRINCIPAL | Create assessment |
-| `/api/v1/assessments/{assessment_id}/update/` | PATCH | ADMIN, TEACHER, PRINCIPAL | Update assessment |
-| `/api/v1/assessments/{assessment_id}/delete/` | DELETE | ADMIN, TEACHER, PRINCIPAL | Delete assessment |
-
-TEACHER and PRINCIPAL require subject-level access to the course.
-
-Create request:
-```json
-{
-  "title": "Chapter 2 Quiz",
-  "description": "Covers linear equations",
-  "pass_marks": 12,
-  "is_published": false
-}
-```
-
----
-
-### 5.5 Question CRUD
-
-| Endpoint | Method | Roles | Description |
-|---|---|---|---|
-| `/api/v1/assessments/{assessment_id}/questions/create/` | POST | ADMIN, TEACHER, PRINCIPAL | Add question |
-| `/api/v1/assessments/questions/{question_id}/update/` | PATCH | ADMIN, TEACHER, PRINCIPAL | Update question |
-| `/api/v1/assessments/questions/{question_id}/delete/` | DELETE | ADMIN, TEACHER, PRINCIPAL | Delete question |
-
-Question create/update request:
-```json
-{
-  "text": "What is 3x when x = 4?",
-  "marks": 2,
-  "order": 2,
-  "options": [
-    { "text": "8",  "is_correct": false },
-    { "text": "12", "is_correct": true  },
-    { "text": "16", "is_correct": false },
-    { "text": "7",  "is_correct": false }
-  ]
-}
-```
-
-Validation rules:
-- At least 2 options required
-- Exactly one `is_correct: true` option required
-- `Assessment.total_marks` is auto-recalculated via signal after every question save/delete
-
----
-
-### 5.6 Start Assessment
-**POST** `/api/v1/assessments/{assessment_id}/start/`
-
-Creates or returns existing active attempt. Idempotent.
-
-```json
-{
-  "attempt_id": 5,
-  "assessment_id": 1,
-  "started_at": "2026-03-15T10:30:00+05:30"
-}
-```
-
----
-
-### 5.7 Submit Assessment
-**POST** `/api/v1/assessments/{assessment_id}/submit/`
-
-Request:
-```json
-{
-  "attempt_id": 5,
-  "selected_options": {
-    "1": 2,
-    "2": 7,
-    "3": 11
-  }
-}
-```
-
-Keys are question IDs (strings), values are selected option IDs (integers).
-
-Response:
-```json
-{
-  "attempt_id": 5,
-  "score": 14,
-  "passed": true,
-  "total_marks": 20,
-  "pass_marks": 12
-}
-```
-
-Side effect: triggers gamification signal (attempt points, pass points, perfect score bonus, streak update, badge checks).
-
----
-
-### 5.8 My Attempts
-**GET** `/api/v1/assessments/{assessment_id}/my-attempts/`
-
-```json
-[
-  {
-    "id": 5,
-    "score": 14,
-    "passed": true,
-    "started_at": "2026-03-15T10:30:00+05:30",
-    "submitted_at": "2026-03-15T10:45:00+05:30"
-  }
-]
-```
-
----
-
-### 5.9 My Assessment History
-**GET** `/api/v1/assessments/my-history/`
-
-STUDENT → their own full attempt history across all assessments.
-ADMIN → any student's history via `?user_id=` param; returns empty list if no param.
-Other roles → 403.
-
-```json
-[
-  {
-    "id": 5,
-    "score": 14,
-    "passed": true,
-    "submitted_at": "2026-03-15T10:45:00+05:30",
-    "assessment_id": 1,
-    "assessment_title": "Chapter 1 Quiz",
-    "total_marks": 20,
-    "pass_marks": 12,
-    "subject": "Mathematics",
-    "grade": 8,
-    "course_title": "Mathematics Class 8"
-  }
-]
-```
-
----
-
-### 5.10 My Assessments
+### 5.2 My Assessments
 **GET** `/api/v1/assessments/my/`
 
-Scoped by role. STUDENT gets attempt stats; other roles get metadata only.
+STUDENT only. Returns assessments with attempt context. Used by `DashboardPage` and `AssessmentsPage`.
 
 ```json
 [
   {
-    "id": 1,
+    "id": 3,
     "title": "Chapter 1 Quiz",
-    "description": "Tests algebraic fundamentals",
-    "total_marks": 20,
-    "pass_marks": 12,
-    "course_title": "Mathematics Class 8",
+    "course_id": 5,
     "subject": "Mathematics",
     "grade": 8,
+    "total_marks": 25,
+    "pass_marks": 15,
+    "is_published": true,
     "attempt_count": 2,
-    "best_score": 16,
+    "best_score": 20,
     "passed": true
   }
 ]
 ```
 
-For non-STUDENT roles, `attempt_count`, `best_score` are `null` and `passed` is `false`.
+### 5.3 Assessment Detail (Student)
+**GET** `/api/v1/assessments/:id/`
+
+Returns questions with options. `is_correct` is **never** included. Options are shuffled on each request.
+
+### 5.4 Assessment Detail (Admin/Builder)
+**GET** `/api/v1/assessments/:id/admin/`
+
+TEACHER, PRINCIPAL, ADMIN only. Includes `is_correct` for builder UI.
+
+### 5.5 Create Assessment
+**POST** `/api/v1/assessments/`
+
+```json
+{
+  "course_id": 5,
+  "title": "Chapter 1 Quiz",
+  "pass_marks": 15
+}
+```
+
+### 5.6 Submit Attempt
+**POST** `/api/v1/assessments/:id/attempt/`
+
+```json
+{
+  "selected_options": { "1": 3, "2": 7, "3": 12 }
+}
+```
+
+Response includes `score`, `passed`, and points/badge metadata.
+
+### 5.7 Attempt History
+**GET** `/api/v1/assessments/history/`
+**GET** `/api/v1/assessments/:id/history/`
 
 ---
 
@@ -808,94 +534,25 @@ For non-STUDENT roles, `attempt_count`, `best_score` are `null` and `passed` is 
 
 Base path: `/api/v1/learning/`
 
-### 6.1 Enrollments
+### 6.1 List Enrollments
+**GET** `/api/v1/learning/enrollments/`
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/v1/learning/enrollments/` | GET | List enrolled courses |
-| `/api/v1/learning/enroll/` | POST | Enroll in a course |
-| `/api/v1/learning/enrollments/{id}/` | PATCH | Update status |
+### 6.2 Enroll
+**POST** `/api/v1/learning/enrollments/`
 
-Enrollment list response:
 ```json
-[
-  {
-    "id": 1,
-    "course__id": 2,
-    "course__title": "Chemistry Class 9",
-    "status": "enrolled",
-    "enrolled_at": "2026-01-01T10:00:00Z",
-    "completed_at": null
-  }
-]
+{ "course_id": 5 }
 ```
 
-Add `?include_dropped=true` to include dropped enrollments.
+### 6.3 Learning Paths
+**GET** `/api/v1/learning/paths/`
+**GET** `/api/v1/learning/paths/:id/`
+**GET** `/api/v1/learning/paths/:id/progress/`
 
-Status values: `enrolled` | `completed` | `dropped`
-
----
-
-### 6.2 Learning Paths
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/v1/learning/paths/` | GET | List all paths |
-| `/api/v1/learning/paths/{id}/` | GET | Path with ordered courses |
-| `/api/v1/learning/paths/{id}/progress/` | GET | Completion percentage |
-| `/api/v1/learning/paths/{id}/enroll/` | POST | Enroll in all path courses |
-
-Path detail response:
-```json
-{
-  "id": 1,
-  "name": "Class 9 Science Track",
-  "description": "Complete science curriculum for Class 9",
-  "courses": [
-    {
-      "course_id": 1,
-      "title": "Physics Class 9",
-      "grade": 9,
-      "subject": "Physics",
-      "order": 1
-    }
-  ]
-}
-```
-
-Progress response:
-```json
-{
-  "path_id": 1,
-  "total_courses": 5,
-  "completed_courses": 2,
-  "percentage": 40
-}
-```
-
----
-
-### 6.3 Student Dashboard
+### 6.4 Student Dashboard
 **GET** `/api/v1/learning/student/dashboard/`
 
-Optimised endpoint — returns all enrolled courses with progress in a single call.
-
-```json
-{
-  "courses": [
-    {
-      "id": 1,
-      "title": "Mathematics Class 8",
-      "subject": "Mathematics",
-      "grade": 8,
-      "status": "enrolled",
-      "total_lessons": 10,
-      "completed_lessons": 4,
-      "progress": 40
-    }
-  ]
-}
-```
+Optimised — returns all enrolled courses with progress in a single call.
 
 ---
 
@@ -903,16 +560,14 @@ Optimised endpoint — returns all enrolled courses with progress in a single ca
 
 Base path: `/api/v1/roster/`
 
-All endpoints require TEACHER or PRINCIPAL role.
+TEACHER or PRINCIPAL role required.
 
 ### 7.1 Upload Roster
 **POST** `/api/v1/roster/upload/`
 
-Multipart form upload. File must be `.xlsx` or `.xls`, max 5MB.
+Multipart `.xlsx` or `.xls`, max 5MB.
+Columns: `Name | DOB (YYYY-MM-DD) | Section_ID`
 
-Expected columns: `Name | DOB (YYYY-MM-DD) | Section_ID`
-
-Response:
 ```json
 {
   "success": true,
@@ -927,59 +582,88 @@ Response:
     }
   ],
   "skipped": [
-    {
-      "row": 5,
-      "name": "Invalid Row",
-      "reason": "Invalid date format: '15/05/2010'. Expected YYYY-MM-DD."
-    }
+    { "row": 5, "name": "Invalid Row", "reason": "Invalid date format." }
   ]
 }
 ```
-
----
 
 ### 7.2 List Registration Records
-**GET** `/api/v1/roster/records/?section_id=3&page=1&limit=20`
-
-Response:
-```json
-{
-  "success": true,
-  "count": 35,
-  "total_pages": 2,
-  "current_page": 1,
-  "records": [
-    {
-      "id": 1,
-      "name": "Gurpreet Singh",
-      "student_uuid": "uuid-here",
-      "registration_code": "abc123def456",
-      "is_registered": false,
-      "section__name": "A",
-      "section__classroom__name": "8",
-      "section__classroom__institution__name": "Government Senior Secondary School Amritsar"
-    }
-  ]
-}
-```
-
----
+**GET** `/api/v1/roster/records/?section_id=3`
 
 ### 7.3 Regenerate Code
 **POST** `/api/v1/roster/regenerate-code/`
 
-Request:
 ```json
 { "record_id": 1 }
 ```
 
-Response:
+---
+
+## 7b. Notifications App
+
+Base path: `/api/v1/notifications/`
+
+### 7b.1 My Notifications (Inbox)
+**GET** `/api/v1/notifications/me/`
+
 ```json
 {
-  "success": true,
-  "student_uuid": "uuid-here",
-  "new_registration_code": "newcode789",
-  "name": "Gurpreet Singh"
+  "unread": 3,
+  "notifications": [
+    {
+      "id": 12,
+      "message": "New lesson published: Algebra Basics",
+      "notification_type": "lesson_published",
+      "is_read": false,
+      "created_at": "2026-03-18T10:30:00+05:30",
+      "sender": "System",
+      "attachment_url": null,
+      "attachment_name": null,
+      "link": null
+    }
+  ]
+}
+```
+
+### 7b.2 Mark Read
+**POST** `/api/v1/notifications/mark-read/`
+
+```json
+{ "notification_ids": [12, 13] }
+```
+
+### 7b.3 Mark All Read
+**POST** `/api/v1/notifications/mark-all-read/`
+
+### 7b.4 Broadcasts (Sent messages)
+**GET** `/api/v1/notifications/broadcasts/`
+
+Returns the sender's own sent broadcasts. TEACHER, PRINCIPAL, OFFICIAL, ADMIN.
+
+### 7b.5 Send Broadcast
+**POST** `/api/v1/notifications/broadcasts/`
+
+```json
+{
+  "subject": "Class cancelled tomorrow",
+  "body": "Due to heavy rain...",
+  "audience_type": "class",
+  "class_id": 3
+}
+```
+
+Creates `Notification` objects for all matching recipients automatically.
+
+### 7b.6 Broadcast Audience Options
+**GET** `/api/v1/notifications/audience-options/`
+
+Returns what audience types the requester can target, plus their class/institution lists.
+
+```json
+{
+  "allowed_audience_types": ["class", "institution"],
+  "classrooms": [{ "id": 3, "name": "Class 8-A" }],
+  "institutions": [{ "id": 1, "name": "GSSS Amritsar" }]
 }
 ```
 
@@ -989,8 +673,7 @@ Response:
 
 Base path: `/api/v1/gamification/`
 
-All gamification endpoints require STUDENT role unless noted.
-Points are awarded automatically via Django signals — no frontend POST needed.
+All endpoints require STUDENT role unless noted.
 
 ### Point Values
 
@@ -1003,28 +686,8 @@ Points are awarded automatically via Django signals — no frontend POST needed.
 | 3-day streak | +15 bonus |
 | 7-day streak | +50 bonus |
 
-Points are awarded exactly once per event. The `PointEvent` ledger prevents duplicates.
-
-### Badge Codes
-
-| Code | Condition |
-|---|---|
-| `first_lesson` | Complete first lesson |
-| `lesson_10` | Complete 10 lessons |
-| `lesson_50` | Complete 50 lessons |
-| `first_pass` | Pass first assessment |
-| `perfect_score` | Achieve 100% on any assessment |
-| `streak_3` | Reach 3-day streak |
-| `streak_7` | Reach 7-day streak |
-| `points_100` | Accumulate 100 points |
-| `points_500` | Accumulate 500 points |
-
----
-
 ### 8.1 My Summary
 **GET** `/api/v1/gamification/me/`
-
-STUDENT role only.
 
 ```json
 {
@@ -1034,70 +697,142 @@ STUDENT role only.
   "badge_count": 5,
   "class_rank": 3,
   "badges": [
-    {
-      "code": "first_lesson",
-      "label": "First Lesson",
-      "emoji": "📖",
-      "earned_at": "2026-03-01T09:00:00+05:30"
-    }
+    { "code": "first_lesson", "label": "First Lesson", "emoji": "📖", "earned_at": "..." }
   ]
 }
 ```
-
-`class_rank` is the student's current rank within their classroom. `null` if no class assigned.
-
----
 
 ### 8.2 Class Leaderboard
 **GET** `/api/v1/gamification/leaderboard/class/`
 
-STUDENT → returns their own class. Top 20 entries, with student's own entry injected if outside top 20.
-TEACHER, PRINCIPAL, OFFICIAL, ADMIN → must pass `?class_id=` param.
-
-```json
-{
-  "class_id": 1,
-  "class_name": "8",
-  "entries": [
-    {
-      "rank": 1,
-      "user_id": 12,
-      "display_name": "gurpreet_s",
-      "total_points": 340,
-      "is_me": false
-    },
-    {
-      "rank": 3,
-      "user_id": 5,
-      "display_name": "harpreet_k",
-      "total_points": 185,
-      "is_me": true
-    }
-  ]
-}
-```
-
-The `is_me` flag identifies the requesting student's own entry regardless of rank.
-
----
+STUDENT → their own class (top 20, own entry injected if outside top 20).
+Staff → must pass `?class_id=`.
 
 ### 8.3 School Leaderboard
 **GET** `/api/v1/gamification/leaderboard/school/`
 
-STUDENT → their own school.
-TEACHER, PRINCIPAL → their institution automatically.
-OFFICIAL, ADMIN → must pass `?institution_id=` param.
+---
+
+## 8b. Gradebook App
+
+Base path: `/api/v1/gradebook/`
+
+TEACHER or PRINCIPAL role required for all endpoints.
+
+**Purpose:** Manual marks for oral, practical, project, and paper-based assessments that the digital quiz engine doesn't cover.
+
+### 8b.1 Grade Choices
+**GET** `/api/v1/gradebook/choices/`
+
+Returns term and category options for form dropdowns.
 
 ```json
 {
-  "institution_name": "Government Senior Secondary School Amritsar",
-  "entries": [
+  "terms": [
+    { "value": "term_1", "label": "Term 1" },
+    { "value": "term_2", "label": "Term 2" },
+    { "value": "term_3", "label": "Term 3" },
+    { "value": "annual",  "label": "Annual" }
+  ],
+  "categories": [
+    { "value": "unit_test",  "label": "Unit Test" },
+    { "value": "mid_term",   "label": "Mid Term" },
+    { "value": "final",      "label": "Final Exam" },
+    { "value": "project",    "label": "Project" },
+    { "value": "oral",       "label": "Oral" },
+    { "value": "practical",  "label": "Practical" }
+  ]
+}
+```
+
+### 8b.2 Create Entry
+**POST** `/api/v1/gradebook/entry/`
+
+```json
+{
+  "student_id": 5,
+  "subject_id": 2,
+  "term": "term_1",
+  "category": "unit_test",
+  "marks": 18,
+  "total_marks": 25,
+  "notes": "Good performance"
+}
+```
+
+Response: full `GradeEntry` object (see 8b.5).
+`percentage` is always computed server-side — never trust client value.
+
+Unique constraint: `(student, subject, term, category)`. Creating a duplicate returns 400 with a clear error.
+
+### 8b.3 Update Entry
+**PATCH** `/api/v1/gradebook/entry/:id/`
+
+```json
+{
+  "marks": 20,
+  "total_marks": 25,
+  "notes": "Revised after recheck"
+}
+```
+
+Only the teacher who created the entry (or PRINCIPAL) can update it.
+
+### 8b.4 Delete Entry
+**DELETE** `/api/v1/gradebook/entry/:id/delete/`
+
+Returns `{ "success": true }`.
+
+### 8b.5 Student Grades
+**GET** `/api/v1/gradebook/student/:id/`
+
+All grades for one student, optionally filtered by `?term=` or `?subject_id=`.
+
+```json
+[
+  {
+    "id": 8,
+    "student_id": 5,
+    "subject": "Mathematics",
+    "subject_id": 2,
+    "term": "term_1",
+    "category": "unit_test",
+    "marks": 18.0,
+    "total_marks": 25.0,
+    "percentage": 72.0,
+    "notes": "Good performance",
+    "created_at": "2026-03-18T11:00:00+05:30"
+  }
+]
+```
+
+### 8b.6 Class Grades
+**GET** `/api/v1/gradebook/class/:id/`
+
+All grades grouped by student for a full classroom. Same optional filters as 8b.5.
+
+```json
+{
+  "class_id": 1,
+  "class_name": "Class 8-A",
+  "students": [
     {
-      "rank": 1,
-      "user_id": 45,
-      "display_name": "simran_d",
-      "total_points": 620,
-      "is_me": false
+      "student_id": 5,
+      "student": "Gurpreet Singh",
+      "username": "gurpreet_s",
+      "entries": [
+        {
+          "id": 8,
+          "subject": "Mathematics",
+          "subject_id": 2,
+          "term": "term_1",
+          "category": "unit_test",
+          "marks": 18.0,
+          "total_marks": 25.0,
+          "percentage": 72.0,
+          "notes": "Good performance"
+        }
+      ]
     }
   ]
 }
@@ -1116,65 +851,73 @@ OFFICIAL, ADMIN → must pass `?institution_id=` param.
 | `/verify-otp` | VerifyOtpPage | OTP verification for non-student roles |
 | `/complete-profile` | CompleteProfilePage | Post-registration profile completion |
 
-### Student Routes
-
-Note: Course and assessment URLs use human-readable slugs (grade + subject name) instead of numeric IDs.
-Example: `/courses/10/punjabi`, `/assessments/8/social-studies/5`
+### Shared Routes (all authenticated roles)
 
 | Route | Component | Purpose |
 |---|---|---|
-| `/dashboard` | DashboardPage | Subject progress + gamification strip |
+| `/notifications` | NotificationsPage | Inbox, send, broadcast history |
+| `/profile` | ProfilePage | Profile edit, badges, gamification |
+
+### Student Routes
+
+Course and assessment URLs use human-readable slugs:
+`/courses/10/punjabi`, `/assessments/8/social-studies/5`
+
+| Route | Component | Purpose |
+|---|---|---|
+| `/dashboard` | DashboardPage | Subject progress + assessments + gamification strip + Continue/Start resume |
 | `/courses` | CoursesPage | All enrolled courses |
-| `/courses/:grade/:subject` | LessonsPage | Lessons for a course e.g. `/courses/10/punjabi` |
+| `/courses/:grade/:subject` | LessonsPage | Course lesson list |
 | `/courses/:grade/:subject/assessments` | CourseAssessmentsPage | Assessments for a course |
-| `/lessons/:lessonId` | LessonPage | Lesson content + completion |
-| `/assessments` | AssessmentsPage | All accessible assessments |
-| `/assessments/history` | AssessmentHistoryPage | Full attempt history |
-| `/assessments/:grade/:subject/:assessmentId` | AssessmentPage | Assessment detail + start |
-| `/assessments/:grade/:subject/:assessmentId/take` | AssessmentTakePage | Active assessment session |
+| `/lessons/:lessonId` | LessonPage | Video, PDF, Markdown, notes, mark-complete |
+| `/assessments` | AssessmentsPage | All assessments with score rings |
+| `/assessments/history` | AssessmentHistoryPage | Global attempt history |
+| `/assessments/:grade/:subject/:assessmentId` | AssessmentPage | Instructions + start |
+| `/assessments/:grade/:subject/:assessmentId/take` | AssessmentTakePage | Timer, dot nav, auto-submit |
 | `/assessments/:grade/:subject/:assessmentId/history` | AssessmentHistoryPage | Per-assessment history |
-| `/assessment-result` | AssessmentResultPage | Score + points earned after submit |
-| `/learning` | LearningPathsPage | Learning path listing |
-| `/learning/:pathId` | LearningPathPage | Path detail with courses |
-| `/leaderboard` | LeaderboardPage | Class + school leaderboard |
-| `/profile` | ProfilePage | User profile + badge shelf + logout |
+| `/assessment-result` | AssessmentResultPage | Score + points banner |
+| `/learning` | LearningPathsPage | Learning paths listing |
+| `/learning/:pathId` | LearningPathPage | Path detail |
+| `/leaderboard` | LeaderboardPage | Class + school |
 
 ### Teacher Routes
 
 | Route | Component | Purpose |
 |---|---|---|
-| `/teacher` | TeacherDashboardPage | Subjects, classes, courses, assessments |
-| `/teacher/classes/:classId` | TeacherClassDetailPage | Student list with stats |
-| `/teacher/classes/:classId/students/:studentId` | TeacherStudentDetailPage | Individual student history |
+| `/teacher` | TeacherDashboardPage | Classes, courses, assessments analytics |
+| `/teacher/classes/:classId` | TeacherClassDetailPage | Student lesson progress + Gradebook button |
+| `/teacher/classes/:classId/gradebook` | GradebookPage | Manual mark entry/edit/delete |
+| `/teacher/classes/:classId/students/:studentId` | TeacherStudentDetailPage | Individual student attempt history |
 | `/teacher/courses/:courseId/lessons` | AdminLessonEditorPage | Lesson editor (curriculum + section tabs) |
 | `/teacher/courses/:courseId/assessments` | AdminAssessmentBuilderPage | Assessment builder |
-| `/teacher/users` | UserManagementPage | Manage join codes for students |
+| `/teacher/users` | UserManagementPage | Join codes + student management |
 
 ### Principal Routes
 
 | Route | Component | Purpose |
 |---|---|---|
-| `/principal` | PrincipalDashboardPage | Institution overview |
+| `/principal` | PrincipalDashboardPage | Classes, courses, assessments, teachers |
+| `/principal/classes/:classId/gradebook` | GradebookPage | Manual marks view/edit |
 | `/principal/courses/:courseId/lessons` | AdminLessonEditorPage | Lesson editor |
 | `/principal/courses/:courseId/assessments` | AdminAssessmentBuilderPage | Assessment builder |
-| `/principal/users` | UserManagementPage | Manage join codes |
+| `/principal/users` | UserManagementPage | Join codes for teachers |
 
 ### Official Routes
 
 | Route | Component | Purpose |
 |---|---|---|
-| `/official` | OfficialDashboardPage | District-level analytics |
-| `/official/users` | UserManagementPage | Manage principal codes |
+| `/official` | OfficialDashboardPage | District analytics, school filter |
+| `/official/users` | UserManagementPage | Principal codes |
 
 ### Admin Routes
 
 | Route | Component | Purpose |
 |---|---|---|
-| `/admin-panel` | AdminDashboardPage | Quick nav to all admin tools |
-| `/admin/content` | AdminContentPage | Course and lesson management |
+| `/admin-panel` | AdminDashboardPage | System stats + quick nav |
+| `/admin/content` | AdminContentPage | Course creation + management |
 | `/admin/content/courses/:courseId/lessons` | AdminLessonEditorPage | Lesson editor |
 | `/admin/content/courses/:courseId/assessments` | AdminAssessmentBuilderPage | Assessment builder |
-| `/admin/join-codes` | AdminJoinCodesPage | Generate and manage all join codes |
+| `/admin/join-codes` | AdminJoinCodesPage | All join codes |
 | `/admin/users` | UserManagementPage | Full user management |
 
 ### Error Routes
@@ -1188,13 +931,10 @@ Example: `/courses/10/punjabi`, `/assessments/8/social-studies/5`
 
 ### Route Guards
 
-Every non-public route is wrapped in `<RequireRole>` which enforces:
-1. Authentication — redirects to `/login` if not authenticated
-2. Role rank — shows 403 screen if insufficient role
+Every non-public route uses `<RequireRole>`. Role hierarchy enforced:
+`STUDENT(1) < TEACHER(2) < PRINCIPAL(3) < OFFICIAL(4) < ADMIN(5)`
 
-Role hierarchy: `STUDENT(1) < TEACHER(2) < PRINCIPAL(3) < OFFICIAL(4) < ADMIN(5)`
-
-All lazy-loaded routes use a consistent `<PageLoader />` fallback via `<Suspense>`.
+All lazy-loaded pages use `<Suspense fallback={<PageLoader />}>`.
 
 ---
 
@@ -1203,13 +943,30 @@ All lazy-loaded routes use a consistent `<PageLoader />` fallback via `<Suspense
 | File | Responsibility |
 |---|---|
 | `api.ts` | Base fetch helpers (`apiGet`, `apiPost`, `apiPatch`, `apiDelete`), CSRF init, session |
-| `assessments.ts` | Assessment CRUD, attempt management, admin detail endpoint |
-| `content.ts` | Section lesson CRUD (teacher-added lessons) |
-| `courseProgress.ts` | Course progress fetching, resume lesson |
+| `assessments.ts` | Assessment CRUD, attempt management, admin detail, `AssessmentWithStatus` type |
+| `content.ts` | Section lesson CRUD, `getLessonDetail`, `getCourseBySlug` |
+| `courseProgress.ts` | Course progress fetching, `resume_lesson_id` |
 | `gamification.ts` | Points summary, class leaderboard, school leaderboard |
+| `gradebook.ts` | NEW — `GradeEntry` CRUD, choices, class/student views |
 | `learningEnrollments.ts` | Enrollment management |
 | `learningPaths.ts` | Learning path listing, detail, progress |
-| `media.ts` | Cloudflare R2 media upload (presigned URLs) |
-| `notifications.ts` | Notification fetching and marking read |
+| `media.ts` | Cloudflare R2 presigned upload, `extractYouTubeId`, `extractVimeoId` |
+| `notifications.ts` | Inbox fetch, mark read, broadcast send, audience options |
 | `progress.ts` | Lesson progress PATCH |
-| `teacherAnalytics.ts` | All teacher/analytics endpoints |
+| `teacherAnalytics.ts` | Analytics — classes, courses, assessments, class students |
+
+---
+
+## 11. TopBar NavMenu (Demo)
+
+> **⚠️ Temporary feature — to be redesigned post-capstone**
+
+A `NavMenu` component is mounted in `TopBar` (left of the notification bell).
+It renders a role-aware dropdown showing all accessible routes for the current user.
+
+Purpose: allow supervisors and demo reviewers to navigate the full system quickly.
+
+**TODO:** Replace with:
+- A sidebar drawer for staff roles (TEACHER, PRINCIPAL, OFFICIAL, ADMIN)
+- Students already have `BottomNav` — remove the nav menu redundancy on mobile
+- Remove the "⚠️ Demo nav" banner from the panel once replaced

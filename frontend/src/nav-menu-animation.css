@@ -1,0 +1,17 @@
+
+/* ================================================================
+   NAV MENU — slide-in animation
+   Used by NavMenu.tsx (demo sidebar navigation).
+   TODO: keep or replace when upgrading to persistent sidebar.
+================================================================ */
+
+@keyframes navSlideIn {
+  from {
+    transform: translateX(-100%);
+    opacity:   0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity:   1;
+  }
+}

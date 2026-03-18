@@ -126,7 +126,6 @@ export default function TopBar({ title }: Props) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
 
-  // Poll unread count every 30 seconds. Also refresh when tab becomes visible.
   const refreshUnread = useCallback(() => {
     if (!auth.authenticated) return;
     fetchNotifications()
@@ -147,7 +146,6 @@ export default function TopBar({ title }: Props) {
     };
   }, [refreshUnread]);
 
-  // Close user menu on outside click
   useEffect(() => {
     if (!userMenuOpen) return;
     const handler = (e: MouseEvent) => {
@@ -159,7 +157,6 @@ export default function TopBar({ title }: Props) {
     return () => document.removeEventListener("mousedown", handler);
   }, [userMenuOpen]);
 
-  // Escape closes whichever panel is open
   useEffect(() => {
     if (!userMenuOpen && !notifOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -187,7 +184,6 @@ export default function TopBar({ title }: Props) {
     navigate(paths[auth.user.role] ?? "/");
   };
 
-  // "View all notifications" — closes panel then navigates
   const handleViewAll = useCallback(() => {
     setNotifOpen(false);
     navigate("/notifications");
@@ -248,13 +244,10 @@ export default function TopBar({ title }: Props) {
         {/*
           ⚠️ NAV MENU — TEMPORARY SUPERVISOR DEMO
           Shows all role-specific routes in a dropdown.
-          TODO: remove / redesign post-capstone.
+          TODO: redesign as sidebar/drawer post-capstone.
         */}
         {auth.authenticated && auth.user && (
-          <NavMenu
-            role={auth.user.role as Role}
-            username={auth.user.username}
-          />
+          <NavMenu role={auth.user.role as Role} />
         )}
 
         {/* Notification bell */}

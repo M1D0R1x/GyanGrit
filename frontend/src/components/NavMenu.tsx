@@ -2,20 +2,18 @@
 /**
  * ⚠️  TEMPORARY SUPERVISOR DEMO NAV — NEEDS UPGRADE LATER  ⚠️
  *
- * This component is a quick navigation menu added so the supervisor can see
- * and click every accessible section/endpoint for the currently logged-in role.
+ * Added for supervisor/capstone demo so every accessible section can be
+ * demonstrated by clicking through this menu.
  *
- * TODO (before production / post-capstone):
- *   - Replace with a proper sidebar drawer for staff roles (TEACHER, PRINCIPAL, OFFICIAL, ADMIN)
- *   - Students already have BottomNav — this is redundant for them on mobile
- *   - Remove the raw route listing once the UI is polished and intuitive
- *   - Consider persistent role-specific sidebars instead of a dropdown
- *   - The "⚠️ Demo nav" banner inside the panel can be removed once upgraded
+ * TODO (post-capstone):
+ *   - Replace with a sidebar drawer for staff roles
+ *   - Students already have BottomNav — remove NavMenu from student mobile view
+ *   - Remove the ⚠️ warning banner after redesign
+ *   - Routes needing dynamic IDs currently link to the parent dashboard —
+ *     fix properly once sidebar redesign is done
  *
- * Current behaviour:
- *   - Renders a "☰ Nav" button in TopBar (between logo and notification bell)
- *   - Opens a dropdown panel with all routes grouped by section for the current role
- *   - Closes on outside click, Escape key, or after navigation
+ * Route access is rank-based (RequireRole checks ROLE_RANK >=):
+ *   STUDENT(1) < TEACHER(2) < PRINCIPAL(3) < OFFICIAL(4) < ADMIN(5)
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -28,6 +26,7 @@ type NavItem = {
   label: string;
   path:  string;
   icon:  string;
+  note?: string;  // shown greyed as a sub-label; item still navigates to path
 };
 
 type NavGroup = {
@@ -36,8 +35,6 @@ type NavGroup = {
 };
 
 // ── Role-aware route map ───────────────────────────────────────────────────
-// Each role sees only the routes it can access.
-// Keep this in sync with router.tsx when adding new routes.
 
 function getNavGroups(role: Role): NavGroup[] {
   switch (role) {
@@ -45,31 +42,31 @@ function getNavGroups(role: Role): NavGroup[] {
     case "STUDENT":
       return [
         {
-          group: "🏠 Home",
+          group: "Home",
           items: [
-            { label: "Dashboard",          path: "/dashboard",           icon: "🏠" },
-            { label: "Profile & Badges",   path: "/profile",             icon: "👤" },
-            { label: "Leaderboard",        path: "/leaderboard",         icon: "🏆" },
+            { label: "Dashboard",        path: "/dashboard",   icon: "🏠" },
+            { label: "Profile & Badges", path: "/profile",     icon: "👤" },
+            { label: "Leaderboard",      path: "/leaderboard", icon: "🏆" },
           ],
         },
         {
-          group: "📚 Courses",
+          group: "Learning",
           items: [
-            { label: "All Courses",      path: "/courses",   icon: "📚" },
-            { label: "Learning Paths",   path: "/learning",  icon: "🗺️" },
+            { label: "All Courses",    path: "/courses",  icon: "📚" },
+            { label: "Learning Paths", path: "/learning", icon: "🗺️" },
           ],
         },
         {
-          group: "📋 Assessments",
+          group: "Assessments",
           items: [
-            { label: "All Assessments",    path: "/assessments",         icon: "📋" },
-            { label: "Attempt History",    path: "/assessments/history", icon: "🕑" },
+            { label: "All Assessments", path: "/assessments",         icon: "📋" },
+            { label: "Attempt History", path: "/assessments/history", icon: "🕑" },
           ],
         },
         {
-          group: "🔔 Notifications",
+          group: "Communication",
           items: [
-            { label: "Inbox & History",  path: "/notifications", icon: "🔔" },
+            { label: "Notifications", path: "/notifications", icon: "🔔" },
           ],
         },
       ];
@@ -77,7 +74,7 @@ function getNavGroups(role: Role): NavGroup[] {
     case "TEACHER":
       return [
         {
-          group: "📊 Overview",
+          group: "Overview",
           items: [
             { label: "Teacher Dashboard", path: "/teacher",       icon: "📊" },
             { label: "Notifications",     path: "/notifications", icon: "🔔" },
@@ -85,18 +82,19 @@ function getNavGroups(role: Role): NavGroup[] {
           ],
         },
         {
-          group: "👥 Students",
+          group: "Classes & Content",
           items: [
-            { label: "Join Codes & Students", path: "/teacher/users", icon: "🔑" },
+            { label: "Class Detail",       path: "/teacher", icon: "🏫", note: "select from dashboard → class card" },
+            { label: "Gradebook",          path: "/teacher", icon: "📝", note: "dashboard → class → Gradebook button" },
+            { label: "Student Detail",     path: "/teacher", icon: "👤", note: "dashboard → class → student row" },
+            { label: "Lesson Editor",      path: "/teacher", icon: "✏️", note: "dashboard → course card → Edit Lessons" },
+            { label: "Assessment Builder", path: "/teacher", icon: "🧪", note: "dashboard → course card → Edit Assessments" },
           ],
         },
         {
-          group: "📝 Notes",
+          group: "Students & Codes",
           items: [
-            { label: "Class Detail (→ via dashboard)", path: "/teacher",               icon: "🏫" },
-            { label: "Gradebook (→ via class)",        path: "/teacher",               icon: "📊" },
-            { label: "Lesson Editor (→ via class)",    path: "/teacher",               icon: "✏️" },
-            { label: "Assessment Builder (→ via class)", path: "/teacher",             icon: "🧪" },
+            { label: "Join Codes & Students", path: "/teacher/users", icon: "🔑" },
           ],
         },
       ];
@@ -104,7 +102,7 @@ function getNavGroups(role: Role): NavGroup[] {
     case "PRINCIPAL":
       return [
         {
-          group: "🏫 Overview",
+          group: "Overview",
           items: [
             { label: "Principal Dashboard", path: "/principal",       icon: "🏫" },
             { label: "Notifications",       path: "/notifications",   icon: "🔔" },
@@ -112,18 +110,18 @@ function getNavGroups(role: Role): NavGroup[] {
           ],
         },
         {
-          group: "🔑 Management",
+          group: "Classes & Content",
           items: [
-            { label: "Join Codes & Staff", path: "/principal/users", icon: "🔑" },
+            { label: "Class Detail",       path: "/principal", icon: "🏠", note: "select from dashboard → class card" },
+            { label: "Gradebook",          path: "/principal", icon: "📝", note: "dashboard → class → Gradebook button" },
+            { label: "Lesson Editor",      path: "/principal", icon: "✏️", note: "dashboard → course card → Edit Lessons" },
+            { label: "Assessment Builder", path: "/principal", icon: "🧪", note: "dashboard → course card → Edit Assessments" },
           ],
         },
         {
-          group: "📝 Content",
+          group: "Staff & Codes",
           items: [
-            { label: "Class Detail (→ via dashboard)", path: "/principal", icon: "🏠" },
-            { label: "Gradebook (→ via class)",        path: "/principal", icon: "📊" },
-            { label: "Lesson Editor (→ via class)",    path: "/principal", icon: "✏️" },
-            { label: "Assessment Builder (→ via class)", path: "/principal", icon: "🧪" },
+            { label: "Join Codes & Staff", path: "/principal/users", icon: "🔑" },
           ],
         },
       ];
@@ -131,7 +129,7 @@ function getNavGroups(role: Role): NavGroup[] {
     case "OFFICIAL":
       return [
         {
-          group: "🗺️ Overview",
+          group: "Overview",
           items: [
             { label: "Official Dashboard",     path: "/official",       icon: "🗺️" },
             { label: "Notifications",          path: "/notifications",  icon: "🔔" },
@@ -139,7 +137,7 @@ function getNavGroups(role: Role): NavGroup[] {
           ],
         },
         {
-          group: "🔑 Management",
+          group: "Management",
           items: [
             { label: "Manage Principal Codes", path: "/official/users", icon: "🔑" },
           ],
@@ -149,24 +147,26 @@ function getNavGroups(role: Role): NavGroup[] {
     case "ADMIN":
       return [
         {
-          group: "⚙️ Admin",
+          group: "Admin",
           items: [
-            { label: "Admin Dashboard",  path: "/admin-panel",     icon: "⚙️" },
-            { label: "Notifications",    path: "/notifications",   icon: "🔔" },
-            { label: "Profile",          path: "/profile",         icon: "👤" },
+            { label: "Admin Dashboard", path: "/admin-panel",   icon: "⚙️" },
+            { label: "Notifications",   path: "/notifications", icon: "🔔" },
+            { label: "Profile",         path: "/profile",       icon: "👤" },
           ],
         },
         {
-          group: "📚 Content",
+          group: "Content",
           items: [
-            { label: "Manage Courses & Lessons", path: "/admin/content",    icon: "📚" },
+            { label: "Manage Courses",     path: "/admin/content",    icon: "📚" },
+            { label: "Lesson Editor",      path: "/admin/content",    icon: "✏️", note: "Courses → course → Edit Lessons" },
+            { label: "Assessment Builder", path: "/admin/content",    icon: "🧪", note: "Courses → course → Edit Assessments" },
           ],
         },
         {
-          group: "👥 Users",
+          group: "Users",
           items: [
-            { label: "Join Codes",      path: "/admin/join-codes", icon: "🔑" },
-            { label: "All Users",       path: "/admin/users",      icon: "👥" },
+            { label: "Join Codes", path: "/admin/join-codes", icon: "🔑" },
+            { label: "All Users",  path: "/admin/users",      icon: "👥" },
           ],
         },
       ];
@@ -176,7 +176,7 @@ function getNavGroups(role: Role): NavGroup[] {
   }
 }
 
-// ── Role accent colours (matches TopBar) ───────────────────────────────────
+// ── Role colours ──────────────────────────────────────────────────────────
 
 const ROLE_COLORS: Record<Role, string> = {
   STUDENT:   "#3b82f6",
@@ -188,31 +188,22 @@ const ROLE_COLORS: Record<Role, string> = {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-type Props = {
-  role:     Role;
-  username: string;
-};
-
-export default function NavMenu({ role, username }: Props) {
+export default function NavMenu({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const menuRef         = useRef<HTMLDivElement>(null);
   const navigate        = useNavigate();
   const groups          = getNavGroups(role);
   const roleColor       = ROLE_COLORS[role] ?? "var(--brand-primary)";
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
@@ -220,28 +211,25 @@ export default function NavMenu({ role, username }: Props) {
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
-  const go = (path: string) => {
-    setOpen(false);
-    navigate(path);
-  };
+  const go = (path: string) => { setOpen(false); navigate(path); };
 
   if (groups.length === 0) return null;
 
   return (
     <div ref={menuRef} style={{ position: "relative" }}>
 
-      {/* ── Trigger button ──────────────────────────────────────────────── */}
+      {/* ── Trigger ─────────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Open navigation menu"
         aria-expanded={open}
         aria-haspopup="true"
-        title="All sections for your role"
         style={{
           display:      "flex",
           alignItems:   "center",
           gap:          6,
           padding:      "5px 11px",
+          height:       34,
           background:   open ? roleColor + "18" : "var(--bg-overlay)",
           border:       "1px solid",
           borderColor:  open ? roleColor : "var(--border-subtle)",
@@ -253,26 +241,24 @@ export default function NavMenu({ role, username }: Props) {
           fontFamily:   "var(--font-body)",
           transition:   "all 0.15s",
           flexShrink:   0,
-          height:       34,
         }}
         onMouseEnter={(e) => {
           if (!open) {
             const b = e.currentTarget as HTMLButtonElement;
-            b.style.background   = "var(--bg-elevated)";
-            b.style.color        = "var(--text-primary)";
-            b.style.borderColor  = "var(--border-default)";
+            b.style.background  = "var(--bg-elevated)";
+            b.style.color       = "var(--text-primary)";
+            b.style.borderColor = "var(--border-default)";
           }
         }}
         onMouseLeave={(e) => {
           if (!open) {
             const b = e.currentTarget as HTMLButtonElement;
-            b.style.background   = "var(--bg-overlay)";
-            b.style.color        = "var(--text-secondary)";
-            b.style.borderColor  = "var(--border-subtle)";
+            b.style.background  = "var(--bg-overlay)";
+            b.style.color       = "var(--text-secondary)";
+            b.style.borderColor = "var(--border-subtle)";
           }
         }}
       >
-        {/* Hamburger */}
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -280,21 +266,17 @@ export default function NavMenu({ role, username }: Props) {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-
-        {/* Label — hidden on very small screens via inline max-width trick */}
         <span style={{ whiteSpace: "nowrap" }}>Nav</span>
-
-        {/* Chevron */}
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.5"
-          strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.15s" }}
           aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
-      {/* ── Dropdown panel ──────────────────────────────────────────────── */}
+      {/* ── Panel ───────────────────────────────────────────────────────── */}
       {open && (
         <div
           role="menu"
@@ -303,8 +285,8 @@ export default function NavMenu({ role, username }: Props) {
             position:     "absolute",
             top:          "calc(100% + 8px)",
             left:         0,
-            minWidth:     260,
-            maxWidth:     300,
+            minWidth:     268,
+            maxWidth:     320,
             maxHeight:    "calc(100vh - 80px)",
             overflowY:    "auto",
             background:   "var(--bg-elevated)",
@@ -315,55 +297,40 @@ export default function NavMenu({ role, username }: Props) {
             animation:    "fadeInUp 0.15s ease both",
           }}
         >
-          {/* Panel header */}
+          {/* Header */}
           <div style={{
-            padding:       "10px 14px 8px",
-            borderBottom:  "1px solid var(--border-subtle)",
-            background:    "var(--bg-surface)",
-            borderRadius:  "var(--radius-lg) var(--radius-lg) 0 0",
-            position:      "sticky",
-            top:           0,
+            padding:      "10px 14px 8px",
+            borderBottom: "1px solid var(--border-subtle)",
+            background:   "var(--bg-surface)",
+            borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+            position:     "sticky",
+            top:          0,
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <span style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontSize:   "var(--text-sm)",
-                color:      "var(--text-primary)",
+                fontFamily: "var(--font-display)", fontWeight: 700,
+                fontSize: "var(--text-sm)", color: "var(--text-primary)",
               }}>
                 Navigation
               </span>
               <span style={{
-                fontSize:      10,
-                fontWeight:    700,
-                padding:       "2px 8px",
-                borderRadius:  "var(--radius-full)",
-                background:    roleColor + "20",
-                color:         roleColor,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                flexShrink:    0,
+                fontSize: 10, fontWeight: 700,
+                padding: "2px 8px", borderRadius: "var(--radius-full)",
+                background: roleColor + "20", color: roleColor,
+                letterSpacing: "0.05em", textTransform: "uppercase", flexShrink: 0,
               }}>
                 {role}
               </span>
             </div>
-            {/* Demo warning — remove post-capstone */}
-            <div style={{
-              marginTop:  "var(--space-2)",
-              fontSize:   10,
-              color:      "var(--text-muted)",
-              fontStyle:  "italic",
-              lineHeight: 1.4,
-            }}>
+            <div style={{ marginTop: "var(--space-2)", fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>
               ⚠️ Temporary demo nav · will be redesigned post-capstone
             </div>
           </div>
 
-          {/* Nav groups */}
+          {/* Groups */}
           <div style={{ padding: "var(--space-1) 0 var(--space-2)" }}>
             {groups.map((group, gi) => (
               <div key={group.group}>
-                {/* Group heading */}
                 <div style={{
                   padding:       `${gi === 0 ? "var(--space-3)" : "var(--space-4)"} 14px var(--space-1)`,
                   fontSize:      10,
@@ -375,15 +342,14 @@ export default function NavMenu({ role, username }: Props) {
                   {group.group}
                 </div>
 
-                {/* Items */}
                 {group.items.map((item) => (
                   <button
-                    key={item.label + item.path}
+                    key={item.label}
                     role="menuitem"
                     onClick={() => go(item.path)}
                     style={{
                       display:    "flex",
-                      alignItems: "center",
+                      alignItems: item.note ? "flex-start" : "center",
                       gap:        10,
                       width:      "100%",
                       padding:    "7px 14px",
@@ -400,36 +366,58 @@ export default function NavMenu({ role, username }: Props) {
                     onMouseEnter={(e) => {
                       const b = e.currentTarget as HTMLButtonElement;
                       b.style.background = "var(--bg-overlay)";
-                      b.style.color      = "var(--text-primary)";
+                      b.style.color = "var(--text-primary)";
                     }}
                     onMouseLeave={(e) => {
                       const b = e.currentTarget as HTMLButtonElement;
                       b.style.background = "none";
-                      b.style.color      = "var(--text-secondary)";
+                      b.style.color = "var(--text-secondary)";
                     }}
                   >
-                    <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1 }} aria-hidden="true">
+                    <span style={{ fontSize: 14, flexShrink: 0, lineHeight: item.note ? "20px" : 1 }} aria-hidden="true">
                       {item.icon}
                     </span>
-                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block" }}>{item.label}</span>
+                      {item.note && (
+                        <span style={{
+                          display:   "block",
+                          fontSize:  10,
+                          color:     "var(--text-muted)",
+                          fontStyle: "italic",
+                          marginTop: 1,
+                        }}>
+                          {item.note}
+                        </span>
+                      )}
+                    </span>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
                       stroke="var(--text-muted)" strokeWidth="2"
-                      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ flexShrink: 0, marginTop: item.note ? 4 : 0 }}
+                      aria-hidden="true">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </button>
                 ))}
 
-                {/* Group divider */}
                 {gi < groups.length - 1 && (
                   <div style={{
-                    height:     1,
-                    background: "var(--border-subtle)",
-                    margin:     "var(--space-2) 14px 0",
+                    height: 1, background: "var(--border-subtle)",
+                    margin: "var(--space-2) 14px 0",
                   }} />
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Footer hint */}
+          <div style={{
+            padding:   "var(--space-2) 14px var(--space-3)",
+            borderTop: "1px solid var(--border-subtle)",
+            fontSize:  10, color: "var(--text-muted)", lineHeight: 1.5,
+          }}>
+            Items with an italic note require selecting a specific record first.
           </div>
         </div>
       )}

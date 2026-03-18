@@ -173,10 +173,10 @@ export default function PrincipalDashboardPage() {
               </div>
               <div style={{ display: "flex", gap: "var(--space-6)", flexWrap: "wrap" }}>
                 {[
-                  { value: classes.length,   label: "Classes",  color: "var(--text-primary)" },
-                  { value: totalStudents,    label: "Students", color: "var(--role-student)" },
+                  { value: classes.length,    label: "Classes",  color: "var(--text-primary)" },
+                  { value: totalStudents,     label: "Students", color: "var(--role-student)" },
                   { value: `${avgPassRate}%`, label: "Avg Pass", color: avgPassRate >= 70 ? "var(--success)" : "var(--warning)" },
-                  { value: teachers.length,  label: "Teachers", color: "var(--role-teacher)" },
+                  { value: teachers.length,   label: "Teachers", color: "var(--role-teacher)" },
                 ].map(({ value, label, color }, idx, arr) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
                     <div style={{ textAlign: "center" }}>
@@ -196,16 +196,8 @@ export default function PrincipalDashboardPage() {
         )}
 
         {/* ── Quick Actions ─────────────────────────────────────────────── */}
-        <div style={{
-          display: "flex",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-8)",
-          flexWrap: "wrap",
-        }}>
-          <button
-            className="btn btn--secondary"
-            onClick={() => navigate("/principal/users")}
-          >
+        <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-8)", flexWrap: "wrap" }}>
+          <button className="btn btn--secondary" onClick={() => navigate("/principal/users")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -249,10 +241,11 @@ export default function PrincipalDashboardPage() {
                     key={c.class_id}
                     className="card card--clickable page-enter"
                     style={{ animationDelay: `${i * 40}ms` }}
-                    onClick={() => navigate(`/teacher/classes/${c.class_id}`)}
+                    // FIX 2026-03-18: was /teacher/classes/:id — now uses principal-namespaced URL
+                    onClick={() => navigate(`/principal/classes/${c.class_id}`)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/classes/${c.class_id}`)}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(`/principal/classes/${c.class_id}`)}
                   >
                     <div className="card__label">Class</div>
                     <div style={{
@@ -349,10 +342,7 @@ export default function PrincipalDashboardPage() {
                     marginBottom: "var(--space-2)",
                   }}>
                     <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
-                    <span style={{
-                      fontWeight: 700,
-                      color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
-                    }}>
+                    <span style={{ fontWeight: 700, color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)" }}>
                       {course.percentage}%
                     </span>
                   </div>
@@ -408,11 +398,7 @@ export default function PrincipalDashboardPage() {
                 const passColor = a.pass_rate >= 70 ? "var(--success)"
                   : a.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
                 return (
-                  <div
-                    key={a.assessment_id}
-                    className="card page-enter"
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  >
+                  <div key={a.assessment_id} className="card page-enter" style={{ animationDelay: `${i * 40}ms` }}>
                     <div className="card__label">{a.subject ?? a.course}</div>
                     <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>
                       {a.title}
@@ -429,25 +415,15 @@ export default function PrincipalDashboardPage() {
                         { label: "Pass Rate", value: `${a.pass_rate}%` },
                       ].map(({ label, value }) => (
                         <div key={label} style={{ textAlign: "center" }}>
-                          <div style={{
-                            fontFamily: "var(--font-display)",
-                            fontWeight: 700,
-                            fontSize: "var(--text-base)",
-                            color: "var(--text-primary)",
-                          }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>
                             {value}
                           </div>
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                            {label}
-                          </div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
                         </div>
                       ))}
                     </div>
                     <div className="progress-bar">
-                      <div
-                        className="progress-bar__fill"
-                        style={{ width: `${a.pass_rate}%`, background: passColor }}
-                      />
+                      <div className="progress-bar__fill" style={{ width: `${a.pass_rate}%`, background: passColor }} />
                     </div>
                   </div>
                 );
@@ -485,26 +461,15 @@ export default function PrincipalDashboardPage() {
             gap: "var(--space-3)",
           }}>
             {teachers.map((t, i) => (
-              <div
-                key={t.id}
-                className="card page-enter"
-                style={{ animationDelay: `${i * 30}ms` }}
-              >
+              <div key={t.id} className="card page-enter" style={{ animationDelay: `${i * 30}ms` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                   <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
+                    width: 36, height: 36, borderRadius: "50%",
                     background: "rgba(16,185,129,0.1)",
                     border: "1px solid rgba(16,185,129,0.3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-xs)",
-                    fontWeight: 800,
-                    color: "var(--role-teacher)",
-                    flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "var(--font-display)", fontSize: "var(--text-xs)",
+                    fontWeight: 800, color: "var(--role-teacher)", flexShrink: 0,
                   }}>
                     {t.username.slice(0, 2).toUpperCase()}
                   </div>

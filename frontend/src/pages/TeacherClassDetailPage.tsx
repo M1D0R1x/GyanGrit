@@ -1,6 +1,8 @@
 // pages.TeacherClassDetailPage
+// Used by both TEACHER (/teacher/classes/:classId) and PRINCIPAL (/principal/classes/:classId).
+// URL prefix is detected from location.pathname to generate correct back/gradebook/student links.
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getTeacherClassStudents,
   type TeacherClassStudent,
@@ -34,6 +36,14 @@ function LessonProgress({ completed, total }: { completed: number; total: number
 export default function TeacherClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate    = useNavigate();
+  const location    = useLocation();
+
+  // Detect which role's URL prefix we're under so back/child links stay consistent.
+  // e.g. /principal/classes/3 → prefix = "/principal"
+  // e.g. /teacher/classes/3   → prefix = "/teacher"
+  const prefix = location.pathname.startsWith("/principal") ? "/principal"
+    : location.pathname.startsWith("/official") ? "/official"
+    : "/teacher";
 
   const [students, setStudents] = useState<TeacherClassStudent[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -63,8 +73,11 @@ export default function TeacherClassDetailPage() {
       <main className="page-content page-enter">
 
         {/* Nav row — back + gradebook shortcut */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-6)", flexWrap: "wrap", gap: "var(--space-3)" }}>
-          <button className="back-btn" style={{ marginBottom: 0 }} onClick={() => navigate("/teacher")}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: "var(--space-6)", flexWrap: "wrap", gap: "var(--space-3)",
+        }}>
+          <button className="back-btn" style={{ marginBottom: 0 }} onClick={() => navigate(prefix)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round"
               strokeLinejoin="round" aria-hidden="true">
@@ -74,7 +87,7 @@ export default function TeacherClassDetailPage() {
           </button>
           <button
             className="btn btn--secondary"
-            onClick={() => navigate(`/teacher/classes/${classId}/gradebook`)}
+            onClick={() => navigate(`${prefix}/classes/${classId}/gradebook`)}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -88,24 +101,19 @@ export default function TeacherClassDetailPage() {
         {/* Summary strip */}
         {!loading && !error && totalStudents > 0 && (
           <div style={{
-            display:             "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap:                 "var(--space-3)",
-            marginBottom:        "var(--space-6)",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-6)",
           }}>
             {[
-              { label: "Students",     value: totalStudents,  color: "var(--text-primary)" },
-              { label: "Active",       value: activeStudents, color: "var(--brand-primary)" },
-              { label: "Avg Progress", value: `${avgProgress}%`, color: avgProgress >= 70 ? "var(--success)" : "var(--warning)" },
+              { label: "Students",   value: totalStudents,  color: "var(--text-primary)" },
+              { label: "Active",     value: activeStudents, color: "var(--success)" },
+              { label: "Avg Progress", value: `${avgProgress}%`,
+                color: avgProgress >= 70 ? "var(--success)" : avgProgress >= 30 ? "var(--warning)" : "var(--error)" },
             ].map(({ label, value, color }) => (
-              <div key={label} className="card" style={{ textAlign: "center", padding: "var(--space-4)" }}>
-                <div style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize:   "var(--text-2xl)",
-                  fontWeight: 800,
-                  color,
-                  lineHeight: 1,
-                }}>
+              <div key={label} className="card" style={{ padding: "var(--space-4)" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color }}>
                   {value}
                 </div>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
@@ -158,7 +166,7 @@ export default function TeacherClassDetailPage() {
                     key={s.id}
                     className="page-enter"
                     style={{ cursor: "pointer", animationDelay: `${i * 30}ms` }}
-                    onClick={() => navigate(`/teacher/classes/${classId}/students/${s.id}`)}
+                    onClick={() => navigate(`${prefix}/classes/${classId}/students/${s.id}`)}
                   >
                     {/* Avatar + name */}
                     <td>

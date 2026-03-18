@@ -90,12 +90,14 @@ export const router = createBrowserRouter([
   { path: "/verify-otp",       element: <VerifyOtpPage /> },
   { path: "/complete-profile", element: <CompleteProfilePage /> },
 
-  // ── Shared — all authenticated roles ──────────────────────────────────────
+  // ── Shared — all authenticated roles (rank ≥ STUDENT) ────────────────────
+  // RequireRole uses rank comparison (ROLE_RANK[user.role] >= ROLE_RANK[route_role])
+  // so role="STUDENT" here means ALL authenticated users can access these.
   { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },
+  { path: "/profile",       element: <Protected role="STUDENT"><ProfilePage /></Protected> },
 
   // ── Student ───────────────────────────────────────────────────────────────
   { path: "/dashboard",   element: <Protected role="STUDENT"><DashboardPage /></Protected> },
-  { path: "/profile",     element: <Protected role="STUDENT"><ProfilePage /></Protected> },
   { path: "/leaderboard", element: <Protected role="STUDENT"><LeaderboardPage /></Protected> },
   { path: "/learning",              element: <Protected role="STUDENT"><LearningPathsPage /></Protected> },
   { path: "/learning/:pathId",      element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
@@ -124,13 +126,18 @@ export const router = createBrowserRouter([
   { path: "/teacher/users",                                  element: <Protected role="TEACHER"><UserManagementPage /></Protected> },
 
   // ── Principal ─────────────────────────────────────────────────────────────
-  { path: "/principal",                                      element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
-  { path: "/principal/classes/:classId/gradebook",           element: <Protected role="PRINCIPAL"><GradebookPage /></Protected> },
-  { path: "/principal/courses/:courseId/lessons",            element: <Protected role="PRINCIPAL"><AdminLessonEditorPage /></Protected> },
-  { path: "/principal/courses/:courseId/assessments",        element: <Protected role="PRINCIPAL"><AdminAssessmentBuilderPage /></Protected> },
-  { path: "/principal/users",                                element: <Protected role="PRINCIPAL"><UserManagementPage /></Protected> },
+  // Note: Principal has rank ≥ TEACHER so all /teacher/* routes are also accessible.
+  // Principal-specific routes are aliased here for clean URL namespacing.
+  { path: "/principal",                                          element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
+  { path: "/principal/classes/:classId",                         element: <Protected role="PRINCIPAL"><TeacherClassDetailPage /></Protected> },
+  { path: "/principal/classes/:classId/gradebook",               element: <Protected role="PRINCIPAL"><GradebookPage /></Protected> },
+  { path: "/principal/classes/:classId/students/:studentId",     element: <Protected role="PRINCIPAL"><TeacherStudentDetailPage /></Protected> },
+  { path: "/principal/courses/:courseId/lessons",                element: <Protected role="PRINCIPAL"><AdminLessonEditorPage /></Protected> },
+  { path: "/principal/courses/:courseId/assessments",            element: <Protected role="PRINCIPAL"><AdminAssessmentBuilderPage /></Protected> },
+  { path: "/principal/users",                                    element: <Protected role="PRINCIPAL"><UserManagementPage /></Protected> },
 
   // ── Official ──────────────────────────────────────────────────────────────
+  // Official has rank ≥ TEACHER so all /teacher/* and /principal/* routes accessible.
   { path: "/official",       element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
   { path: "/official/users", element: <Protected role="OFFICIAL"><UserManagementPage /></Protected> },
 

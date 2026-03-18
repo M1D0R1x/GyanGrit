@@ -1,5 +1,9 @@
+// pages.TeacherStudentDetailPage
+// Used by TEACHER (/teacher/classes/:classId/students/:studentId)
+//   and PRINCIPAL (/principal/classes/:classId/students/:studentId).
+// URL prefix detected from location.pathname for correct back-navigation.
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   getTeacherStudentAssessments,
   type TeacherStudentDetailResponse,
@@ -8,7 +12,13 @@ import TopBar from "../components/TopBar";
 
 export default function TeacherStudentDetailPage() {
   const { classId, studentId } = useParams();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  // Detect role prefix so back-link stays within the correct URL namespace
+  const prefix = location.pathname.startsWith("/principal") ? "/principal"
+    : location.pathname.startsWith("/official") ? "/official"
+    : "/teacher";
 
   const [data, setData]       = useState<TeacherStudentDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +37,7 @@ export default function TeacherStudentDetailPage() {
       <TopBar title={data ? data.username : "Student Detail"} />
       <main className="page-content page-content--narrow page-enter">
 
-        <button className="back-btn" onClick={() => navigate(`/teacher/classes/${classId}`)}>
+        <button className="back-btn" onClick={() => navigate(`${prefix}/classes/${classId}`)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round"
             strokeLinejoin="round" aria-hidden="true">
@@ -57,19 +67,12 @@ export default function TeacherStudentDetailPage() {
               marginBottom: "var(--space-8)",
             }}>
               <div style={{
-                width: 52,
-                height: 52,
-                borderRadius: "50%",
+                width: 52, height: 52, borderRadius: "50%",
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--border-default)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontFamily: "var(--font-display)",
-                fontWeight: 800,
-                fontSize: "var(--text-lg)",
-                color: "var(--text-secondary)",
-                flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "var(--font-display)", fontWeight: 800,
+                fontSize: "var(--text-lg)", color: "var(--text-secondary)", flexShrink: 0,
               }}>
                 {data.username.slice(0, 2).toUpperCase()}
               </div>
@@ -116,11 +119,8 @@ export default function TeacherStudentDetailPage() {
                         </div>
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                           {new Date(a.submitted_at).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
+                            day: "numeric", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
                           })}
                         </div>
                       </div>

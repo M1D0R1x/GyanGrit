@@ -72,7 +72,6 @@ def _subject_matches_slug(subject_name: str, slug: str) -> bool:
 # HEALTH
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
 @require_http_methods(["GET"])
 def health(request):
     return JsonResponse({

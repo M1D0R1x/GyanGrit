@@ -116,6 +116,22 @@ backend
 │   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
+│   ├── gradebook
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_rename_gradebook_g_student_8a3c1f_idx_gradebook_g_student_901ddb_idx_and_more.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   ├── learning
 │   │   ├── __init__.py
 │   │   ├── admin.py
@@ -161,6 +177,7 @@ backend
 │   │   │   ├── 0002_remove_notification_title_remove_notification_type_and_more.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   └── roster
@@ -214,11 +231,13 @@ frontend
 │   │   ├── LessonItem.tsx
 │   │   ├── Logo.tsx
 │   │   ├── LogoutButton.tsx
+│   │   ├── NavMenu.tsx
 │   │   ├── NotificationDetailModal.tsx
 │   │   ├── NotificationPanel.tsx
 │   │   └── TopBar.tsx
 │   ├── index.css
 │   ├── main.tsx
+│   ├── nav-menu-animation.css
 │   ├── pages
 │   │   ├── AdminAssessmentBuilderPage.tsx
 │   │   ├── AdminContentPage.tsx
@@ -234,6 +253,7 @@ frontend
 │   │   ├── CourseAssessmentsPage.tsx
 │   │   ├── CoursesPage.tsx
 │   │   ├── DashboardPage.tsx
+│   │   ├── GradebookPage.tsx
 │   │   ├── LeaderboardPage.tsx
 │   │   ├── LearningPathPage.tsx
 │   │   ├── LearningPathsPage.tsx
@@ -245,6 +265,7 @@ frontend
 │   │   ├── PrincipalDashboardPage.tsx
 │   │   ├── ProfilePage.tsx
 │   │   ├── RegisterPage.tsx
+│   │   ├── SectionLessonPage.tsx
 │   │   ├── TeacherClassDetailPage.tsx
 │   │   ├── TeacherDashboardPage.tsx
 │   │   ├── TeacherStudentDetailPage.tsx
@@ -258,18 +279,21 @@ frontend
 │   │       └── ServerErrorPage.tsx
 │   ├── public
 │   │   └── favicon.svg
-│   └── services
-│       ├── api.ts
-│       ├── assessments.ts
-│       ├── content.ts
-│       ├── courseProgress.ts
-│       ├── gamification.ts
-│       ├── learningEnrollments.ts
-│       ├── learningPaths.ts
-│       ├── media.ts
-│       ├── notifications.ts
-│       ├── progress.ts
-│       └── teacherAnalytics.ts
+│   ├── services
+│   │   ├── api.ts
+│   │   ├── assessments.ts
+│   │   ├── content.ts
+│   │   ├── courseProgress.ts
+│   │   ├── gamification.ts
+│   │   ├── gradebook.ts
+│   │   ├── learningEnrollments.ts
+│   │   ├── learningPaths.ts
+│   │   ├── media.ts
+│   │   ├── notifications.ts
+│   │   ├── progress.ts
+│   │   └── teacherAnalytics.ts
+│   └── utils
+│       └── slugs.ts
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
@@ -283,4 +307,4 @@ docs
 ├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-62 directories, 222 files
+67 directories, 241 files

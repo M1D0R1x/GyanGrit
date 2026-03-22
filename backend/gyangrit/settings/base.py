@@ -10,8 +10,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-change-this")
 
 DEBUG = False
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*', '0.0.0.0', '10.0.2.2', 'localhost', '127.0.0.1']
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

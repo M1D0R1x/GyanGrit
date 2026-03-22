@@ -38,6 +38,98 @@ DONE THIS SESSION
 PENDING — NEXT SESSION
 ========================================
 
+[20/Mar/2026 17:07:34] "GET /api/v1/courses/18/progress/ HTTP/1.1" 200 102
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/3/progress/ HTTP/1.1" 200 101
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/53/progress/ HTTP/1.1" 200 103
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/8/progress/ HTTP/1.1" 200 101
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/58/progress/ HTTP/1.1" 200 103
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/28/progress/ HTTP/1.1" 200 103
+[20/Mar/2026 17:07:35] "GET /api/v1/courses/13/progress/ HTTP/1.1" 200 102
+[20/Mar/2026 17:07:45] "GET /api/v1/accounts/csrf/ HTTP/1.1" 200 81
+Internal Server Error: /api/v1/accounts/me/
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.OperationalError: consuming input failed: could not receive data from server: No route to host
+SSL SYSCALL error: No route to host
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/deprecation.py", line 308, in __call__
+    response = self.process_request(request)
+  File "/Users/veera/PycharmProjects/GyanGrit/backend/apps/accounts/middleware.py", line 47, in process_request
+    if not request.user.is_authenticated:
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/functional.py", line 251, in inner
+    self._setup()
+    ~~~~~~~~~~~^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/functional.py", line 404, in _setup
+    self._wrapped = self._setupfunc()
+                    ~~~~~~~~~~~~~~~^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/middleware.py", line 40, in <lambda>
+    request.user = SimpleLazyObject(lambda: get_user(request))
+                                            ~~~~~~~~^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/middleware.py", line 20, in get_user
+    request._cached_user = auth.get_user(request)
+                           ~~~~~~~~~~~~~^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/__init__.py", line 318, in get_user
+    user = backend.get_user(user_id)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/backends.py", line 232, in get_user
+    user = UserModel._default_manager.get(pk=user_id)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 635, in get
+    num = len(clone)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 372, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 2000, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 95, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/sql/compiler.py", line 1624, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+django.db.utils.OperationalError: consuming input failed: could not receive data from server: No route to host
+SSL SYSCALL error: No route to host
+[20/Mar/2026 17:29:51] "GET /api/v1/accounts/me/ HTTP/1.1" 500 166676
+[20/Mar/2026 18:34:39] "GET /admin/accounts/joincode/ HTTP/1.1" 302 0
+[20/Mar/2026 18:34:39] "GET /admin/login/?next=/admin/accounts/joincode/ HTTP/1.1" 200 4120
+[20/Mar/2026 18:34:39] "GET /static/admin/css/login.css HTTP/1.1" 304 0
+
+
 [ ] VERIFY: NavMenu works in browser for all 5 roles
     Login as STUDENT, TEACHER, PRINCIPAL, OFFICIAL, ADMIN
     Click every route in the dropdown to confirm navigation

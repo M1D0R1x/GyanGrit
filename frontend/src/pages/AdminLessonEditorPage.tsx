@@ -133,7 +133,7 @@ function FileUploadZone({
     setError(null);
     setProgress(0);
     try {
-      const result = await uploadFile(file, folder, setProgress);
+      const result = await uploadFile(file, folder, undefined, setProgress);
       onUpload(result.url);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -251,7 +251,7 @@ function VideoUploadZone({
     setError(null);
     setProgress(0);
     try {
-      const result = await uploadFile(file, "videos", setProgress);
+      const result = await uploadFile(file, "videos", undefined, setProgress);
       onUpload(result.url);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");

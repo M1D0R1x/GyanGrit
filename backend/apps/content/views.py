@@ -23,6 +23,14 @@ BUG FIX (2026-03-18):
     dashboard "Continue →" button works.
   - lesson_detail: was not returning notes at all — added notes list.
   - lesson_progress: was POST-only but frontend sends PATCH. Fixed to accept both.
+
+BUG FIX (2026-03-22):
+  - teacher_course_analytics: was using scope_queryset() for all roles, which
+    follows the institution path. For TEACHER this returns ALL courses in the
+    institution (all grades, all subjects). Correct behaviour: TEACHER sees only
+    courses for their assigned subjects (same pattern as teacher_assessment_analytics).
+    Fixed: added explicit role check — TEACHER filters by subject_id__in from
+    teaching_assignments. PRINCIPAL/OFFICIAL/ADMIN use scope_queryset as before.
 """
 import json
 import logging
@@ -504,13 +512,6 @@ def section_lesson_list_create(request, course_id):
 @login_required
 @require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
-    """
-    GET /api/v1/lessons/<id>/
-
-    FIX 2026-03-18: added notes list — was missing entirely despite the
-    frontend rendering lesson.notes. Fetches visible notes for the student
-    (is_visible_to_students=True) or all notes for staff.
-    """
     lesson = get_object_or_404(
         Lesson.objects.select_related("course__subject"), id=lesson_id
     )
@@ -735,10 +736,7 @@ def course_progress(request, course_id):
     GET /api/v1/courses/<id>/progress/
 
     FIX 2026-03-18: added resume_lesson_id — the ID of the first lesson the
-    student has not yet completed, in lesson order. Returns null when all
-    lessons are done (or there are no lessons). The dashboard DashboardPage
-    uses this to render the "Continue →" button that deep-links directly to
-    the correct lesson without a full course traversal.
+    student has not yet completed, in lesson order.
     """
     course = get_object_or_404(Course, id=course_id)
     if not has_access_to_course(request.user, course):
@@ -773,7 +771,6 @@ def course_progress(request, course_id):
     completed = len(completed_ids)
     percentage = round((completed / total) * 100) if total else 0
 
-    # First lesson not yet completed — in order
     resume_lesson_id = next(
         (l["id"] for l in lessons if l["id"] not in completed_ids),
         None,
@@ -795,7 +792,26 @@ def course_progress(request, course_id):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_course_analytics(request):
-    qs   = scope_queryset(request.user, Course.objects.select_related("subject"))
+    """
+    BUG FIX 2026-03-22:
+    For TEACHER: scope_queryset() follows the institution path, returning ALL
+    courses in the institution across all grades and subjects. Correct behaviour
+    is to scope by the teacher's own assigned subjects only.
+    PRINCIPAL / OFFICIAL / ADMIN keep institution/district scoping via scope_queryset.
+    """
+    user = request.user
+    if user.role == "TEACHER":
+        subject_ids = (
+            user.teaching_assignments
+            .values_list("subject_id", flat=True)
+            .distinct()
+        )
+        qs = Course.objects.filter(
+            subject_id__in=subject_ids
+        ).select_related("subject")
+    else:
+        qs = scope_queryset(user, Course.objects.select_related("subject"))
+
     data = []
     for course in qs:
         total_lessons      = Lesson.objects.filter(course=course, is_published=True).count()
@@ -849,7 +865,6 @@ def teacher_lesson_analytics(request):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
-    from django.db.models import Q, Count
     user = request.user
     if user.role == "TEACHER":
         classroom_ids = (
@@ -872,9 +887,9 @@ def teacher_class_analytics(request):
         pass_att  = attempts.filter(passed=True).count()
         pass_rate = round(pass_att / total_att * 100) if total_att else 0
         data.append({
-            "class_id":      c.id,
-            "class_name":    c.name,
-            "institution":   c.institution.name if c.institution else None,
+            "class_id":       c.id,
+            "class_name":     c.name,
+            "institution":    c.institution.name if c.institution else None,
             "total_students": total_students,
             "total_attempts": total_att,
             "pass_rate":      pass_rate,
@@ -924,12 +939,12 @@ def teacher_assessment_analytics(request):
         attempts = AssessmentAttempt.objects.filter(
             assessment=a, submitted_at__isnull=False
         )
-        total_att      = attempts.count()
-        pass_count     = attempts.filter(passed=True).count()
-        fail_count     = total_att - pass_count
-        pass_rate      = round(pass_count / total_att * 100) if total_att else 0
+        total_att       = attempts.count()
+        pass_count      = attempts.filter(passed=True).count()
+        fail_count      = total_att - pass_count
+        pass_rate       = round(pass_count / total_att * 100) if total_att else 0
         unique_students = attempts.values("user").distinct().count()
-        avg_score      = round(attempts.aggregate(avg=Avg("score"))["avg"] or 0, 1)
+        avg_score       = round(attempts.aggregate(avg=Avg("score"))["avg"] or 0, 1)
         data.append({
             "assessment_id":   a.id,
             "title":           a.title,

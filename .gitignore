@@ -23,7 +23,6 @@ __pycache__/
 # Virtual environments
 venv/
 .env/
-.env.*
 .python-version
 
 # Django runtime
@@ -32,6 +31,26 @@ staticfiles/
 
 # Django secrets
 secret_key.txt
+
+############################################
+# Environment files — ALL of them, no exceptions
+# .env.example contains real-looking credentials
+# and should never be committed.
+# Keep your own copy locally or in 1Password.
+############################################
+.env
+.env.*
+*.env
+*.env.*
+.env.example
+.env.example.*
+backend/.env
+backend/.env.*
+backend/.env.example
+frontend/.env
+frontend/.env.*
+frontend/*.local
+.envrc
 
 ############################################
 # Python packaging
@@ -44,7 +63,6 @@ build/
 ############################################
 # Django settings safety
 ############################################
-# Never commit environment-specific secrets
 backend/**/settings/local.py
 
 ############################################
@@ -72,11 +90,6 @@ yarn-error.log*
 frontend/dist/
 frontend/build/
 
-# Environment files
-frontend/.env
-frontend/.env.*
-frontend/*.local
-
 ############################################
 # Service workers & cache (generated)
 ############################################
@@ -92,9 +105,6 @@ frontend/public/workbox-*
 ############################################
 # Docker / Infra
 ############################################
-*.env
-.envrc
-
 # Terraform
 *.tfstate
 *.tfstate.*
@@ -141,7 +151,7 @@ htmlcov/
 *.csr
 
 ############################################
-# Ignore EVERYTHING inside infra secrets
+# Infra secrets
 ############################################
 infra/**/secrets/
 

@@ -1,164 +1,117 @@
-GyanGrit TODO — updated 2026-03-18
+GyanGrit TODO — updated 2026-03-22
+
+See tasks.md for the full session-by-session history.
 
 ========================================
-DONE THIS SESSION
+DONE THIS SESSION (2026-03-22)
 ========================================
 
-[x] NavMenu component — frontend/src/components/NavMenu.tsx
-    Role-aware dropdown showing all routes for current role.
-    Temporary supervisor demo. Has ⚠️ warning in UI.
+[x] BUG: teacher_course_analytics returning ALL 60 courses
+    Root cause: scope_queryset() follows institution path for TEACHER,
+    not subject assignment path. Fixed to filter by subject_id__in.
+    File: backend/apps/content/views.py → teacher_course_analytics()
 
-[x] TopBar updated — NavMenu wired in.
-    frontend/src/components/TopBar.tsx
+[x] BUG: AdminAssessmentBuilderPage back button → hardcoded /admin/content/
+    Root cause: navigate() called with hardcoded /admin path
+    Fix: useLocation() prefix detection (/teacher, /principal, /admin)
+    File: frontend/src/pages/AdminAssessmentBuilderPage.tsx
 
-[x] DATA_MODEL.md — updated
-    - Gradebook app section (GradeEntry model, endpoints table)
-    - Notifications split into Notification + Broadcast
-    - Section.short_label documented
-    - StudentSubject.course_id documented
-    - LessonProgress.resume_lesson_id documented
-    - Constraints table updated
+[x] BUG: NavMenu dead-end items (TEACHER/PRINCIPAL "Notes" group)
+    Fix: cleaned up labels, added "via dashboard" badges, footer explanation
 
-[x] API_AND_FRONTEND_END_POINTS.md — updated
-    - Section 7b: Notifications (6 endpoints)
-    - Section 8b: Gradebook (6 endpoints)
-    - Section 9 routes: GradebookPage added, dashboard notes
-    - Section 10 services: gradebook.ts added, others corrected
-    - Section 11: NavMenu demo note
+[x] BUG: PrincipalDashboardPage class cards → /teacher/classes/:id (wrong namespace)
+    Fix: now uses /principal/classes/:id
+    File: frontend/src/pages/PrincipalDashboardPage.tsx
 
-[x] SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md — updated
-    - 11 apps, 31 pages
-    - Sections 3.7 (Notifications) and 3.8 (Gradebook) added
-    - LessonPage media handling table
-    - NavMenu note with TODOs
-    - Migration state table
+[x] BUG: TeacherClassDetailPage back nav + gradebook link hardcoded to /teacher
+    Fix: useLocation prefix detection
+    File: frontend/src/pages/TeacherClassDetailPage.tsx
+
+[x] BUG: TeacherStudentDetailPage back nav hardcoded to /teacher
+    Fix: useLocation prefix detection
+    File: frontend/src/pages/TeacherStudentDetailPage.tsx
+
+[x] ROUTER: /profile was STUDENT-only → moved to shared (all roles)
+    ROUTER: added /principal/classes/:classId + /students/:studentId routes
+    File: frontend/src/app/router.tsx
+
+[x] SETTINGS: prod.py rewritten from scratch
+    - reads ALLOWED_HOSTS, CORS_ALLOWED_ORIGINS from env
+    - SESSION_COOKIE_SAMESITE = "None" for cross-origin Vercel→Render
+    - SECURE_SSL_REDIRECT, HSTS, SECURE_PROXY_SSL_HEADER
+    - structured logging to Render log stream
+    File: backend/gyangrit/settings/prod.py
+
+[x] SETTINGS: base.py — WhiteNoise added to MIDDLEWARE (after SecurityMiddleware)
+    File: backend/gyangrit/settings/base.py
+
+[x] requirements/prod.txt — added dj-database-url + whitenoise[brotli]
+[x] backend/.env.example — full env var template created
+[x] backend/build.sh — Render build script (collectstatic + migrate)
+[x] frontend/vercel.json — SPA rewrites (fixes page refresh 404)
+[x] .gitignore — !.env.example added so template is committed
+[x] tasks.md — session-by-session task tracker created
+[x] docs/BACKEND_DEPLOYMENT_RENDER.md — full Render deploy guide
+[x] docs/FRONTEND_DEPLOYMENT_VERCEL.md — full Vercel deploy guide
 
 
 ========================================
-PENDING — NEXT SESSION
+VERIFY NEXT TIME YOU OPEN THE APP
 ========================================
 
-[20/Mar/2026 17:07:34] "GET /api/v1/courses/18/progress/ HTTP/1.1" 200 102
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/3/progress/ HTTP/1.1" 200 101
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/53/progress/ HTTP/1.1" 200 103
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/8/progress/ HTTP/1.1" 200 101
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/58/progress/ HTTP/1.1" 200 103
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/28/progress/ HTTP/1.1" 200 103
-[20/Mar/2026 17:07:35] "GET /api/v1/courses/13/progress/ HTTP/1.1" 200 102
-[20/Mar/2026 17:07:45] "GET /api/v1/accounts/csrf/ HTTP/1.1" 200 81
-Internal Server Error: /api/v1/accounts/me/
-Traceback (most recent call last):
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
-    return self.cursor.execute(sql, params)
-           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
-    raise ex.with_traceback(None)
-psycopg.OperationalError: consuming input failed: could not receive data from server: No route to host
-SSL SYSCALL error: No route to host
+[ ] Teacher dashboard → Course Completion section
+    Should show ONLY teacher's assigned subjects (not all 60)
+    Was: Biology Class 6, Chemistry Class 6... (all grades, all subjects)
+    Should be: e.g. "Maths — Class 8", "Maths — Class 9" only
 
-The above exception was the direct cause of the following exception:
+[ ] Open /teacher/courses/:courseId/assessments
+    Click "Back to Lessons" → should go to /teacher/courses/:courseId/lessons
+    Was: going to /admin/content/courses/:courseId/lessons (404 for teacher)
 
-Traceback (most recent call last):
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/core/handlers/exception.py", line 55, in inner
-    response = get_response(request)
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/deprecation.py", line 308, in __call__
-    response = self.process_request(request)
-  File "/Users/veera/PycharmProjects/GyanGrit/backend/apps/accounts/middleware.py", line 47, in process_request
-    if not request.user.is_authenticated:
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/functional.py", line 251, in inner
-    self._setup()
-    ~~~~~~~~~~~^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/utils/functional.py", line 404, in _setup
-    self._wrapped = self._setupfunc()
-                    ~~~~~~~~~~~~~~~^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/middleware.py", line 40, in <lambda>
-    request.user = SimpleLazyObject(lambda: get_user(request))
-                                            ~~~~~~~~^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/middleware.py", line 20, in get_user
-    request._cached_user = auth.get_user(request)
-                           ~~~~~~~~~~~~~^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/__init__.py", line 318, in get_user
-    user = backend.get_user(user_id)
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/contrib/auth/backends.py", line 232, in get_user
-    user = UserModel._default_manager.get(pk=user_id)
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/manager.py", line 87, in manager_method
-    return getattr(self.get_queryset(), name)(*args, **kwargs)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 635, in get
-    num = len(clone)
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 372, in __len__
-    self._fetch_all()
-    ~~~~~~~~~~~~~~~^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 2000, in _fetch_all
-    self._result_cache = list(self._iterable_class(self))
-                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/query.py", line 95, in __iter__
-    results = compiler.execute_sql(
-        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
-    )
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/models/sql/compiler.py", line 1624, in execute_sql
-    cursor.execute(sql, params)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 122, in execute
-    return super().execute(sql, params)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 79, in execute
-    return self._execute_with_wrappers(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        sql, params, many=False, executor=self._execute
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
-    return executor(sql, params, many, context)
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 100, in _execute
-    with self.db.wrap_database_errors:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/utils.py", line 94, in __exit__
-    raise dj_exc_value.with_traceback(traceback) from exc_value
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/django/db/backends/utils.py", line 105, in _execute
-    return self.cursor.execute(sql, params)
-           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
-    raise ex.with_traceback(None)
-django.db.utils.OperationalError: consuming input failed: could not receive data from server: No route to host
-SSL SYSCALL error: No route to host
-[20/Mar/2026 17:29:51] "GET /api/v1/accounts/me/ HTTP/1.1" 500 166676
-[20/Mar/2026 18:34:39] "GET /admin/accounts/joincode/ HTTP/1.1" 302 0
-[20/Mar/2026 18:34:39] "GET /admin/login/?next=/admin/accounts/joincode/ HTTP/1.1" 200 4120
-[20/Mar/2026 18:34:39] "GET /static/admin/css/login.css HTTP/1.1" 304 0
+[ ] Open /principal → click a class card
+    Should navigate to /principal/classes/:classId (not /teacher/classes/:id)
+    Then Gradebook button should go to /principal/classes/:classId/gradebook
+
+[ ] /profile should work when logged in as TEACHER, PRINCIPAL, OFFICIAL, ADMIN
+    Was: only accessible as STUDENT
+
+[ ] E2E: Gradebook
+    Teacher → /teacher/classes/:id/gradebook
+    Add mark (18/25) → should show 72% in expandable row
+    Edit → should update in place
+    Delete → should remove from row
+
+[ ] E2E: Notification send
+    Teacher sends to a class → Student receives in inbox
 
 
-[ ] VERIFY: NavMenu works in browser for all 5 roles
-    Login as STUDENT, TEACHER, PRINCIPAL, OFFICIAL, ADMIN
-    Click every route in the dropdown to confirm navigation
+========================================
+UPCOMING NEW WORK
+========================================
 
-[ ] VERIFY E2E: Notification send form
-    Teacher: send broadcast to a class
-    Student in that class: check inbox → notification should appear
+[ ] Competition Rooms (Ably integration)
+    See tasks.md for architecture decisions
+    Steps:
+    1. Sign up at ably.com → get API key → add ABLY_API_KEY to .env
+    2. pip install ably (in requirements/base.txt)
+    3. New Django app: backend/apps/competitions/
+    4. Backend endpoint: POST /api/v1/realtime/token/ → Ably JWT vend
+    5. npm install ably in frontend
+    6. New page: CompetitionRoomPage.tsx
 
-[ ] VERIFY E2E: Gradebook
-    Teacher opens /teacher/classes/:id/gradebook
-    Add a mark (18/25 → should show 72%)
-    Edit mark
-    Delete mark
-    Verify expandable row updates correctly
+[ ] Chat Rooms (Ably integration — same setup as above)
+    New Django app: backend/apps/chatrooms/
+    New page: ChatRoomPage.tsx
 
-[ ] BUG CHECK: RosterPage section dropdown
-    Check frontend/src/pages/ for RosterPage or similar
-    If sections are displayed, verify using short_label not name
-    Same bug as UserManagementPage — already fixed there
+[ ] Deploy backend to Render
+    Follow docs/BACKEND_DEPLOYMENT_RENDER.md step by step
 
-[ ] POST-CAPSTONE: NavMenu redesign
+[ ] Deploy frontend to Vercel
+    Follow docs/FRONTEND_DEPLOYMENT_VERCEL.md step by step
+
+[ ] NavMenu redesign (post-capstone)
     Replace with sidebar drawer for staff roles
-    Remove from student view (BottomNav is sufficient)
-    Delete ⚠️ warning banner
+    Remove from student view
 
-[ ] POST-CAPSTONE: Deployment
-    Use separate GyanGrit — Deployment chat
-
-[ ] POST-CAPSTONE: PWA / offline sync
-[ ] POST-CAPSTONE: AI chatbot
-[ ] POST-CAPSTONE: Competition rooms
-[ ] POST-CAPSTONE: Chat rooms
+[ ] AI chatbot (post-capstone)
+[ ] PWA / offline sync (post-capstone)

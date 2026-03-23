@@ -535,7 +535,8 @@ export default function ChatRoomPage() {
   })();
 
   const canPin = isTeacher;
-  const showSidebar = (isTeacher || user?.role === "OFFICIAL") && rooms.length > 1;
+  // Show sidebar whenever there are multiple rooms — all roles need it
+  const showSidebar = rooms.length > 1;
 
   // ─────────────────────────────────────────────────────────────────────
   return (

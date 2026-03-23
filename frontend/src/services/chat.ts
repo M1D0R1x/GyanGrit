@@ -84,9 +84,11 @@ export const getRoomMembers = (roomId: number) =>
 
 // Admin
 export const adminListRooms = (params?: { institution_id?: string; room_type?: string; q?: string }) => {
-  const qs = params ? "?" + new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>
-  ).toString() : "";
+  // Pass institution_id=all when no filter so admin management sees everything
+  const merged = { institution_id: "all", ...params };
+  const qs = "?" + new URLSearchParams(
+    Object.fromEntries(Object.entries(merged).filter(([, v]) => v)) as Record<string, string>
+  ).toString();
   return apiGet<(ChatRoom & { message_count: number; institution_name: string | null })[]>(
     `/chat/admin/rooms/${qs}`
   );

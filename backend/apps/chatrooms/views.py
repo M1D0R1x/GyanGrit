@@ -272,15 +272,25 @@ def list_rooms(request):
     if user.role == "ADMIN":
         institution_id = request.GET.get("institution_id")
         room_type      = request.GET.get("room_type")
+
+        # Default: show admin's own institution rooms + officials room.
+        # Admin can pass ?institution_id=X to browse other schools.
+        # Pass ?institution_id=all to see everything (admin management screen uses this).
+        if not institution_id and user.institution_id:
+            institution_id = str(user.institution_id)
+
         qs = ChatRoom.objects.prefetch_related("members")
-        if institution_id:
+
+        if institution_id and institution_id != "all":
             from django.db.models import Q
             qs = qs.filter(
                 Q(institution_id=institution_id) |
-                Q(section__classroom__institution_id=institution_id)
+                Q(section__classroom__institution_id=institution_id) |
+                Q(room_type="officials")  # always include officials
             )
         if room_type:
             qs = qs.filter(room_type=room_type)
+
         rooms = list(qs.order_by("room_type", "name")[:150])
         return JsonResponse(
             [_room_to_dict(r, r.members.count()) for r in rooms],

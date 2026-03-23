@@ -19,6 +19,9 @@ urlpatterns = [
     # Competition rooms
     path("api/v1/competitions/",  include("apps.competitions.api.v1.urls")),
 
+    # Chat rooms
+    path("api/v1/chat/",          include("apps.chatrooms.api.v1.urls")),
+
     # Ably real-time token vending
     path("api/v1/realtime/",      include((realtime_urlpatterns, "realtime"))),
 ]

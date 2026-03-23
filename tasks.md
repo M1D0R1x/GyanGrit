@@ -148,33 +148,40 @@
 ## SESSION 2026-03-25 — Chat Rooms (Ably Chat SDK)
 
 **Date:** 2026-03-25
-**Goal:** Build class-based chat rooms using Ably Chat SDK.
+**Status:** ✅ COMPLETE
 
 ### Part A — Chat Rooms backend
-- [ ] Create `backend/apps/chatrooms/` Django app
-- [ ] ChatRoom model: section (FK), is_active, created_at
-      (One room per section — automatically exists for all sections)
-- [ ] ChatMessage model: room, sender, content, sent_at
-      (Log messages to DB for history — Ably handles live delivery)
-- [ ] 3 backend endpoints:
-      GET  /api/v1/chat/rooms/              → list rooms for the user's section/class
-      GET  /api/v1/chat/rooms/<id>/history/ → last 50 messages from DB
-      POST /api/v1/chat/rooms/<id>/message/ → save message to DB (called after Ably publish)
-- [ ] Ably JWT for chat scoped to: `chat:{section_id}`
-      Add chat channel support to existing realtime token endpoint
-- [ ] Migrations + wire into urls.py
+- [x] `apps.chatrooms` Django app created
+- [x] ChatRoom model: OneToOne with Section (auto-created on first access)
+- [x] ChatMessage model: room, sender, content, is_pinned, sent_at
+- [x] 6 endpoints:
+      GET  /api/v1/chat/rooms/                         — list visible rooms
+      GET  /api/v1/chat/rooms/<id>/                    — room detail
+      GET  /api/v1/chat/rooms/<id>/history/            — last 50 messages
+      POST /api/v1/chat/rooms/<id>/message/            — persist message after Ably send
+      POST /api/v1/chat/rooms/<id>/pin/<msg_id>/       — teacher pin/unpin toggle
+      GET  /api/v1/chat/rooms/<id>/pinned/             — list pinned messages
+- [x] Ably token endpoint extended: channel_type=\chat\ returns [chat]{section_id} capability
+      Students: subscribe+publish to their section channel only
+      Teachers: subscribe+publish to [chat]* (all sections)
+- [x] Migrations applied (chatrooms/0001_initial.py)
+- [x] Registered in INSTALLED_APPS + urls.py
 
 ### Part B — Chat Rooms frontend
-- [ ] npm install @ably/chat
-- [ ] New service: `frontend/src/services/chat.ts`
-- [ ] New page: `frontend/src/pages/ChatRoomPage.tsx`
-      Shows message history, real-time new messages via Ably Chat
-      Typing indicators, online presence
-      Teacher can pin messages + moderate
-- [ ] Add routes to router.tsx:
-      /chat              (STUDENT — their section's chat room)
-      /teacher/chat      (TEACHER — their section's chat room)
-- [ ] Add to NavMenu for TEACHER + STUDENT
+- [x] npm install @ably/chat
+- [x] `frontend/src/services/chat.ts` — typed API service
+- [x] `frontend/src/pages/ChatRoomPage.tsx` — complete chat UI:
+      Message bubbles (own right, others left), role-colored sender badges
+      Teacher sidebar showing all section rooms (multi-section support)
+      Optimistic message send with real ID replacement on save
+      Ably real-time subscribe to message + pin events
+      Online presence counter via Ably presence
+      Teacher pin/unpin via hover actions
+      Pinned message indicator (📌 badge on bubble)
+      Scrolls to bottom on new messages
+      BottomNav shown for students only
+- [x] router.tsx: chat routes added for STUDENT, TEACHER, PRINCIPAL, ADMIN
+- [x] npx tsc --noEmit = 0 errors
 
 ---
 

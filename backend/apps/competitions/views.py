@@ -457,14 +457,25 @@ def ably_token(request):
 
         client = AblyRest(api_key)
 
+        channel_type = body.get("channel_type", "competition")  # "competition" or "chat"
+
         if user.role == "STUDENT":
-            if not room_id:
-                return JsonResponse({"error": "room_id is required for students"}, status=400)
-            # Students: subscribe-only to their specific room channel
-            capability = {f"competition:{room_id}": ["subscribe"]}
+            if channel_type == "chat":
+                # Chat: student can only access their own section channel
+                section = getattr(user, "section", None)
+                if not section:
+                    return JsonResponse({"error": "No section assigned"}, status=400)
+                capability = {f"[chat]{section.id}": ["subscribe", "publish"]}
+            else:
+                if not room_id:
+                    return JsonResponse({"error": "room_id is required for students"}, status=400)
+                capability = {f"competition:{room_id}": ["subscribe"]}
         else:
-            # Teachers / principals: publish + subscribe to all competition channels
-            capability = {"competition:*": ["subscribe", "publish"]}
+            if channel_type == "chat":
+                # Teachers/principals: access all chat channels
+                capability = {"[chat]*": ["subscribe", "publish"]}
+            else:
+                capability = {"competition:*": ["subscribe", "publish"]}
 
         token_params = TokenParams(
             client_id=str(user.id),

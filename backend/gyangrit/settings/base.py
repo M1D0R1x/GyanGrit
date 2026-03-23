@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.gamification",
     "apps.gradebook.apps.GradebookConfig",
     "apps.competitions.apps.CompetitionsConfig",
+    "apps.chatrooms.apps.ChatroomsConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

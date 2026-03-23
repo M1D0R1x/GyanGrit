@@ -60,6 +60,9 @@ const NotificationsPage    = lazy(() => import("../pages/NotificationsPage"));
 // ── Competition Rooms ─────────────────────────────────────────────────────────
 const CompetitionRoomPage  = lazy(() => import("../pages/CompetitionRoomPage"));
 
+// ── Chat Rooms ────────────────────────────────────────────────────────────────
+const ChatRoomPage         = lazy(() => import("../pages/ChatRoomPage"));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PageLoader() {
@@ -127,6 +130,10 @@ export const router = createBrowserRouter([
   { path: "/competitions",              element: <Protected role="STUDENT"><CompetitionRoomPage /></Protected> },
   { path: "/competitions/:roomId",      element: <Protected role="STUDENT"><CompetitionRoomPage /></Protected> },
 
+  // Chat rooms — students
+  { path: "/chat",                      element: <Protected role="STUDENT"><ChatRoomPage /></Protected> },
+  { path: "/chat/:roomId",              element: <Protected role="STUDENT"><ChatRoomPage /></Protected> },
+
   // ── Teacher ───────────────────────────────────────────────────────────────
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
   { path: "/teacher/classes/:classId",                       element: <Protected role="TEACHER"><TeacherClassDetailPage /></Protected> },
@@ -138,6 +145,8 @@ export const router = createBrowserRouter([
   // Competition rooms — teachers
   { path: "/teacher/competitions",              element: <Protected role="TEACHER"><CompetitionRoomPage /></Protected> },
   { path: "/teacher/competitions/:roomId",      element: <Protected role="TEACHER"><CompetitionRoomPage /></Protected> },
+  { path: "/teacher/chat",                      element: <Protected role="TEACHER"><ChatRoomPage /></Protected> },
+  { path: "/teacher/chat/:roomId",              element: <Protected role="TEACHER"><ChatRoomPage /></Protected> },
 
   // ── Principal ─────────────────────────────────────────────────────────────
   { path: "/principal",                                          element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
@@ -149,6 +158,8 @@ export const router = createBrowserRouter([
   { path: "/principal/users",                                    element: <Protected role="PRINCIPAL"><UserManagementPage /></Protected> },
   { path: "/principal/competitions",              element: <Protected role="PRINCIPAL"><CompetitionRoomPage /></Protected> },
   { path: "/principal/competitions/:roomId",      element: <Protected role="PRINCIPAL"><CompetitionRoomPage /></Protected> },
+  { path: "/principal/chat",                      element: <Protected role="PRINCIPAL"><ChatRoomPage /></Protected> },
+  { path: "/principal/chat/:roomId",              element: <Protected role="PRINCIPAL"><ChatRoomPage /></Protected> },
 
   // ── Official ──────────────────────────────────────────────────────────────
   { path: "/official",       element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
@@ -163,6 +174,8 @@ export const router = createBrowserRouter([
   { path: "/admin/users",      element: <Protected role="ADMIN"><UserManagementPage /></Protected> },
   { path: "/admin/competitions",         element: <Protected role="ADMIN"><CompetitionRoomPage /></Protected> },
   { path: "/admin/competitions/:roomId", element: <Protected role="ADMIN"><CompetitionRoomPage /></Protected> },
+  { path: "/admin/chat",                 element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
+  { path: "/admin/chat/:roomId",         element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
 
   // ── Error pages ───────────────────────────────────────────────────────────
   { path: "/403",           element: <ForbiddenPage /> },

@@ -8,3 +8,4 @@ whitenoise[brotli]>=6.6         # Serves Django static files without nginx
                                 # Requires in MIDDLEWARE (after SecurityMiddleware):
                                 #   'whitenoise.middleware.WhiteNoiseMiddleware'
 dj-database-url>=2.1            # Parses DATABASE_URL env var into Django DATABASES dict
+gevent>=24.0                    # Async workers for Gunicorn — handles 50+ concurrent users on free tier

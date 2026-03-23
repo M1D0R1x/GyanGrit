@@ -1,5 +1,5 @@
 // services/competitions.ts
-import { apiGet, apiPost, API_BASE_URL } from "./api";
+import { apiGet, apiPost } from "./api";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 

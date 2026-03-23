@@ -101,43 +101,47 @@
 ## SESSION 2026-03-24 — SectionLessonPage Router Fix + Competition Rooms (Ably Pub/Sub)
 
 **Date:** 2026-03-24
-**Goal:** Wire SectionLessonPage into router, then build Competition Rooms end-to-end.
+**Status:** ✅ COMPLETE
 
-### Part A — SectionLessonPage router fix (30 min)
-- [ ] Add `/lessons/section/:lessonId` route to router.tsx
-      Page exists at `frontend/src/pages/SectionLessonPage.tsx` but has no route
-      Check if LessonPage already handles section lessons — if so, delete SectionLessonPage
+### Part A — SectionLessonPage router fix
+- [x] Added `/lessons/section/:lessonId` route to router.tsx
+      SectionLessonPage.tsx already existed with full implementation — just lacked a route
 
-### Part B — Competition Rooms backend (Django app)
-- [ ] `pip install ably` → add to requirements/base.txt
-- [ ] Add ABLY_API_KEY to Render env vars (sign up at ably.com first)
-- [ ] Create `backend/apps/competitions/` Django app with full structure
-- [ ] CompetitionRoom model: room_id, title, host (teacher), section, status, scheduled_at, questions (FK Assessment), created_at
-- [ ] CompetitionParticipant model: room, student, score, rank, joined_at
-- [ ] 5 backend endpoints:
-      GET  /api/v1/competitions/                   → list rooms (scoped by role)
-      POST /api/v1/competitions/create/            → teacher creates room
-      POST /api/v1/competitions/<id>/join/         → student joins
-      GET  /api/v1/competitions/<id>/              → room detail + participants
-      POST /api/v1/competitions/<id>/submit/       → student submits answer
-- [ ] POST /api/v1/realtime/token/ → Ably JWT endpoint (new `realtime` app)
-      Token scoped to room channel: `competition:{room_id}`
-      Student can only get token for rooms they're enrolled in
-- [ ] Migrations
-- [ ] Wire into gyangrit/urls.py
+### Part B — Competition Rooms backend
+- [x] `ably>=2.0` added to requirements/base.txt; pip3 install ably done locally
+- [x] `apps.competitions` Django app created with full structure
+- [x] CompetitionRoom model (title, host, section, assessment FK, status draft/active/finished)
+- [x] CompetitionParticipant model (unique_together room+student, score, rank)
+- [x] CompetitionAnswer model (is_correct NEVER sent to students — same rule as assessments)
+- [x] 7 endpoints implemented:
+      GET  /api/v1/competitions/              — list (scoped by role/section)
+      POST /api/v1/competitions/create/       — teacher creates
+      GET  /api/v1/competitions/<id>/         — detail + participants + questions (active only)
+      POST /api/v1/competitions/<id>/join/    — student joins
+      POST /api/v1/competitions/<id>/start/   — teacher starts, fires Ably room:started
+      POST /api/v1/competitions/<id>/finish/  — teacher ends, fires Ably room:finished + final leaderboard
+      POST /api/v1/competitions/<id>/answer/  — student answers, recalculates + broadcasts leaderboard
+- [x] POST /api/v1/realtime/token/ — Ably JWT scoped to competition:{room_id} for students,
+      competition:* for teachers. Graceful 503 if ABLY_API_KEY not set.
+- [x] Migrations applied (competitions/0001_initial.py)
+- [x] Registered in INSTALLED_APPS + gyangrit/urls.py
+- [x] manage.py check = 0 errors
 
 ### Part C — Competition Rooms frontend
-- [ ] npm install ably
-- [ ] New service: `frontend/src/services/competitions.ts`
-- [ ] New page: `frontend/src/pages/CompetitionRoomPage.tsx`
-      Teacher view: create room, start/stop, live leaderboard
-      Student view: join room, answer questions, live score updates
-- [ ] Add routes to router.tsx:
-      /competitions                    (STUDENT — list + join)
-      /teacher/competitions            (TEACHER — manage rooms)
-      /competitions/:roomId            (STUDENT — active room)
-      /teacher/competitions/:roomId    (TEACHER — control panel)
-- [ ] Add to NavMenu for TEACHER + STUDENT
+- [x] npm install ably (ably@3.1.1)
+- [x] `frontend/src/services/competitions.ts` — full typed API service (7 calls + Ably token)
+- [x] `frontend/src/pages/CompetitionRoomPage.tsx` — complete page:
+      List view: rooms with status badges, teacher create form
+      Room detail (student): lobby → answer questions → live leaderboard
+      Room detail (teacher): correct answers visible, start/end controls, live leaderboard
+      Ably subscribe: room:started, room:scores, room:finished
+      Polling fallback every 5s when Ably key not set
+- [x] router.tsx: competition routes added for STUDENT, TEACHER, PRINCIPAL, ADMIN
+- [x] npx tsc --noEmit = 0 errors
+
+### Pending (need Ably API key)
+- [ ] Add ABLY_API_KEY to Render environment variables
+- [ ] Add competition rooms link to NavMenu
 
 ---
 

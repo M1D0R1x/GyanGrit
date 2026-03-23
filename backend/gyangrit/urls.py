@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from apps.competitions.api.v1.urls import realtime_urlpatterns
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -14,4 +15,10 @@ urlpatterns = [
     path("api/v1/notifications/", include("apps.notifications.api.v1.urls")),
     path("api/v1/gamification/",  include("apps.gamification.api.v1.urls")),
     path("api/v1/gradebook/",     include("apps.gradebook.api.v1.urls")),
+
+    # Competition rooms
+    path("api/v1/competitions/",  include("apps.competitions.api.v1.urls")),
+
+    # Ably real-time token vending
+    path("api/v1/realtime/",      include((realtime_urlpatterns, "realtime"))),
 ]

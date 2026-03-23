@@ -18,14 +18,15 @@ import ServerErrorPage  from "../pages/errors/ServerErrorPage";
 import NetworkErrorPage from "../pages/errors/NetworkErrorPage";
 
 // ── Student ──────────────────────────────────────────────────────────────────
-const DashboardPage     = lazy(() => import("../pages/DashboardPage"));
-const CoursesPage       = lazy(() => import("../pages/CoursesPage"));
-const LessonsPage       = lazy(() => import("../pages/LessonsPage"));
-const LessonPage        = lazy(() => import("../pages/LessonPage"));
-const LearningPathsPage = lazy(() => import("../pages/LearningPathsPage"));
-const LearningPathPage  = lazy(() => import("../pages/LearningPathPage"));
-const ProfilePage       = lazy(() => import("../pages/ProfilePage"));
-const LeaderboardPage   = lazy(() => import("../pages/LeaderboardPage"));
+const DashboardPage      = lazy(() => import("../pages/DashboardPage"));
+const CoursesPage        = lazy(() => import("../pages/CoursesPage"));
+const LessonsPage        = lazy(() => import("../pages/LessonsPage"));
+const LessonPage         = lazy(() => import("../pages/LessonPage"));
+const SectionLessonPage  = lazy(() => import("../pages/SectionLessonPage"));
+const LearningPathsPage  = lazy(() => import("../pages/LearningPathsPage"));
+const LearningPathPage   = lazy(() => import("../pages/LearningPathPage"));
+const ProfilePage        = lazy(() => import("../pages/ProfilePage"));
+const LeaderboardPage    = lazy(() => import("../pages/LeaderboardPage"));
 
 // ── Assessments ──────────────────────────────────────────────────────────────
 const AssessmentsPage        = lazy(() => import("../pages/AssessmentsPage"));
@@ -53,8 +54,13 @@ const AdminAssessmentBuilderPage = lazy(() => import("../pages/AdminAssessmentBu
 const AdminJoinCodesPage         = lazy(() => import("../pages/AdminJoinCodesPage"));
 const UserManagementPage         = lazy(() => import("../pages/UserManagementPage"));
 
-// ── Shared (all authenticated roles) ─────────────────────────────────────
-const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
+// ── Shared ────────────────────────────────────────────────────────────────────
+const NotificationsPage    = lazy(() => import("../pages/NotificationsPage"));
+
+// ── Competition Rooms ─────────────────────────────────────────────────────────
+const CompetitionRoomPage  = lazy(() => import("../pages/CompetitionRoomPage"));
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function PageLoader() {
   return (
@@ -90,31 +96,36 @@ export const router = createBrowserRouter([
   { path: "/verify-otp",       element: <VerifyOtpPage /> },
   { path: "/complete-profile", element: <CompleteProfilePage /> },
 
-  // ── Shared — all authenticated roles (rank ≥ STUDENT) ────────────────────
-  // RequireRole uses rank comparison (ROLE_RANK[user.role] >= ROLE_RANK[route_role])
-  // so role="STUDENT" here means ALL authenticated users can access these.
+  // ── Shared — all authenticated roles (rank ≥ STUDENT = everyone) ─────────
   { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },
   { path: "/profile",       element: <Protected role="STUDENT"><ProfilePage /></Protected> },
 
   // ── Student ───────────────────────────────────────────────────────────────
   { path: "/dashboard",   element: <Protected role="STUDENT"><DashboardPage /></Protected> },
   { path: "/leaderboard", element: <Protected role="STUDENT"><LeaderboardPage /></Protected> },
-  { path: "/learning",              element: <Protected role="STUDENT"><LearningPathsPage /></Protected> },
-  { path: "/learning/:pathId",      element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
-  { path: "/lessons/:lessonId",     element: <Protected role="STUDENT"><LessonPage /></Protected> },
+  { path: "/learning",           element: <Protected role="STUDENT"><LearningPathsPage /></Protected> },
+  { path: "/learning/:pathId",   element: <Protected role="STUDENT"><LearningPathPage /></Protected> },
 
-  // ── Courses — human-readable slug routes ─────────────────────────────────
+  // Lesson routes — global + section (teacher-added)
+  { path: "/lessons/:lessonId",         element: <Protected role="STUDENT"><LessonPage /></Protected> },
+  { path: "/lessons/section/:lessonId", element: <Protected role="STUDENT"><SectionLessonPage /></Protected> },
+
+  // Courses — human-readable slug routes
   { path: "/courses",                             element: <Protected role="STUDENT"><CoursesPage /></Protected> },
   { path: "/courses/:grade/:subject",             element: <Protected role="STUDENT"><LessonsPage /></Protected> },
   { path: "/courses/:grade/:subject/assessments", element: <Protected role="STUDENT"><CourseAssessmentsPage /></Protected> },
 
-  // ── Assessments — human-readable slug routes ──────────────────────────────
+  // Assessments — human-readable slug routes
   { path: "/assessments",                                               element: <Protected role="STUDENT"><AssessmentsPage /></Protected> },
   { path: "/assessments/history",                                       element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
   { path: "/assessments/:grade/:subject/:assessmentId",                 element: <Protected role="STUDENT"><AssessmentPage /></Protected> },
   { path: "/assessments/:grade/:subject/:assessmentId/take",            element: <Protected role="STUDENT"><AssessmentTakePage /></Protected> },
   { path: "/assessments/:grade/:subject/:assessmentId/history",         element: <Protected role="STUDENT"><AssessmentHistoryPage /></Protected> },
   { path: "/assessment-result",                                         element: <Protected role="STUDENT"><AssessmentResultPage /></Protected> },
+
+  // Competition rooms — students
+  { path: "/competitions",              element: <Protected role="STUDENT"><CompetitionRoomPage /></Protected> },
+  { path: "/competitions/:roomId",      element: <Protected role="STUDENT"><CompetitionRoomPage /></Protected> },
 
   // ── Teacher ───────────────────────────────────────────────────────────────
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
@@ -124,10 +135,11 @@ export const router = createBrowserRouter([
   { path: "/teacher/courses/:courseId/lessons",              element: <Protected role="TEACHER"><AdminLessonEditorPage /></Protected> },
   { path: "/teacher/courses/:courseId/assessments",          element: <Protected role="TEACHER"><AdminAssessmentBuilderPage /></Protected> },
   { path: "/teacher/users",                                  element: <Protected role="TEACHER"><UserManagementPage /></Protected> },
+  // Competition rooms — teachers
+  { path: "/teacher/competitions",              element: <Protected role="TEACHER"><CompetitionRoomPage /></Protected> },
+  { path: "/teacher/competitions/:roomId",      element: <Protected role="TEACHER"><CompetitionRoomPage /></Protected> },
 
   // ── Principal ─────────────────────────────────────────────────────────────
-  // Note: Principal has rank ≥ TEACHER so all /teacher/* routes are also accessible.
-  // Principal-specific routes are aliased here for clean URL namespacing.
   { path: "/principal",                                          element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
   { path: "/principal/classes/:classId",                         element: <Protected role="PRINCIPAL"><TeacherClassDetailPage /></Protected> },
   { path: "/principal/classes/:classId/gradebook",               element: <Protected role="PRINCIPAL"><GradebookPage /></Protected> },
@@ -135,9 +147,10 @@ export const router = createBrowserRouter([
   { path: "/principal/courses/:courseId/lessons",                element: <Protected role="PRINCIPAL"><AdminLessonEditorPage /></Protected> },
   { path: "/principal/courses/:courseId/assessments",            element: <Protected role="PRINCIPAL"><AdminAssessmentBuilderPage /></Protected> },
   { path: "/principal/users",                                    element: <Protected role="PRINCIPAL"><UserManagementPage /></Protected> },
+  { path: "/principal/competitions",              element: <Protected role="PRINCIPAL"><CompetitionRoomPage /></Protected> },
+  { path: "/principal/competitions/:roomId",      element: <Protected role="PRINCIPAL"><CompetitionRoomPage /></Protected> },
 
   // ── Official ──────────────────────────────────────────────────────────────
-  // Official has rank ≥ TEACHER so all /teacher/* and /principal/* routes accessible.
   { path: "/official",       element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
   { path: "/official/users", element: <Protected role="OFFICIAL"><UserManagementPage /></Protected> },
 
@@ -148,6 +161,8 @@ export const router = createBrowserRouter([
   { path: "/admin/content/courses/:courseId/assessments", element: <Protected role="ADMIN"><AdminAssessmentBuilderPage /></Protected> },
   { path: "/admin/join-codes", element: <Protected role="ADMIN"><AdminJoinCodesPage /></Protected> },
   { path: "/admin/users",      element: <Protected role="ADMIN"><UserManagementPage /></Protected> },
+  { path: "/admin/competitions",         element: <Protected role="ADMIN"><CompetitionRoomPage /></Protected> },
+  { path: "/admin/competitions/:roomId", element: <Protected role="ADMIN"><CompetitionRoomPage /></Protected> },
 
   // ── Error pages ───────────────────────────────────────────────────────────
   { path: "/403",           element: <ForbiddenPage /> },

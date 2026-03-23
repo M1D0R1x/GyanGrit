@@ -82,52 +82,55 @@
 
 ---
 
-## SESSION 2026-03-23 — Fly.io Migration, OTP, Latency, Deployment Fixes
+## SESSION 2026-03-23 — Deployment Fixes, Keep-alive, OTP, Cleanup
 
 - [x] Vercel TS error fixed: AdminLessonEditorPage uploadFile arg order
       (setProgress was passed as displayName string slot → now undefined, setProgress)
 - [x] health endpoint: removed @login_required (was redirecting to /accounts/login/)
-- [x] prod.py: defensive _parse_hosts() and _parse_origins() — strips https:// and trailing slashes
-      (prevents CORS errors when user accidentally types full URL in env var)
-- [x] whitenoise added to requirements/base.txt (was prod-only, broke local dev server)
-- [x] Decided to switch backend from Render (Singapore) → Fly.io (Mumbai)
-      Reason: Render has no Mumbai region. Fly.io has bom (Mumbai) operational.
-      DB is in Mumbai (Supabase). Backend + DB in same city = <5ms DB latency vs 30-40ms.
-- [x] backend/Dockerfile created — Fly.io uses this for container builds
-- [x] backend/fly.toml created — bom region, always-on, health check on /api/v1/health/
-- [x] docs/BACKEND_DEPLOYMENT_FLYIO.md — complete Fly.io deploy guide
-- [x] Fast2SMS OTP confirmed already implemented in services.py
-      Just needs FAST2SMS_API_KEY set in Fly.io secrets — no code changes needed
-- [x] todo + tasks.md updated
+- [x] prod.py: defensive _parse_hosts() and _parse_origins()
+      Strips https:// and trailing slashes from env vars — prevents CORS errors
+- [x] whitenoise added to requirements/base.txt (was prod-only, broke local dev)
+- [x] Keep-alive ping added to AuthContext.tsx
+      Pings /api/v1/health/ every 10 min in production — prevents Render cold starts
+      Only runs when import.meta.env.PROD is true — silent in dev
+- [x] Fast2SMS OTP: confirmed fully implemented in services.py + wired in views.py
+      No code changes needed — just set FAST2SMS_API_KEY in Render env vars
+- [x] Fly.io abandoned — blocked new Indian accounts with ₹900 verification
+      Removed: backend/Dockerfile, backend/fly.toml, docs/BACKEND_DEPLOYMENT_FLYIO.md
+      Kept: backend/railway.json (Railway fallback if needed later)
+      Decision: stay on Render Singapore — keep-alive eliminates cold start problem
+- [x] todo + tasks.md cleaned up — all Fly.io references removed
 
-### Pending from this session (not yet done)
-- [ ] Actually run: fly deploy (follow docs/BACKEND_DEPLOYMENT_FLYIO.md)
-- [ ] Set FAST2SMS_API_KEY in Fly.io secrets
-- [ ] Update Vercel VITE_API_URL to fly.dev URL
-- [ ] Delete Render service after Fly.io confirmed working
+### Still pending
+- [ ] Add FAST2SMS_API_KEY to Render env vars → OTP SMS will work immediately
+- [ ] Smoke test all 5 roles on https://gyan-grit.vercel.app
+- [ ] E2E: gradebook marks (18/25 → 72%)
+- [ ] E2E: notification send (teacher → student receives)
 
 ---
 
 ## UPCOMING — Next Session
 
-### 🔴 P0 — Deploy & Verify
-- [ ] fly deploy → confirm https://gyangrit-backend.fly.dev/api/v1/health/ works
-- [ ] Update VITE_API_URL in Vercel → redeploy frontend
-- [ ] Test full login flow on production (student + teacher OTP)
-- [ ] Test OTP SMS arrives via Fast2SMS (teacher login)
-- [ ] Smoke test all 5 roles on production URLs
+### 🔴 P0 — Immediate
+- [ ] Add FAST2SMS_API_KEY to Render dashboard env vars
+- [ ] Smoke test all 5 roles end-to-end on production
 
-### 🟡 P1 — E2E Verify (local)
-- [ ] Gradebook: add mark 18/25 → 72% shown
-- [ ] Notification send: teacher → student receives
-- [ ] Teacher dashboard: only assigned subjects shown
+### 🟡 P1 — E2E Verify
+- [ ] Gradebook: 18/25 → 72% shown in expandable row
+- [ ] Notification send E2E
+- [ ] OTP SMS received on mobile after FAST2SMS_API_KEY set
 
-### 🟠 P2 — Features
-- [ ] Ably Pub/Sub setup for competition rooms
-- [ ] Ably Chat setup for chat rooms
+### 🟠 P2 — Competition Rooms + Chat Rooms (Ably)
+- [ ] Sign up ably.com → API key → ABLY_API_KEY in Render env
+- [ ] pip install ably → requirements/base.txt
+- [ ] New Django app: backend/apps/competitions/ (Pub/Sub)
+- [ ] New Django app: backend/apps/chatrooms/ (Ably Chat)
+- [ ] POST /api/v1/realtime/token/ → Ably JWT endpoint
+- [ ] npm install ably && npm install @ably/chat
+- [ ] CompetitionRoomPage.tsx + ChatRoomPage.tsx
 
 ### 🔵 P3 — Post-Capstone
-- [ ] NavMenu → sidebar drawer
+- [ ] NavMenu → sidebar drawer for staff roles
 - [ ] PWA / offline sync
 - [ ] AI chatbot
 
@@ -137,9 +140,10 @@
 
 | Decision | Rationale | Date |
 |---|---|---|
-| Ably for real-time (not raw WebSockets) | Render/Fly free tier has no persistent WebSocket support. Ably handles reconnection, presence, history. Free tier sufficient for capstone. | 2026-03-22 |
-| Ably product split: Pub/Sub for competitions, Chat for chat rooms | Competition rooms need custom message shape (scores, timers). Chat rooms benefit from built-in typing indicators, history, presence. Same API key. | 2026-03-22 |
-| Vercel for frontend | Best-in-class for Vite/React SPAs. Free tier generous. Auto-deploy on push. Mumbai edge node. | 2026-03-22 |
-| Fly.io for backend (replacing Render) | Fly.io has Mumbai (bom) region. Render has no Mumbai. DB is in Mumbai. Co-locating backend + DB eliminates 30-40ms Singapore→Mumbai roundtrip per query. Login goes from ~3s → <500ms. | 2026-03-23 |
-| Fast2SMS for OTP SMS | Indian SMS gateway, ₹0.15/SMS, 10-digit mobile normalisation built in. Free trial ₹50 (~330 OTPs). Already fully implemented in services.py. | 2026-03-23 |
+| Ably for real-time (Pub/Sub + Chat) | No persistent WebSocket on Render/Railway free tier. Ably handles reconnect, presence, history. Same API key for both products. | 2026-03-22 |
+| Vercel for frontend | Best-in-class Vite/React SPA deploy. Free tier. Mumbai edge. Auto-deploy on push. | 2026-03-22 |
+| Render for backend | Free tier + keep-alive ping = no cold starts. Singapore is the only APAC option across all affordable platforms. | 2026-03-23 |
+| Fly.io abandoned | Blocked new Indian accounts with ₹900 verification fee. Not worth it. | 2026-03-23 |
+| Keep-alive in AuthContext | Frontend pings /health/ every 10 min in prod. Eliminates Render free tier cold start without needing paid plan. | 2026-03-23 |
+| Fast2SMS for OTP SMS | ₹0.15/SMS, Indian numbers, free ₹50 trial. Fully implemented. Just needs API key in env. | 2026-03-23 |
 | No AI / PWA for now | Out of scope for capstone. Post-submission. | 2026-03-22 |

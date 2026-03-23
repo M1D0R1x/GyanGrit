@@ -8,8 +8,31 @@ import {
   useCallback,
 } from "react";
 import type { ReactNode } from "react";
-import { apiGet, initCsrf } from "../services/api";
+import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keep-alive ping
+// Render (and Railway) free/hobby tiers sleep after 15 min of inactivity.
+// We ping /api/v1/health/ every 10 minutes to prevent cold starts.
+// Uses plain fetch (no credentials, no CSRF) — health endpoint is public.
+// Only runs in production (import.meta.env.PROD) to avoid noise in dev.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+function startKeepAlive() {
+  if (!import.meta.env.PROD) return; // dev: skip
+  const ping = () => {
+    fetch(`${API_BASE_URL}/health/`, { method: "GET" }).catch(() => {
+      // Silently ignore — if the server is down the user will see auth errors
+    });
+  };
+  ping(); // ping immediately on app load
+  return setInterval(ping, KEEP_ALIVE_INTERVAL_MS);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthState>(null!);
 
@@ -59,9 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Seed CSRF cookie first, then verify auth state.
-    // This runs once on app mount.
     initCsrf().then(() => refresh());
   }, [refresh]);
+
+  // Keep the Render/Railway backend warm — ping every 10 minutes
+  useEffect(() => {
+    const intervalId = startKeepAlive();
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
 
   const value: AuthState = {
     loading,

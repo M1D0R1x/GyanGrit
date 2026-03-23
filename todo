@@ -6,66 +6,74 @@ See tasks.md for the full session-by-session history.
 CURRENT STATUS
 ========================================
 
-Backend:   Deployed on Render (Singapore) — MIGRATING to Fly.io (Mumbai)
-Frontend:  Deployed on Vercel (Mumbai edge)
+Backend:   Render (Singapore) — always-on via keep-alive ping
+Frontend:  Vercel (Mumbai edge)
 Database:  Supabase (Mumbai)
-OTP:       Fast2SMS fully implemented — needs FAST2SMS_API_KEY env var set
+OTP:       Fast2SMS fully implemented — needs FAST2SMS_API_KEY set in Render env vars
+Keep-alive: Frontend pings /health/ every 10 min — Render never sleeps
 
 
 ========================================
-DONE — ALL SESSIONS SO FAR
+DONE THIS SESSION (2026-03-23)
 ========================================
 
-[x] Full platform built: 11 Django apps, 31 React pages
-[x] All bugs fixed (course scoping, nav prefix, router, etc.)
-[x] Deployment prep: build.sh, Dockerfile, fly.toml, vercel.json, prod.py
-[x] docs/BACKEND_DEPLOYMENT_RENDER.md (deprecated — use Fly.io instead)
-[x] docs/BACKEND_DEPLOYMENT_FLYIO.md — new guide for Mumbai deployment
-[x] docs/FRONTEND_DEPLOYMENT_VERCEL.md
-[x] tasks.md session tracker
-[x] Fast2SMS OTP already implemented in services.py — just needs API key
-[x] Vercel TS build error fixed (AdminLessonEditorPage uploadFile arg order)
-[x] health endpoint: removed @login_required (was redirecting to /accounts/login/)
-[x] prod.py: defensive ALLOWED_HOSTS + CORS parsing (strips https:// and trailing slashes)
+[x] Removed Fly.io files (Dockerfile, fly.toml, BACKEND_DEPLOYMENT_FLYIO.md)
+    Fly.io blocked new Indian accounts with ₹900 verification fee — skipped
+    Staying on Render Singapore (same latency as any other option)
+
+[x] Keep-alive ping added to AuthContext.tsx
+    Pings /api/v1/health/ every 10 min in production only
+    Prevents Render cold starts without needing a paid plan
+    File: frontend/src/auth/AuthContext.tsx
+
+[x] Fast2SMS OTP — already implemented in services.py, wired in views.py
+    Just needs FAST2SMS_API_KEY added to Render environment variables
+
+[x] Vercel TS error fixed (AdminLessonEditorPage uploadFile arg order)
+[x] health endpoint: @login_required removed
+[x] prod.py: defensive ALLOWED_HOSTS + CORS parsing
 
 
 ========================================
 IMMEDIATE — DO THESE NOW
 ========================================
 
-[ ] DEPLOY: Migrate backend from Render → Fly.io Mumbai
-    Follow: docs/BACKEND_DEPLOYMENT_FLYIO.md
-    Steps:
-      brew install flyctl
-      fly auth login
-      cd backend && fly launch --no-deploy   # select bom region
-      fly secrets set SECRET_KEY="..." DATABASE_URL="..." ALLOWED_HOSTS="gyangrit-backend.fly.dev" ...
-      fly secrets set FAST2SMS_API_KEY="your-fast2sms-key"   ← OTP WILL WORK AFTER THIS
-      fly secrets set CORS_ALLOWED_ORIGINS="https://gyan-grit.vercel.app"
-      fly deploy
+[ ] Add FAST2SMS_API_KEY to Render environment variables
+    Go to: Render → gyangrit-backend → Environment → Add variable
+    Key: FAST2SMS_API_KEY
+    Value: your Fast2SMS API key
+    Then redeploy
 
-[ ] After Fly.io deploy: update Vercel env var
-    VITE_API_URL = https://gyangrit-backend.fly.dev/api/v1
-
-[ ] After Fly.io is confirmed working: delete Render service
-
-[ ] FAST2SMS: Add FAST2SMS_API_KEY to Fly.io secrets (see above)
-    OTP SMS will work automatically — services.py is already complete
-    No code changes needed — just the env var
+[ ] Verify Render is live:
+    https://gyangrit.onrender.com/api/v1/health/ → should return {"status":"ok"}
 
 
 ========================================
-VERIFY (browser smoke tests)
+VERIFY IN BROWSER (smoke tests)
 ========================================
 
-[ ] https://gyangrit-backend.fly.dev/api/v1/health/ → {"status":"ok"}
-[ ] Teacher dashboard Course Completion → shows only assigned subjects
-[ ] Assessment builder back button → goes to correct /teacher/courses/:id/lessons
-[ ] Principal class card → navigates to /principal/classes/:id
+[ ] Teacher dashboard → Course Completion shows ONLY assigned subjects
+    (was returning all 60 courses — fixed in views.py)
+
+[ ] Assessment builder back button works for teacher
+    /teacher/courses/:id/assessments → back → /teacher/courses/:id/lessons
+
+[ ] Principal class card navigates to /principal/classes/:id
+
 [ ] /profile works for TEACHER, PRINCIPAL, OFFICIAL, ADMIN
-[ ] E2E: Gradebook marks (18/25 → 72%)
-[ ] E2E: Notification send (teacher → student inbox)
-[ ] E2E: OTP SMS (teacher login → SMS arrives on mobile_primary)
+
+[ ] E2E: Gradebook
+    Teacher → /teacher/classes/:id/gradebook
+    Add mark 18/25 → should show 72%
+    Edit → updates in place
+    Delete → removes from row
+
+[ ] E2E: Notification send
+    Teacher sends broadcast to a class
+    Student in that class → notification appears in inbox
+
+[ ] E2E: OTP SMS (after FAST2SMS_API_KEY is set)
+    Teacher login → OTP arrives as SMS on mobile_primary
 
 
 ========================================
@@ -73,20 +81,19 @@ UPCOMING FEATURES
 ========================================
 
 [ ] Competition Rooms (Ably Pub/Sub)
-    1. ably.com → create app → copy API key
-    2. fly secrets set ABLY_API_KEY="..."
-    3. pip install ably → requirements/base.txt
-    4. New app: backend/apps/competitions/
-    5. Endpoint: POST /api/v1/realtime/token/ → Ably JWT
-    6. npm install ably
-    7. New page: CompetitionRoomPage.tsx
+    1. ably.com → create app → copy API key → add ABLY_API_KEY to Render env
+    2. pip install ably → add to requirements/base.txt
+    3. New Django app: backend/apps/competitions/
+    4. Endpoint: POST /api/v1/realtime/token/ → Ably JWT for the user
+    5. npm install ably
+    6. New page: frontend/src/pages/CompetitionRoomPage.tsx
 
-[ ] Chat Rooms (Ably Chat)
-    Same Ably app/key as above
+[ ] Chat Rooms (Ably Chat SDK)
+    Same Ably app/key as competition rooms
     npm install @ably/chat
-    New app: backend/apps/chatrooms/
-    New page: ChatRoomPage.tsx
+    New Django app: backend/apps/chatrooms/
+    New page: frontend/src/pages/ChatRoomPage.tsx
 
-[ ] NavMenu redesign — post-capstone sidebar/drawer
+[ ] NavMenu redesign — post-capstone sidebar/drawer for staff roles
 [ ] PWA / offline sync — post-capstone
 [ ] AI chatbot — post-capstone

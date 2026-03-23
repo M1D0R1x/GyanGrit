@@ -140,8 +140,53 @@
 - [x] npx tsc --noEmit = 0 errors
 
 ### Pending (need Ably API key)
-- [ ] Add ABLY_API_KEY to Render environment variables
-- [ ] Add competition rooms link to NavMenu
+- [x] ABLY_API_KEY added to Render environment variables
+- [ ] Add competition/chat links to NavMenu (SESSION 2026-03-26 — UI polish)
+
+---
+
+## SESSION 2026-03-25 (Part 3) — Chat Rooms Complete Redesign
+
+**Status:** ✅ COMPLETE
+
+### Architecture changes
+- Dropped class_general room type — replaced entirely by subject rooms
+- Added ChatRoomMember model — explicit membership for push notifications + admin visibility
+- Room types: subject (Section × Subject) | staff (per institution) | officials (platform-wide)
+- Lazy creation via signals — no upfront room flood
+- Admin's list is filterable (institution_id, room_type, search)
+
+### Backend
+- [x] ChatRoomMember model (unique_together room+user, indexed)
+- [x] bootstrap_chatrooms rewritten — creates 19 rooms, 47 memberships from existing data
+- [x] Signal redesign:
+      STUDENT joins section → create all subject rooms for that section, enroll them
+      TEACHER assigned → create subject room, enroll teacher + existing students of section
+      PRINCIPAL → staff room + officials room enrollment
+      OFFICIAL → officials room enrollment
+- [x] _push_chat_notification() — Ably REST publish to notifications:{user_id} for each member
+- [x] list_rooms — membership-based query (no more role-based room construction)
+- [x] admin_list_rooms, admin_room_messages — admin management endpoints
+- [x] room_members endpoint added
+- [x] Ably token endpoint updated: student capability covers all their chat room channels + notifications:{user_id}
+- [x] Migrations applied, manage.py check = 0
+
+### Frontend
+- [x] ChatRoomPage.tsx — complete rewrite:
+      Push notification toasts (Ably notifications:{user_id} channel)
+      MonitoringBanner — "This chat is monitored by school administration"
+      Sidebar grouped: Officials / Staff / Subject
+      Threads work correctly (reply sends via handleSend(content, parentId))
+      Students see reply-only notice in subject rooms
+      Teachers see post + reply + pin + file attach
+      5s polling fallback
+- [x] AdminChatManagementPage.tsx — new admin-only page
+      Grouped by institution, filterable by type/search
+      Split panel: room list + message viewer
+      Role-coloured dots per sender
+- [x] chat.ts service updated — adminListRooms, adminGetRoomMessages, getRoomMembers
+- [x] router.tsx — /admin/chat-management route added
+- [x] npx tsc --noEmit = 0 | npm run lint = 0 errors 0 warnings
 
 ---
 

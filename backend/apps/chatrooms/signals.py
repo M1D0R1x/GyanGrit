@@ -1,14 +1,13 @@
 # apps.chatrooms.signals
 """
-Auto-create chat rooms when users are assigned to sections or teaching roles.
+Auto-create chat rooms and enroll users.
 
-Signals:
-  post_save on User:
-    - Student gets section → create class_general + subject rooms for that section
-  post_save on TeachingAssignment:
-    - Teacher assigned to section+subject → create subject room + class_general room
-  post_save on User (PRINCIPAL role):
-    - Principal assigned to institution → create staff room
+Signal handlers:
+  post_save User (STUDENT)         → create all subject rooms for their section, enroll them
+  post_save User (TEACHER)         → enroll in staff room
+  post_save User (PRINCIPAL)       → enroll in staff room + officials room
+  post_save User (OFFICIAL)        → enroll in officials room
+  post_save TeachingAssignment     → create subject room, enroll teacher + all existing students
 """
 import logging
 from django.db.models.signals import post_save
@@ -18,50 +17,50 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender="accounts.User")
-def handle_user_save(sender, instance, created, **kwargs):
-    """
-    When a student is given a section, ensure class_general + subject rooms exist.
-    When a principal is saved with an institution, ensure staff room exists.
-    """
+def handle_user_save(sender, instance, **kwargs):
     from .views import (
-        get_or_create_class_room,
         get_or_create_subject_room,
         get_or_create_staff_room,
         get_or_create_officials_room,
+        enroll_user,
+        enroll_admin_in_room,
+        enroll_student_in_all_section_rooms,
     )
     try:
         if instance.role == "STUDENT" and instance.section_id:
-            section = instance.section
-            get_or_create_class_room(section)
-            # Subject rooms — create for all teaching assignments in this section
-            from apps.academics.models import TeachingAssignment
-            for ta in TeachingAssignment.objects.filter(section=section).select_related("subject"):
-                get_or_create_subject_room(section, ta.subject)
+            enroll_student_in_all_section_rooms(instance)
 
-        elif instance.role == "PRINCIPAL" and getattr(instance, "institution_id", None):
-            get_or_create_staff_room(instance.institution)
-            get_or_create_officials_room()
+        elif instance.role == "TEACHER" and instance.institution_id:
+            staff_room = get_or_create_staff_room(instance.institution)
+            enroll_user(staff_room, instance)
+            enroll_admin_in_room(staff_room)
+
+        elif instance.role == "PRINCIPAL":
+            if instance.institution_id:
+                staff_room = get_or_create_staff_room(instance.institution)
+                enroll_user(staff_room, instance)
+                enroll_admin_in_room(staff_room)
+            officials_room = get_or_create_officials_room()
+            enroll_user(officials_room, instance)
+            enroll_admin_in_room(officials_room)
 
         elif instance.role == "OFFICIAL":
-            get_or_create_officials_room()
+            officials_room = get_or_create_officials_room()
+            enroll_user(officials_room, instance)
+            enroll_admin_in_room(officials_room)
 
     except Exception as exc:
-        logger.warning("chatrooms.signals.handle_user_save: %s", exc)
+        logger.warning("chatrooms.signals.handle_user_save [user=%s]: %s", instance.id, exc)
 
 
 @receiver(post_save, sender="academics.TeachingAssignment")
-def handle_teaching_assignment_save(sender, instance, created, **kwargs):
-    """
-    When a TeachingAssignment is created, ensure the subject chat room
-    and class_general room exist for that section.
-    """
+def handle_teaching_assignment(sender, instance, created, **kwargs):
     if not created:
         return
-    from .views import get_or_create_class_room, get_or_create_subject_room
+    from .views import enroll_teacher_in_subject_rooms
     try:
-        section = instance.section
-        subject = instance.subject
-        get_or_create_class_room(section)
-        get_or_create_subject_room(section, subject)
+        enroll_teacher_in_subject_rooms(instance.teacher, instance.section, instance.subject)
     except Exception as exc:
-        logger.warning("chatrooms.signals.handle_teaching_assignment_save: %s", exc)
+        logger.warning(
+            "chatrooms.signals.handle_teaching_assignment [ta=%s]: %s", instance.id, exc
+        )

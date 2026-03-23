@@ -493,12 +493,17 @@ def ably_token(request):
     user         = request.user
 
     # ── Build capability ─────────────────────────────────────────────────
+    # All authenticated users subscribe to their own notification channel
+    notification_cap = {f"notifications:{user.id}": ["subscribe"]}
+
     if user.role == "STUDENT":
         if channel_type == "chat":
-            section = getattr(user, "section", None)
-            if not section:
-                return JsonResponse({"error": "No section assigned"}, status=400)
-            capability = {f"[chat]{section.id}": ["subscribe", "publish"]}
+            # Chat rooms by membership — subscribe to all their chat rooms
+            from apps.chatrooms.models import ChatRoomMember
+            room_ids = list(
+                ChatRoomMember.objects.filter(user=user).values_list("room_id", flat=True)
+            )
+            capability = {f"chat:{rid}": ["subscribe", "publish"] for rid in room_ids}
         else:
             if not room_id:
                 return JsonResponse({"error": "room_id is required for students"}, status=400)
@@ -506,9 +511,12 @@ def ably_token(request):
     else:
         # TEACHER / PRINCIPAL / OFFICIAL / ADMIN
         if channel_type == "chat":
-            capability = {"[chat]*": ["subscribe", "publish"]}
+            capability = {"chat:*": ["subscribe", "publish"]}
         else:
             capability = {"competition:*": ["subscribe", "publish"]}
+
+    # Merge notification capability
+    capability.update(notification_cap)
 
     # ── Request token from Ably REST API ─────────────────────────────────
     # https://ably.com/docs/api/rest-api#request-token

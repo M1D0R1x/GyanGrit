@@ -61,7 +61,8 @@ const NotificationsPage    = lazy(() => import("../pages/NotificationsPage"));
 const CompetitionRoomPage  = lazy(() => import("../pages/CompetitionRoomPage"));
 
 // ── Chat Rooms ────────────────────────────────────────────────────────────────
-const ChatRoomPage         = lazy(() => import("../pages/ChatRoomPage"));
+const ChatRoomPage              = lazy(() => import("../pages/ChatRoomPage"));
+const AdminChatManagementPage   = lazy(() => import("../pages/AdminChatManagementPage"));
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,7 @@ export const router = createBrowserRouter([
   { path: "/admin/competitions/:roomId", element: <Protected role="ADMIN"><CompetitionRoomPage /></Protected> },
   { path: "/admin/chat",                 element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
   { path: "/admin/chat/:roomId",         element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
+  { path: "/admin/chat-management",      element: <Protected role="ADMIN"><AdminChatManagementPage /></Protected> },
 
   // ── Error pages ───────────────────────────────────────────────────────────
   { path: "/403",           element: <ForbiddenPage /> },

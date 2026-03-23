@@ -1,34 +1,27 @@
 # apps.chatrooms.views
 """
-Chat Rooms endpoints.
+Chat Rooms — endpoints + room creation helpers.
 
-GET  /api/v1/chat/rooms/                        → list rooms visible to the user
-GET  /api/v1/chat/rooms/<id>/                   → room detail
-GET  /api/v1/chat/rooms/<id>/history/           → last 50 top-level messages + reply counts
-GET  /api/v1/chat/rooms/<id>/thread/<msg_id>/   → all replies for a message (thread)
-POST /api/v1/chat/rooms/<id>/message/           → send a message (or reply)
-POST /api/v1/chat/rooms/<id>/pin/<msg_id>/      → pin/unpin (TEACHER/ADMIN only)
-GET  /api/v1/chat/rooms/<id>/pinned/            → list pinned messages
+Endpoints:
+  GET  /api/v1/chat/rooms/                       — list rooms for the user
+  GET  /api/v1/chat/rooms/<id>/                  — room detail + member count
+  GET  /api/v1/chat/rooms/<id>/history/          — last 50 top-level messages
+  GET  /api/v1/chat/rooms/<id>/thread/<msg_id>/  — parent + all replies
+  POST /api/v1/chat/rooms/<id>/message/          — send message / reply
+  POST /api/v1/chat/rooms/<id>/pin/<msg_id>/     — pin/unpin
+  GET  /api/v1/chat/rooms/<id>/pinned/           — list pinned messages
+  GET  /api/v1/chat/rooms/<id>/members/          — list members (admin/teacher)
 
-Sender display rules:
-  - ADMIN role: shown as "Chat Moderator" with role label "moderator"
-  - TEACHER: shown as "{first_name} {last_name}" with role label "teacher"
-  - STUDENT: shown as "{first_name} {last_name}" with role label "student"
-  - PRINCIPAL: shown as "{first_name} {last_name}" with role label "principal"
-
-Post permission rules:
-  - In class_general + subject rooms: TEACHER/ADMIN can post + reply;
-    STUDENTS can only reply to existing messages (not start new threads)
-  - In staff rooms: TEACHER/PRINCIPAL/ADMIN can post freely
-  - In officials rooms: OFFICIAL/PRINCIPAL/ADMIN can post freely
-
-File/image sharing: only TEACHER and ADMIN can include attachment_url.
+  Admin management:
+  GET  /api/v1/chat/admin/rooms/                 — all rooms, filterable
+  GET  /api/v1/chat/admin/rooms/<id>/messages/   — all messages in a room (admin)
 """
 import json
 import logging
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -36,49 +29,35 @@ from django.views.decorators.http import require_http_methods
 
 from apps.accesscontrol.permissions import require_roles
 from apps.academics.models import Section, Subject, Institution
-from .models import ChatRoom, ChatMessage, RoomType
+from .models import ChatRoom, ChatRoomMember, ChatMessage, RoomType
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Sender display
+# Helpers — sender display
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _sender_display(user) -> dict:
-    """
-    Returns display name and role label for a sender.
-    ADMIN is anonymised as 'Chat Moderator'.
-    """
     if user.role == "ADMIN":
         return {"name": "Chat Moderator", "role_label": "moderator"}
-
     first = (user.first_name or "").strip()
     last  = (user.last_name  or "").strip()
     full  = f"{first} {last}".strip() or user.username
-
-    role_map = {
-        "TEACHER":   "teacher",
-        "PRINCIPAL": "principal",
-        "OFFICIAL":  "official",
-        "STUDENT":   "student",
-    }
+    role_map = {"TEACHER": "teacher", "PRINCIPAL": "principal",
+                "OFFICIAL": "official", "STUDENT": "student"}
     return {"name": full, "role_label": role_map.get(user.role, user.role.lower())}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Message serialisation
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _msg_to_dict(msg: ChatMessage, reply_count: int = 0) -> dict:
-    sender_info = _sender_display(msg.sender)
+    s = _sender_display(msg.sender)
     return {
         "id":              msg.id,
         "sender_id":       msg.sender_id,
-        "sender_name":     sender_info["name"],
+        "sender_name":     s["name"],
         "sender_role":     msg.sender.role,
-        "role_label":      sender_info["role_label"],
+        "role_label":      s["role_label"],
         "content":         msg.content,
         "attachment_url":  msg.attachment_url,
         "attachment_type": msg.attachment_type,
@@ -90,11 +69,7 @@ def _msg_to_dict(msg: ChatMessage, reply_count: int = 0) -> dict:
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Room serialisation
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _room_to_dict(room: ChatRoom) -> dict:
+def _room_to_dict(room: ChatRoom, member_count: int = 0) -> dict:
     return {
         "id":             room.id,
         "name":           room.name,
@@ -104,103 +79,20 @@ def _room_to_dict(room: ChatRoom) -> dict:
         "institution_id": room.institution_id,
         "is_active":      room.is_active,
         "ably_channel":   room.ably_channel,
+        "member_count":   member_count,
     }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Access control
+# Helpers — lazy room creation + enrollment
 # ─────────────────────────────────────────────────────────────────────────────
-
-def _user_can_access_room(user, room: ChatRoom) -> bool:
-    if user.role == "ADMIN":
-        return True
-
-    if room.room_type == RoomType.CLASS_GENERAL:
-        if user.role == "STUDENT":
-            return getattr(user, "section_id", None) == room.section_id
-        if user.role == "TEACHER":
-            return user.teaching_assignments.filter(section_id=room.section_id).exists()
-        if user.role in ("PRINCIPAL", "OFFICIAL"):
-            if user.institution:
-                return room.section.classroom.institution_id == user.institution_id
-        return False
-
-    if room.room_type == RoomType.SUBJECT:
-        if user.role == "STUDENT":
-            return getattr(user, "section_id", None) == room.section_id
-        if user.role == "TEACHER":
-            return user.teaching_assignments.filter(
-                section_id=room.section_id, subject_id=room.subject_id
-            ).exists()
-        if user.role in ("PRINCIPAL", "OFFICIAL"):
-            if user.institution:
-                return room.section.classroom.institution_id == user.institution_id
-        return False
-
-    if room.room_type == RoomType.STAFF:
-        if user.role in ("TEACHER", "PRINCIPAL"):
-            if user.institution:
-                return room.institution_id == user.institution_id
-        return False
-
-    if room.room_type == RoomType.OFFICIALS:
-        return user.role in ("OFFICIAL", "PRINCIPAL", "ADMIN")
-
-    return False
-
-
-def _user_can_post(user, room: ChatRoom, is_reply: bool) -> bool:
-    """
-    Rules:
-    - ADMIN: always
-    - Staff rooms: TEACHER/PRINCIPAL freely
-    - Officials room: OFFICIAL/PRINCIPAL freely
-    - Class/subject rooms: TEACHER can post + reply; STUDENT can only REPLY
-    """
-    if user.role == "ADMIN":
-        return True
-    if room.room_type == RoomType.STAFF:
-        return user.role in ("TEACHER", "PRINCIPAL")
-    if room.room_type == RoomType.OFFICIALS:
-        return user.role in ("OFFICIAL", "PRINCIPAL")
-    # class_general + subject
-    if user.role == "TEACHER":
-        return True
-    if user.role == "STUDENT":
-        return is_reply  # students can only reply, not start new threads
-    if user.role in ("PRINCIPAL",):
-        return True
-    return False
-
-
-def _user_can_share_files(user) -> bool:
-    return user.role in ("TEACHER", "PRINCIPAL", "ADMIN")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Lazy room creation helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_or_create_class_room(section: Section) -> ChatRoom:
-    grade = section.classroom.name if section.classroom else "?"
-    label = section.name  # e.g. "A"
-    name  = f"Class {grade}{label} — General"
-    room, _ = ChatRoom.objects.get_or_create(
-        room_type=RoomType.CLASS_GENERAL,
-        section=section,
-        defaults={"name": name},
-    )
-    return room
-
 
 def get_or_create_subject_room(section: Section, subject: Subject) -> ChatRoom:
     grade = section.classroom.name if section.classroom else "?"
-    label = section.name  # e.g. "A"
+    label = section.name
     name  = f"Class {grade}{label} {subject.name}"
     room, _ = ChatRoom.objects.get_or_create(
-        room_type=RoomType.SUBJECT,
-        section=section,
-        subject=subject,
+        room_type=RoomType.SUBJECT, section=section, subject=subject,
         defaults={"name": name},
     )
     return room
@@ -208,8 +100,7 @@ def get_or_create_subject_room(section: Section, subject: Subject) -> ChatRoom:
 
 def get_or_create_staff_room(institution: Institution) -> ChatRoom:
     room, _ = ChatRoom.objects.get_or_create(
-        room_type=RoomType.STAFF,
-        institution=institution,
+        room_type=RoomType.STAFF, institution=institution,
         defaults={"name": f"{institution.name} — Staff"},
     )
     return room
@@ -223,108 +114,191 @@ def get_or_create_officials_room() -> ChatRoom:
     return room
 
 
+def enroll_user(room: ChatRoom, user) -> bool:
+    """Add user as member. Returns True if newly added."""
+    _, created = ChatRoomMember.objects.get_or_create(room=room, user=user)
+    return created
+
+
+def enroll_admin_in_room(room: ChatRoom) -> None:
+    """Ensure ADMIN user(s) are enrolled in every room."""
+    for admin in User.objects.filter(role="ADMIN"):
+        ChatRoomMember.objects.get_or_create(room=room, user=admin)
+
+
+def enroll_student_in_all_section_rooms(student) -> None:
+    """
+    When a student is assigned to a section, enroll them in:
+    - All subject rooms for that section (creates rooms if needed)
+    - Staff room for their institution (read-only — they are NOT members)
+    """
+    section = getattr(student, "section", None)
+    if not section:
+        return
+
+    # Get all subjects with teaching assignments for this section
+    from apps.academics.models import TeachingAssignment
+    subject_ids = TeachingAssignment.objects.filter(
+        section=section
+    ).values_list("subject_id", flat=True).distinct()
+
+    all_subjects = Subject.objects.filter(id__in=subject_ids)
+    for subj in all_subjects:
+        room = get_or_create_subject_room(section, subj)
+        enroll_user(room, student)
+        enroll_admin_in_room(room)
+
+
+def enroll_teacher_in_subject_rooms(teacher, section: Section, subject: Subject) -> None:
+    """
+    When a teacher is assigned to a section+subject:
+    - Create subject room if needed
+    - Enroll teacher
+    - Enroll all existing students of that section
+    - Enroll admin
+    - Enroll teacher in staff room of their institution
+    """
+    room = get_or_create_subject_room(section, subject)
+    enroll_user(room, teacher)
+    enroll_admin_in_room(room)
+
+    # Enroll existing students of this section
+    for student in User.objects.filter(role="STUDENT", section=section):
+        enroll_user(room, student)
+
+    # Staff room
+    if teacher.institution:
+        staff_room = get_or_create_staff_room(teacher.institution)
+        enroll_user(staff_room, teacher)
+        enroll_admin_in_room(staff_room)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Access control
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _user_can_access_room(user, room: ChatRoom) -> bool:
+    if user.role == "ADMIN":
+        return True
+    # Membership-based check — fastest path
+    return ChatRoomMember.objects.filter(room=room, user=user).exists()
+
+
+def _user_can_post(user, room: ChatRoom, is_reply: bool) -> bool:
+    if user.role == "ADMIN":
+        return True
+    if room.room_type == RoomType.STAFF:
+        return user.role in ("TEACHER", "PRINCIPAL")
+    if room.room_type == RoomType.OFFICIALS:
+        return user.role in ("OFFICIAL", "PRINCIPAL")
+    # subject rooms
+    if user.role in ("TEACHER", "PRINCIPAL"):
+        return True
+    if user.role == "STUDENT":
+        return is_reply  # students reply only
+    return False
+
+
+def _user_can_share_files(user) -> bool:
+    return user.role in ("TEACHER", "PRINCIPAL", "ADMIN")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Push notification helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _push_chat_notification(room: ChatRoom, message: ChatMessage, sender) -> None:
+    """
+    Publish a push notification to each room member via Ably
+    on channel notifications:{user_id}.
+    Skips the sender themselves.
+    """
+    from django.conf import settings
+    import requests as http_requests
+    import base64
+    from urllib.parse import quote
+
+    api_key = getattr(settings, "ABLY_API_KEY", "").strip()
+    if not api_key or ":" not in api_key:
+        return
+
+    sender_info = _sender_display(sender)
+    preview = message.content[:80] if message.content else "📎 Attachment"
+
+    member_ids = list(
+        ChatRoomMember.objects.filter(room=room)
+        .exclude(user_id=sender.id)
+        .values_list("user_id", flat=True)
+    )
+    if not member_ids:
+        return
+
+    credentials = base64.b64encode(api_key.encode()).decode()
+
+    for uid in member_ids:
+        try:
+            channel = quote(f"notifications:{uid}", safe="")
+            http_requests.post(
+                f"https://rest.ably.io/channels/{channel}/messages",
+                json={
+                    "name": "chat_message",
+                    "data": {
+                        "room_id":     room.id,
+                        "room_name":   room.name,
+                        "room_type":   room.room_type,
+                        "sender_name": sender_info["name"],
+                        "role_label":  sender_info["role_label"],
+                        "preview":     preview,
+                    },
+                },
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type":  "application/json",
+                },
+                timeout=3,
+            )
+        except Exception as exc:
+            logger.warning("Push notification failed for user %s: %s", uid, exc)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LIST rooms — GET /api/v1/chat/rooms/
-# Groups rooms by type. Admin gets a filtered view, not a flat list.
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["GET"])
 def list_rooms(request):
     user = request.user
-    rooms: list[ChatRoom] = []
 
-    if user.role == "STUDENT":
-        # Only their section's class_general + subject rooms for enrolled subjects
-        section = getattr(user, "section", None)
-        if section:
-            rooms.append(get_or_create_class_room(section))
-            # Subject rooms where teacher is assigned to this section
-            from apps.academics.models import TeachingAssignment
-            subject_ids = TeachingAssignment.objects.filter(
-                section=section
-            ).values_list("subject_id", flat=True).distinct()
-            subjects = Subject.objects.filter(id__in=subject_ids)
-            for subj in subjects:
-                rooms.append(get_or_create_subject_room(section, subj))
-
-    elif user.role == "TEACHER":
-        # class_general + subject rooms for each assigned section
-        from apps.academics.models import TeachingAssignment
-        assignments = TeachingAssignment.objects.filter(
-            teacher=user
-        ).select_related("section__classroom__institution", "subject").distinct()
-
-        seen_sections: set[int] = set()
-        for ta in assignments:
-            if ta.section_id not in seen_sections:
-                rooms.append(get_or_create_class_room(ta.section))
-                seen_sections.add(ta.section_id)
-            rooms.append(get_or_create_subject_room(ta.section, ta.subject))
-
-        # Staff room for their institution
-        if user.institution:
-            rooms.append(get_or_create_staff_room(user.institution))
-
-    elif user.role == "PRINCIPAL":
-        if user.institution:
-            # All class_general + subject rooms for their school
-            sections = Section.objects.filter(
-                classroom__institution=user.institution
-            ).select_related("classroom")
-            subjects = Subject.objects.all()
-            for sec in sections:
-                rooms.append(get_or_create_class_room(sec))
-                for subj in subjects:
-                    # Only create subject room if a teacher is assigned
-                    from apps.academics.models import TeachingAssignment
-                    if TeachingAssignment.objects.filter(section=sec, subject=subj).exists():
-                        rooms.append(get_or_create_subject_room(sec, subj))
-            rooms.append(get_or_create_staff_room(user.institution))
-        rooms.append(get_or_create_officials_room())
-
-    elif user.role == "OFFICIAL":
-        rooms.append(get_or_create_officials_room())
-        # Also show staff rooms for institutions in their district
-        if user.district:
-            institutions = Institution.objects.filter(district__name=user.district)
-            for inst in institutions:
-                rooms.append(get_or_create_staff_room(inst))
-
-    elif user.role == "ADMIN":
-        # Admin: return grouped summary.
-        # filter by institution_id or section query param to avoid giant lists
+    if user.role == "ADMIN":
         institution_id = request.GET.get("institution_id")
         room_type      = request.GET.get("room_type")
-
-        qs = ChatRoom.objects.select_related("section__classroom__institution", "subject", "institution")
+        qs = ChatRoom.objects.prefetch_related("members")
         if institution_id:
+            from django.db.models import Q
             qs = qs.filter(
-                models.Q(institution_id=institution_id) |
-                models.Q(section__classroom__institution_id=institution_id)
+                Q(institution_id=institution_id) |
+                Q(section__classroom__institution_id=institution_id)
             )
         if room_type:
             qs = qs.filter(room_type=room_type)
+        rooms = list(qs.order_by("room_type", "name")[:150])
+        return JsonResponse(
+            [_room_to_dict(r, r.members.count()) for r in rooms],
+            safe=False,
+        )
 
-        # Always show officials room
-        officials = get_or_create_officials_room()
-        result = [_room_to_dict(officials)]
-        result += [_room_to_dict(r) for r in qs[:100]]
-        return JsonResponse(result, safe=False)
-
-    # Deduplicate by id
-    seen: set[int] = set()
-    unique_rooms: list[ChatRoom] = []
-    for r in rooms:
-        if r.id not in seen:
-            seen.add(r.id)
-            unique_rooms.append(r)
-
-    return JsonResponse([_room_to_dict(r) for r in unique_rooms], safe=False)
-
-
-# Need to import Q for Admin filter
-from django.db import models as _dm
+    # All other roles: return rooms they are explicitly a member of
+    memberships = (
+        ChatRoomMember.objects
+        .filter(user=user)
+        .select_related("room")
+        .order_by("room__room_type", "room__name")
+    )
+    result = []
+    for m in memberships:
+        result.append(_room_to_dict(m.room))
+    return JsonResponse(result, safe=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -334,18 +308,15 @@ from django.db import models as _dm
 @login_required
 @require_http_methods(["GET"])
 def room_detail(request, room_id):
-    room = get_object_or_404(
-        ChatRoom.objects.select_related("section__classroom__institution", "subject", "institution"),
-        id=room_id,
-    )
+    room = get_object_or_404(ChatRoom, id=room_id)
     if not _user_can_access_room(request.user, room):
         return JsonResponse({"error": "Forbidden"}, status=403)
-    return JsonResponse(_room_to_dict(room))
+    count = room.members.count()
+    return JsonResponse(_room_to_dict(room, count))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MESSAGE HISTORY — GET /api/v1/chat/rooms/<id>/history/
-# Returns last 50 TOP-LEVEL messages (parent=None) with reply_count each.
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
@@ -364,13 +335,11 @@ def message_history(request, room_id):
         .order_by("-sent_at")[:50]
     )
     messages.reverse()
-
     return JsonResponse([_msg_to_dict(m, m.reply_count) for m in messages], safe=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # THREAD — GET /api/v1/chat/rooms/<id>/thread/<msg_id>/
-# Returns the parent message + all its replies ordered oldest→newest.
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
@@ -379,18 +348,14 @@ def thread(request, room_id, message_id):
     room = get_object_or_404(ChatRoom, id=room_id)
     if not _user_can_access_room(request.user, room):
         return JsonResponse({"error": "Forbidden"}, status=403)
-
     parent_msg = get_object_or_404(
         ChatMessage.objects.select_related("sender"),
         id=message_id, room=room, parent__isnull=True,
     )
     replies = list(
-        ChatMessage.objects
-        .filter(room=room, parent=parent_msg)
-        .select_related("sender")
-        .order_by("sent_at")
+        ChatMessage.objects.filter(room=room, parent=parent_msg)
+        .select_related("sender").order_by("sent_at")
     )
-
     return JsonResponse({
         "parent":  _msg_to_dict(parent_msg, len(replies)),
         "replies": [_msg_to_dict(r) for r in replies],
@@ -422,22 +387,16 @@ def send_message(request, room_id):
     attachment_type = body.get("attachment_type") or None
     attachment_name = body.get("attachment_name", "").strip() or None
 
-    # Validate content or attachment
     if not content and not attachment_url:
         return JsonResponse({"error": "content or attachment_url is required"}, status=400)
     if content and len(content) > 2000:
         return JsonResponse({"error": "Message too long (max 2000 chars)"}, status=400)
-
-    # File sharing permission
     if attachment_url and not _user_can_share_files(request.user):
         return JsonResponse({"error": "Only teachers and admins can share files"}, status=403)
 
-    # Thread validation
     parent = None
     if parent_id:
-        parent = get_object_or_404(
-            ChatMessage, id=parent_id, room=room, parent__isnull=True
-        )
+        parent = get_object_or_404(ChatMessage, id=parent_id, room=room, parent__isnull=True)
 
     is_reply = parent is not None
     if not _user_can_post(request.user, room, is_reply):
@@ -446,20 +405,19 @@ def send_message(request, room_id):
             status=403,
         )
 
-    msg = ChatMessage.objects.create(
-        room=room,
-        sender=request.user,
-        content=content,
-        parent=parent,
-        attachment_url=attachment_url,
-        attachment_type=attachment_type,
-        attachment_name=attachment_name,
-    )
+    with transaction.atomic():
+        msg = ChatMessage.objects.create(
+            room=room, sender=request.user, content=content,
+            parent=parent, attachment_url=attachment_url,
+            attachment_type=attachment_type, attachment_name=attachment_name,
+        )
 
-    logger.info(
-        "ChatMessage created: room=%s sender=%s parent=%s",
-        room_id, request.user.id, parent_id,
-    )
+    # Push notification to all other room members (non-blocking best effort)
+    try:
+        _push_chat_notification(room, msg, request.user)
+    except Exception as exc:
+        logger.warning("Push notification error: %s", exc)
+
     return JsonResponse(_msg_to_dict(msg), status=201)
 
 
@@ -491,9 +449,99 @@ def pinned_messages(request, room_id):
     if not _user_can_access_room(request.user, room):
         return JsonResponse({"error": "Forbidden"}, status=403)
     msgs = list(
-        ChatMessage.objects
-        .filter(room=room, is_pinned=True)
-        .select_related("sender")
-        .order_by("sent_at")
+        ChatMessage.objects.filter(room=room, is_pinned=True)
+        .select_related("sender").order_by("sent_at")
     )
     return JsonResponse([_msg_to_dict(m) for m in msgs], safe=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MEMBERS — GET /api/v1/chat/rooms/<id>/members/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(["GET"])
+def room_members(request, room_id):
+    room = get_object_or_404(ChatRoom, id=room_id)
+    if not _user_can_access_room(request.user, room):
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    members = list(
+        ChatRoomMember.objects.filter(room=room)
+        .select_related("user")
+        .order_by("user__role", "user__first_name")
+    )
+    return JsonResponse([
+        {
+            "user_id":    m.user_id,
+            "name":       f"{m.user.first_name} {m.user.last_name}".strip() or m.user.username,
+            "role":       m.user.role,
+            "role_label": _sender_display(m.user)["role_label"],
+            "joined_at":  m.joined_at.isoformat(),
+        }
+        for m in members
+    ], safe=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN MANAGEMENT — GET /api/v1/chat/admin/rooms/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_roles(["ADMIN"])
+@require_http_methods(["GET"])
+def admin_list_rooms(request):
+    institution_id = request.GET.get("institution_id")
+    room_type      = request.GET.get("room_type")
+    search         = request.GET.get("q", "").strip()
+
+    from django.db.models import Q, Count
+    qs = ChatRoom.objects.annotate(
+        member_count=Count("members"),
+        message_count=Count("messages"),
+    ).select_related("section__classroom__institution", "subject", "institution")
+
+    if institution_id:
+        qs = qs.filter(
+            Q(institution_id=institution_id) |
+            Q(section__classroom__institution_id=institution_id)
+        )
+    if room_type:
+        qs = qs.filter(room_type=room_type)
+    if search:
+        qs = qs.filter(name__icontains=search)
+
+    qs = qs.order_by("room_type", "name")[:200]
+
+    data = []
+    for r in qs:
+        d = _room_to_dict(r, r.member_count)
+        d["message_count"] = r.message_count
+        d["institution_name"] = (
+            r.institution.name if r.institution else
+            (r.section.classroom.institution.name if r.section and r.section.classroom and r.section.classroom.institution else None)
+        )
+        data.append(d)
+
+    return JsonResponse(data, safe=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN MESSAGES — GET /api/v1/chat/admin/rooms/<id>/messages/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_roles(["ADMIN"])
+@require_http_methods(["GET"])
+def admin_room_messages(request, room_id):
+    room = get_object_or_404(ChatRoom, id=room_id)
+    from django.db.models import Count
+    messages = list(
+        ChatMessage.objects
+        .filter(room=room)
+        .select_related("sender")
+        .annotate(reply_count=Count("replies"))
+        .order_by("-sent_at")[:100]
+    )
+    messages.reverse()
+    return JsonResponse({
+        "room": _room_to_dict(room),
+        "messages": [_msg_to_dict(m, m.reply_count) for m in messages],
+    })

@@ -97,5 +97,8 @@ export const submitAnswer = (roomId: number, questionId: number, optionId: numbe
     { question_id: questionId, option_id: optionId }
   );
 
-export const getAblyToken = (roomId?: number) =>
-  apiPost<AblyTokenResponse>("/realtime/token/", roomId ? { room_id: roomId } : {});
+export const getAblyToken = (roomId?: number, channelType?: "competition" | "chat") =>
+  apiPost<AblyTokenResponse>("/realtime/token/", {
+    ...(roomId      ? { room_id:      roomId      } : {}),
+    ...(channelType ? { channel_type: channelType } : {}),
+  });

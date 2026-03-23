@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
+import { getAblyToken } from "../services/competitions";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,6 +93,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
+
+  // ── Ably notification listener ─────────────────────────────────────────
+  // Subscribes to notifications:{user_id} once authenticated.
+  // On any chat_message event, dispatches window event "notif:new"
+  // which TopBar catches to immediately refresh the unread badge.
+  useEffect(() => {
+    if (!authenticated || !user) return;
+    let mounted = true;
+
+    const connect = async () => {
+      try {
+        const { default: Ably } = await import("ably");
+        const tokenData = await getAblyToken(undefined, "chat");
+        if (!mounted) return;
+
+        const client = new Ably.Realtime({
+          token:    tokenData.token,
+          clientId: tokenData.client_id,
+        });
+
+        const channel = client.channels.get(`notifications:${user.id}`);
+        channel.subscribe((msg) => {
+          if (!mounted) return;
+          // Dispatch custom event — TopBar listens to this for instant bell refresh
+          window.dispatchEvent(new CustomEvent("notif:new", { detail: msg.data }));
+        });
+
+        return () => {
+          channel.unsubscribe();
+          client.close();
+        };
+      } catch {
+        // Ably not available — TopBar polls every 30s as fallback
+        return undefined;
+      }
+    };
+
+    let cleanup: (() => void) | undefined;
+    connect().then((fn) => { cleanup = fn; });
+
+    return () => {
+      mounted = false;
+      cleanup?.();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, user?.id]);
 
   const value: AuthState = {
     loading,

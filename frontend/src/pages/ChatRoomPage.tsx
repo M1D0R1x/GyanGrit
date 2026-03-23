@@ -351,7 +351,7 @@ export default function ChatRoomPage() {
 
     const connect = async () => {
       try {
-        const tokenData = await getAblyToken(undefined);
+        const tokenData = await getAblyToken(undefined, "chat");
         if (!mounted) return;
 
         const client = new Ably.Realtime({ token: tokenData.token, clientId: tokenData.client_id });

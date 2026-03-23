@@ -139,9 +139,13 @@ export default function TopBar({ title }: Props) {
     const onVisible = () => {
       if (document.visibilityState === "visible") refreshUnread();
     };
+    // Listen for real-time chat notification events dispatched by AuthContext
+    const onNotifNew = () => refreshUnread();
+    window.addEventListener("notif:new", onNotifNew);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(interval);
+      window.removeEventListener("notif:new", onNotifNew);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refreshUnread]);

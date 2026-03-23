@@ -206,6 +206,40 @@ def _user_can_share_files(user) -> bool:
 # Push notification helper
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _create_notification_records(room: ChatRoom, message: ChatMessage, sender) -> None:
+    """
+    Create a persistent Notification row for each room member (excluding sender).
+    This makes the chat message appear in the notification bell on every page.
+    Uses Notification.send() from apps.notifications.
+    """
+    from apps.notifications.models import Notification, NotificationType
+
+    sender_info  = _sender_display(sender)
+    preview      = message.content[:120] if message.content else "📎 Attachment"
+    subject      = f"New message in {room.name}"
+    msg_body     = f"{sender_info['name']}: {preview}"
+    link         = f"/chat"  # frontend will navigate to chat page
+
+    member_ids = list(
+        ChatRoomMember.objects.filter(room=room)
+        .exclude(user_id=sender.id)
+        .values_list("user_id", flat=True)
+    )
+
+    users = User.objects.filter(id__in=member_ids)
+    for user in users:
+        try:
+            Notification.send(
+                user=user,
+                subject=subject,
+                message=msg_body,
+                notification_type=NotificationType.INFO,
+                link=link,
+            )
+        except Exception as exc:
+            logger.warning("Failed to create notification for user %s: %s", user.id, exc)
+
+
 def _push_chat_notification(room: ChatRoom, message: ChatMessage, sender) -> None:
     """
     Publish a push notification to each room member via Ably
@@ -421,11 +455,13 @@ def send_message(request, room_id):
             attachment_type=attachment_type, attachment_name=attachment_name,
         )
 
-    # Push notification to all other room members (non-blocking best effort)
+    # 1. Create persistent Notification records (shows in bell on any page)
+    # 2. Push real-time Ably event to notifications:{user_id} channel
     try:
+        _create_notification_records(room, msg, request.user)
         _push_chat_notification(room, msg, request.user)
     except Exception as exc:
-        logger.warning("Push notification error: %s", exc)
+        logger.warning("Notification error: %s", exc)
 
     return JsonResponse(_msg_to_dict(msg), status=201)
 

@@ -128,23 +128,22 @@ def enroll_admin_in_room(room: ChatRoom) -> None:
 
 def enroll_student_in_all_section_rooms(student) -> None:
     """
-    When a student is assigned to a section, enroll them in:
-    - All subject rooms for that section (creates rooms if needed)
-    - Staff room for their institution (read-only — they are NOT members)
+    When a student is assigned to a section, enroll them ONLY in subject rooms
+    where a TeachingAssignment already exists for that section.
+    Rooms are NOT created for subjects with no assigned teacher.
     """
     section = getattr(student, "section", None)
     if not section:
         return
 
-    # Get all subjects with teaching assignments for this section
     from apps.academics.models import TeachingAssignment
-    subject_ids = TeachingAssignment.objects.filter(
-        section=section
-    ).values_list("subject_id", flat=True).distinct()
-
-    all_subjects = Subject.objects.filter(id__in=subject_ids)
-    for subj in all_subjects:
-        room = get_or_create_subject_room(section, subj)
+    # Only look at existing rooms — never create rooms here
+    # Rooms are created when a teacher is assigned (enroll_teacher_in_subject_rooms)
+    existing_rooms = ChatRoom.objects.filter(
+        room_type=RoomType.SUBJECT,
+        section=section,
+    )
+    for room in existing_rooms:
         enroll_user(room, student)
         enroll_admin_in_room(room)
 

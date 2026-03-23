@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import (
     Assessment,
     AssessmentAttempt,
@@ -27,7 +28,7 @@ class QuestionInline(admin.StackedInline):
 
 
 @admin.register(Assessment)
-class AssessmentAdmin(admin.ModelAdmin):
+class AssessmentAdmin(UnfoldModelAdmin):
     list_display = (
         "title",
         "course",
@@ -44,7 +45,7 @@ class AssessmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(UnfoldModelAdmin):
     list_display = ("id", "assessment", "marks", "order")
     list_filter = ("assessment",)
     search_fields = ("text",)
@@ -53,7 +54,7 @@ class QuestionAdmin(admin.ModelAdmin):
 
 
 @admin.register(QuestionOption)
-class QuestionOptionAdmin(admin.ModelAdmin):
+class QuestionOptionAdmin(UnfoldModelAdmin):
     list_display = ("id", "question", "text", "is_correct")
     list_filter = ("is_correct",)
     search_fields = ("text",)
@@ -61,7 +62,7 @@ class QuestionOptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(AssessmentAttempt)
-class AssessmentAttemptAdmin(admin.ModelAdmin):
+class AssessmentAttemptAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "assessment",

@@ -3,6 +3,7 @@ from typing import Any
 
 from django import forms
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.http import HttpRequest
 
@@ -155,7 +156,7 @@ class JoinCodeForm(forms.ModelForm):
 # =========================================================
 
 @admin.register(JoinCode)
-class JoinCodeAdmin(admin.ModelAdmin):
+class JoinCodeAdmin(UnfoldModelAdmin):
 
     form = JoinCodeForm
 

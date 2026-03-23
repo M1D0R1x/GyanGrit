@@ -80,18 +80,40 @@ def _room_to_dict(room: CompetitionRoom, include_participants: bool = False) -> 
 
 def _publish_ably_event(channel_name: str, event: str, data: dict) -> bool:
     """
-    Publish an event to an Ably channel from the backend.
+    Publish an event to an Ably channel from the backend via Ably REST HTTP API.
+    Uses requests directly — Ably Python v3 SDK is async-only, incompatible with
+    sync Django views.
     Returns True on success, False if ABLY_API_KEY is not set or publish fails.
     """
+    import requests as http_requests
+    import base64
+
     api_key = getattr(settings, "ABLY_API_KEY", "").strip()
     if not api_key:
         logger.warning("ABLY_API_KEY not set — skipping publish to %s", channel_name)
         return False
+
+    if ":" not in api_key:
+        logger.error("ABLY_API_KEY format invalid")
+        return False
+
     try:
-        from ably import AblyRest
-        client  = AblyRest(api_key)
-        channel = client.channels.get(channel_name)
-        channel.publish(event, data)
+        credentials = base64.b64encode(api_key.encode()).decode()
+        # URL-encode the channel name (handles special chars like [chat]123)
+        from urllib.parse import quote
+        encoded_channel = quote(channel_name, safe="")
+        url = f"https://rest.ably.io/channels/{encoded_channel}/messages"
+
+        resp = http_requests.post(
+            url,
+            json={"name": event, "data": data},
+            headers={
+                "Authorization": f"Basic {credentials}",
+                "Content-Type":  "application/json",
+            },
+            timeout=5,
+        )
+        resp.raise_for_status()
         return True
     except Exception as exc:
         logger.error("Ably publish failed on %s: %s", channel_name, exc)
@@ -429,68 +451,100 @@ def submit_answer(request, room_id):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ABLY TOKEN — POST /api/v1/realtime/token/
-# Returns a short-lived Ably capability token for the requesting user.
+# Returns a short-lived Ably token request for the requesting user.
+#
+# Uses the Ably REST API directly (requests lib) because the Ably Python v3
+# SDK uses async/await throughout — incompatible with sync Django views.
+# Ably token request endpoint: POST https://rest.ably.io/keys/{key_name}/requestToken
+#
 # Channel scope:
-#   student  → can subscribe to competition:{room_id} for rooms they've joined
-#   teacher  → can publish + subscribe to competition:* (all rooms they host)
+#   STUDENT (competition) → subscribe competition:{room_id}
+#   STUDENT (chat)        → publish+subscribe [chat]{section_id}
+#   TEACHER/ADMIN (comp)  → publish+subscribe competition:*
+#   TEACHER/ADMIN (chat)  → publish+subscribe [chat]*
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
 @require_http_methods(["POST"])
 @csrf_exempt
 def ably_token(request):
+    import requests as http_requests
+    import base64
+    import time
+
     api_key = getattr(settings, "ABLY_API_KEY", "").strip()
     if not api_key:
         return JsonResponse({"error": "Real-time not configured"}, status=503)
 
+    # api_key format: "keyName:keySecret"
+    if ":" not in api_key:
+        logger.error("ABLY_API_KEY format invalid — expected keyName:keySecret")
+        return JsonResponse({"error": "Real-time misconfigured"}, status=503)
+
+    key_name, key_secret = api_key.split(":", 1)
+
     try:
-        body    = json.loads(request.body) if request.body else {}
+        body = json.loads(request.body) if request.body else {}
     except (json.JSONDecodeError, ValueError):
-        body    = {}
+        body = {}
 
-    room_id = body.get("room_id")
-    user    = request.user
+    room_id      = body.get("room_id")
+    channel_type = body.get("channel_type", "competition")  # "competition" or "chat"
+    user         = request.user
+
+    # ── Build capability ─────────────────────────────────────────────────
+    if user.role == "STUDENT":
+        if channel_type == "chat":
+            section = getattr(user, "section", None)
+            if not section:
+                return JsonResponse({"error": "No section assigned"}, status=400)
+            capability = {f"[chat]{section.id}": ["subscribe", "publish"]}
+        else:
+            if not room_id:
+                return JsonResponse({"error": "room_id is required for students"}, status=400)
+            capability = {f"competition:{room_id}": ["subscribe"]}
+    else:
+        # TEACHER / PRINCIPAL / OFFICIAL / ADMIN
+        if channel_type == "chat":
+            capability = {"[chat]*": ["subscribe", "publish"]}
+        else:
+            capability = {"competition:*": ["subscribe", "publish"]}
+
+    # ── Request token from Ably REST API ─────────────────────────────────
+    # https://ably.com/docs/api/rest-api#request-token
+    ttl_ms = 3600 * 1000  # 1 hour
+
+    token_params = {
+        "keyName":    key_name,
+        "ttl":        ttl_ms,
+        "capability": json.dumps(capability),
+        "clientId":   str(user.id),
+        "timestamp":  int(time.time() * 1000),
+    }
+
+    credentials = base64.b64encode(f"{api_key}".encode()).decode()
+    url = f"https://rest.ably.io/keys/{key_name}/requestToken"
 
     try:
-        from ably import AblyRest
-        from ably.types.tokenparams import TokenParams
-
-        client = AblyRest(api_key)
-
-        channel_type = body.get("channel_type", "competition")  # "competition" or "chat"
-
-        if user.role == "STUDENT":
-            if channel_type == "chat":
-                # Chat: student can only access their own section channel
-                section = getattr(user, "section", None)
-                if not section:
-                    return JsonResponse({"error": "No section assigned"}, status=400)
-                capability = {f"[chat]{section.id}": ["subscribe", "publish"]}
-            else:
-                if not room_id:
-                    return JsonResponse({"error": "room_id is required for students"}, status=400)
-                capability = {f"competition:{room_id}": ["subscribe"]}
-        else:
-            if channel_type == "chat":
-                # Teachers/principals: access all chat channels
-                capability = {"[chat]*": ["subscribe", "publish"]}
-            else:
-                capability = {"competition:*": ["subscribe", "publish"]}
-
-        token_params = TokenParams(
-            client_id=str(user.id),
-            capability=json.dumps(capability),
-            ttl=3600 * 1000,  # 1 hour in milliseconds
+        resp = http_requests.post(
+            url,
+            json=token_params,
+            headers={
+                "Authorization": f"Basic {credentials}",
+                "Content-Type":  "application/json",
+            },
+            timeout=10,
         )
-        token_details = client.auth.request_token(token_params=token_params)
+        resp.raise_for_status()
+        token_data = resp.json()
 
         return JsonResponse({
-            "token":      token_details.token,
-            "expires":    token_details.expires,
+            "token":      token_data.get("token"),
+            "expires":    token_data.get("expires"),
             "client_id":  str(user.id),
             "capability": capability,
         })
 
     except Exception as exc:
         logger.error("Ably token request failed: %s", exc)
-        return JsonResponse({"error": "Could not generate token"}, status=500)
+        return JsonResponse({"error": "Could not generate real-time token"}, status=500)

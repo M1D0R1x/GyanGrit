@@ -1,9 +1,10 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import ChatRoom, ChatMessage
 
 
 @admin.register(ChatRoom)
-class ChatRoomAdmin(admin.ModelAdmin):
+class ChatRoomAdmin(UnfoldModelAdmin):
     list_display  = ("name", "room_type", "is_active", "created_at")
     list_filter   = ("room_type", "is_active")
     search_fields = ("name",)
@@ -11,7 +12,7 @@ class ChatRoomAdmin(admin.ModelAdmin):
 
 
 @admin.register(ChatMessage)
-class ChatMessageAdmin(admin.ModelAdmin):
+class ChatMessageAdmin(UnfoldModelAdmin):
     list_display  = ("room", "sender", "content", "is_pinned", "parent", "sent_at")
     list_filter   = ("is_pinned", "room__room_type")
     search_fields = ("sender__username", "content")

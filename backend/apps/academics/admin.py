@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import (
     District,
     Institution,
@@ -12,14 +13,14 @@ from .models import (
 
 
 @admin.register(District)
-class DistrictAdmin(admin.ModelAdmin):
+class DistrictAdmin(UnfoldModelAdmin):
     list_display = ("id", "name")
     search_fields = ("name",)
     ordering = ("name",)
 
 
 @admin.register(Institution)
-class InstitutionAdmin(admin.ModelAdmin):
+class InstitutionAdmin(UnfoldModelAdmin):
     list_display = ("id", "name", "district", "created_at")
     search_fields = ("name", "district__name")
     ordering = ("-created_at",)
@@ -27,7 +28,7 @@ class InstitutionAdmin(admin.ModelAdmin):
 
 
 @admin.register(ClassRoom)
-class ClassRoomAdmin(admin.ModelAdmin):
+class ClassRoomAdmin(UnfoldModelAdmin):
     list_display = ("id", "name", "institution")
     list_filter = ("institution",)
     search_fields = ("name", "institution__name")
@@ -36,7 +37,7 @@ class ClassRoomAdmin(admin.ModelAdmin):
 
 
 @admin.register(Section)
-class SectionAdmin(admin.ModelAdmin):
+class SectionAdmin(UnfoldModelAdmin):
     list_display = ("id", "name", "classroom")
     list_filter = ("classroom__institution", "classroom")
 
@@ -53,14 +54,14 @@ class SectionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Subject)
-class SubjectAdmin(admin.ModelAdmin):
+class SubjectAdmin(UnfoldModelAdmin):
     list_display = ("id", "name")
     search_fields = ("name",)
     ordering = ("name",)
 
 
 @admin.register(ClassSubject)
-class ClassSubjectAdmin(admin.ModelAdmin):
+class ClassSubjectAdmin(UnfoldModelAdmin):
     list_display = ("id", "classroom", "subject")
     list_filter = ("classroom__institution", "classroom")
     search_fields = ("classroom__name", "subject__name")
@@ -69,7 +70,7 @@ class ClassSubjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(StudentSubject)
-class StudentSubjectAdmin(admin.ModelAdmin):
+class StudentSubjectAdmin(UnfoldModelAdmin):
     list_display = ("id", "student", "subject", "classroom")
     list_filter = ("classroom__institution", "subject")
     search_fields = ("student__username", "subject__name")
@@ -78,7 +79,7 @@ class StudentSubjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(TeachingAssignment)
-class TeachingAssignmentAdmin(admin.ModelAdmin):
+class TeachingAssignmentAdmin(UnfoldModelAdmin):
     list_display = ("teacher", "subject", "section")
     list_filter = ("teacher__institution", "subject", "section")
     search_fields = ("teacher__username", "subject__name", "section__name")

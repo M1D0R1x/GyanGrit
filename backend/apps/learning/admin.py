@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import Enrollment, LearningPath, LearningPathCourse
 
 
@@ -9,7 +10,7 @@ class LearningPathCourseInline(admin.TabularInline):
 
 
 @admin.register(LearningPath)
-class LearningPathAdmin(admin.ModelAdmin):
+class LearningPathAdmin(UnfoldModelAdmin):
     list_display = ("name", "course_count", "created_at")
     search_fields = ("name", "description")
     ordering = ("name",)
@@ -21,7 +22,7 @@ class LearningPathAdmin(admin.ModelAdmin):
 
 
 @admin.register(LearningPathCourse)
-class LearningPathCourseAdmin(admin.ModelAdmin):
+class LearningPathCourseAdmin(UnfoldModelAdmin):
     list_display = ("learning_path", "course", "order")
     list_filter = ("learning_path", "course")
     search_fields = ("learning_path__name", "course__title")
@@ -29,7 +30,7 @@ class LearningPathCourseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Enrollment)
-class EnrollmentAdmin(admin.ModelAdmin):
+class EnrollmentAdmin(UnfoldModelAdmin):
     list_display = (
         "user",
         "course",

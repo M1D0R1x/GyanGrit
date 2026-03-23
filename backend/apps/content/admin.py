@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import Course, Lesson, LessonProgress
 
 
@@ -11,7 +12,7 @@ class LessonInline(admin.TabularInline):
 
 
 @admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
+class CourseAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "title",
@@ -32,7 +33,7 @@ class CourseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Lesson)
-class LessonAdmin(admin.ModelAdmin):
+class LessonAdmin(UnfoldModelAdmin):
     list_display = (
         "id",
         "title",
@@ -47,7 +48,7 @@ class LessonAdmin(admin.ModelAdmin):
 
 
 @admin.register(LessonProgress)
-class LessonProgressAdmin(admin.ModelAdmin):
+class LessonProgressAdmin(UnfoldModelAdmin):
     list_display = (
         "lesson",
         "user",

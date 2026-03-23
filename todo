@@ -8,75 +8,9 @@
 
 ## Open Bugs
 
-ChatRoomPage.tsx:387 Encountered two children with the same key, `1`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
-Request URL
-http://127.0.0.1:8000/api/v1/realtime/token/
-Request Method
-POST
-Status Code
-500 Internal Server Error
-Remote Address
-127.0.0.1:8000
-Referrer Policy
-strict-origin-when-cross-origin
-access-control-allow-credentials
-true
-access-control-allow-origin
-http://127.0.0.1:5173
-content-length
-37
-content-type
-application/json
-cross-origin-opener-policy
-same-origin
-date
-Mon, 23 Mar 2026 09:45:33 GMT
-referrer-policy
-same-origin
-server
-WSGIServer/0.2 CPython/3.14.3
-vary
-Cookie, origin
-x-content-type-options
-nosniff
-x-frame-options
-DENY
-accept
-*/*
-accept-encoding
-gzip, deflate, br, zstd
-accept-language
-en-US,en;q=0.9
-connection
-keep-alive
-content-length
-2
-content-type
-application/json
-cookie
-gyangrit_csrftoken=QGj7G3LGaXAikSfLvHpDNaORzjJvs75L; gyangrit_sessionid=f632du4p2hvcta9cx3hlq4oruj1x4gb9
-host
-127.0.0.1:8000
-origin
-http://127.0.0.1:5173
-referer
-http://127.0.0.1:5173/
-sec-ch-ua
-"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"
-sec-ch-ua-mobile
-?0
-sec-ch-ua-platform
-"macOS"
-sec-fetch-dest
-empty
-sec-fetch-mode
-cors
-sec-fetch-site
-same-site
-user-agent
-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36
-x-csrftoken
-QGj7G3LGaXAikSfLvHpDNaORzjJvs75L
+_(none)_
+
+---
 
 ## Resolved Bugs (archive)
 
@@ -90,3 +24,10 @@ QGj7G3LGaXAikSfLvHpDNaORzjJvs75L
 | 2026-03-23 | health endpoint redirected to /accounts/login/ | Removed @login_required |
 | 2026-03-23 | Render cold starts causing 3-5s login | Keep-alive ping every 10 min in AuthContext |
 | 2026-03-23 | CORS error: trailing slash in CORS_ALLOWED_ORIGINS env var | Defensive _parse_origins() in prod.py |
+| 2026-03-25 | ChatRoomPage duplicate key `1` in replies list | Changed optimistic message ID to -Date.now() (negative = never clashes with real DB ids) |
+| 2026-03-25 | POST /api/v1/realtime/token/ returning 500 | Ably Python v3 SDK is fully async — incompatible with sync Django views. Rewrote ably_token and _publish_ably_event to call Ably REST HTTP API directly via requests lib |
+| 2026-03-25 | Django admin panel unstyled | Installed django-unfold v0.86, registered in INSTALLED_APPS before django.contrib.admin, added UNFOLD config with GyanGrit sidebar navigation, patched all 10 admin.py files to use UnfoldModelAdmin |
+| 2026-03-25 | CompetitionRoomPage TS errors: any types, err: any | Typed AssignmentRow inline, err: unknown, typed courses response |
+| 2026-03-25 | ChatRoomPage TS errors: unused imports, unused state, wrong Ably presence.get signature | Removed getChatRoomDetail/getPinnedMessages imports, removed showFileOpts state, room prop from ThreadPanel; presence.get() is now promise-based in Ably v3 |
+| 2026-03-25 | CourseAssessmentsPage + LessonsPage: setState in effect lint error | Wrapped guard setState calls in setTimeout(..., 0) with cleanup |
+| 2026-03-25 | apiGet<Section[]> wrong generic on my-assignments endpoint | Changed to apiGet<AssignmentRow[]> with correct inline type |

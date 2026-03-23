@@ -19,6 +19,9 @@ DEBUG = False
 ALLOWED_HOSTS = ["*", "0.0.0.0", "10.0.2.2", "localhost", "127.0.0.1"]
 
 INSTALLED_APPS = [
+    # django-unfold must be before django.contrib.admin
+    "unfold",
+    "unfold.contrib.filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -216,3 +219,83 @@ FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "")
 # ─────────────────────────────────────────────────────────────────────────────
 
 ABLY_API_KEY = os.getenv("ABLY_API_KEY", "")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Django Unfold — admin theme
+# ─────────────────────────────────────────────────────────────────────────────
+
+UNFOLD = {
+    "SITE_TITLE":  "GyanGrit Admin",
+    "SITE_HEADER": "GyanGrit",
+    "SITE_SYMBOL": "school",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "COLORS": {
+        "primary": {
+            "50":  "239 246 255",
+            "100": "219 234 254",
+            "200": "191 219 254",
+            "300": "147 197 253",
+            "400": "96  165 250",
+            "500": "59  130 246",
+            "600": "37  99  235",
+            "700": "29  78  216",
+            "800": "30  64  175",
+            "900": "30  58  138",
+            "950": "23  37  84",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Users & Auth",
+                "separator": True,
+                "items": [
+                    {"title": "Users",      "icon": "person",  "link": "/admin/accounts/user/"},
+                    {"title": "Join Codes", "icon": "vpn_key", "link": "/admin/accounts/joincode/"},
+                ],
+            },
+            {
+                "title": "Academics",
+                "separator": True,
+                "items": [
+                    {"title": "Districts",    "icon": "map",     "link": "/admin/academics/district/"},
+                    {"title": "Institutions", "icon": "account_balance", "link": "/admin/academics/institution/"},
+                    {"title": "Classrooms",   "icon": "class",   "link": "/admin/academics/classroom/"},
+                    {"title": "Sections",     "icon": "groups",  "link": "/admin/academics/section/"},
+                    {"title": "Subjects",     "icon": "menu_book", "link": "/admin/academics/subject/"},
+                    {"title": "Assignments",  "icon": "assignment_ind", "link": "/admin/academics/teachingassignment/"},
+                ],
+            },
+            {
+                "title": "Content",
+                "separator": True,
+                "items": [
+                    {"title": "Courses",     "icon": "library_books", "link": "/admin/content/course/"},
+                    {"title": "Lessons",     "icon": "play_lesson",   "link": "/admin/content/lesson/"},
+                    {"title": "Assessments", "icon": "quiz",          "link": "/admin/assessments/assessment/"},
+                ],
+            },
+            {
+                "title": "Engagement",
+                "separator": True,
+                "items": [
+                    {"title": "Competitions", "icon": "emoji_events",  "link": "/admin/competitions/competitionroom/"},
+                    {"title": "Chat Rooms",   "icon": "chat",          "link": "/admin/chatrooms/chatroom/"},
+                    {"title": "Gamification", "icon": "star",          "link": "/admin/gamification/pointevent/"},
+                    {"title": "Notifications","icon": "notifications", "link": "/admin/notifications/notification/"},
+                ],
+            },
+            {
+                "title": "School Records",
+                "separator": True,
+                "items": [
+                    {"title": "Gradebook", "icon": "grade",  "link": "/admin/gradebook/gradeentry/"},
+                    {"title": "Roster",    "icon": "list_alt","link": "/admin/roster/studentregistrationrecord/"},
+                ],
+            },
+        ],
+    },
+}

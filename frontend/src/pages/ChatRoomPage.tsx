@@ -630,7 +630,7 @@ export default function ChatRoomPage() {
     setInput("");
     setSending(true);
 
-    const optimisticId = Date.now();
+    const optimisticId = -Date.now();  // negative = optimistic, never clashes with real DB ids
     const optimistic: ThreadMessage = {
       id:              optimisticId,
       sender_id:       user?.id ?? 0,

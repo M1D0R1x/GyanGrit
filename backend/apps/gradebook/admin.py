@@ -1,9 +1,10 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from .models import GradeEntry
 
 
 @admin.register(GradeEntry)
-class GradeEntryAdmin(admin.ModelAdmin):
+class GradeEntryAdmin(UnfoldModelAdmin):
     list_display  = ("student", "subject", "term", "category", "marks", "total_marks", "entered_by", "entered_at")
     list_filter   = ("term", "category", "subject")
     search_fields = ("student__username", "subject__name", "entered_by__username")

@@ -254,12 +254,13 @@ export default function CompetitionRoomPage() {
   // ── Load teacher create form dependencies ─────────────────────────────
   useEffect(() => {
     if (!isTeacher || !showCreate) return;
-    apiGet<Section[]>("/academics/my-assignments/")
+    type AssignmentRow = { section_id: number; section_name: string; class_name: string };
+    apiGet<AssignmentRow[]>("/academics/my-assignments/")
       .then((assignments) => {
         // deduplicate sections
         const seen = new Set<number>();
         const secs: Section[] = [];
-        assignments.forEach((a: { section_id: number; section_name: string; class_name: string }) => {
+        assignments.forEach((a) => {
           if (!seen.has(a.section_id)) {
             seen.add(a.section_id);
             secs.push({ id: a.section_id, name: a.section_name, short_label: a.section_name, class_name: a.class_name });

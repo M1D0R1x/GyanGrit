@@ -168,6 +168,32 @@ SESSION_COOKIE_NAME = "gyangrit_sessionid"
 CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Email — Gmail SMTP via App Password
+#
+# Priority in send_otp(): SMS (Fast2SMS) → Email → Log fallback
+# Email is the fallback when a user has no mobile_primary set or SMS fails.
+#
+# Required env vars (set in Render dashboard + local .env):
+#   EMAIL_HOST_USER     = veerababusaviti21@gmail.com
+#   EMAIL_HOST_PASSWORD = <16-char Gmail App Password>
+#
+# Gmail App Password setup:
+#   Google Account → Security → 2-Step Verification → App passwords
+#   Generate password for "Mail" + "Other (GyanGrit)"
+#
+# dev.py overrides EMAIL_BACKEND to console so no real emails are sent locally.
+# ─────────────────────────────────────────────────────────────────────────────
+
+EMAIL_BACKEND       = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST          = "smtp.gmail.com"
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+EMAIL_USE_SSL       = False   # TLS and SSL are mutually exclusive — always use TLS on 587
+EMAIL_HOST_USER     = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")   # Gmail App Password, NOT Gmail password
+DEFAULT_FROM_EMAIL  = os.getenv("EMAIL_HOST_USER", "noreply@gyangrit.com")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Cloudflare R2 media storage
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -176,6 +202,12 @@ CLOUDFLARE_R2_ACCESS_KEY_ID     = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID",     "
 CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
 CLOUDFLARE_R2_BUCKET_NAME       = os.getenv("CLOUDFLARE_R2_BUCKET_NAME",       "gyangrit-media")
 CLOUDFLARE_R2_PUBLIC_URL        = os.getenv("CLOUDFLARE_R2_PUBLIC_URL",        "")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fast2SMS — OTP SMS delivery for Indian mobile numbers
+# ─────────────────────────────────────────────────────────────────────────────
+
+FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ably (real-time channels — post-capstone: competition rooms, chat rooms)

@@ -12,7 +12,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://10.0.2.2:8000",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # ← allows Android emulator + any dev client
+CORS_ALLOW_ALL_ORIGINS = True  # allows Android emulator + any dev client
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
@@ -32,6 +32,14 @@ CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
-# Rename cookies so frontend & admin never collide
+# Custom cookie names
 SESSION_COOKIE_NAME = "gyangrit_sessionid"
 CSRF_COOKIE_NAME = "gyangrit_csrftoken"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Email — console backend in dev
+# OTP codes print to terminal instead of sending real emails.
+# Production uses Gmail SMTP configured in base.py.
+# ─────────────────────────────────────────────────────────────────────────────
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

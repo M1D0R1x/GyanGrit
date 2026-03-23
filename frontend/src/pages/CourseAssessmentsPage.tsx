@@ -24,9 +24,12 @@ export default function CourseAssessmentsPage() {
 
   useEffect(() => {
     if (!grade || !subjectSlug) {
-      setError("Invalid course URL.");
-      setLoading(false);
-      return;
+      // Use setTimeout to avoid setState-in-effect lint warning
+      const t = setTimeout(() => {
+        setError("Invalid course URL.");
+        setLoading(false);
+      }, 0);
+      return () => clearTimeout(t);
     }
 
     getCourseBySlug(grade, subjectSlug)

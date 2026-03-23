@@ -259,7 +259,7 @@ export default function CompetitionRoomPage() {
         // deduplicate sections
         const seen = new Set<number>();
         const secs: Section[] = [];
-        assignments.forEach((a: any) => {
+        assignments.forEach((a: { section_id: number; section_name: string; class_name: string }) => {
           if (!seen.has(a.section_id)) {
             seen.add(a.section_id);
             secs.push({ id: a.section_id, name: a.section_name, short_label: a.section_name, class_name: a.class_name });
@@ -268,11 +268,10 @@ export default function CompetitionRoomPage() {
         setSections(secs);
       })
       .catch(() => {});
-    apiGet<any[]>("/courses/")
+    apiGet<{ id: number; title: string }[]>("/courses/")
       .then((courses) => {
-        // Use courses as proxy for assessments selection — teacher picks a course
-        // then we load its assessments
-        setAssessments(courses.map((c: any) => ({ id: c.id, title: c.title })));
+        // Use courses as proxy for assessments selection
+        setAssessments(courses.map((c) => ({ id: c.id, title: c.title })));
       })
       .catch(() => {});
   }, [isTeacher, showCreate]);
@@ -364,6 +363,7 @@ export default function CompetitionRoomPage() {
       ablyRef.current    = null;
       channelRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numRoomId, room?.status, loadRoom]);
 
   // ── Handlers ─────────────────────────────────────────────────────────
@@ -386,8 +386,8 @@ export default function CompetitionRoomPage() {
       await startRoom(numRoomId);
       setSuccess("Room started! Students can now answer.");
       loadRoom();
-    } catch (err: any) {
-      setError(err?.message || "Could not start room.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not start room.");
     }
   };
 

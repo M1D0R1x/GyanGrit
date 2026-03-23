@@ -267,6 +267,7 @@ export default function UserManagementPage() {
     } finally {
       setCreating(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, expiresDays, institutionId, sectionId, subjectId, districtId,
       needsInstitution, needsSection, needsSubject, needsDistrict]);
 

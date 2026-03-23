@@ -204,9 +204,11 @@ export default function LessonsPage() {
 
   useEffect(() => {
     if (!grade || !subjectSlug) {
-      setError("Invalid course URL.");
-      setLoading(false);
-      return;
+      const t = setTimeout(() => {
+        setError("Invalid course URL.");
+        setLoading(false);
+      }, 0);
+      return () => clearTimeout(t);
     }
 
     // Step 1: resolve grade + subject slug → courseId

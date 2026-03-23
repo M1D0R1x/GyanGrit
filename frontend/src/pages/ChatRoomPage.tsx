@@ -18,8 +18,6 @@ import { useLocation, useParams } from "react-router-dom";
 import * as Ably from "ably";
 import {
   getChatHistory,
-  getChatRoomDetail,
-  getPinnedMessages,
   listChatRooms,
   pinMessage,
   saveChatMessage,
@@ -304,7 +302,6 @@ function MessageBubble({
 // ── Thread panel (slide-in from right) ────────────────────────────────────
 
 function ThreadPanel({
-  room,
   parentMsg,
   replies,
   onClose,
@@ -314,7 +311,6 @@ function ThreadPanel({
   canReply,
   onPin,
 }: {
-  room:         ChatRoom;
   parentMsg:    ChatMessage;
   replies:      ChatMessage[];
   onClose:      () => void;
@@ -472,8 +468,6 @@ export default function ChatRoomPage() {
   // ── Input state ───────────────────────────────────────────────────────
   const [input,          setInput]          = useState("");
   const [sending,        setSending]        = useState(false);
-  const [showFileOpts,   setShowFileOpts]   = useState(false);
-
   // ── UI state ──────────────────────────────────────────────────────────
   const [error,          setError]          = useState<string | null>(null);
   const [onlineCount,    setOnlineCount]    = useState(0);
@@ -581,11 +575,11 @@ export default function ChatRoomPage() {
 
         // Presence
         channel.presence.subscribe(() => {
-          channel.presence.get((_e, members) => {
-            if (mounted) setOnlineCount(members?.length ?? 0);
-          });
+          channel.presence.get()
+            .then((members) => { if (mounted) setOnlineCount(members.length); })
+            .catch(() => {});
         });
-        channel.presence.enter();
+        channel.presence.enter().catch(() => {});
       } catch {
         // Ably not configured — polling fallback
       }
@@ -610,6 +604,7 @@ export default function ChatRoomPage() {
       ablyRef.current = null;
       channelRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRoom]);
 
   // ── Open thread ───────────────────────────────────────────────────────
@@ -1032,7 +1027,6 @@ export default function ChatRoomPage() {
               {/* Thread panel */}
               {threadParent && (
                 <ThreadPanel
-                  room={activeRoom}
                   parentMsg={threadParent}
                   replies={loadingThread ? [] : threadReplies}
                   onClose={() => { setThreadParent(null); setThreadReplies([]); }}

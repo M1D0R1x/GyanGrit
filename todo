@@ -1,8 +1,6 @@
 # GyanGrit — Bug Reports
 
-> This file is for reporting bugs only.
-> All planned work lives in tasks.md.
-> Format: date, description, file/area, steps to reproduce.
+> Bug reports only. Planned work lives in tasks.md.
 
 ---
 
@@ -24,10 +22,10 @@ _(none)_
 | 2026-03-23 | health endpoint redirected to /accounts/login/ | Removed @login_required |
 | 2026-03-23 | Render cold starts causing 3-5s login | Keep-alive ping every 10 min in AuthContext |
 | 2026-03-23 | CORS error: trailing slash in CORS_ALLOWED_ORIGINS env var | Defensive _parse_origins() in prod.py |
-| 2026-03-25 | ChatRoomPage duplicate key `1` in replies list | Changed optimistic message ID to -Date.now() (negative = never clashes with real DB ids) |
-| 2026-03-25 | POST /api/v1/realtime/token/ returning 500 | Ably Python v3 SDK is fully async — incompatible with sync Django views. Rewrote ably_token and _publish_ably_event to call Ably REST HTTP API directly via requests lib |
-| 2026-03-25 | Django admin panel unstyled | Installed django-unfold v0.86, registered in INSTALLED_APPS before django.contrib.admin, added UNFOLD config with GyanGrit sidebar navigation, patched all 10 admin.py files to use UnfoldModelAdmin |
-| 2026-03-25 | CompetitionRoomPage TS errors: any types, err: any | Typed AssignmentRow inline, err: unknown, typed courses response |
-| 2026-03-25 | ChatRoomPage TS errors: unused imports, unused state, wrong Ably presence.get signature | Removed getChatRoomDetail/getPinnedMessages imports, removed showFileOpts state, room prop from ThreadPanel; presence.get() is now promise-based in Ably v3 |
-| 2026-03-25 | CourseAssessmentsPage + LessonsPage: setState in effect lint error | Wrapped guard setState calls in setTimeout(..., 0) with cleanup |
-| 2026-03-25 | apiGet<Section[]> wrong generic on my-assignments endpoint | Changed to apiGet<AssignmentRow[]> with correct inline type |
+| 2026-03-25 | ChatRoomPage duplicate key `1` in replies | Changed optimistic ID to -Date.now() |
+| 2026-03-25 | POST /api/v1/realtime/token/ 500 | Ably Python v3 is async — rewrote to use Ably REST HTTP API via requests |
+| 2026-03-25 | Django admin unstyled | Installed django-unfold v0.86 |
+| 2026-03-25 | Chat signal creating 12 rooms for every student regardless of teacher assignment | Signal rewritten — students only enrolled in EXISTING rooms |
+| 2026-03-25 | getAblyToken sent no channel_type → student got competition token | Added channelType param, ChatRoomPage passes "chat" |
+| 2026-03-25 | Push notifications not appearing in bell | Added _create_notification_records() to send_message; AuthContext subscribes to notifications:{user_id} via Ably and dispatches notif:new event; TopBar listens to notif:new for instant badge refresh |
+| 2026-03-25 | Bandit B311: random.randint used for OTP | Replaced with secrets.randbelow() — cryptographically secure |

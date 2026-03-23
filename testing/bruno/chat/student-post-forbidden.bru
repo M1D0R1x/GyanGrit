@@ -1,0 +1,29 @@
+meta {
+  name: Student cannot post top-level chat message (expect 403)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/v1/chat/rooms/9/message/
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: gyangrit_sessionid={{session_id}}
+  X-CSRFToken: {{csrf_token}}
+}
+
+body:json {
+  {
+    "content": "This should be forbidden for students"
+  }
+}
+
+tests {
+  test("Student cannot start new thread — expect 403", function() {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

@@ -1,0 +1,50 @@
+meta {
+  name: Ably token has correct chat capability
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/realtime/token/
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: gyangrit_sessionid={{session_id}}
+  X-CSRFToken: {{csrf_token}}
+}
+
+body:json {
+  {
+    "channel_type": "chat"
+  }
+}
+
+tests {
+  test("returns 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("token is present", function() {
+    expect(res.getBody()).to.have.property("token");
+  });
+
+  test("capability has notifications channel", function() {
+    const cap = res.getBody().capability;
+    const hasNotifications = Object.keys(cap).some(k => k.startsWith("notifications:"));
+    expect(hasNotifications).to.be.true;
+  });
+
+  test("capability has chat channels", function() {
+    const cap = res.getBody().capability;
+    const hasChatChannels = Object.keys(cap).some(k => k.startsWith("chat:"));
+    expect(hasChatChannels).to.be.true;
+  });
+
+  test("SECURITY: student token does not have competition:* capability", function() {
+    const cap = res.getBody().capability;
+    expect(cap).to.not.have.property("competition:*");
+  });
+}

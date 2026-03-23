@@ -34,14 +34,12 @@ function AssessmentIcon({ active }: { active: boolean }) {
   );
 }
 
-function LeaderboardIcon({ active }: { active: boolean }) {
+function ChatIcon({ active }: { active: boolean }) {
   return (
     <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}
       strokeLinecap="round" strokeLinejoin="round">
-      <rect x="18" y="3"  width="4" height="18" rx="1" />
-      <rect x="10" y="8"  width="4" height="13" rx="1" />
-      <rect x="2"  y="13" width="4" height="8"  rx="1" />
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
@@ -85,10 +83,10 @@ export default function BottomNav() {
       icon:   (a: boolean) => <AssessmentIcon active={a} />,
     },
     {
-      label:  "Ranks",
-      to:     "/leaderboard",
-      active: isActive(["/leaderboard"]),
-      icon:   (a: boolean) => <LeaderboardIcon active={a} />,
+      label:  "Chat",
+      to:     "/chat",
+      active: isActive(["/chat"]),
+      icon:   (a: boolean) => <ChatIcon active={a} />,
     },
     {
       label:  "Profile",

@@ -47,6 +47,7 @@ function getNavGroups(role: Role): NavGroup[] {
             { label: "Dashboard",        path: "/dashboard",   icon: "🏠" },
             { label: "Profile & Badges", path: "/profile",     icon: "👤" },
             { label: "Leaderboard",      path: "/leaderboard", icon: "🏆" },
+            { label: "Notifications",    path: "/notifications", icon: "🔔" },
           ],
         },
         {
@@ -66,7 +67,8 @@ function getNavGroups(role: Role): NavGroup[] {
         {
           group: "Communication",
           items: [
-            { label: "Notifications", path: "/notifications", icon: "🔔" },
+            { label: "Class Chat",     path: "/chat",          icon: "💬" },
+            { label: "Competitions",   path: "/competitions",  icon: "🏆" },
           ],
         },
       ];
@@ -97,6 +99,13 @@ function getNavGroups(role: Role): NavGroup[] {
             { label: "Join Codes & Students", path: "/teacher/users", icon: "🔑" },
           ],
         },
+        {
+          group: "Communication",
+          items: [
+            { label: "Class Chat",   path: "/teacher/chat",         icon: "💬" },
+            { label: "Competitions", path: "/teacher/competitions",  icon: "🏆" },
+          ],
+        },
       ];
 
     case "PRINCIPAL":
@@ -122,6 +131,13 @@ function getNavGroups(role: Role): NavGroup[] {
           group: "Staff & Codes",
           items: [
             { label: "Join Codes & Staff", path: "/principal/users", icon: "🔑" },
+          ],
+        },
+        {
+          group: "Communication",
+          items: [
+            { label: "Class Chat",   path: "/principal/chat",         icon: "💬" },
+            { label: "Competitions", path: "/principal/competitions",  icon: "🏆" },
           ],
         },
       ];
@@ -167,6 +183,14 @@ function getNavGroups(role: Role): NavGroup[] {
           items: [
             { label: "Join Codes", path: "/admin/join-codes", icon: "🔑" },
             { label: "All Users",  path: "/admin/users",      icon: "👥" },
+          ],
+        },
+        {
+          group: "Communication",
+          items: [
+            { label: "Class Chat",      path: "/admin/chat",            icon: "💬" },
+            { label: "Chat Management", path: "/admin/chat-management",  icon: "🗂️" },
+            { label: "Competitions",    path: "/admin/competitions",     icon: "🏆" },
           ],
         },
       ];

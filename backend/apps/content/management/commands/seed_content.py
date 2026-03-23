@@ -625,7 +625,7 @@ class Command(BaseCommand):
                             f"Assessment covering core concepts of "
                             f"{subject.name} for Class {grade}."
                         ),
-                        "pass_marks": 3,
+                        "pass_marks": 3,  # nosec B105 — not a password, this is an assessment passing threshold
                         "is_published": True,
                     },
                 )

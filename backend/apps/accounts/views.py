@@ -242,7 +242,7 @@ def login_view(request):
             "role": user.role,
         })
 
-    otp_code = str(random.randint(100000, 999999))
+    otp_code = str(secrets.randbelow(900000) + 100000)  # cryptographically secure 6-digit OTP
     OTPVerification.objects.filter(user=user).delete()
     OTPVerification.objects.create(user=user, otp_code=otp_code)
 

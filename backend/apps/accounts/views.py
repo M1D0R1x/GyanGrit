@@ -30,6 +30,7 @@ from .models import (
     DeviceSession,
     JoinCode,
 )
+from .services import send_otp
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -245,15 +246,19 @@ def login_view(request):
     OTPVerification.objects.filter(user=user).delete()
     OTPVerification.objects.create(user=user, otp_code=otp_code)
 
-    logger.debug("DEV OTP for %s: %s", user.username, otp_code)
+    # Deliver OTP via SMS (Fast2SMS) or email depending on what is configured.
+    # In DEBUG mode: also returned in response body for dev convenience.
+    _delivered, channel = send_otp(user, otp_code)
 
     response_data = {
         "otp_required": True,
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,
+        "otp_channel":  channel,   # "sms", "email", or "log"
+        "id":           user.id,
+        "username":     user.username,
+        "role":         user.role,
     }
 
+    # Only expose otp_code in response when DEBUG=True (dev only)
     if settings.DEBUG:
         response_data["otp_code"] = otp_code
 

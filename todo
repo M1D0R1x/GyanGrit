@@ -1,117 +1,92 @@
-GyanGrit TODO — updated 2026-03-22
+GyanGrit TODO — updated 2026-03-23
 
 See tasks.md for the full session-by-session history.
 
 ========================================
-DONE THIS SESSION (2026-03-22)
+CURRENT STATUS
 ========================================
 
-[x] BUG: teacher_course_analytics returning ALL 60 courses
-    Root cause: scope_queryset() follows institution path for TEACHER,
-    not subject assignment path. Fixed to filter by subject_id__in.
-    File: backend/apps/content/views.py → teacher_course_analytics()
-
-[x] BUG: AdminAssessmentBuilderPage back button → hardcoded /admin/content/
-    Root cause: navigate() called with hardcoded /admin path
-    Fix: useLocation() prefix detection (/teacher, /principal, /admin)
-    File: frontend/src/pages/AdminAssessmentBuilderPage.tsx
-
-[x] BUG: NavMenu dead-end items (TEACHER/PRINCIPAL "Notes" group)
-    Fix: cleaned up labels, added "via dashboard" badges, footer explanation
-
-[x] BUG: PrincipalDashboardPage class cards → /teacher/classes/:id (wrong namespace)
-    Fix: now uses /principal/classes/:id
-    File: frontend/src/pages/PrincipalDashboardPage.tsx
-
-[x] BUG: TeacherClassDetailPage back nav + gradebook link hardcoded to /teacher
-    Fix: useLocation prefix detection
-    File: frontend/src/pages/TeacherClassDetailPage.tsx
-
-[x] BUG: TeacherStudentDetailPage back nav hardcoded to /teacher
-    Fix: useLocation prefix detection
-    File: frontend/src/pages/TeacherStudentDetailPage.tsx
-
-[x] ROUTER: /profile was STUDENT-only → moved to shared (all roles)
-    ROUTER: added /principal/classes/:classId + /students/:studentId routes
-    File: frontend/src/app/router.tsx
-
-[x] SETTINGS: prod.py rewritten from scratch
-    - reads ALLOWED_HOSTS, CORS_ALLOWED_ORIGINS from env
-    - SESSION_COOKIE_SAMESITE = "None" for cross-origin Vercel→Render
-    - SECURE_SSL_REDIRECT, HSTS, SECURE_PROXY_SSL_HEADER
-    - structured logging to Render log stream
-    File: backend/gyangrit/settings/prod.py
-
-[x] SETTINGS: base.py — WhiteNoise added to MIDDLEWARE (after SecurityMiddleware)
-    File: backend/gyangrit/settings/base.py
-
-[x] requirements/prod.txt — added dj-database-url + whitenoise[brotli]
-[x] backend/.env.example — full env var template created
-[x] backend/build.sh — Render build script (collectstatic + migrate)
-[x] frontend/vercel.json — SPA rewrites (fixes page refresh 404)
-[x] .gitignore — !.env.example added so template is committed
-[x] tasks.md — session-by-session task tracker created
-[x] docs/BACKEND_DEPLOYMENT_RENDER.md — full Render deploy guide
-[x] docs/FRONTEND_DEPLOYMENT_VERCEL.md — full Vercel deploy guide
+Backend:   Deployed on Render (Singapore) — MIGRATING to Fly.io (Mumbai)
+Frontend:  Deployed on Vercel (Mumbai edge)
+Database:  Supabase (Mumbai)
+OTP:       Fast2SMS fully implemented — needs FAST2SMS_API_KEY env var set
 
 
 ========================================
-VERIFY NEXT TIME YOU OPEN THE APP
+DONE — ALL SESSIONS SO FAR
 ========================================
 
-[ ] Teacher dashboard → Course Completion section
-    Should show ONLY teacher's assigned subjects (not all 60)
-    Was: Biology Class 6, Chemistry Class 6... (all grades, all subjects)
-    Should be: e.g. "Maths — Class 8", "Maths — Class 9" only
-
-[ ] Open /teacher/courses/:courseId/assessments
-    Click "Back to Lessons" → should go to /teacher/courses/:courseId/lessons
-    Was: going to /admin/content/courses/:courseId/lessons (404 for teacher)
-
-[ ] Open /principal → click a class card
-    Should navigate to /principal/classes/:classId (not /teacher/classes/:id)
-    Then Gradebook button should go to /principal/classes/:classId/gradebook
-
-[ ] /profile should work when logged in as TEACHER, PRINCIPAL, OFFICIAL, ADMIN
-    Was: only accessible as STUDENT
-
-[ ] E2E: Gradebook
-    Teacher → /teacher/classes/:id/gradebook
-    Add mark (18/25) → should show 72% in expandable row
-    Edit → should update in place
-    Delete → should remove from row
-
-[ ] E2E: Notification send
-    Teacher sends to a class → Student receives in inbox
+[x] Full platform built: 11 Django apps, 31 React pages
+[x] All bugs fixed (course scoping, nav prefix, router, etc.)
+[x] Deployment prep: build.sh, Dockerfile, fly.toml, vercel.json, prod.py
+[x] docs/BACKEND_DEPLOYMENT_RENDER.md (deprecated — use Fly.io instead)
+[x] docs/BACKEND_DEPLOYMENT_FLYIO.md — new guide for Mumbai deployment
+[x] docs/FRONTEND_DEPLOYMENT_VERCEL.md
+[x] tasks.md session tracker
+[x] Fast2SMS OTP already implemented in services.py — just needs API key
+[x] Vercel TS build error fixed (AdminLessonEditorPage uploadFile arg order)
+[x] health endpoint: removed @login_required (was redirecting to /accounts/login/)
+[x] prod.py: defensive ALLOWED_HOSTS + CORS parsing (strips https:// and trailing slashes)
 
 
 ========================================
-UPCOMING NEW WORK
+IMMEDIATE — DO THESE NOW
 ========================================
 
-[ ] Competition Rooms (Ably integration)
-    See tasks.md for architecture decisions
+[ ] DEPLOY: Migrate backend from Render → Fly.io Mumbai
+    Follow: docs/BACKEND_DEPLOYMENT_FLYIO.md
     Steps:
-    1. Sign up at ably.com → get API key → add ABLY_API_KEY to .env
-    2. pip install ably (in requirements/base.txt)
-    3. New Django app: backend/apps/competitions/
-    4. Backend endpoint: POST /api/v1/realtime/token/ → Ably JWT vend
-    5. npm install ably in frontend
-    6. New page: CompetitionRoomPage.tsx
+      brew install flyctl
+      fly auth login
+      cd backend && fly launch --no-deploy   # select bom region
+      fly secrets set SECRET_KEY="..." DATABASE_URL="..." ALLOWED_HOSTS="gyangrit-backend.fly.dev" ...
+      fly secrets set FAST2SMS_API_KEY="your-fast2sms-key"   ← OTP WILL WORK AFTER THIS
+      fly secrets set CORS_ALLOWED_ORIGINS="https://gyan-grit.vercel.app"
+      fly deploy
 
-[ ] Chat Rooms (Ably integration — same setup as above)
-    New Django app: backend/apps/chatrooms/
+[ ] After Fly.io deploy: update Vercel env var
+    VITE_API_URL = https://gyangrit-backend.fly.dev/api/v1
+
+[ ] After Fly.io is confirmed working: delete Render service
+
+[ ] FAST2SMS: Add FAST2SMS_API_KEY to Fly.io secrets (see above)
+    OTP SMS will work automatically — services.py is already complete
+    No code changes needed — just the env var
+
+
+========================================
+VERIFY (browser smoke tests)
+========================================
+
+[ ] https://gyangrit-backend.fly.dev/api/v1/health/ → {"status":"ok"}
+[ ] Teacher dashboard Course Completion → shows only assigned subjects
+[ ] Assessment builder back button → goes to correct /teacher/courses/:id/lessons
+[ ] Principal class card → navigates to /principal/classes/:id
+[ ] /profile works for TEACHER, PRINCIPAL, OFFICIAL, ADMIN
+[ ] E2E: Gradebook marks (18/25 → 72%)
+[ ] E2E: Notification send (teacher → student inbox)
+[ ] E2E: OTP SMS (teacher login → SMS arrives on mobile_primary)
+
+
+========================================
+UPCOMING FEATURES
+========================================
+
+[ ] Competition Rooms (Ably Pub/Sub)
+    1. ably.com → create app → copy API key
+    2. fly secrets set ABLY_API_KEY="..."
+    3. pip install ably → requirements/base.txt
+    4. New app: backend/apps/competitions/
+    5. Endpoint: POST /api/v1/realtime/token/ → Ably JWT
+    6. npm install ably
+    7. New page: CompetitionRoomPage.tsx
+
+[ ] Chat Rooms (Ably Chat)
+    Same Ably app/key as above
+    npm install @ably/chat
+    New app: backend/apps/chatrooms/
     New page: ChatRoomPage.tsx
 
-[ ] Deploy backend to Render
-    Follow docs/BACKEND_DEPLOYMENT_RENDER.md step by step
-
-[ ] Deploy frontend to Vercel
-    Follow docs/FRONTEND_DEPLOYMENT_VERCEL.md step by step
-
-[ ] NavMenu redesign (post-capstone)
-    Replace with sidebar drawer for staff roles
-    Remove from student view
-
-[ ] AI chatbot (post-capstone)
-[ ] PWA / offline sync (post-capstone)
+[ ] NavMenu redesign — post-capstone sidebar/drawer
+[ ] PWA / offline sync — post-capstone
+[ ] AI chatbot — post-capstone

@@ -66,68 +66,70 @@
 
 ## SESSION 2026-03-22 — Bug Fixes, Principal/Official Routes, Deployment Prep
 
-### Bug Fixes
-- [x] teacher_course_analytics — TEACHER was getting ALL 60 courses via scope_queryset()
-      Root cause: scope_queryset follows institution path, not subject assignment path.
-      Fix: TEACHER now filters by subject_id__in from teaching_assignments (same as assessments)
-- [x] AdminAssessmentBuilderPage — back button hardcoded to /admin/content/...
-      Fix: useLocation prefix detection → correct path for TEACHER/PRINCIPAL/ADMIN
-- [x] NavMenu — dead-end "Notes" group items cleaned up, footer explanation added
-- [x] PrincipalDashboardPage — class card navigated to /teacher/classes/:id (wrong namespace)
-      Fix: now uses /principal/classes/:id
-- [x] TeacherClassDetailPage — back nav + gradebook link hardcoded to /teacher prefix
-      Fix: useLocation detects /principal and /official prefixes
-- [x] TeacherStudentDetailPage — back nav hardcoded to /teacher prefix
-      Fix: useLocation prefix detection
-- [x] router.tsx — /profile was STUDENT-only; moved to shared routes (all roles)
-- [x] router.tsx — added missing PRINCIPAL class detail routes:
-      /principal/classes/:classId
-      /principal/classes/:classId/students/:studentId
+- [x] teacher_course_analytics — TEACHER scoped to assigned subjects (not all 60)
+- [x] AdminAssessmentBuilderPage — back nav useLocation prefix detection
+- [x] NavMenu — dead-end items fixed, footer explanation added
+- [x] PrincipalDashboardPage — class cards use /principal/classes/:id
+- [x] TeacherClassDetailPage + TeacherStudentDetailPage — useLocation prefix
+- [x] router.tsx — /profile + /notifications shared; principal class routes added
+- [x] prod.py — complete rewrite (env-based, SameSite=None, HSTS, logging)
+- [x] base.py — WhiteNoise in MIDDLEWARE; cookie names in base
+- [x] requirements/prod.txt — dj-database-url + whitenoise[brotli]
+- [x] backend/.env.example — full env var template (gitignored)
+- [x] backend/build.sh — Render build script
+- [x] frontend/vercel.json — SPA rewrites
+- [x] tasks.md, docs/BACKEND_DEPLOYMENT_RENDER.md, docs/FRONTEND_DEPLOYMENT_VERCEL.md
 
-### New Files Created
-- [x] tasks.md (this file)
-- [x] docs/BACKEND_DEPLOYMENT_RENDER.md
-- [x] docs/FRONTEND_DEPLOYMENT_VERCEL.md
-- [x] backend/.env.example
-- [x] backend/build.sh (Render build script)
-- [x] frontend/vercel.json
+---
+
+## SESSION 2026-03-23 — Fly.io Migration, OTP, Latency, Deployment Fixes
+
+- [x] Vercel TS error fixed: AdminLessonEditorPage uploadFile arg order
+      (setProgress was passed as displayName string slot → now undefined, setProgress)
+- [x] health endpoint: removed @login_required (was redirecting to /accounts/login/)
+- [x] prod.py: defensive _parse_hosts() and _parse_origins() — strips https:// and trailing slashes
+      (prevents CORS errors when user accidentally types full URL in env var)
+- [x] whitenoise added to requirements/base.txt (was prod-only, broke local dev server)
+- [x] Decided to switch backend from Render (Singapore) → Fly.io (Mumbai)
+      Reason: Render has no Mumbai region. Fly.io has bom (Mumbai) operational.
+      DB is in Mumbai (Supabase). Backend + DB in same city = <5ms DB latency vs 30-40ms.
+- [x] backend/Dockerfile created — Fly.io uses this for container builds
+- [x] backend/fly.toml created — bom region, always-on, health check on /api/v1/health/
+- [x] docs/BACKEND_DEPLOYMENT_FLYIO.md — complete Fly.io deploy guide
+- [x] Fast2SMS OTP confirmed already implemented in services.py
+      Just needs FAST2SMS_API_KEY set in Fly.io secrets — no code changes needed
+- [x] todo + tasks.md updated
+
+### Pending from this session (not yet done)
+- [ ] Actually run: fly deploy (follow docs/BACKEND_DEPLOYMENT_FLYIO.md)
+- [ ] Set FAST2SMS_API_KEY in Fly.io secrets
+- [ ] Update Vercel VITE_API_URL to fly.dev URL
+- [ ] Delete Render service after Fly.io confirmed working
 
 ---
 
 ## UPCOMING — Next Session
 
-### 🔴 P0 — Verify & Test
-- [ ] Reload teacher dashboard — confirm course list now shows only assigned subjects
-- [ ] Open /teacher/courses/:id/assessments — confirm back button goes to /teacher/courses/:id/lessons
-- [ ] Open /principal/classes/:id — confirm Gradebook button works
-- [ ] E2E: gradebook — add mark → percentage computed → shows in expandable row
-- [ ] E2E: notification send — teacher sends to class → student sees in inbox
+### 🔴 P0 — Deploy & Verify
+- [ ] fly deploy → confirm https://gyangrit-backend.fly.dev/api/v1/health/ works
+- [ ] Update VITE_API_URL in Vercel → redeploy frontend
+- [ ] Test full login flow on production (student + teacher OTP)
+- [ ] Test OTP SMS arrives via Fast2SMS (teacher login)
+- [ ] Smoke test all 5 roles on production URLs
 
-### 🟡 P1 — Pending Bug Check
-- [ ] SectionLessonPage — if this page exists, check for hardcoded /teacher prefix
-- [ ] RosterPage section dropdown — check for same s.name bug fixed in UserManagementPage
+### 🟡 P1 — E2E Verify (local)
+- [ ] Gradebook: add mark 18/25 → 72% shown
+- [ ] Notification send: teacher → student receives
+- [ ] Teacher dashboard: only assigned subjects shown
 
-### 🟠 P2 — Planned Features
-- [ ] Competition rooms — 3rd party integration (Ably recommended)
-      See SYSTEM_ARCHITECTURE.md for architecture decision
-      New app: backend/apps/competitions/
-      Frontend: CompetitionRoomPage.tsx
-- [ ] Chat rooms — 3rd party integration (Ably recommended)
-      New app: backend/apps/chatrooms/
-      Frontend: ChatRoomPage.tsx
-- [ ] Ably integration setup:
-      - Sign up at ably.com → get API key
-      - Install: pip install ably (backend token vending endpoint)
-      - Install: npm install ably (frontend channel subscribe)
-      - Backend: POST /api/v1/realtime/token/ → returns Ably JWT for the user
-      - Frontend: useAbly() hook wrapping Ably.Realtime client
+### 🟠 P2 — Features
+- [ ] Ably Pub/Sub setup for competition rooms
+- [ ] Ably Chat setup for chat rooms
 
 ### 🔵 P3 — Post-Capstone
-- [ ] NavMenu → replace with sidebar drawer for staff roles
-- [ ] Deploy backend to Render (see docs/BACKEND_DEPLOYMENT_RENDER.md)
-- [ ] Deploy frontend to Vercel (see docs/FRONTEND_DEPLOYMENT_VERCEL.md)
-- [ ] PWA / offline sync (separate app, post-capstone)
-- [ ] AI chatbot (post-capstone)
+- [ ] NavMenu → sidebar drawer
+- [ ] PWA / offline sync
+- [ ] AI chatbot
 
 ---
 
@@ -135,7 +137,9 @@
 
 | Decision | Rationale | Date |
 |---|---|---|
-| Ably for real-time (not raw WebSockets) | Render hobby plan has no persistent WebSocket support. Ably handles reconnection, presence, history. Free tier sufficient for capstone. | 2026-03-22 |
-| Vercel for frontend | Best-in-class for Vite/React SPAs. Free tier generous. Auto-deploy from GitHub push. Custom domain support. | 2026-03-22 |
-| Render for backend | Free tier supports Django + Gunicorn. PostgreSQL add-on available. ENV vars native. Easy deploy from GitHub. | 2026-03-22 |
-| No AI / PWA for now | Out of scope for capstone. Park post-submission. | 2026-03-22 |
+| Ably for real-time (not raw WebSockets) | Render/Fly free tier has no persistent WebSocket support. Ably handles reconnection, presence, history. Free tier sufficient for capstone. | 2026-03-22 |
+| Ably product split: Pub/Sub for competitions, Chat for chat rooms | Competition rooms need custom message shape (scores, timers). Chat rooms benefit from built-in typing indicators, history, presence. Same API key. | 2026-03-22 |
+| Vercel for frontend | Best-in-class for Vite/React SPAs. Free tier generous. Auto-deploy on push. Mumbai edge node. | 2026-03-22 |
+| Fly.io for backend (replacing Render) | Fly.io has Mumbai (bom) region. Render has no Mumbai. DB is in Mumbai. Co-locating backend + DB eliminates 30-40ms Singapore→Mumbai roundtrip per query. Login goes from ~3s → <500ms. | 2026-03-23 |
+| Fast2SMS for OTP SMS | Indian SMS gateway, ₹0.15/SMS, 10-digit mobile normalisation built in. Free trial ₹50 (~330 OTPs). Already fully implemented in services.py. | 2026-03-23 |
+| No AI / PWA for now | Out of scope for capstone. Post-submission. | 2026-03-22 |

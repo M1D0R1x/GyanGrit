@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
+import { uploadFile } from "../services/media";
 import * as Ably from "ably";
 import {
   getChatHistory,
@@ -451,8 +452,8 @@ export default function ChatRoomPage() {
   }, [activeRoom]);
 
   // ── Send message ──────────────────────────────────────────────────────
-  const handleSend = useCallback(async (content: string, parentId?: number) => {
-    if (!content.trim() || !activeRoom || sending) return;
+  const handleSend = useCallback(async (content: string, parentId?: number, attachmentUrl?: string, attachmentType?: "image" | "file", attachmentName?: string) => {
+    if ((!content.trim() && !attachmentUrl) || !activeRoom || sending) return;
     setSending(true);
 
     const optimisticId = -Date.now();
@@ -464,7 +465,7 @@ export default function ChatRoomPage() {
       sender_role:     user?.role ?? "",
       role_label:      user?.role === "ADMIN" ? "moderator" : (user?.role?.toLowerCase() ?? ""),
       content: content.trim(),
-      attachment_url: null, attachment_type: null, attachment_name: null,
+      attachment_url: attachmentUrl ?? null, attachment_type: attachmentType ?? null, attachment_name: attachmentName ?? null,
       parent_id:  parentId ?? null,
       reply_count: 0, is_pinned: false,
       sent_at: new Date().toISOString(),
@@ -478,7 +479,7 @@ export default function ChatRoomPage() {
     }
 
     try {
-      const saved = await saveChatMessage(activeRoom.id, content.trim(), parentId);
+      const saved = await saveChatMessage(activeRoom.id, content.trim(), parentId, attachmentUrl, attachmentType, attachmentName);
       if (!parentId) {
         setMessages((prev) => prev.map((m) => m.id === optimisticId ? { ...saved, replies: [] } : m));
         channelRef.current?.publish("message", saved);
@@ -682,7 +683,20 @@ export default function ChatRoomPage() {
                               </svg>
                             </button>
                             <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" style={{ display: "none" }}
-                              onChange={(e) => { if (e.target.files?.[0]) setError("File upload — connect to R2 media service"); e.target.value = ""; }} />
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (!file) return;
+                                if (file.size > 10 * 1024 * 1024) { setError("File too large (max 10MB)"); return; }
+                                setError(null);
+                                try {
+                                  const result = await uploadFile(file, "uploads");
+                                  const attachType = result.content_type.startsWith("image/") ? "image" : "file";
+                                  await handleSend("", undefined, result.url, attachType, result.display_name);
+                                } catch {
+                                  setError("Upload failed. Please try again.");
+                                }
+                              }} />
                           </>
                         )}
                         <input ref={inputRef} className="form-input" type="text" placeholder="Type a message... (Enter to send)"

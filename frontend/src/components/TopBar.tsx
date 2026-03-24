@@ -122,6 +122,8 @@ export default function TopBar({ title }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen]       = useState(false);
   const [unreadCount, setUnreadCount]   = useState(0);
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
@@ -173,6 +175,31 @@ export default function TopBar({ title }: Props) {
     return () => document.removeEventListener("keydown", handler);
   }, [userMenuOpen, notifOpen]);
 
+  // PWA install prompt — shown once when browser fires beforeinstallprompt
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      const dismissed = sessionStorage.getItem("pwa-banner-dismissed");
+      if (!dismissed) setShowInstallBanner(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (installPrompt as any).prompt();
+    setShowInstallBanner(false);
+    setInstallPrompt(null);
+  };
+
+  const dismissInstallBanner = () => {
+    setShowInstallBanner(false);
+    sessionStorage.setItem("pwa-banner-dismissed", "1");
+  };
+
   const handleLogoClick = () => {
     if (!auth.authenticated || !auth.user) {
       navigate("/login");
@@ -194,7 +221,36 @@ export default function TopBar({ title }: Props) {
   }, [navigate]);
 
   return (
-    <header
+    <>
+      {/* PWA Install Banner */}
+      {showInstallBanner && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
+          background: "var(--bg-elevated)",
+          borderTop: "2px solid var(--brand-primary)",
+          padding: "var(--space-3) var(--space-4)",
+          display: "flex", alignItems: "center", gap: "var(--space-3)",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.3)",
+          animation: "fadeInUp 0.3s ease",
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "var(--brand-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+            📚
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>Install GyanGrit</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Add to home screen for offline access</div>
+          </div>
+          <button onClick={handleInstall}
+            style={{ background: "var(--brand-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", padding: "var(--space-2) var(--space-4)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer", flexShrink: 0 }}>
+            Install
+          </button>
+          <button onClick={dismissInstallBanner}
+            style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 18, cursor: "pointer", padding: "var(--space-1)", flexShrink: 0 }}>
+            ✕
+          </button>
+        </div>
+      )}
+      <header
       style={{
         position:       "sticky",
         top:            0,
@@ -369,5 +425,6 @@ export default function TopBar({ title }: Props) {
         ) : null}
       </div>
     </header>
+    </>
   );
 }

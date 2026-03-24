@@ -296,7 +296,7 @@ export default function LiveSessionPage() {
                 return (
                   <SessionCard key={s.id} session={s} actionLabel={label}
                     actionStyle={s.status === "ended" ? { opacity: 0.4, cursor: "not-allowed" } : {}}
-                    onAction={s.status === "ended" ? () => {} : s.status === "scheduled" ? handleStart : handleJoin}
+                    onAction={s.status === "ended" ? () => {} : s.status === "scheduled" ? handleStart : (sess: LiveSession) => handleJoin(sess.id)}
                   />
                 );
               }
@@ -304,7 +304,7 @@ export default function LiveSessionPage() {
               return (
                 <SessionCard key={s.id} session={s} actionLabel={label}
                   actionStyle={s.status !== "live" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
-                  onAction={s.status === "live" ? handleJoin : () => {}}
+                  onAction={s.status === "live" ? (sess: LiveSession) => handleJoin(sess.id) : () => {}}
                 />
               );
             })}

@@ -1,197 +1,101 @@
 # GyanGrit — Deployment Guide
 
----
-
-## Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL (via Supabase or self-hosted)
-- A domain with HTTPS
+> **Updated: 2026-03-26** — Production live at Render + Vercel
 
 ---
 
-## Backend Setup
+## Production URLs
 
-### 1. Clone and Install
+| Service | URL |
+|---|---|
+| Frontend | https://gyan-grit.vercel.app |
+| Backend | https://gyangrit.onrender.com |
+| Database | Supabase Mumbai (see Render env vars) |
+| Admin panel | https://gyangrit.onrender.com/admin/ |
 
+---
+
+## Render (Backend) — Quick Reference
+
+**Start Command:** `gunicorn gyangrit.wsgi:application -c gunicorn.conf.py`
+
+**Build Command:** `./build.sh`
+
+**After every deploy, run in Render Shell:**
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -r requirements/prod.txt
+python manage.py migrate
+python manage.py bootstrap_chatrooms
+python manage.py collectstatic --no-input
 ```
 
-### 2. Environment Variables
-
-Create `backend/.env`:
+### Required Environment Variables
 
 ```env
-SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_urlsafe(50))">
-DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
-```
+SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_urlsafe(50))">
+DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
+ALLOWED_HOSTS=gyangrit.onrender.com
+CORS_ALLOWED_ORIGINS=https://gyan-grit.vercel.app
+DEBUG=False
+DJANGO_SETTINGS_MODULE=gyangrit.settings.prod
 
-Never commit `.env` to version control. Confirm it is in `.gitignore`.
+# OTP
+FAST2SMS_API_KEY=
+EMAIL_HOST_USER=veerababusaviti21@gmail.com
+EMAIL_HOST_PASSWORD=<gmail app password>
 
-`python-dotenv` is loaded in `base.py` via `load_dotenv()`. If `.env` is missing,
-Django will still start — environment variables can also be set directly on the host.
+# Real-time
+ABLY_API_KEY=
 
-### 3. Run Migrations
+# Live video
+LIVEKIT_URL=wss://gyangrit-ld2s7sp2.livekit.cloud
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
 
-```bash
-DJANGO_SETTINGS_MODULE=gyangrit.settings.prod python manage.py migrate
-```
+# AI
+GEMINI_API_KEY=
 
-This also triggers the `post_migrate` signal that seeds Punjab districts, schools, and subjects automatically.
-
-### 4. Seed Classrooms and Sections
-
-```bash
-python manage.py seed_punjab
-```
-
-Creates classrooms (grades 6–10) and sections for each seeded school. Idempotent — safe to run multiple times.
-
-### 5. Create Admin User
-
-```bash
-python manage.py createsuperuser
-```
-
-Log into `/admin/` and create `JoinCode` records for your initial users.
-
-### 6. Collect Static Files
-
-```bash
-python manage.py collectstatic --noinput
-```
-
-Static files are served by `whitenoise` in production (included in `requirements/prod.txt`).
-
-Add to `prod.py` settings after `SecurityMiddleware`:
-```python
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",   # ← add here
-    ...
-]
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-```
-
-### 7. Run Production Server
-
-```bash
-gunicorn gyangrit.wsgi:application \
-  --workers 4 \
-  --bind 0.0.0.0:8000 \
-  --env DJANGO_SETTINGS_MODULE=gyangrit.settings.prod
+# Cloudflare R2
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET_NAME=
+CLOUDFLARE_R2_ENDPOINT_URL=
 ```
 
 ---
 
-## Frontend Setup
+## Vercel (Frontend) — Quick Reference
 
-### 1. Set API Base URL
+**Build Command:** `npm run build` (auto-detected)
+**Output directory:** `dist`
 
-Before building, set the production API URL. Either update `src/services/api.ts` directly:
-
-```ts
-const API_BASE_URL = "https://your-backend-domain.com/api/v1";
-```
-
-Or use a Vite environment variable. Create `frontend/.env.production`:
-
+**Environment Variables:**
 ```env
-VITE_API_BASE_URL=https://your-backend-domain.com/api/v1
+VITE_API_URL=https://gyangrit.onrender.com/api/v1
 ```
 
-And update `api.ts`:
-```ts
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-```
-
-### 2. Build
-
-```bash
-cd frontend
-npm install
-npm run build
-```
-
-Output in `frontend/dist/`.
-
-### 3. Serve
-
-Deploy `frontend/dist/` to Vercel, Netlify, Cloudflare Pages, or serve via nginx.
-
-nginx config for SPA routing:
-
-```nginx
-location / {
-    root /var/www/gyangrit/dist;
-    try_files $uri $uri/ /index.html;
-}
-```
+**`vercel.json`** handles SPA routing — already configured.
 
 ---
 
-## Production Settings Checklist
-
-Verify `backend/gyangrit/settings/prod.py` before going live:
+## gunicorn.conf.py — Critical Notes
 
 ```python
-DEBUG = False
-ALLOWED_HOSTS = ["your-backend-domain.com"]
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-CORS_ALLOWED_ORIGINS = ["https://your-frontend-domain.com"]
-CSRF_TRUSTED_ORIGINS = ["https://your-frontend-domain.com"]
-SESSION_COOKIE_NAME = "gyangrit_sessionid"
-CSRF_COOKIE_NAME = "gyangrit_csrftoken"
+worker_class       = "gevent"
+workers            = 1
+worker_connections = 100    # 50 concurrent users comfortable on Render free
+conn_max_age       = 0      # CRITICAL: must be 0 with gevent (set in prod.py)
+
+def post_fork(server, worker):
+    from django.db import connections
+    for conn in connections.all():
+        conn.close()        # CRITICAL: prevents thread-sharing DB errors with gevent
 ```
+
+**Why this matters:** `CONN_MAX_AGE > 0` with gevent causes `DatabaseWrapper objects created in a thread can only be used in that same thread` — the production 500 error we fixed on 2026-03-24.
 
 ---
 
-## OTP in Production
-
-The login endpoint returns `otp_code` in the response body only when `DEBUG=True`.
-This is handled automatically by the `if settings.DEBUG` guard in `accounts/views.py`.
-
-Before production:
-1. Integrate an SMS provider (Twilio, MSG91, or equivalent)
-2. Replace the OTP creation block in `login_view` with an SMS dispatch call
-3. Store the user's mobile number on the `User` model
-
-The OTP generation, attempt limiting, and expiry logic does not need to change — only the delivery mechanism.
-
----
-
-## Database Backup
-
-```bash
-pg_dump \
-  -h <host> \
-  -U <user> \
-  -d <dbname> \
-  -Fc > gyangrit_backup_$(date +%Y%m%d).dump
-```
-
-Restore:
-
-```bash
-pg_restore \
-  -h <host> \
-  -U <user> \
-  -d <dbname> \
-  gyangrit_backup_20260315.dump
-```
-
----
-
-## Development Setup
+## Local Development
 
 ### Backend
 
@@ -205,7 +109,16 @@ python manage.py seed_punjab
 python manage.py runserver
 ```
 
-Backend: `http://127.0.0.1:8000`
+Create `backend/.env`:
+```env
+SECRET_KEY=dev-secret-key-not-for-production
+DATABASE_URL=postgresql://user:pass@localhost:5432/gyangrit
+LIVEKIT_URL=wss://gyangrit-ld2s7sp2.livekit.cloud
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+GEMINI_API_KEY=
+ABLY_API_KEY=
+```
 
 ### Frontend
 
@@ -215,30 +128,80 @@ npm install
 npm run dev
 ```
 
-Frontend: `http://localhost:5173`
+Create `frontend/.env.local`:
+```env
+VITE_API_URL=http://127.0.0.1:8000/api/v1
+```
+
+---
+
+## First-Time Seeding
+
+```bash
+# 1. Run migrations
+python manage.py migrate
+
+# 2. Seed Punjab districts + institutions + classrooms + sections
+python manage.py seed_punjab
+
+# 3. Seed sample courses + lessons + assessments
+python manage.py seed_content
+
+# 4. Create admin superuser
+python manage.py createsuperuser
+
+# 5. Bootstrap chat rooms (after teachers are assigned)
+python manage.py bootstrap_chatrooms
+```
+
+**`bootstrap_chatrooms`** is idempotent — safe to run multiple times. Creates rooms only where `TeachingAssignment` records exist. Enrolls all matching users.
+
+---
+
+## Database Backup
+
+```bash
+pg_dump -h <host> -U <user> -d <dbname> -Fc > gyangrit_backup_$(date +%Y%m%d).dump
+```
+
+Restore:
+```bash
+pg_restore -h <host> -U <user> -d <dbname> gyangrit_backup_20260326.dump
+```
+
+---
+
+## Capacity
+
+| Scenario | Concurrent users | Notes |
+|---|---|---|
+| Render free + gevent | ~50 | Current production setup |
+| Render Starter ($7/mo) | ~100 | Upgrade for daily school use |
+| LiveKit Cloud free | 100 concurrent, 5k min/mo | Enough for capstone demos |
+| LiveKit Cloud Ship ($50/mo) | 1,000 concurrent | For daily school live classes |
+| Ably free | 100 simultaneous connections | Enough for capstone |
 
 ---
 
 ## Common Issues
 
+**`DatabaseWrapper objects created in a thread can only be used in that same thread`**
+gevent + `CONN_MAX_AGE > 0` incompatibility. Fix: ensure `conn_max_age=0` in `prod.py` and `post_fork` connection reset in `gunicorn.conf.py`.
+
+**Health endpoint returning 301**
+`/api/v1/health` (without trailing slash) redirects to `/api/v1/health/`. Update keep-alive ping URL to include trailing slash, or set `APPEND_SLASH=False`.
+
 **`python-dotenv could not parse statement`**
-Your `.env` file has inline comments or unsupported syntax. Each line must be exactly
-`KEY=value` — no comments, no `export` prefix, no trailing spaces.
+`.env` file has inline comments. Each line must be `KEY=value` only — no `# comments`, no `export` prefix.
 
 **CSRF token mismatch on POST**
-The frontend reads `gyangrit_csrftoken` cookie. Confirm `CSRF_COOKIE_NAME = "gyangrit_csrftoken"`
-is set in your settings file and that `initCsrf()` is called on app mount before any POST.
+Frontend reads `gyangrit_csrftoken` cookie. Ensure `CSRF_COOKIE_NAME = "gyangrit_csrftoken"` is set and `initCsrf()` is called before any POST.
 
-**Session expires mid-lesson**
-`SESSION_COOKIE_AGE = 600` (10 minutes) with `SESSION_SAVE_EVERY_REQUEST = True`.
-Any API call resets the timer. If a student is idle for 10+ minutes without an API call
-(e.g. watching a video), they may be logged out. Increase `SESSION_COOKIE_AGE` in `dev.py`
-for testing long lessons.
+**LiveKit `canPublish` denied**
+Student token has `canPublish=False` by design. Only TEACHER, PRINCIPAL, ADMIN get `canPublish=True`.
 
-**`ImportError: cannot import name 'get_scoped_object_or_403'`**
-The function was renamed to `get_scoped_object_or_404`. A backward-compatible alias is kept
-in `accesscontrol/scoped_service.py` until all call sites are updated.
+**Gemini returning off-topic responses**
+System prompt in `ai_assistant/views.py` constrains responses to education. If the prompt is being bypassed, increase the system prompt's specificity.
 
-**PostgreSQL connection errors with Supabase pooler**
-Ensure `DISABLE_SERVER_SIDE_CURSORS = True` is set at the database level (not inside `OPTIONS`).
-This is required for pgBouncer transaction-mode pooling used by Supabase.
+**Chat rooms not created for new school**
+Run `python manage.py bootstrap_chatrooms` after adding teaching assignments. Or: create a `TeachingAssignment` via admin and the signal will auto-create the room.

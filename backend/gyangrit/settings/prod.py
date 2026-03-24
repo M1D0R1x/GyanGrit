@@ -70,7 +70,7 @@ ALLOWED_HOSTS = _parse_hosts(os.environ.get("ALLOWED_HOSTS", ""))
 DATABASES = {
     "default": dj_database_url.config(
         default=os.environ["DATABASE_URL"],
-        conn_max_age=600,
+        conn_max_age=0,     # MUST be 0 with gevent workers — persistent connections cause thread-sharing errors
         conn_health_checks=True,
     )
 }

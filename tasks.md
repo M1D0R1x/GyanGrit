@@ -1,260 +1,321 @@
-# GyanGrit — Task Tracker
+# GyanGrit — Master Task Tracker & Project State
 
-> Session-by-session task log. Mark [x] when done. Never delete old entries.
-> todo file is for bug reports only. This file drives all planned work.
-
----
-
-## SESSION 2026-03-15 — Core Auth, Academics, Content, Assessments
-
-- [x] Custom User model (STUDENT/TEACHER/PRINCIPAL/OFFICIAL/ADMIN)
-- [x] JoinCode-based registration (role locked by code)
-- [x] OTP verification for TEACHER/PRINCIPAL/OFFICIAL
-- [x] Single-device session enforcement (SingleActiveSessionMiddleware + DeviceSession)
-- [x] Student self-registration via StudentRegistrationRecord
-- [x] Public ID generation (S-2026-a1b2c3d4 format)
-- [x] 23 Punjab districts seeded
-- [x] Institution → ClassRoom → Section hierarchy
-- [x] Subject, ClassSubject, StudentSubject, TeachingAssignment
-- [x] Signal-driven auto-enrollment (new student → subjects → courses)
-- [x] Course + Lesson + SectionLesson models
-- [x] LessonProgress tracking
-- [x] Assessment → Question → QuestionOption (is_correct never sent to students)
-- [x] AssessmentAttempt with single-query scoring
-- [x] Enrollment + LearningPath + LearningPathCourse
-- [x] Roster Excel bulk upload (per-row error reporting)
-- [x] Media app: Cloudflare R2 presigned URLs
+> Single source of truth for project history, current state, bugs, and what to do next.
+> Obsidian is dropped — everything lives here.
+> Format: sessions in reverse-chronological order. Bugs inline. Architecture log at bottom.
 
 ---
 
-## SESSION 2026-03-17 — Gamification, Notifications, Slugs, Frontend Polish
+## CURRENT STATE (as of 2026-03-26)
 
-- [x] PointEvent ledger (deduplication guard)
-- [x] StudentPoints (denormalized total, select_for_update)
-- [x] 9 badge types, StudentBadge, StudentStreak
-- [x] Class + School leaderboard
-- [x] DashboardPage gamification strip
-- [x] Notification + Broadcast models
-- [x] 8 notification endpoints + audience scoping
-- [x] signals.py: auto-notify on lesson/assessment publish
-- [x] R2 file attachments for broadcasts
-- [x] NotificationsPage: inbox, send form, broadcast history, Markdown render
-- [x] Human-readable URL slugs for courses + assessments
-- [x] course_by_slug endpoint
-- [x] All affected pages migrated to slug routes
+**Live URLs:**
+- Frontend: https://gyan-grit.vercel.app
+- Backend:  https://gyangrit.onrender.com
+- Admin:    https://gyangrit.onrender.com/admin/
 
----
+**Tech stack:** Django 4.2 · React 18 + Vite + TypeScript · PostgreSQL (Supabase) · Ably · LiveKit · Gemini · Cloudflare R2 · gunicorn + gevent
 
-## SESSION 2026-03-18 — Gradebook, Dashboard Polish, Analytics Fixes
+**Apps:** 16 backend apps · 41 frontend pages · 0 TS errors · 0 lint errors · 0 Django check issues
 
-- [x] Gradebook app: GradeEntry model (term/category/marks/total_marks/percentage)
-- [x] 6 gradebook endpoints (choices, CRUD, class view, student view)
-- [x] GradebookPage (expandable student rows, add/edit/delete marks, filters)
-- [x] TeacherClassDetailPage: "Gradebook →" button
-- [x] PrincipalDashboardPage: real data wired
-- [x] OfficialDashboardPage: real data wired
-- [x] DashboardPage: assessments section + score rings + resume button
-- [x] LessonPage: YouTube/Vimeo embed, R2 video, PDF inline viewer, Markdown
-- [x] TeacherDashboardPage: all analytics fields aligned
-- [x] UserManagementPage: section dropdown fixed (uses short_label)
-- [x] NotificationsPage: "View all" wired in TopBar panel
-- [x] NavMenu component: role-aware supervisor demo nav
-- [x] TopBar: NavMenu wired in
-- [x] DATA_MODEL.md, API_AND_FRONTEND_END_POINTS.md, SYSTEM_ARCHITECTURE.md — full sync
+**SRS compliance:**
+| FR | Requirement | Status |
+|---|---|---|
+| FR-01 | User management, OTP, roles | ✅ |
+| FR-02 | Single-device sessions | ✅ |
+| FR-03 | Content management | ✅ |
+| FR-04 | Adaptive streaming (HLS) | ✅ |
+| FR-05 | PWA offline | ❌ Not built yet |
+| FR-06 | Exercises & flashcards | ✅ |
+| FR-07 | Live sessions + attendance | ✅ |
+| FR-08 | Competition rooms | ✅ |
+| FR-09 | Progress tracking, badges | ✅ |
+| FR-10 | Analytics & reports | ✅ |
+| FR-11 | AI Chatbot (RAG) | ✅ |
+| FR-12 | Security, RBAC | ✅ |
+| FR-13 | API keys in env | ✅ |
+
+**Only FR-05 (PWA offline) remains unbuilt.**
 
 ---
 
-## SESSION 2026-03-22 — Bug Fixes, Principal/Official Routes, Deployment Prep
+## OPEN BUGS
 
-- [x] teacher_course_analytics — TEACHER scoped to assigned subjects (not all 60)
-- [x] AdminAssessmentBuilderPage — back nav useLocation prefix detection
-- [x] NavMenu — dead-end items fixed, footer explanation added
-- [x] PrincipalDashboardPage — class cards use /principal/classes/:id
-- [x] TeacherClassDetailPage + TeacherStudentDetailPage — useLocation prefix
-- [x] router.tsx — /profile + /notifications shared; principal class routes added
-- [x] prod.py — complete rewrite (env-based, SameSite=None, HSTS, logging)
-- [x] base.py — WhiteNoise in MIDDLEWARE; cookie names in base
-- [x] requirements/prod.txt — dj-database-url + whitenoise[brotli]
-- [x] backend/.env.example — full env var template (gitignored)
-- [x] backend/build.sh — Render build script
-- [x] frontend/vercel.json — SPA rewrites
-- [x] tasks.md, docs/BACKEND_DEPLOYMENT_RENDER.md, docs/FRONTEND_DEPLOYMENT_VERCEL.md
+| # | Date | Bug | Status |
+|---|---|---|---|
+| 1 | 2026-03-24 | gevent + CONN_MAX_AGE=600 → DatabaseWrapper thread-sharing error on /health | ✅ FIXED: CONN_MAX_AGE=0 in prod.py + post_fork connection reset in gunicorn.conf.py |
+| 2 | 2026-03-26 | Vercel build fail: LiveSessionPage onAction type mismatch (id vs LiveSession) | ✅ FIXED: wrapped handleJoin as (sess: LiveSession) => handleJoin(sess.id) |
+
+**Zero open bugs as of 2026-03-26.**
 
 ---
 
-## SESSION 2026-03-23 — Deployment Fixes, Keep-alive, OTP, SMTP
+## WHAT TO DO NEXT (prioritised)
 
-- [x] Vercel TS build error fixed: AdminLessonEditorPage uploadFile arg order
-- [x] health endpoint: @login_required removed (was redirecting to /accounts/login/)
-- [x] prod.py: defensive _parse_hosts() and _parse_origins() — strips trailing slashes
-- [x] whitenoise added to requirements/base.txt (was prod-only, broke local dev)
-- [x] Keep-alive ping added to AuthContext.tsx — pings /health/ every 10 min in prod
-- [x] Fast2SMS OTP fully wired: services.py complete, views.py calls send_otp()
-- [x] Gmail SMTP added to base.py (EMAIL_HOST=smtp.gmail.com, port 587 TLS)
-- [x] dev.py: EMAIL_BACKEND=console (OTP prints to terminal, no real emails in dev)
-- [x] Fly.io files removed (Dockerfile, fly.toml, BACKEND_DEPLOYMENT_FLYIO.md)
-      Reason: Fly.io blocks Indian accounts with ₹900 verification. Staying on Render.
-- [x] Fast2SMS API key + Gmail credentials added to Render env vars
+### P0 — Deploy current build (30 min)
+The gevent DB bug is fixed locally but not yet deployed. Production is returning 500s on some requests.
+
+```bash
+# After pushing to main:
+# Render auto-deploys. Then in Render Shell:
+python manage.py migrate
+python manage.py bootstrap_chatrooms
+python manage.py collectstatic --no-input
+```
+
+### P1 — PWA + Offline (Session next, ~2 days)
+**SRS FR-05.** The last unchecked functional requirement. High-impact for the capstone submission because:
+- Rural school context: spotty internet is real — this directly addresses it
+- SRS explicitly calls out NFR-05: "core learning functional offline for pre-downloaded content"
+- Differentiates GyanGrit from basic web apps
+
+What to build:
+1. `frontend/public/manifest.json` — makes app installable on Android
+2. `frontend/public/sw.js` — Service Worker with cache-first strategy for:
+   - App shell (CSS, JS, fonts)
+   - Course list and lesson metadata
+   - Previously opened lesson pages
+3. `vite.config.ts` — register SW with `vite-plugin-pwa` or manual `workbox`
+4. "Install App" banner in TopBar for eligible devices
+5. Offline fallback page when fully offline with no cache
+
+### P2 — File upload in chat (~1 hour)
+The attach button exists in ChatRoomPage but calls `setError("connect to R2")`. Wire `uploadFile()` from `services/media.ts` to the existing file input.
+
+Files:
+- `frontend/src/pages/ChatRoomPage.tsx` — replace error with actual upload call
+- No backend changes needed (R2 presigned URLs already work)
+
+### P3 — UI polish pass (~2 days)
+The UI works but isn't polished for a capstone demo. Priority areas:
+1. **Mobile layout** — many pages have padding/font issues on 375px screens
+2. **NavMenu → SidebarDrawer** — replace the "⚠️ Demo nav" warning with a proper slide-in sidebar for staff roles
+3. **Empty states** — some pages show blank instead of a helpful empty state
+4. **Loading skeletons** — missing on a few pages (FlashcardsStudyPage, LiveSessionPage)
+5. **Dashboard polish** — student dashboard should surface "class chat has new message" and "live class starting soon"
+
+### P4 — Integration smoke test (1 day)
+Before submission, test the complete flow end-to-end:
+- Register student via join code → complete profile → dashboard
+- Teacher assigns flashcard deck → student studies → SM-2 schedules review
+- Teacher starts live session → student joins → attendance recorded
+- Student asks AI question → gets curriculum-relevant answer
+- Teacher posts in chat → student bell shows notification
+- Student enters competition → answers questions → sees live leaderboard
+
+### P5 — Post-capstone features (after submission)
+- SidebarDrawer component replacing NavMenu
+- PWA push notifications (VAPID keys + service worker)
+- Attendance analytics dashboard for principal
+- Teacher creates competition from any assessment (not just existing ones)
+- Flashcard import from CSV
+- AI chatbot analytics for teachers (what questions students are asking)
 
 ---
 
-## SESSION 2026-03-24 — SectionLessonPage Router Fix + Competition Rooms (Ably Pub/Sub)
-
-**Date:** 2026-03-24
-**Status:** ✅ COMPLETE
-
-### Part A — SectionLessonPage router fix
-- [x] Added `/lessons/section/:lessonId` route to router.tsx
-      SectionLessonPage.tsx already existed with full implementation — just lacked a route
-
-### Part B — Competition Rooms backend
-- [x] `ably>=2.0` added to requirements/base.txt; pip3 install ably done locally
-- [x] `apps.competitions` Django app created with full structure
-- [x] CompetitionRoom model (title, host, section, assessment FK, status draft/active/finished)
-- [x] CompetitionParticipant model (unique_together room+student, score, rank)
-- [x] CompetitionAnswer model (is_correct NEVER sent to students — same rule as assessments)
-- [x] 7 endpoints implemented:
-      GET  /api/v1/competitions/              — list (scoped by role/section)
-      POST /api/v1/competitions/create/       — teacher creates
-      GET  /api/v1/competitions/<id>/         — detail + participants + questions (active only)
-      POST /api/v1/competitions/<id>/join/    — student joins
-      POST /api/v1/competitions/<id>/start/   — teacher starts, fires Ably room:started
-      POST /api/v1/competitions/<id>/finish/  — teacher ends, fires Ably room:finished + final leaderboard
-      POST /api/v1/competitions/<id>/answer/  — student answers, recalculates + broadcasts leaderboard
-- [x] POST /api/v1/realtime/token/ — Ably JWT scoped to competition:{room_id} for students,
-      competition:* for teachers. Graceful 503 if ABLY_API_KEY not set.
-- [x] Migrations applied (competitions/0001_initial.py)
-- [x] Registered in INSTALLED_APPS + gyangrit/urls.py
-- [x] manage.py check = 0 errors
-
-### Part C — Competition Rooms frontend
-- [x] npm install ably (ably@3.1.1)
-- [x] `frontend/src/services/competitions.ts` — full typed API service (7 calls + Ably token)
-- [x] `frontend/src/pages/CompetitionRoomPage.tsx` — complete page:
-      List view: rooms with status badges, teacher create form
-      Room detail (student): lobby → answer questions → live leaderboard
-      Room detail (teacher): correct answers visible, start/end controls, live leaderboard
-      Ably subscribe: room:started, room:scores, room:finished
-      Polling fallback every 5s when Ably key not set
-- [x] router.tsx: competition routes added for STUDENT, TEACHER, PRINCIPAL, ADMIN
-- [x] npx tsc --noEmit = 0 errors
-
-### Pending (need Ably API key)
-- [x] ABLY_API_KEY added to Render environment variables
-- [ ] Add competition/chat links to NavMenu (SESSION 2026-03-26 — UI polish)
+## SESSION LOG (reverse chronological)
 
 ---
 
-## SESSION 2026-03-25 (Part 3) — Chat Rooms Complete Redesign
+### SESSION 2026-03-26 — Flashcards + Live Video + AI Chatbot + Documentation
 
 **Status:** ✅ COMPLETE
 
-### Architecture changes
-- Dropped class_general room type — replaced entirely by subject rooms
-- Added ChatRoomMember model — explicit membership for push notifications + admin visibility
-- Room types: subject (Section × Subject) | staff (per institution) | officials (platform-wide)
-- Lazy creation via signals — no upfront room flood
-- Admin's list is filterable (institution_id, room_type, search)
+#### New backend apps
 
-### Backend
-- [x] ChatRoomMember model (unique_together room+user, indexed)
-- [x] bootstrap_chatrooms rewritten — creates 19 rooms, 47 memberships from existing data
-- [x] Signal redesign:
-      STUDENT joins section → create all subject rooms for that section, enroll them
-      TEACHER assigned → create subject room, enroll teacher + existing students of section
-      PRINCIPAL → staff room + officials room enrollment
-      OFFICIAL → officials room enrollment
-- [x] _push_chat_notification() — Ably REST publish to notifications:{user_id} for each member
-- [x] list_rooms — membership-based query (no more role-based room construction)
-- [x] admin_list_rooms, admin_room_messages — admin management endpoints
-- [x] room_members endpoint added
-- [x] Ably token endpoint updated: student capability covers all their chat room channels + notifications:{user_id}
-- [x] Migrations applied, manage.py check = 0
+**`apps/flashcards/`**
+- `FlashcardDeck`, `Flashcard`, `FlashcardProgress` models
+- SM-2 spaced repetition algorithm in `FlashcardProgress.apply_rating()`
+- 8 endpoints: teacher deck/card CRUD + student study flow (due cards, review, stats)
+- Scoped: teachers see own decks; students see published decks for enrolled subjects
+- Migration applied: `flashcards/0001_initial.py`
 
-### Frontend
-- [x] ChatRoomPage.tsx — complete rewrite:
-      Push notification toasts (Ably notifications:{user_id} channel)
-      MonitoringBanner — "This chat is monitored by school administration"
-      Sidebar grouped: Officials / Staff / Subject
-      Threads work correctly (reply sends via handleSend(content, parentId))
-      Students see reply-only notice in subject rooms
-      Teachers see post + reply + pin + file attach
-      5s polling fallback
-- [x] AdminChatManagementPage.tsx — new admin-only page
-      Grouped by institution, filterable by type/search
-      Split panel: room list + message viewer
-      Role-coloured dots per sender
-- [x] chat.ts service updated — adminListRooms, adminGetRoomMessages, getRoomMembers
-- [x] router.tsx — /admin/chat-management route added
-- [x] npx tsc --noEmit = 0 | npm run lint = 0 errors 0 warnings
+**`apps/livesessions/`**
+- `LiveSession`, `LiveAttendance` models
+- LiveKit JWT generation via PyJWT (not LiveKit SDK — avoids async issues)
+- Teacher: `canPublish=True` (camera + mic); Student: `canPublish=False` (viewer)
+- 7 endpoints: create, start, end, join, token, attendance, upcoming
+- Ably notification to all students when teacher starts session
+- Migration applied: `livesessions/0001_initial.py`
 
----
+**`apps/ai_assistant/`**
+- `ChatConversation`, `AIChatMessage` models
+- Gemini 1.5 Flash API with curriculum RAG (course titles + lesson descriptions as context)
+- Multi-turn conversations, subject-scoped, supports English/Hindi/Punjabi
+- System prompt blocks off-curriculum questions
+- 4 endpoints: list/get conversations, chat, delete
+- Migration applied: `ai_assistant/0001_initial.py`
 
-## SESSION 2026-03-25 — Chat Rooms (Ably Chat SDK)
+#### New frontend pages
+- `FlashcardDecksPage` — teacher split panel: deck list + card editor
+- `FlashcardsStudyPage` — student flip UI, SM-2 rating 0-3, session complete screen
+- `LiveSessionPage` — teacher hosts LiveKit room, student joins; uses `@livekit/components-react`
+- `AIChatPage` — Gemini chatbot with sidebar history, thinking indicator, disclaimer
 
-**Date:** 2026-03-25
-**Status:** ✅ COMPLETE
+#### New npm packages
+- `@livekit/components-react`, `@livekit/components-styles`, `livekit-client`
 
-### Part A — Chat Rooms backend
-- [x] `apps.chatrooms` Django app created
-- [x] ChatRoom model: OneToOne with Section (auto-created on first access)
-- [x] ChatMessage model: room, sender, content, is_pinned, sent_at
-- [x] 6 endpoints:
-      GET  /api/v1/chat/rooms/                         — list visible rooms
-      GET  /api/v1/chat/rooms/<id>/                    — room detail
-      GET  /api/v1/chat/rooms/<id>/history/            — last 50 messages
-      POST /api/v1/chat/rooms/<id>/message/            — persist message after Ably send
-      POST /api/v1/chat/rooms/<id>/pin/<msg_id>/       — teacher pin/unpin toggle
-      GET  /api/v1/chat/rooms/<id>/pinned/             — list pinned messages
-- [x] Ably token endpoint extended: channel_type=\chat\ returns [chat]{section_id} capability
-      Students: subscribe+publish to their section channel only
-      Teachers: subscribe+publish to [chat]* (all sections)
-- [x] Migrations applied (chatrooms/0001_initial.py)
-- [x] Registered in INSTALLED_APPS + urls.py
+#### New services
+- `services/flashcards.ts`, `services/livesessions.ts`, `services/aiAssistant.ts`
 
-### Part B — Chat Rooms frontend
-- [x] npm install @ably/chat
-- [x] `frontend/src/services/chat.ts` — typed API service
-- [x] `frontend/src/pages/ChatRoomPage.tsx` — complete chat UI:
-      Message bubbles (own right, others left), role-colored sender badges
-      Teacher sidebar showing all section rooms (multi-section support)
-      Optimistic message send with real ID replacement on save
-      Ably real-time subscribe to message + pin events
-      Online presence counter via Ably presence
-      Teacher pin/unpin via hover actions
-      Pinned message indicator (📌 badge on bubble)
-      Scrolls to bottom on new messages
-      BottomNav shown for students only
-- [x] router.tsx: chat routes added for STUDENT, TEACHER, PRINCIPAL, ADMIN
-- [x] npx tsc --noEmit = 0 errors
+#### NavMenu + router updated
+- Flashcards, Live Classes, AI Tutor added to all role nav groups
+- 12 new routes added (student + teacher + principal + admin)
+
+#### Documentation updated
+- `docs/SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md` — full rewrite
+- `docs/DATA_MODEL.md` — new apps 10–14 added
+- `docs/API_AND_FRONTEND_END_POINTS.md` — all new endpoints + routes documented
+- `docs/DEPLOYMENT.md` — gunicorn fix, env vars, capacity table
+- `tasks.md` — consolidated master tracker (this file)
+
+#### Bugs fixed
+- gevent + CONN_MAX_AGE=600 → DatabaseWrapper thread error: `CONN_MAX_AGE=0` + `post_fork` reset
+- Vercel build: LiveSessionPage onAction type incompatibility fixed
 
 ---
 
-## SESSION 2026-03-26 — NavMenu Redesign (Post-Capstone Polish)
+### SESSION 2026-03-26 — Security, NavMenu, Capacity
 
-**Date:** Post-capstone
-**Goal:** Replace temporary supervisor demo NavMenu with proper sidebar/drawer nav.
-
-- [ ] Remove NavMenu.tsx ⚠️ warning banner
-- [ ] Build SidebarDrawer component for staff roles (TEACHER/PRINCIPAL/OFFICIAL/ADMIN)
-      Slides in from left, role-colored header, grouped sections
-      Persists open/closed state in localStorage
-- [ ] Student view: remove NavMenu entirely (BottomNav is sufficient)
-- [ ] Wire SidebarDrawer into TopBar replacing current NavMenu button
+- [x] OTP: `random.randint` → `secrets.randbelow()` (Bandit B311, cryptographically secure)
+- [x] Bandit scan: 0 High issues, `pass_marks=3` false positive silenced with `#nosec`
+- [x] NavMenu: Chat + Competitions wired for all roles
+- [x] BottomNav: Leaderboard tab → Chat tab (more relevant day-to-day)
+- [x] Leaderboard moved to NavMenu student Home group
+- [x] gunicorn.conf.py: switched to gevent workers for 50-user capacity on Render free
+- [x] CONN_MAX_AGE: set to 0 in prod.py (gevent + persistent connections = crashes)
+- [x] gevent post_fork hook added to reset DB connections
+- [x] testing/ folder created: TESTING_GUIDE.md, Bruno collection, Playwright starter, k6 load test
 
 ---
 
-## Architecture Decisions Log
+### SESSION 2026-03-25 — Chat Rooms + Push Notifications + Django Admin
+
+#### Chat rooms complete redesign
+- `ChatRoomMember` model added (explicit membership — enables push notifications + admin visibility)
+- Room types: `subject` | `staff` | `officials` (dropped `class_general`)
+- Signal redesign: `TeachingAssignment.post_save` creates rooms, `User.post_save` only enrolls
+- `_create_notification_records()` — Notification rows created on every message send
+- `_push_chat_notification()` — Ably REST publish to `notifications:{user_id}`
+- `AuthContext` subscribes to `notifications:{user_id}` → dispatches `notif:new` event
+- `TopBar` listens to `notif:new` → immediate bell badge update
+- Admin default view: own institution's rooms (not all 80)
+- `AdminChatManagementPage` added — split panel: room browser + message viewer
+- `bootstrap_chatrooms` management command rewritten — only creates rooms where TA exists
+- Bug fixed: signal was creating 12 phantom rooms per student registration
+
+#### Ably token
+- `getAblyToken(roomId?, channelType?)` — added `channelType` param
+- `channel_type=chat` → student gets `chat:{room_id}` for all memberships + `notifications:{user_id}`
+- `channel_type=competition` → student gets `competition:{room_id}` only (unchanged)
+
+#### Django admin
+- `django-unfold` v0.86 installed, all 10+ admin.py files patched to `UnfoldModelAdmin`
+- `UNFOLD` config in `base.py` with GyanGrit branding + grouped sidebar
+
+---
+
+### SESSION 2026-03-24 — Competition Rooms + SectionLessonPage Route
+
+- `SectionLessonPage` route `/lessons/section/:lessonId` added (page existed, no route)
+- `apps.competitions` Django app: CompetitionRoom, CompetitionParticipant, CompetitionAnswer
+- 7 competition endpoints + Ably Pub/Sub (REST HTTP API, not SDK)
+- `POST /api/v1/realtime/token/` — Ably JWT vending
+- `CompetitionRoomPage.tsx` — full live competition UI
+- Ably v3 SDK is async-only → rewrote to use Ably REST HTTP API via `requests` lib
+- ABLY_API_KEY added to Render env vars
+
+---
+
+### SESSION 2026-03-23 — Deployment Fixes
+
+- Vercel build error: `uploadFile` arg order in AdminLessonEditorPage
+- Health endpoint: removed `@login_required` (was causing 302 redirect)
+- prod.py: `_parse_hosts()` + `_parse_origins()` defensive parsers (strip trailing slashes)
+- whitenoise added to `requirements/base.txt` (was prod-only, broke local dev)
+- Keep-alive ping in `AuthContext.tsx` — pings `/health/` every 10 min in prod
+- Fast2SMS OTP wired: `services.py` complete, `views.py` calls `send_otp()`
+- Gmail SMTP added to `base.py`
+- Fly.io abandoned (blocks Indian accounts with ₹900 verification)
+
+---
+
+### SESSION 2026-03-22 — Bug Fixes, Routes, Deployment Prep
+
+- `teacher_course_analytics` scoped to assigned subjects only
+- `AdminAssessmentBuilderPage` back nav: `useLocation` prefix detection
+- `PrincipalDashboardPage` class cards → `/principal/classes/:id`
+- `/profile` + `/notifications` moved to shared routes
+- `prod.py` complete rewrite: env-based, SameSite=None, HSTS, logging
+- WhiteNoise in MIDDLEWARE, cookie names in `base.py`
+- `requirements/prod.txt`: dj-database-url + whitenoise[brotli]
+- `backend/build.sh`, `frontend/vercel.json` created
+
+---
+
+### SESSION 2026-03-18 — Gradebook, Dashboard Polish, Analytics
+
+- Gradebook app: `GradeEntry` model (term/category/marks/percentage)
+- 6 gradebook endpoints
+- `GradebookPage` (expandable rows, add/edit/delete, filters)
+- `TeacherClassDetailPage`: "Gradebook →" button
+- `PrincipalDashboardPage` + `OfficialDashboardPage`: real data wired
+- `DashboardPage`: assessments section + score rings + resume button
+- `LessonPage`: YouTube/Vimeo embed, R2 video, PDF inline, Markdown
+- `NavMenu` component: role-aware supervisor demo nav
+- All 3 major docs written
+
+---
+
+### SESSION 2026-03-17 — Gamification, Notifications, Slugs
+
+- `PointEvent` ledger, `StudentPoints`, 9 badge types, streaks
+- Class + school leaderboard
+- `Notification` + `Broadcast` models, 8 endpoints
+- Auto-notify on lesson/assessment publish (signals)
+- Human-readable URL slugs for courses + assessments
+- `NotificationsPage`: inbox, send form, broadcast history, Markdown render
+
+---
+
+### SESSION 2026-03-15 — Core Platform
+
+- Full Django backend: accounts, academics, content, assessments, learning, roster, media
+- Role system: STUDENT < TEACHER < PRINCIPAL < OFFICIAL < ADMIN
+- Join-code registration, OTP, single-device enforcement
+- Signal-driven auto-enrollment
+- All 23 Punjab districts seeded
+- Full React frontend: auth flow, student dashboard, lesson page, assessment engine
+- Cloudflare R2 media management
+
+---
+
+## ARCHITECTURE DECISIONS LOG
 
 | Decision | Rationale | Date |
 |---|---|---|
-| Ably Pub/Sub for competition rooms | Custom message shape needed (scores, timers, question sync). Raw channel control required. | 2026-03-22 |
-| Ably Chat for chat rooms | Built-in typing indicators, history, presence. No need to build from scratch. | 2026-03-22 |
-| Same Ably app/key for both | One app, one key, JWT scoping controls channel access per user. | 2026-03-22 |
-| Vercel for frontend | Best Vite/React SPA deploy. Free tier. Mumbai edge. Auto-deploy on push. | 2026-03-22 |
-| Render for backend | Free tier + keep-alive ping = no cold starts. Only APAC affordable option. | 2026-03-23 |
-| Fly.io abandoned | Blocked new Indian accounts with ₹900 verification. | 2026-03-23 |
-| Keep-alive in AuthContext | Frontend pings /health/ every 10 min in prod. Eliminates Render cold start. | 2026-03-23 |
-| Fast2SMS for OTP SMS | ₹0.15/SMS, Indian numbers, free ₹50 trial. Fully implemented. | 2026-03-23 |
-| Gmail SMTP as OTP fallback | When no mobile_primary or Fast2SMS fails — email fallback. | 2026-03-23 |
-| No AI/PWA for capstone | Out of scope for submission timeline. Post-capstone. | 2026-03-22 |
+| gevent workers for gunicorn | 50 concurrent users on Render free 512MB. Sync workers handle 1 req at a time. | 2026-03-26 |
+| CONN_MAX_AGE=0 with gevent | Persistent connections bound to creation thread → crash with gevent green threads | 2026-03-26 |
+| post_fork DB connection reset | Ensures clean DB state per worker after fork | 2026-03-26 |
+| PyJWT for LiveKit tokens (not LiveKit SDK) | LiveKit Python SDK is async-only — incompatible with sync Django views | 2026-03-26 |
+| Gemini 1.5 Flash for AI chatbot | Free tier (1,500 req/day), 1M context, supports English/Hindi/Punjabi, no server needed | 2026-03-26 |
+| LiveKit Cloud (not self-hosted) | No server to configure, no UDP ports to expose. Free tier handles capstone demo (5k min/mo). | 2026-03-26 |
+| SM-2 for flashcard scheduling | Industry-standard spaced repetition (same as Anki). Self-contained, no external service. | 2026-03-26 |
+| ChatRoomMember explicit model | Without it: cannot push notifications, cannot check membership efficiently, cannot show member count | 2026-03-25 |
+| Rooms only from TeachingAssignment | Student registration was creating 12 phantom rooms. Rooms should only exist where a teacher teaches. | 2026-03-25 |
+| Ably REST HTTP API (not SDK) | Ably Python v3 SDK is async-only → 500 errors in sync Django views | 2026-03-25 |
+| django-unfold for admin | Free, zero-config, beautiful. Makes the admin usable for non-technical supervisors. | 2026-03-25 |
+| Ably Pub/Sub for competitions | Custom message shapes needed (scores, timers, leaderboard). Raw channel control required. | 2026-03-24 |
+| Ably for chat rooms | Subject rooms need per-room subscriptions scoped by membership JWT | 2026-03-24 |
+| Single Ably app/key for all real-time | One key, JWT scoping controls capabilities per user per context | 2026-03-24 |
+| Vercel for frontend | Best Vite/React SPA deploy. Free. Mumbai edge. Auto-deploy on push. | 2026-03-23 |
+| Render for backend | Free tier + keep-alive = no cold starts. Only affordable APAC option. | 2026-03-23 |
+| Fly.io abandoned | Blocks Indian accounts with ₹900 verification. | 2026-03-23 |
+| Keep-alive in AuthContext | Frontend pings /health/ every 10 min. Prevents Render 15-minute sleep. | 2026-03-23 |
+| Fast2SMS for OTP SMS | ₹0.15/SMS, Indian numbers, free ₹50 trial. | 2026-03-23 |
+| Gmail SMTP as OTP fallback | When mobile_primary empty or Fast2SMS fails. | 2026-03-23 |
+| secrets.randbelow() for OTP | random.randint is not cryptographically secure (Bandit B311). | 2026-03-26 |
+| PostgreSQL via Supabase (all envs) | No SQLite anywhere. Supabase = managed Postgres, pgBouncer, Mumbai region. | 2026-03-15 |
+| DISABLE_SERVER_SIDE_CURSORS=True | Required for Supabase pgBouncer transaction-mode pooling. | 2026-03-15 |
+| Signal-driven enrollment | Keeps each app responsible for its own domain. No cross-app enrollment in views. | 2026-03-15 |
+| PointEvent ledger for gamification | Deduplication guard. Re-running a signal never double-awards points. | 2026-03-17 |
+| Human-readable URL slugs | Course/assessment URLs use grade+subject, not numeric IDs. Better UX + sharing. | 2026-03-17 |

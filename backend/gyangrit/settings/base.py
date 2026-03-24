@@ -43,6 +43,9 @@ INSTALLED_APPS = [
     "apps.gradebook.apps.GradebookConfig",
     "apps.competitions.apps.CompetitionsConfig",
     "apps.chatrooms.apps.ChatroomsConfig",
+    "apps.flashcards.apps.FlashcardsConfig",
+    "apps.livesessions.apps.LiveSessionsConfig",
+    "apps.ai_assistant.apps.AiAssistantConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -299,3 +302,11 @@ UNFOLD = {
         ],
     },
 }
+
+# ── LiveKit ───────────────────────────────────────────────────────────────────
+LIVEKIT_URL        = os.environ.get("LIVEKIT_URL", "")
+LIVEKIT_API_KEY    = os.environ.get("LIVEKIT_API_KEY", "")
+LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
+
+# ── Gemini ────────────────────────────────────────────────────────────────────
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

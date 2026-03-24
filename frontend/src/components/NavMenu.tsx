@@ -53,8 +53,11 @@ function getNavGroups(role: Role): NavGroup[] {
         {
           group: "Learning",
           items: [
-            { label: "All Courses",    path: "/courses",  icon: "📚" },
-            { label: "Learning Paths", path: "/learning", icon: "🗺️" },
+            { label: "All Courses",    path: "/courses",    icon: "📚" },
+            { label: "Learning Paths", path: "/learning",   icon: "🗺️" },
+            { label: "Flashcards",     path: "/flashcards", icon: "🃏" },
+            { label: "Live Classes",   path: "/live",       icon: "📹" },
+            { label: "AI Tutor",       path: "/ai-tutor",   icon: "🤖" },
           ],
         },
         {
@@ -104,6 +107,8 @@ function getNavGroups(role: Role): NavGroup[] {
           items: [
             { label: "Class Chat",   path: "/teacher/chat",         icon: "💬" },
             { label: "Competitions", path: "/teacher/competitions",  icon: "🏆" },
+            { label: "Live Classes", path: "/teacher/live",          icon: "📹" },
+            { label: "Flashcards",   path: "/teacher/flashcards",    icon: "🃏" },
           ],
         },
       ];
@@ -191,6 +196,9 @@ function getNavGroups(role: Role): NavGroup[] {
             { label: "Class Chat",      path: "/admin/chat",            icon: "💬" },
             { label: "Chat Management", path: "/admin/chat-management",  icon: "🗂️" },
             { label: "Competitions",    path: "/admin/competitions",     icon: "🏆" },
+            { label: "Live Classes",    path: "/admin/live",             icon: "📹" },
+            { label: "Flashcards",      path: "/admin/flashcards",       icon: "🃏" },
+            { label: "AI Tutor",        path: "/admin/ai-tutor",         icon: "🤖" },
           ],
         },
       ];

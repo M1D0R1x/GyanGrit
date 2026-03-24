@@ -64,6 +64,16 @@ const CompetitionRoomPage  = lazy(() => import("../pages/CompetitionRoomPage"));
 const ChatRoomPage              = lazy(() => import("../pages/ChatRoomPage"));
 const AdminChatManagementPage   = lazy(() => import("../pages/AdminChatManagementPage"));
 
+// ── Flashcards ────────────────────────────────────────────────────────────────
+const FlashcardDecksPage    = lazy(() => import("../pages/FlashcardDecksPage"));
+const FlashcardsStudyPage   = lazy(() => import("../pages/FlashcardsStudyPage"));
+
+// ── Live Sessions ─────────────────────────────────────────────────────────────
+const LiveSessionPage       = lazy(() => import("../pages/LiveSessionPage"));
+
+// ── AI Chatbot ────────────────────────────────────────────────────────────────
+const AIChatPage            = lazy(() => import("../pages/AIChatPage"));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PageLoader() {
@@ -178,6 +188,28 @@ export const router = createBrowserRouter([
   { path: "/admin/chat",                 element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
   { path: "/admin/chat/:roomId",         element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
   { path: "/admin/chat-management",      element: <Protected role="ADMIN"><AdminChatManagementPage /></Protected> },
+
+  // ── Flashcards ──────────────────────────────────────────────────────────────
+  // Student study
+  { path: "/flashcards",              element: <Protected role="STUDENT"><FlashcardsStudyPage /></Protected> },
+  { path: "/flashcards/:deckId",      element: <Protected role="STUDENT"><FlashcardsStudyPage /></Protected> },
+  // Teacher / principal manage decks
+  { path: "/teacher/flashcards",      element: <Protected role="TEACHER"><FlashcardDecksPage /></Protected> },
+  { path: "/principal/flashcards",    element: <Protected role="PRINCIPAL"><FlashcardDecksPage /></Protected> },
+  { path: "/admin/flashcards",        element: <Protected role="ADMIN"><FlashcardDecksPage /></Protected> },
+
+  // ── Live Sessions ────────────────────────────────────────────────────────────
+  { path: "/live",                    element: <Protected role="STUDENT"><LiveSessionPage /></Protected> },
+  { path: "/live/:sessionId",         element: <Protected role="STUDENT"><LiveSessionPage /></Protected> },
+  { path: "/teacher/live",            element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
+  { path: "/teacher/live/:sessionId", element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
+  { path: "/principal/live",          element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
+  { path: "/admin/live",              element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
+
+  // ── AI Chatbot ───────────────────────────────────────────────────────────────
+  { path: "/ai-tutor",                element: <Protected role="STUDENT"><AIChatPage /></Protected> },
+  { path: "/teacher/ai-tutor",        element: <Protected role="TEACHER"><AIChatPage /></Protected> },
+  { path: "/admin/ai-tutor",          element: <Protected role="ADMIN"><AIChatPage /></Protected> },
 
   // ── Error pages ───────────────────────────────────────────────────────────
   { path: "/403",           element: <ForbiddenPage /> },

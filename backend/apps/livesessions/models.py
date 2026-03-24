@@ -1,0 +1,70 @@
+# apps.livesessions.models
+"""
+Live class sessions via LiveKit WebRTC.
+
+LiveSession — teacher creates a session for a section.
+  status: scheduled → live → ended
+  livekit_room_name: unique room name in LiveKit (section_id + timestamp)
+
+LiveAttendance — auto-created when a student joins. is_present=True.
+"""
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
+class SessionStatus(models.TextChoices):
+    SCHEDULED = "scheduled", "Scheduled"
+    LIVE      = "live",      "Live"
+    ENDED     = "ended",     "Ended"
+
+
+class LiveSession(models.Model):
+    title           = models.CharField(max_length=200)
+    section         = models.ForeignKey(
+        "academics.Section", on_delete=models.CASCADE, related_name="live_sessions",
+    )
+    subject         = models.ForeignKey(
+        "academics.Subject", on_delete=models.CASCADE,
+        null=True, blank=True, related_name="live_sessions",
+    )
+    teacher         = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="hosted_sessions",
+    )
+    status          = models.CharField(
+        max_length=12, choices=SessionStatus.choices,
+        default=SessionStatus.SCHEDULED, db_index=True,
+    )
+    livekit_room_name = models.CharField(max_length=200, unique=True, db_index=True)
+    scheduled_at    = models.DateTimeField(default=timezone.now, db_index=True)
+    started_at      = models.DateTimeField(null=True, blank=True)
+    ended_at        = models.DateTimeField(null=True, blank=True)
+    description     = models.TextField(blank=True)
+    created_at      = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-scheduled_at"]
+        indexes  = [
+            models.Index(fields=["section", "status"]),
+            models.Index(fields=["teacher", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} [{self.status}]"
+
+
+class LiveAttendance(models.Model):
+    session    = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name="attendance")
+    student    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="session_attendance",
+    )
+    joined_at  = models.DateTimeField(default=timezone.now)
+    left_at    = models.DateTimeField(null=True, blank=True)
+    is_present = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("session", "student")
+        indexes = [models.Index(fields=["session", "is_present"])]
+
+    def __str__(self):
+        return f"{self.student.username} @ {self.session.title}"

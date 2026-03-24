@@ -12,3 +12,4 @@ requests>=2.31         # HTTP client — used by Fast2SMS OTP service
 whitenoise>=6.6        # Static file serving — required in MIDDLEWARE in base.py
 ably>=2.0              # Real-time channels — competition rooms, chat rooms
 django-unfold>=0.86      # Modern Django admin theme
+PyJWT>=2.8                      # LiveKit JWT token generation

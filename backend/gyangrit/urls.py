@@ -20,6 +20,9 @@ urlpatterns = [
     path("api/v1/competitions/",  include("apps.competitions.api.v1.urls")),
 
     # Chat rooms
+    path("api/v1/ai/",           include("apps.ai_assistant.api.v1.urls")),
+    path("api/v1/live/",          include("apps.livesessions.api.v1.urls")),
+    path("api/v1/flashcards/",  include("apps.flashcards.api.v1.urls")),
     path("api/v1/chat/",          include("apps.chatrooms.api.v1.urls")),
 
     # Ably real-time token vending

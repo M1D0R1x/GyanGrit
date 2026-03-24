@@ -11,6 +11,8 @@ Required env vars (set these in Render dashboard → Environment):
   CORS_ALLOWED_ORIGINS   → https://gyan-grit.vercel.app
   DJANGO_SETTINGS_MODULE → gyangrit.settings.prod
   DEBUG                  → False
+
+Optional env vars:
   SENTRY_DSN             → https://xxx@xxx.ingest.sentry.io/xxx
   UPSTASH_REDIS_KV_URL   → rediss://default:xxx@xxx.upstash.io:6379
 """
@@ -18,25 +20,27 @@ import os
 import logging
 
 import dj_database_url
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-from sentry_sdk.integrations.logging import LoggingIntegration
 
 from .base import *
 
 logger = logging.getLogger(__name__)
 
 
+def _strip_quotes(val: str) -> str:
+    """
+    Strip surrounding double or single quotes from env var values.
+    Render dashboard sometimes wraps values in quotes, which breaks URL parsers.
+    e.g. '"postgres://..."' → 'postgres://...'
+    """
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+        return val[1:-1]
+    return val
+
+
 def _parse_hosts(raw: str) -> list[str]:
-    """
-    Parse ALLOWED_HOSTS env var.
-    Accepts: hostname only, or full URL (strips scheme + path).
-    e.g. "https://gyangrit.onrender.com/" → "gyangrit.onrender.com"
-    e.g. "gyangrit.onrender.com"          → "gyangrit.onrender.com"
-    """
     hosts = []
     for h in raw.split(","):
-        h = h.strip().rstrip("/")
+        h = _strip_quotes(h.strip()).rstrip("/")
         if "://" in h:
             h = h.split("://", 1)[1]
         h = h.split("/")[0]
@@ -46,14 +50,9 @@ def _parse_hosts(raw: str) -> list[str]:
 
 
 def _parse_origins(raw: str) -> list[str]:
-    """
-    Parse CORS_ALLOWED_ORIGINS env var.
-    Must be full https:// URL with NO trailing slash.
-    Strips trailing slashes defensively.
-    """
     origins = []
     for o in raw.split(","):
-        o = o.strip().rstrip("/")
+        o = _strip_quotes(o.strip()).rstrip("/")
         if o:
             origins.append(o)
     return origins
@@ -72,43 +71,55 @@ ALLOWED_HOSTS = _parse_hosts(os.environ.get("ALLOWED_HOSTS", ""))
 # ─────────────────────────────────────────────────────────────────────────────
 # Sentry — error tracking + performance monitoring
 #
-# Captures: unhandled exceptions, slow DB queries, 500 responses.
-# Sends to Sentry dashboard at https://gyangrit.sentry.io
-#
-# traces_sample_rate=0.3 → 30% of requests traced (good for a school app).
-# send_default_pii=False → never send emails/usernames to Sentry.
+# Import is conditional — if sentry-sdk is not installed (first deploy before
+# pip install runs with new requirements), we skip gracefully.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 
 if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[
-            DjangoIntegration(
-                transaction_style="url",
-                middleware_spans=True,
-            ),
-            LoggingIntegration(
-                level=logging.WARNING,
-                event_level=logging.ERROR,
-            ),
-        ],
-        traces_sample_rate=0.3,
-        send_default_pii=False,
-        environment="production",
-        # Don't send health check transactions to Sentry — they're noise
-        traces_sampler=lambda ctx: 0 if "/health/" in (ctx.get("wsgi_environ", {}).get("PATH_INFO", "")) else 0.3,
-    )
-    logger.info("Sentry initialized: DSN=%s...", SENTRY_DSN[:40])
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[
+                DjangoIntegration(
+                    transaction_style="url",
+                    middleware_spans=True,
+                ),
+                LoggingIntegration(
+                    level=logging.WARNING,
+                    event_level=logging.ERROR,
+                ),
+            ],
+            traces_sample_rate=0.3,
+            send_default_pii=False,
+            environment="production",
+        )
+        logger.info("Sentry initialized.")
+    except ImportError:
+        logger.warning("sentry-sdk not installed — skipping Sentry init.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Database — Supabase PostgreSQL via dj-database-url
+#
+# IMPORTANT: _strip_quotes() is critical here. Render dashboard can wrap
+# DATABASE_URL in double quotes, which breaks dj_database_url.
+# e.g. env has: DATABASE_URL="postgres://..." (with literal quotes)
+# Without stripping: dj_database_url tries to parse '"postgres://...'
+# and fails silently → conn_max_age is set but engine is wrong → 500 on
+# any view that hits the DB.
 # ─────────────────────────────────────────────────────────────────────────────
+
+_raw_db_url = os.environ.get("DATABASE_URL", "")
+_db_url = _strip_quotes(_raw_db_url)
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.environ["DATABASE_URL"],
+        default=_db_url,
         conn_max_age=0,     # MUST be 0 with gevent workers
         conn_health_checks=True,
     )
@@ -118,35 +129,33 @@ DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 # ─────────────────────────────────────────────────────────────────────────────
 # Upstash Redis — session store + cache backend
 #
-# Replaces Django's default DB-backed sessions. Benefits:
-#   1. Sessions survive Render redeploys (DB sessions don't, since the
-#      Django session table is local to the container).
-#   2. Much faster reads than hitting Supabase for every request.
-#   3. Upstash free tier: 10k commands/day, 256MB — plenty for a school app.
-#
-# Uses TLS (rediss://) to Upstash's global endpoint.
-# SESSION_ENGINE switches from django.contrib.sessions.backends.db
-# to django.contrib.sessions.backends.cache.
+# Conditional import: if redis package isn't installed yet, fall back to
+# default DB sessions. This makes the first deploy resilient.
 # ─────────────────────────────────────────────────────────────────────────────
 
-UPSTASH_REDIS_URL = os.environ.get("UPSTASH_REDIS_KV_URL", "")
+_raw_redis_url = os.environ.get("UPSTASH_REDIS_KV_URL", "")
+UPSTASH_REDIS_URL = _strip_quotes(_raw_redis_url)
 
 if UPSTASH_REDIS_URL:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": UPSTASH_REDIS_URL,
-            "OPTIONS": {
-                "ssl_cert_reqs": None,  # Upstash uses self-signed TLS
-            },
+    try:
+        import redis  # noqa: F401 — just check it's importable
+        CACHES = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": UPSTASH_REDIS_URL,
+                "OPTIONS": {
+                    "ssl_cert_reqs": None,
+                },
+            }
         }
-    }
-    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-    SESSION_CACHE_ALIAS = "default"
-    logger.info("Redis cache enabled (Upstash). Sessions stored in Redis.")
+        SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+        SESSION_CACHE_ALIAS = "default"
+        logger.info("Redis cache enabled (Upstash). Sessions stored in Redis.")
+    except ImportError:
+        logger.warning("redis package not installed — using default DB sessions.")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Static files — WhiteNoise serves them (no nginx / S3 needed)
+# Static files — WhiteNoise
 # ─────────────────────────────────────────────────────────────────────────────
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -207,7 +216,8 @@ LOGGING = {
         "level": "WARNING",
     },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "WARNING", "propagate": False},
-        "apps":   {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        "django":  {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "apps":    {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        "gyangrit": {"handlers": ["console"], "level": "INFO",   "propagate": False},
     },
 }

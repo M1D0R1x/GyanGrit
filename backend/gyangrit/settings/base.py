@@ -91,7 +91,11 @@ TEMPLATES = [
 # happen in practice — Supabase is always set in .env).
 # ─────────────────────────────────────────────────────────────────────────────
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# Strip surrounding quotes — some .env editors or dashboards add them
+if len(DATABASE_URL) >= 2 and DATABASE_URL[0] == DATABASE_URL[-1] and DATABASE_URL[0] in ('"', "'"):
+    DATABASE_URL = DATABASE_URL[1:-1]
 
 if DATABASE_URL:
     url = urlparse(DATABASE_URL)

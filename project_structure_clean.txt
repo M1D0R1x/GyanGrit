@@ -301,6 +301,13 @@ frontend
 ├── index.html
 ├── package-lock.json
 ├── package.json
+├── public
+│   ├── icons
+│   │   ├── icon-180.png
+│   │   ├── icon-192.png
+│   │   └── icon-512.png
+│   ├── manifest.json
+│   └── sw.js
 ├── src
 │   ├── app
 │   │   └── router.tsx
@@ -405,4 +412,4 @@ docs
 ├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-89 directories, 317 files
+91 directories, 322 files

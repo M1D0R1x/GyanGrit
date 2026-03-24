@@ -102,11 +102,7 @@ frontend/.env
 frontend/.env.*
 frontend/*.local
 
-############################################
-# Service workers & cache (generated)
-############################################
-frontend/public/sw.js
-frontend/public/workbox-*
+
 
 ############################################
 # IndexedDB / PWA generated artifacts
@@ -169,3 +165,5 @@ htmlcov/
 # Ignore EVERYTHING inside infra secrets
 ############################################
 infra/**/secrets/
+.vercel
+.env*.local

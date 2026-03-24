@@ -2,13 +2,18 @@
  * api.ts — base fetch helpers for GyanGrit frontend.
  *
  * Rules:
- * - All API calls go through apiGet / apiPost / apiPatch
+ * - All API calls go through apiGet / apiPost / apiPatch / apiDelete
  * - Session cookies are sent with every request (credentials: "include")
  * - CSRF token is read from gyangrit_csrftoken cookie and sent as X-CSRFToken
  * - Never hardcode base URLs anywhere in the app — always import API_BASE_URL
  *
  * CHANGE (2026-03-15):
  *   Exported API_BASE_URL so media.ts can use it without a hardcoded localhost string.
+ *
+ * CHANGE (2026-03-25):
+ *   - initCsrf() now throws on non-ok responses so retryWithBackoff in AuthContext
+ *     can detect cold-start 502s and retry.
+ *   - Added .env.production with correct Render URL.
  */
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
@@ -21,9 +26,12 @@ function getCsrfToken(): string | undefined {
 }
 
 export async function initCsrf(): Promise<void> {
-  await fetch(`${API_BASE_URL}/accounts/csrf/`, {
+  const res = await fetch(`${API_BASE_URL}/accounts/csrf/`, {
     credentials: "include",
   });
+  if (!res.ok) {
+    throw new Error(`CSRF init failed: ${res.status}`);
+  }
 }
 
 export async function apiGet<T>(path: string): Promise<T> {

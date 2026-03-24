@@ -34,6 +34,32 @@ function startKeepAlive() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Retry helper for cold-start resilience
+// Render free tier can take 30-60s to wake. We retry CSRF + /me up to 3 times
+// with increasing delay so the user isn't stuck on a loading screen.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  baseDelayMs: number = 2000
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt); // 2s, 4s, 8s
+      console.warn(
+        `[AuthContext] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw new Error("retryWithBackoff: unreachable");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthState>(null!);
 
@@ -83,7 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Seed CSRF cookie first, then verify auth state.
-    initCsrf().then(() => refresh());
+    // Uses retry logic to handle Render cold starts (502s for 30-60s).
+    retryWithBackoff(() => initCsrf(), 3, 2000)
+      .then(() => refresh())
+      .catch((err) => {
+        console.error("[AuthContext] CSRF init failed after retries:", err);
+        setLoading(false);
+      });
   }, [refresh]);
 
   // Keep the Render/Railway backend warm — ping every 10 minutes

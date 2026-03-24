@@ -37,6 +37,10 @@ secret_key.txt
 # .env.example contains real-looking credentials
 # and should never be committed.
 # Keep your own copy locally or in 1Password.
+#
+# NOTE: frontend/.env.production is force-added (git add -f)
+# because Vercel needs it as a build-time fallback for VITE_API_URL.
+# It contains NO secrets — only public URLs and DSN.
 ############################################
 .env
 .env.*
@@ -91,9 +95,10 @@ frontend/dist/
 frontend/build/
 
 ############################################
-# Service workers & cache (generated)
+# Service workers & cache
+# NOTE: sw.js is NOT gitignored — it's a hand-written file that
+# MUST be deployed to Vercel. Workbox-generated files are still ignored.
 ############################################
-frontend/public/sw.js
 frontend/public/workbox-*
 
 ############################################

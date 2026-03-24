@@ -29,15 +29,6 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/dashboard.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Student Dashboard"
-    }
-  ],
   "categories": ["education", "productivity"],
   "shortcuts": [
     {

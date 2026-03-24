@@ -114,7 +114,7 @@ def _send_otp_email(email: str, otp_code: str, username: str) -> bool:
             ),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@gyangrit.com"),
             recipient_list=[email],
-            fail_silently=False,
+            fail_silently=True,
         )
         masked = email[:3] + "***" + email[email.find("@"):]
         logger.info("OTP email sent to %s", masked)

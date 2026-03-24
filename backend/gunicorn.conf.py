@@ -8,7 +8,8 @@
 #   Gevent works by yielding on I/O (DB queries, Ably HTTP calls, R2 requests)
 #   so the worker handles other requests while waiting for the DB to respond.
 #
-# No code changes needed in Django — gevent monkey-patches stdlib at startup.
+# IMPORTANT: Python version must be 3.11 or 3.12. Python 3.14 causes gevent
+# worker crashes. Pin via runtime.txt (python-3.11.12) in the repo root.
 
 import os
 
@@ -17,8 +18,16 @@ worker_class       = "gevent"
 workers            = 1          # 1 worker is correct for 512MB — gevent handles concurrency
 worker_connections = 100        # max simultaneous connections per worker
 
+# ── Preload ────────────────────────────────────────────────────────────────
+# Load the Django app BEFORE forking workers. This means:
+#   1. Import errors show up in the boot log (not silently swallowed)
+#   2. Shared memory between master and workers (saves ~50MB on free tier)
+#   3. If Django can't start, gunicorn exits immediately with a clear error
+preload_app = True
+
 # ── Timeouts ──────────────────────────────────────────────────────────────
-timeout            = 60         # 60s — long enough for slow Supabase queries
+timeout            = 120        # 120s — generous for cold Supabase connections from Singapore
+graceful_timeout   = 30         # 30s to finish in-flight requests on restart
 keepalive          = 5
 
 # ── Binding ───────────────────────────────────────────────────────────────

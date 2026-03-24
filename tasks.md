@@ -85,9 +85,7 @@ None. All resolved.
 - Cache backend for leaderboards, subject lists, course lists
 - **Render env vars added:**
   ```
-  UPSTASH_REDIS_KV_URL=rediss://default:...@golden-sheep-83421.upstash.io:6379
-  UPSTASH_REDIS_KV_REST_API_URL=https://golden-sheep-83421.upstash.io
-  UPSTASH_REDIS_KV_REST_API_TOKEN=gQAAA...
+
   ```
 - Vercel: auto-injected
 
@@ -95,8 +93,7 @@ None. All resolved.
 - For scheduled jobs: daily flashcard due notifications, OTP retry logic
 - **Render env vars added:**
   ```
-  UPSTASH_QSTASH_QSTASH_URL=https://qstash.upstash.io
-  UPSTASH_QSTASH_QSTASH_TOKEN=eyJV...
+
   ```
 - Vercel: auto-injected
 
@@ -104,12 +101,8 @@ None. All resolved.
 - Error tracking — captures all Django 500s with full stack trace
 - **Render env vars added:**
   ```
-  SENTRY_DSN=https://30eb244c...@o4511100995043328.ingest.de.sentry.io/4511101006970960
-  SENTRY_AUTH_TOKEN=5e5192a9...
-  ```
 - **Vercel env var added:**
   ```
-  VITE_SENTRY_DSN=https://30eb244c...@o4511100995043328.ingest.de.sentry.io/4511101006970960
   ```
 
 ### Skipped (not needed at this scale)
@@ -120,39 +113,7 @@ None. All resolved.
 
 ## COMPLETE RENDER ENV VAR STATE (as of end of session)
 
-```
-ABLY_API_KEY=HJyd-A.0-SXPQ:Y2AgNphHYQDQET24yh7_lsv_5hlrUlORFlL8V4WbW2g
-ALLOWED_HOSTS=gyangrit.onrender.com
-CLOUDFLARE_R2_ACCESS_KEY_ID=65f5a6407fe7ec6bc0d81a7aff8c740c
-CLOUDFLARE_R2_ACCOUNT_ID=50883c022115b64382eb0a72478718e3
-CLOUDFLARE_R2_BUCKET_NAME=gyangrit-media
-CLOUDFLARE_R2_PUBLIC_URL=https://pub-e9d4409f2ff64c3da255818e71428b31.r2.dev
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=9f64bae65bc753ff07c84ed4cf7e67cfbc4f78264b17916a6dcd953adfc5ac70
-CORS_ALLOWED_ORIGINS=https://gyan-grit.vercel.app
-DATABASE_URL=postgres://postgres.rvyuccwggicloiyoixjb:NNKZFK2BCSPipWy5@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require
-DEBUG=False
-DJANGO_SETTINGS_MODULE=gyangrit.settings.prod
-EMAIL_HOST_PASSWORD=ocwc vuxh enjt rjmn
-EMAIL_HOST_USER=veerababusaviti2103@gmail.com
-FAST2SMS_API_KEY=p6PoDZ92g8rRxBkHOmjniebCfI4AQJUuGlE7MaWVtY0Fh5LKcwIi5EFlW4j3kbeRpvnHJNwBzDtGsArf
-GEMINI_API_KEY=AIzaSyDAAUFrK6SsRf7AcXR72SIBS3su03BJCno
-LIVEKIT_API_KEY=APIaYnaw5R7oGaM
-LIVEKIT_API_SECRET=WcbjFatmePCw17vRbNm6RMa7e3RdXnruJtcUEOqoAib
-LIVEKIT_URL=wss://gyangrit-ld2s7sp2.livekit.cloud
-SECRET_KEY=django-insecure-change-this-to-a-long-random-string   ← CHANGE THIS
-UPSTASH_REDIS_KV_URL=rediss://default:gQAAAAAAAUXdAAIncDIxNmZmZWNiNjIyOTU0YmU3OGNmMzhjNjI2NjM1MGIxN3AyODM0MjE@golden-sheep-83421.upstash.io:6379
-UPSTASH_REDIS_KV_REST_API_URL=https://golden-sheep-83421.upstash.io
-UPSTASH_REDIS_KV_REST_API_TOKEN=gQAAAAAAAUXdAAIncDIxNmZmZWNiNjIyOTU0YmU3OGNmMzhjNjI2NjM1MGIxN3AyODM0MjE
-UPSTASH_QSTASH_QSTASH_URL=https://qstash.upstash.io
-UPSTASH_QSTASH_QSTASH_TOKEN=eyJVc2VySUQiOiJkYWE0NjgzNy05MzIxLTQ0N2ItYjE1YS1mNTk1Zjk5Njg0ZWMiLCJQYXNzd29yZCI6ImZmN2ViNzNmODkxMzQwOThhMjJhYmM3NmFlNjA1YzQ1In0=
-SENTRY_DSN=https://30eb244c85f8cf83d6cf909e1d049b46@o4511100995043328.ingest.de.sentry.io/4511101006970960
-SENTRY_AUTH_TOKEN=5e5192a91a4f759dec4869fbb86d0f5f3f3d47695fa1591b14862eb0078e7c87
-```
 
-**⚠️ SECRET_KEY must be changed** — currently using placeholder. Generate with:
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(50))"
-```
 
 ---
 

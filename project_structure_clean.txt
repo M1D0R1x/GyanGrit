@@ -64,6 +64,21 @@ backend
 │   │   │           └── joincode_dynamic.js
 │   │   ├── tests.py
 │   │   └── views.py
+│   ├── ai_assistant
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   ├── assessments
 │   │   ├── __init__.py
 │   │   ├── admin.py
@@ -78,6 +93,41 @@ backend
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── signals.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── chatrooms
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── management
+│   │   │   ├── __init__.py
+│   │   │   └── commands
+│   │   │       ├── __init__.py
+│   │   │       └── bootstrap_chatrooms.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   └── views.py
+│   ├── competitions
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   ├── content
@@ -96,6 +146,21 @@ backend
 │   │   │   ├── 0001_initial.py
 │   │   │   ├── 0002_lesson_pdf_url_lesson_updated_at_and_more.py
 │   │   │   ├── 0003_sectionlesson.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
+│   ├── flashcards
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── tests.py
@@ -148,6 +213,21 @@ backend
 │   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
+│   ├── livesessions
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   └── v1
+│   │   │       ├── __init__.py
+│   │   │       └── urls.py
+│   │   ├── apps.py
+│   │   ├── migrations
+│   │   │   ├── 0001_initial.py
+│   │   │   └── __init__.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   ├── media
 │   │   ├── __init__.py
 │   │   ├── admin.py
@@ -195,6 +275,8 @@ backend
 │       ├── services.py
 │       ├── tests.py
 │       └── views.py
+├── build.sh
+├── gunicorn.conf.py
 ├── gyangrit
 │   ├── __init__.py
 │   ├── asgi.py
@@ -209,6 +291,7 @@ backend
 ├── manage.py
 ├── package-lock.json
 ├── package.json
+├── railway.json
 └── requirements
     ├── base.txt
     ├── dev.txt
@@ -239,7 +322,9 @@ frontend
 │   ├── main.tsx
 │   ├── nav-menu-animation.css
 │   ├── pages
+│   │   ├── AIChatPage.tsx
 │   │   ├── AdminAssessmentBuilderPage.tsx
+│   │   ├── AdminChatManagementPage.tsx
 │   │   ├── AdminContentPage.tsx
 │   │   ├── AdminDashboardPage.tsx
 │   │   ├── AdminJoinCodesPage.tsx
@@ -249,16 +334,21 @@ frontend
 │   │   ├── AssessmentTakePage.tsx
 │   │   ├── AssessmentsPage.tsx
 │   │   ├── AssessmentsResultPage.tsx
+│   │   ├── ChatRoomPage.tsx
+│   │   ├── CompetitionRoomPage.tsx
 │   │   ├── CompleteProfilePage.tsx
 │   │   ├── CourseAssessmentsPage.tsx
 │   │   ├── CoursesPage.tsx
 │   │   ├── DashboardPage.tsx
+│   │   ├── FlashcardDecksPage.tsx
+│   │   ├── FlashcardsStudyPage.tsx
 │   │   ├── GradebookPage.tsx
 │   │   ├── LeaderboardPage.tsx
 │   │   ├── LearningPathPage.tsx
 │   │   ├── LearningPathsPage.tsx
 │   │   ├── LessonPage.tsx
 │   │   ├── LessonsPage.tsx
+│   │   ├── LiveSessionPage.tsx
 │   │   ├── LoginPage.tsx
 │   │   ├── NotificationsPage.tsx
 │   │   ├── OfficialDashboardPage.tsx
@@ -280,14 +370,19 @@ frontend
 │   ├── public
 │   │   └── favicon.svg
 │   ├── services
+│   │   ├── aiAssistant.ts
 │   │   ├── api.ts
 │   │   ├── assessments.ts
+│   │   ├── chat.ts
+│   │   ├── competitions.ts
 │   │   ├── content.ts
 │   │   ├── courseProgress.ts
+│   │   ├── flashcards.ts
 │   │   ├── gamification.ts
 │   │   ├── gradebook.ts
 │   │   ├── learningEnrollments.ts
 │   │   ├── learningPaths.ts
+│   │   ├── livesessions.ts
 │   │   ├── media.ts
 │   │   ├── notifications.ts
 │   │   ├── progress.ts
@@ -297,14 +392,17 @@ frontend
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
+├── vercel.json
 └── vite.config.ts
 docs
 ├── API_AND_FRONTEND_END_POINTS.md
+├── BACKEND_DEPLOYMENT_RENDER.md
 ├── DATA_MODEL.md
 ├── DEPLOYMENT.md
+├── FRONTEND_DEPLOYMENT_VERCEL.md
 ├── GAMIFICATION.md
 ├── LEARNING_LOOP.md
 ├── SIGNAL_CHAIN.md
 └── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 
-67 directories, 241 files
+89 directories, 317 files

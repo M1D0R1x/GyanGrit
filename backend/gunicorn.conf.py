@@ -33,3 +33,17 @@ loglevel           = "info"
 # ── Memory management ─────────────────────────────────────────────────────
 max_requests       = 500        # recycle worker after 500 requests (prevents memory leaks)
 max_requests_jitter = 50        # randomise so all workers don't restart simultaneously
+
+# ── Django DB connection fix for gevent ───────────────────────────────────────
+# CRITICAL: gevent green threads share OS threads. Django's CONN_MAX_AGE
+# creates persistent DB connections bound to the thread they were created in.
+# With gevent, a connection opened in green thread A cannot be used by green
+# thread B — even if both run on the same OS thread — causing:
+#   DatabaseWrapper objects created in a thread can only be used in that same thread
+#
+# Fix: close all connections after each worker forks so each green thread
+# creates its own fresh connection on first use.
+def post_fork(server, worker):
+    from django.db import connections
+    for conn in connections.all():
+        conn.close()

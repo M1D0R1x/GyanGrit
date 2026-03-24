@@ -1,610 +1,226 @@
 # GyanGrit — Data Model Reference
 
-> **Status: Updated 2026-03-18**
-> Covers all 11 backend apps. Every model, field, and constraint is documented.
-
-This document describes every model in the system, its fields, relationships,
-and the design decisions behind non-obvious choices.
+> **Status: Updated 2026-03-26**
+> Covers all 16 backend apps. Every model, field, and constraint is documented.
 
 ---
 
-## Entity Relationship Overview
+## Apps 1–9 (accounts, academics, content, assessments, learning, gamification, notifications, gradebook, roster)
 
-```
-District
-  └── Institution (school)
-        └── ClassRoom (grade: 6–10)
-              ├── Section (A, B, ...)
-              │     └── User (STUDENT) ──────────────────────┐
-              └── ClassSubject                               │
-                    │                                        │
-                    ▼                                        │
-                Subject ◄── StudentSubject ◄────────────────┘
-                    │             │
-                    ▼             ▼
-                  Course      Enrollment
-                    │
-                    ├── Lesson
-                    │     └── LessonProgress (per user)
-                    │           │
-                    │           └──► PointEvent (gamification)
-                    │
-                    ├── SectionLesson (teacher-added)
-                    │
-                    └── Assessment
-                          ├── Question
-                          │     └── QuestionOption
-                          └── AssessmentAttempt (per user)
-                                │
-                                └──► PointEvent (gamification)
-
-User (STUDENT) ── StudentPoints (gamification total)
-User (STUDENT) ── StudentBadge (gamification badges)
-User (STUDENT) ── StudentStreak (gamification streak)
-User (STUDENT) ── GradeEntry ─── Subject (gradebook marks)
-
-User (TEACHER) ── TeachingAssignment ── Subject + Section
-
-JoinCode ──────────────────────────────► User (on registration)
-StudentRegistrationRecord ─────────────► User (student self-register)
-DeviceSession ──────────────────────────► User (single-session enforcement)
-OTPVerification ────────────────────────► User (non-student login)
-AuditLog ───────────────────────────────► User (actor)
-
-LearningPath ── LearningPathCourse ── Course
-
-Notification ──────────────────────────► User (recipient)
-Broadcast ─────────────────────────────► User (sender)
-```
+See previous sections — these models are unchanged from 2026-03-18.
+Full documentation of these models is in the git history.
 
 ---
 
-## 1. Accounts App
+## 10. Competitions App
 
-### User
-Extends Django's `AbstractUser`.
+### CompetitionRoom
+| Field | Type | Notes |
+|---|---|---|
+| `title` | CharField | |
+| `host` | FK → User | Teacher who created it |
+| `section` | FK → Section | The class this competition is for |
+| `assessment` | FK → Assessment | Questions come from here |
+| `status` | CharField | `draft`, `active`, `finished` |
+| `created_at` | DateTimeField | |
+
+Status machine: `draft → active` (via `POST /start/`) `→ finished` (via `POST /finish/`).
+
+### CompetitionParticipant
+| Field | Type | Notes |
+|---|---|---|
+| `room` | FK → CompetitionRoom | |
+| `student` | FK → User | |
+| `score` | IntegerField | Recalculated after each answer |
+| `rank` | IntegerField | Recalculated after each answer |
+| `joined_at` | DateTimeField | |
+
+Unique constraint: `(room, student)`.
+
+### CompetitionAnswer
+| Field | Type | Notes |
+|---|---|---|
+| `participant` | FK → CompetitionParticipant | |
+| `question` | FK → Question | |
+| `selected_option` | FK → QuestionOption | |
+| `is_correct` | BooleanField | **NEVER sent to student-facing endpoints** |
+| `answered_at` | DateTimeField | |
+
+**Security invariant:** `is_correct` follows the same rule as `QuestionOption.is_correct` — never in any student-facing API response.
+
+---
+
+## 11. Chat Rooms App
+
+### ChatRoom
+| Field | Type | Notes |
+|---|---|---|
+| `room_type` | CharField | `subject`, `staff`, `officials` |
+| `name` | CharField | e.g. "Class 10A Computer Science", "School — Staff" |
+| `section` | FK → Section | For `subject` rooms only |
+| `subject` | FK → Subject | For `subject` rooms only |
+| `institution` | FK → Institution | For `staff` rooms only |
+| `is_active` | BooleanField | Inactive rooms reject new messages |
+| `created_at` | DateTimeField | |
+
+Unique constraints:
+- One `subject` room per `(section, subject)` pair
+- One `staff` room per `institution`
+
+**Creation rule:** Rooms are created ONLY by `TeachingAssignment.post_save` signal. Students never trigger room creation. This prevents phantom rooms.
+
+### ChatRoomMember
+Explicit membership table. This is the single source of truth for who is in which room.
 
 | Field | Type | Notes |
 |---|---|---|
-| `username` | CharField | Login identifier |
-| `role` | CharField | `STUDENT`, `TEACHER`, `PRINCIPAL`, `OFFICIAL`, `ADMIN` |
-| `institution` | FK → Institution | Null for OFFICIAL and ADMIN |
-| `section` | FK → Section | Only for STUDENT |
-| `public_id` | CharField | Human-readable ID e.g. `S-2026-a1b2c3d4`. Auto-generated on save. |
-| `district` | CharField | Denormalised string from `institution.district.name`. Always synced on save. |
-| `first_name` | CharField | From AbstractUser |
-| `last_name` | CharField | From AbstractUser |
-| `middle_name` | CharField | Added field. Optional. |
-| `email` | EmailField | Required for profile completion |
-| `mobile_primary` | CharField | Required for profile completion. Parent/student contact. |
-| `mobile_secondary` | CharField | Optional. Second parent/guardian contact. |
-| `profile_complete` | BooleanField | Set to True once all required contact fields are filled. |
+| `room` | FK → ChatRoom | |
+| `user` | FK → User | |
+| `joined_at` | DateTimeField | |
 
-**Why denormalise `district`?**
-Avoids a join on every user lookup. District filtering is used heavily in analytics queries. The field is always kept in sync by `User.save()` — when `institution` changes, `district` updates automatically.
+Unique constraint: `(room, user)`.
 
----
+**Why explicit membership?**
+Without this, we cannot know who to notify on a new message, cannot show member counts, and cannot efficiently check access (one DB lookup vs complex role-based reconstruction).
 
-### JoinCode
-Pre-generated invitation codes that control who can register and as what role.
-
+### ChatMessage
 | Field | Type | Notes |
 |---|---|---|
-| `code` | CharField | 16-char hex token. Auto-generated on save. |
-| `role` | CharField | Locks the registrant's role |
-| `institution` | FK → Institution | Required for TEACHER, PRINCIPAL, STUDENT |
-| `section` | FK → Section | Required for STUDENT |
-| `district` | FK → District | Required for OFFICIAL |
-| `subject` | FK → Subject | Required for TEACHER — triggers TeachingAssignment creation |
-| `is_used` | BooleanField | Set to True after first successful registration |
-| `expires_at` | DateTimeField | Default: 3 days from creation |
+| `room` | FK → ChatRoom | |
+| `sender` | FK → User | |
+| `content` | TextField | Up to 2,000 chars |
+| `attachment_url` | URLField | R2 URL, nullable |
+| `attachment_type` | CharField | `image` or `file`, nullable |
+| `attachment_name` | CharField | Original filename, nullable |
+| `parent` | FK → self | Nullable — set for replies; null for top-level |
+| `is_pinned` | BooleanField | Teacher/admin can pin messages |
+| `sent_at` | DateTimeField | Indexed |
 
-**Why join codes instead of admin-created accounts?**
-Principals can generate codes for their teachers. Teachers can generate codes for their sections. No admin bottleneck. The code encodes all registration context — role, institution, section, subject — so the frontend can show preview information before the user commits.
+Thread model: top-level messages have `parent=None`. Replies have `parent=<top-level message>`. Nested replies not supported (max 2 levels: message → reply).
 
 ---
 
-### OTPVerification
-Stores pending OTP challenges for TEACHER / PRINCIPAL / OFFICIAL login.
+## 12. Flashcards App
 
+### FlashcardDeck
 | Field | Type | Notes |
 |---|---|---|
-| `user` | FK → User | One-to-many: old records are deleted before creating new |
-| `otp_code` | CharField | 6-digit string |
-| `attempt_count` | IntegerField | Max 5 before lockout |
-| `is_expired()` | method | True if > 10 minutes since `created_at` |
+| `title` | CharField | |
+| `description` | TextField | Optional |
+| `subject` | FK → Subject | Deck is scoped to this subject |
+| `section` | FK → Section | Optional — null means visible to all sections of this subject |
+| `created_by` | FK → User | The teacher who created it |
+| `is_published` | BooleanField | Only published decks visible to students |
+| `created_at` | DateTimeField | |
 
----
-
-### DeviceSession
-Enforces single-device login policy.
-
+### Flashcard
 | Field | Type | Notes |
 |---|---|---|
-| `user` | OneToOneField → User | One session per user |
-| `device_fingerprint` | CharField | Stores Django session key |
-| `last_login` | DateTimeField | Auto-updated |
+| `deck` | FK → FlashcardDeck | |
+| `front` | TextField | Question / term |
+| `back` | TextField | Answer / definition |
+| `hint` | CharField | Optional hint shown before reveal |
+| `order` | PositiveIntegerField | Display order within deck |
+| `created_at` | DateTimeField | |
 
-`SingleActiveSessionMiddleware` compares `device_fingerprint` with the current `request.session.session_key` on every authenticated request. Mismatch → logout.
-
-**Critical:** `device_fingerprint` is set after `request.session.save()` is called. If set before, `session_key` is `None` and enforcement silently fails.
-
----
-
-### StudentRegistrationRecord
-Pre-loaded student records created by teachers via roster upload.
-
-| Field | Type | Notes |
-|---|---|---|
-| `student_uuid` | UUIDField | Stable identifier before account creation |
-| `registration_code` | CharField | 16-char hex. Used by student to self-register. |
-| `name` | CharField | Student's real name |
-| `dob` | DateField | Date of birth — verified during self-registration |
-| `section` | FK → Section | Pre-assigned section |
-| `is_registered` | BooleanField | True after account created |
-| `linked_user` | OneToOneField → User | Set after registration |
-
----
-
-### AuditLog
-Append-only log of sensitive operations.
-
-| Field | Type | Notes |
-|---|---|---|
-| `actor` | FK → User | Who performed the action |
-| `action` | CharField | e.g. `REGENERATE_STUDENT_CODE` |
-| `target_model` | CharField | e.g. `StudentRegistrationRecord` |
-| `target_id` | CharField | PK of affected record |
-
----
-
-## 2. Academics App
-
-### District
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | Unique. All 23 Punjab districts seeded on first migrate. |
-
----
-
-### Institution
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | |
-| `district` | FK → District | PROTECT on delete |
-| `is_government` | BooleanField | Default True |
-
-Unique constraint: `(name, district)`.
-
----
-
-### ClassRoom
-Represents a grade level within a school. Name is the grade number as a string: `"6"`, `"7"`, ..., `"10"`.
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | Grade number e.g. `"8"` |
-| `institution` | FK → Institution | |
-
-**Why store grade as a string?**
-Allows future non-numeric grades (e.g. `"LKG"`) without a migration. The signal chain uses `int(classroom.name.strip())` with a guard for non-numeric values. Analytics sort uses `Cast("name", IntegerField())` to sort `6, 7, 8, 9, 10` correctly rather than lexicographically.
-
----
-
-### Section
-A section within a classroom (e.g. Class 8 Section A).
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | e.g. `"A"`, `"B"` |
-| `classroom` | FK → ClassRoom | |
-
-The API serializes this as:
-- `short_label`: `"Class 8-A"` — use this in dropdowns
-- `label`: `"Class 8-A — School Name"` — full label for disambiguation
-- `grade`: `"8"` — extracted from classroom name
-
----
-
-### Subject
-Global subject catalog. Not institution-scoped.
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | Unique. e.g. `"Mathematics"`, `"Physics"` |
-
-**Why global?**
-All government schools teach the same subjects. Subject scoping happens via `ClassSubject` and `StudentSubject`.
-
----
-
-### ClassSubject
-Junction table: which subjects are taught in which classroom.
-
-| Field | Type | Notes |
-|---|---|---|
-| `classroom` | FK → ClassRoom | |
-| `subject` | FK → Subject | |
-
-Unique constraint: `(classroom, subject)`.
-
-When a new `ClassSubject` is created, `academics/signals.py` retroactively assigns it to all existing students in that classroom.
-
----
-
-### StudentSubject
-Which subjects a student is enrolled in.
+### FlashcardProgress
+SM-2 algorithm state per student per card. Created on first review.
 
 | Field | Type | Notes |
 |---|---|---|
 | `student` | FK → User | |
-| `subject` | FK → Subject | |
-| `classroom` | FK → ClassRoom | Required for grade-based course matching |
+| `card` | FK → Flashcard | |
+| `repetitions` | PositiveIntegerField | Number of successful reviews |
+| `ease_factor` | FloatField | Default 2.5, min 1.3 — how easy the card feels |
+| `interval` | PositiveIntegerField | Days until next review |
+| `next_review` | DateField | Indexed — used to find "due today" cards |
+| `total_reviews` | PositiveIntegerField | Total times reviewed |
+| `correct_count` | PositiveIntegerField | Times rated ≥ 2 |
+| `last_reviewed` | DateTimeField | Nullable |
 
-Unique constraint: `(student, subject)`.
+Unique constraint: `(student, card)`.
 
-When a new `StudentSubject` is created, `learning/signals.py` auto-enrolls the student in all `is_core=True` courses for that subject and grade.
-
-The API response also includes:
-- `course_id`: the primary course for this subject/grade — used by dashboard "Continue/Start" button
-
----
-
-### TeachingAssignment
-Which teacher teaches which subject in which section.
-
-| Field | Type | Notes |
-|---|---|---|
-| `teacher` | FK → User | `limit_choices_to={"role": "TEACHER"}` |
-| `subject` | FK → Subject | |
-| `section` | FK → Section | |
-
-Unique constraint: `(teacher, subject, section)`.
-
-`clean()` validates that teacher and section belong to the same institution.
+**SM-2 algorithm (`apply_rating(quality)`):**
+- `quality=0,1` (wrong) → reset `repetitions=0`, `interval=1`
+- `quality=2,3` (correct) → `interval *= ease_factor`, `repetitions += 1`
+- `ease_factor += 0.1 - (3-q) * (0.08 + (3-q) * 0.02)`, min 1.3
+- `next_review = today + interval days`
 
 ---
 
-## 3. Content App
+## 13. Live Sessions App
 
-### Course
-A unit of curriculum. Belongs to a subject and grade level.
-
+### LiveSession
 | Field | Type | Notes |
 |---|---|---|
-| `subject` | FK → Subject | |
-| `grade` | IntegerField | 6–10 |
 | `title` | CharField | |
-| `description` | TextField | |
-| `is_core` | BooleanField | Core courses are auto-enrolled via signals |
-
----
-
-### Lesson
-An ordered content unit within a course.
-
-| Field | Type | Notes |
-|---|---|---|
-| `course` | FK → Course | |
-| `title` | CharField | |
-| `order` | PositiveIntegerField | Unique within course |
-| `content` | TextField | Text/markdown content |
-| `video_url` | URLField | YouTube, Vimeo, or direct video URL |
-| `hls_manifest_url` | URLField | Adaptive streaming manifest (HLS / R2) |
-| `video_thumbnail_url` | URLField | Preview image |
-| `video_duration` | CharField | Display string e.g. `"12:34"` |
-| `pdf_url` | URLField | PDF attachment (Cloudflare R2) |
-| `is_published` | BooleanField | Unpublished lessons are invisible to students |
-
-Unique constraint: `(course, order)`.
-
-The `LessonPage` frontend component handles:
-- YouTube/Vimeo: lazy-loaded iframe embed
-- Direct MP4/WebM/R2: native `<video>` element with download button
-- HLS: same URL field as `hls_manifest_url`
-- PDF: inline preview iframe + Open/Download buttons
-- Markdown content: lightweight custom renderer (no external lib)
-
----
-
-### SectionLesson
-Teacher-added supplementary lessons within a course.
-
-| Field | Type | Notes |
-|---|---|---|
-| `course` | FK → Course | |
-| `added_by` | FK → User | The TEACHER or PRINCIPAL who created it |
-| `title` | CharField | |
-| `content` | TextField | |
-| `video_url` | URLField | Optional |
-| `order` | PositiveIntegerField | Display order within the course |
+| `section` | FK → Section | The class this session is for |
+| `subject` | FK → Subject | Optional — general class or subject-specific |
+| `teacher` | FK → User | Who hosts it |
+| `status` | CharField | `scheduled`, `live`, `ended` |
+| `livekit_room_name` | CharField | Unique — `gyangrit-{section_id}-{uuid8}` |
+| `scheduled_at` | DateTimeField | When it's planned |
+| `started_at` | DateTimeField | Null until teacher clicks Start |
+| `ended_at` | DateTimeField | Null until teacher clicks End |
+| `description` | TextField | Optional |
 | `created_at` | DateTimeField | |
 
-**Why separate from Lesson?**
-Keeps curriculum content (admin-managed) cleanly separate from teacher-added content. Teachers can add context and practice material without touching the central curriculum. The lesson list endpoint merges both and marks source as `"curriculum"` or `"section"`.
+`livekit_room_name` is the room identifier in LiveKit Cloud. Unique across the platform.
+
+### LiveAttendance
+| Field | Type | Notes |
+|---|---|---|
+| `session` | FK → LiveSession | |
+| `student` | FK → User | |
+| `joined_at` | DateTimeField | When they joined |
+| `left_at` | DateTimeField | Nullable — when they left |
+| `is_present` | BooleanField | Default True on join |
+
+Unique constraint: `(session, student)`. Created automatically when student calls `join/`.
 
 ---
 
-### LessonProgress
-Per-user tracking of lesson engagement. Created automatically on first lesson open.
+## 14. AI Assistant App
+
+### ChatConversation
+One conversation session per student per subject.
 
 | Field | Type | Notes |
 |---|---|---|
-| `lesson` | FK → Lesson | |
-| `user` | FK → User | |
-| `completed` | BooleanField | Set via PATCH |
-| `last_position` | IntegerField | Video position in seconds |
-| `last_opened_at` | DateTimeField | Updated on every lesson open — drives resume logic |
-
-Unique constraint: `(lesson, user)`.
-
-When `completed` is first set to `True`, a gamification signal fires to award points and check badges.
-
-The `/courses/:id/progress/` endpoint returns `resume_lesson_id` — the first lesson where `completed=False`, ordered by `lesson.order`. Used by dashboard "Continue/Start" button.
-
----
-
-## 4. Assessments App
-
-### Assessment
-A quiz attached to a course.
-
-| Field | Type | Notes |
-|---|---|---|
-| `course` | FK → Course | |
-| `title` | CharField | |
-| `total_marks` | PositiveIntegerField | Auto-computed from questions via signal. `editable=False`. |
-| `pass_marks` | PositiveIntegerField | Set by teacher |
-| `is_published` | BooleanField | Unpublished assessments invisible to students |
-
-`total_marks` is never set manually. Recomputed by `assessments/signals.py` whenever a `Question` is saved or deleted.
-
----
-
-### Question
-A single question within an assessment.
-
-| Field | Type | Notes |
-|---|---|---|
-| `assessment` | FK → Assessment | |
-| `text` | TextField | |
-| `marks` | PositiveIntegerField | Weight of this question |
-| `order` | PositiveIntegerField | Display order |
-
-Unique constraint: `(assessment, order)`.
-
----
-
-### QuestionOption
-One of up to 4 options for a question. Exactly one must be correct.
-
-| Field | Type | Notes |
-|---|---|---|
-| `question` | FK → Question | |
-| `text` | CharField | |
-| `is_correct` | BooleanField | `clean()` enforces only one correct option per question |
-
-**Security:** `is_correct` is NEVER included in the student-facing API response (`/assessments/:id/`). It is only returned in the builder endpoint (`/assessments/:id/admin/`) for ADMIN, TEACHER, and PRINCIPAL. This is a hard rule — never weaken it.
-
----
-
-### AssessmentAttempt
-One attempt by a student at an assessment.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK → User | |
-| `assessment` | FK → Assessment | |
+| `student` | FK → User | |
+| `subject` | FK → Subject | Optional — null for general questions |
 | `started_at` | DateTimeField | |
-| `submitted_at` | DateTimeField | Null until submitted |
-| `selected_options` | JSONField | `{question_id: option_id}` e.g. `{"1": 3, "2": 7}` |
-| `score` | PositiveIntegerField | Computed on submit |
-| `passed` | BooleanField | `score >= assessment.pass_marks` |
-
-**Scoring design:** `calculate_score_and_pass()` fetches all selected options matching submitted IDs in a single query, filters for `is_correct=True`, and sums their question marks. No N+1.
-
-When `submitted_at` is first set, a gamification signal fires to award points.
-
----
-
-## 5. Learning App
-
-### Enrollment
-A student's enrollment in a course.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK → User | |
-| `course` | FK → Course | |
-| `status` | CharField | `enrolled`, `completed`, `dropped` |
-| `enrolled_at` | DateTimeField | |
-| `completed_at` | DateTimeField | Set by `mark_completed()` |
-
-Unique constraint: `(user, course)`.
-
-Created automatically via `learning/signals.py` when a `StudentSubject` is created.
-
----
-
-### LearningPath
-A named, ordered collection of courses.
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | CharField | |
-| `description` | TextField | |
-
----
-
-### LearningPathCourse
-Ordered course within a learning path.
-
-| Field | Type | Notes |
-|---|---|---|
-| `learning_path` | FK → LearningPath | |
-| `course` | FK → Course | |
-| `order` | PositiveIntegerField | |
-
-Unique constraints: `(learning_path, course)` and `(learning_path, order)`.
-
----
-
-## 6. Gamification App
-
-### PointEvent
-Immutable ledger of every point award. Never updated — only inserted.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK → User | |
-| `points` | PositiveSmallIntegerField | Amount awarded |
-| `reason` | CharField | Choice: `lesson_complete`, `assessment_attempt`, `assessment_pass`, `perfect_score`, `streak_3`, `streak_7` |
-| `lesson_id` | IntegerField | Nullable — context for lesson events |
-| `assessment_id` | IntegerField | Nullable — context for assessment events |
-| `created_at` | DateTimeField | Indexed |
-
-**Why a ledger instead of just a counter?**
-The ledger is also the deduplication guard. Before awarding, signals check if a `PointEvent` already exists for the same `(user, reason, lesson_id/assessment_id)`. Re-completing a lesson or re-running a signal never causes double-awarding.
-
----
-
-### StudentPoints
-Denormalized running total — updated atomically by signals.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | OneToOneField → User | |
-| `total_points` | PositiveIntegerField | Indexed for leaderboard ordering |
 | `updated_at` | DateTimeField | Auto-updated |
 
-**Why denormalize?**
-Summing `PointEvent.points` per user on every leaderboard query would not scale across hundreds of students. The cached total solves this. Updated with `select_for_update` to prevent race conditions.
-
----
-
-### StudentBadge
-A badge earned by a student. Created once, never updated.
+### AIChatMessage
+Individual message within a conversation.
 
 | Field | Type | Notes |
 |---|---|---|
-| `user` | FK → User | |
-| `badge_code` | CharField | Choice: `first_lesson`, `lesson_10`, `lesson_50`, `first_pass`, `perfect_score`, `streak_3`, `streak_7`, `points_100`, `points_500` |
-| `earned_at` | DateTimeField | |
-
-Unique constraint: `(user, badge_code)`. `get_or_create` used on award — no duplicates possible.
-
----
-
-### StudentStreak
-Tracks the student's daily activity streak.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | OneToOneField → User | |
-| `current_streak` | PositiveSmallIntegerField | Resets to 1 on gap day |
-| `longest_streak` | PositiveSmallIntegerField | Never decreases |
-| `last_activity_date` | DateField | Date (not datetime) to avoid timezone double-counting |
-
-**Streak logic:**
-- If `last_activity_date == today` → no change (already counted today)
-- If `last_activity_date == yesterday` → `current_streak += 1`
-- Otherwise → `current_streak = 1` (gap resets streak)
-- `longest_streak = max(longest_streak, current_streak)` after every update
-
----
-
-## 7. Notifications App
-
-### Notification
-Per-recipient notification item in a user's inbox.
-
-| Field | Type | Notes |
-|---|---|---|
-| `recipient` | FK → User | |
-| `broadcast` | FK → Broadcast | Nullable — links to the originating broadcast |
-| `message` | TextField | Copied from broadcast on creation |
-| `notification_type` | CharField | `announcement`, `lesson_published`, `assessment_published`, `system` |
-| `is_read` | BooleanField | Default False |
+| `conversation` | FK → ChatConversation | |
+| `role` | CharField | `user` or `assistant` |
+| `content` | TextField | The message text |
 | `created_at` | DateTimeField | Indexed |
 
-Auto-created by `notifications/signals.py` when:
-- A `Lesson` is published (`is_published` set to True) → all enrolled students notified
-- An `Assessment` is published → all enrolled students notified
+**Why persist conversations?**
+- Students can resume previous conversations
+- Teachers can see what questions students are asking (future analytics)
+- Context window management — last N messages sent to Gemini
 
 ---
 
-### Broadcast
-A single outgoing message sent by a staff member to an audience.
-
-| Field | Type | Notes |
-|---|---|---|
-| `sender` | FK → User | TEACHER, PRINCIPAL, OFFICIAL, or ADMIN |
-| `subject` | CharField | Message subject line |
-| `body` | TextField | Markdown supported |
-| `audience_type` | CharField | `class`, `institution`, `district`, `all` |
-| `classroom` | FK → ClassRoom | Only when `audience_type == "class"` |
-| `institution` | FK → Institution | Only when `audience_type == "institution"` |
-| `attachment_url` | URLField | Optional file attachment (Cloudflare R2) |
-| `attachment_name` | CharField | Original filename |
-| `created_at` | DateTimeField | |
-
-On save, `Notification` objects are created for all matching recipients.
-
----
-
-## 8. Gradebook App
-
-### GradeEntry
-Manual mark entered by a teacher for a specific student, subject, term, and assessment category.
-
-| Field | Type | Notes |
-|---|---|---|
-| `student` | FK → User | `limit_choices_to={"role": "STUDENT"}` |
-| `teacher` | FK → User | `limit_choices_to={"role__in": ["TEACHER", "PRINCIPAL"]}` |
-| `subject` | FK → Subject | |
-| `classroom` | FK → ClassRoom | Denormalized from student.section.classroom |
-| `term` | CharField | Choice: `term_1`, `term_2`, `term_3`, `annual` |
-| `category` | CharField | Choice: `unit_test`, `mid_term`, `final`, `project`, `oral`, `practical` |
-| `marks` | DecimalField | Marks obtained |
-| `total_marks` | DecimalField | Maximum marks for this assessment |
-| `percentage` | DecimalField | Computed on save: `(marks / total_marks) * 100` |
-| `notes` | TextField | Optional teacher remarks |
-| `created_at` | DateTimeField | |
-| `updated_at` | DateTimeField | Auto-updated |
-
-Unique constraint: `(student, subject, term, category)` — one mark per student per subject per term per category. Updates via `update_entry` endpoint.
-
-**Why manual gradebook?**
-The quiz engine handles digital assessments automatically. But Punjab government schools also hold oral exams, practicals, projects, and paper-based mid-terms. The gradebook app captures those marks so a student's complete academic record can be viewed in one place.
-
-**API endpoints (mounted at `/api/v1/gradebook/`)**
-
-| Method | Path | Role | Purpose |
-|---|---|---|---|
-| GET | `choices/` | TEACHER+ | Term and category choices for dropdowns |
-| POST | `entry/` | TEACHER+ | Create a new grade entry |
-| PATCH | `entry/:id/` | TEACHER+ | Update an existing entry |
-| DELETE | `entry/:id/delete/` | TEACHER+ | Delete an entry |
-| GET | `student/:id/` | TEACHER+ | All grades for a specific student |
-| GET | `class/:id/` | TEACHER+ | All grades grouped by student for a class |
-
----
-
-## 9. Key Constraints Summary
+## 15. Key Constraints Summary (updated)
 
 | Constraint | Where Enforced |
 |---|---|
-| One session per user | `DeviceSession` OneToOneField + middleware |
-| One correct option per question | `QuestionOption.clean()` |
-| Teacher must be in same institution as section | `TeachingAssignment.clean()` |
-| Section must match institution on User | `User.clean()` |
-| JoinCode role requirements (institution, section, etc.) | `JoinCode.clean()` |
-| Student cannot re-enroll in same course | `Enrollment` unique constraint |
-| Lesson order unique within course | `Lesson` unique constraint |
-| Assessment attempt cannot be submitted twice | `AssessmentAttempt.submit()` guard |
-| `is_correct` never in student-facing response | Hard-coded exclusion in `/assessments/:id/` view |
-| Gamification point not awarded twice per event | `PointEvent` ledger check before every award |
-| Badge not awarded twice per student | `StudentBadge` unique constraint + `get_or_create` |
-| Streak not double-counted in same day | `StudentStreak.last_activity_date` date comparison |
-| One grade entry per student/subject/term/category | `GradeEntry` unique constraint |
-| Grade entry percentage auto-computed | `GradeEntry.save()` — never trust client-supplied value |
+| Chat room only created by TeachingAssignment signal | `chatrooms/signals.py` — student signal never creates rooms |
+| Student only enrolled in existing chat rooms | `chatrooms/signals.py` handle_user_save — uses filter(), not get_or_create |
+| Admin bypasses chat room membership check | `_user_can_access_room()` — explicit `if user.role == "ADMIN"` |
+| `is_correct` never in student competition response | `CompetitionAnswer` never serialised to student endpoints |
+| Student LiveKit token `canPublish=False` | `_make_livekit_token(can_publish=False)` for STUDENT role |
+| Student Ably token scoped to enrolled rooms only | `ably_token` view enumerates `ChatRoomMember` for student |
+| Flashcard progress deduplication | `unique_together (student, card)` + `apply_rating()` always updates |
+| SM-2 ease_factor minimum | `max(1.3, ...)` in `apply_rating()` — prevents ease factor going too low |
+| One LiveKit room name per session | `livekit_room_name` unique constraint |
+| AI responses curriculum-scoped | Gemini system prompt blocks off-topic responses |
+| CONN_MAX_AGE=0 in prod | gevent + persistent connections = thread-sharing crash |

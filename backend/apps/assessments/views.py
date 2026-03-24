@@ -3,7 +3,7 @@ import json
 import logging
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import Avg, Count, Q, IntegerField
 from django.db.models.functions import Cast
 from django.http import JsonResponse
@@ -270,7 +270,7 @@ def delete_question(request, question_id):
 # STUDENT-FACING ASSESSMENT ENDPOINTS
 # =====================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def course_assessments(request, course_id):
     course = get_object_or_404(Course, id=course_id)
@@ -285,7 +285,7 @@ def course_assessments(request, course_id):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def assessment_detail(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id, is_published=True)
@@ -313,7 +313,7 @@ def assessment_detail(request, assessment_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def assessment_detail_admin(request, assessment_id):
     """
@@ -354,7 +354,7 @@ def assessment_detail_admin(request, assessment_id):
 
 
 @csrf_exempt
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def start_assessment(request, assessment_id):
     """
@@ -389,7 +389,7 @@ def start_assessment(request, assessment_id):
 
 
 @csrf_exempt
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def submit_assessment(request, assessment_id):
     """POST /api/v1/assessments/:id/submit/"""
@@ -426,7 +426,7 @@ def submit_assessment(request, assessment_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def my_attempts(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id)
@@ -442,7 +442,7 @@ def my_attempts(request, assessment_id):
     return JsonResponse(list(attempts), safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def all_my_attempts(request):
     """
@@ -494,7 +494,7 @@ def all_my_attempts(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def my_assessments(request):
     """
@@ -602,7 +602,7 @@ def my_assessments(request):
 # TEACHER / ANALYTICS ENDPOINTS
 # =====================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
@@ -659,7 +659,7 @@ def teacher_assessment_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
@@ -726,7 +726,7 @@ def teacher_class_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
@@ -765,7 +765,7 @@ def teacher_class_students(request, class_id):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def teacher_student_assessments(request, class_id, student_id):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:

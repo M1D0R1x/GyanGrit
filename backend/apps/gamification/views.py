@@ -2,7 +2,7 @@
 import logging
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import F
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -121,7 +121,7 @@ def _build_leaderboard(queryset, requesting_user) -> list[dict]:
     return entries
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def my_summary(request):
     """
@@ -159,7 +159,7 @@ def my_summary(request):
     return JsonResponse(data)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def leaderboard_class(request):
     """
@@ -218,7 +218,7 @@ def leaderboard_class(request):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def leaderboard_school(request):
     """

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -54,7 +54,7 @@ def can_access_course(user, course):
 # USER ENROLLMENTS
 # -------------------------------------------------------
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def enrollments(request):
     include_dropped = request.GET.get("include_dropped") == "true"
@@ -87,7 +87,7 @@ def enrollments(request):
 # ENROLL IN COURSE
 # -------------------------------------------------------
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def enroll_course(request):
     try:
@@ -126,7 +126,7 @@ def enroll_course(request):
 # UPDATE ENROLLMENT STATUS
 # -------------------------------------------------------
 
-@login_required
+@require_auth
 @require_http_methods(["PATCH"])
 def update_enrollment(request, enrollment_id):
     try:
@@ -164,7 +164,7 @@ def update_enrollment(request, enrollment_id):
 # LEARNING PATHS
 # -------------------------------------------------------
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def learning_paths(request):
     paths = LearningPath.objects.all().order_by("name")
@@ -172,7 +172,7 @@ def learning_paths(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def learning_path_detail(request, path_id):
     path = get_object_or_404(LearningPath, id=path_id)
@@ -201,7 +201,7 @@ def learning_path_detail(request, path_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def learning_path_progress(request, path_id):
     path = get_object_or_404(LearningPath, id=path_id)
@@ -229,7 +229,7 @@ def learning_path_progress(request, path_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def enroll_learning_path(request, path_id):
     path = get_object_or_404(LearningPath, id=path_id)
@@ -266,7 +266,7 @@ def enroll_learning_path(request, path_id):
 # records are fetched — not everyone's.
 # -------------------------------------------------------
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def student_dashboard(request):
     if request.user.role not in ["STUDENT", "ADMIN"]:

@@ -25,7 +25,7 @@ import json
 import logging
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
@@ -333,7 +333,7 @@ def _resolve_recipients(sender, audience_type, class_id=None, institution_id=Non
 # INBOX ENDPOINTS — available to ALL authenticated users
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def list_notifications(request):
     """
@@ -365,7 +365,7 @@ def list_notifications(request):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def notification_history(request):
     """
@@ -425,7 +425,7 @@ def notification_history(request):
 
 
 @csrf_exempt
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def mark_read(request, notification_id):
     """POST /api/v1/notifications/<id>/read/"""
@@ -440,7 +440,7 @@ def mark_read(request, notification_id):
 
 
 @csrf_exempt
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def mark_all_read(request):
     """POST /api/v1/notifications/read-all/"""
@@ -457,7 +457,7 @@ def mark_all_read(request):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @csrf_exempt
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 def send_notification(request):
     """POST /api/v1/notifications/send/"""
@@ -572,7 +572,7 @@ def send_notification(request):
 # SENT HISTORY (staff only)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def sent_history(request):
     """
@@ -645,7 +645,7 @@ def sent_history(request):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def broadcast_detail(request, broadcast_id):
     """GET /api/v1/notifications/sent/<id>/"""
@@ -692,7 +692,7 @@ def broadcast_detail(request, broadcast_id):
 # AUDIENCE OPTIONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def audience_options(request):
     """GET /api/v1/notifications/audience-options/"""

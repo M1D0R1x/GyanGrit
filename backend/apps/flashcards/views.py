@@ -21,7 +21,7 @@ Student endpoints:
 import json
 import logging
 
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -209,7 +209,7 @@ def card_detail(request, deck_id, card_id):
 
 # ── Student: Study endpoints ──────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def study_list(request):
     """
@@ -264,7 +264,7 @@ def study_list(request):
     return JsonResponse(result, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def study_due(request, deck_id):
     """
@@ -312,7 +312,7 @@ def study_due(request, deck_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def study_review(request, deck_id):
@@ -354,7 +354,7 @@ def study_review(request, deck_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def study_stats(request, deck_id):
     """Deck-level study stats for the current student."""

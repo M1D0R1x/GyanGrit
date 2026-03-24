@@ -21,7 +21,7 @@ import logging
 import time
 import uuid
 
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -203,7 +203,7 @@ def session_attendance(request, session_id):
 
 # ── Student endpoints ─────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def upcoming_sessions(request):
     """List live + upcoming sessions for the student's section."""
@@ -220,7 +220,7 @@ def upcoming_sessions(request):
     return JsonResponse([_session_to_dict(s) for s in sessions], safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def join_session(request, session_id):
@@ -246,7 +246,7 @@ def join_session(request, session_id):
 
 # ── Token endpoint — both teacher and student ─────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def session_token(request, session_id):
     """Return a LiveKit JWT for this session room."""

@@ -166,9 +166,9 @@ def _recalculate_leaderboard(room: CompetitionRoom) -> list:
 # LIST rooms — GET /api/v1/competitions/
 # ─────────────────────────────────────────────────────────────────────────────
 
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def list_rooms(request):
     user = request.user
@@ -244,7 +244,7 @@ def create_room(request):
 # ROOM DETAIL — GET /api/v1/competitions/<id>/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def room_detail(request, room_id):
     room = get_object_or_404(
@@ -295,7 +295,7 @@ def room_detail(request, room_id):
 # JOIN room — POST /api/v1/competitions/<id>/join/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def join_room(request, room_id):
@@ -389,7 +389,7 @@ def finish_room(request, room_id):
 # SUBMIT ANSWER — POST /api/v1/competitions/<id>/answer/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def submit_answer(request, room_id):
@@ -464,7 +464,7 @@ def submit_answer(request, room_id):
 #   TEACHER/ADMIN (chat)  → publish+subscribe [chat]*
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def ably_token(request):

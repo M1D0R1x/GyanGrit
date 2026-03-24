@@ -37,7 +37,7 @@ import logging
 import re
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import Avg
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -147,7 +147,7 @@ def _get_student_grade(user):
 # COURSES
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def courses(request):
     user    = request.user
@@ -184,7 +184,7 @@ def courses(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def course_by_slug(request):
     grade_str    = request.GET.get("grade",   "").strip()
@@ -286,7 +286,7 @@ def delete_course(request, course_id):
 # LESSONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def course_lessons(request, course_id):
     course = get_object_or_404(Course, id=course_id)
@@ -353,7 +353,7 @@ def course_lessons(request, course_id):
     return JsonResponse(combined, safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def course_lessons_all(request, course_id):
     course = get_object_or_404(Course, id=course_id)
@@ -433,7 +433,7 @@ def create_lesson(request, course_id):
 # SECTION LESSONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET", "POST"])
 @csrf_exempt
 def section_lesson_list_create(request, course_id):
@@ -508,7 +508,7 @@ def section_lesson_list_create(request, course_id):
 # LESSON DETAIL + CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def lesson_detail(request, lesson_id):
     lesson = get_object_or_404(
@@ -564,7 +564,7 @@ def lesson_detail(request, lesson_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def section_lesson_detail(request, lesson_id):
     sl = get_object_or_404(
@@ -664,7 +664,7 @@ def delete_section_lesson(request, lesson_id):
 # LESSON PROGRESS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["POST", "PATCH"])
 @csrf_exempt
 def lesson_progress(request, lesson_id):
@@ -699,7 +699,7 @@ def lesson_progress(request, lesson_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def add_lesson_note(request, lesson_id):
@@ -728,7 +728,7 @@ def add_lesson_note(request, lesson_id):
 # COURSE PROGRESS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def course_progress(request, course_id):
     """

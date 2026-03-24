@@ -19,7 +19,7 @@ for a subject-scoped chatbot with ~20 lessons per subject.
 import json
 import logging
 
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -132,7 +132,7 @@ Remember: You are a helpful tutor, not a search engine. Guide students to unders
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def list_conversations(request):
     convs = ChatConversation.objects.filter(
@@ -152,7 +152,7 @@ def list_conversations(request):
     ], safe=False)
 
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def chat(request):
@@ -213,7 +213,7 @@ def chat(request):
     }, status=201)
 
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def conversation_detail(request, conv_id):
     conv = get_object_or_404(ChatConversation, id=conv_id, student=request.user)
@@ -229,7 +229,7 @@ def conversation_detail(request, conv_id):
     })
 
 
-@login_required
+@require_auth
 @require_http_methods(["DELETE"])
 @csrf_exempt
 def delete_conversation(request, conv_id):

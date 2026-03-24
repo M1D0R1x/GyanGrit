@@ -20,7 +20,7 @@ import json
 import logging
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -298,7 +298,7 @@ def _push_chat_notification(room: ChatRoom, message: ChatMessage, sender) -> Non
 # LIST rooms — GET /api/v1/chat/rooms/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def list_rooms(request):
     user = request.user
@@ -348,7 +348,7 @@ def list_rooms(request):
 # ROOM DETAIL — GET /api/v1/chat/rooms/<id>/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def room_detail(request, room_id):
     room = get_object_or_404(ChatRoom, id=room_id)
@@ -362,7 +362,7 @@ def room_detail(request, room_id):
 # MESSAGE HISTORY — GET /api/v1/chat/rooms/<id>/history/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def message_history(request, room_id):
     room = get_object_or_404(ChatRoom, id=room_id)
@@ -385,7 +385,7 @@ def message_history(request, room_id):
 # THREAD — GET /api/v1/chat/rooms/<id>/thread/<msg_id>/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def thread(request, room_id, message_id):
     room = get_object_or_404(ChatRoom, id=room_id)
@@ -409,7 +409,7 @@ def thread(request, room_id, message_id):
 # SEND MESSAGE — POST /api/v1/chat/rooms/<id>/message/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["POST"])
 @csrf_exempt
 def send_message(request, room_id):
@@ -487,7 +487,7 @@ def pin_message(request, room_id, message_id):
 # PINNED — GET /api/v1/chat/rooms/<id>/pinned/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def pinned_messages(request, room_id):
     room = get_object_or_404(ChatRoom, id=room_id)
@@ -504,7 +504,7 @@ def pinned_messages(request, room_id):
 # MEMBERS — GET /api/v1/chat/rooms/<id>/members/
 # ─────────────────────────────────────────────────────────────────────────────
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def room_members(request, room_id):
     room = get_object_or_404(ChatRoom, id=room_id)

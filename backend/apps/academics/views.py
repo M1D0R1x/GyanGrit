@@ -1,7 +1,7 @@
 import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.decorators import login_required
+from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import Count, Q
 
 from .models import (
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # INSTITUTIONS
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def institutions(request):
     if request.user.role not in ["ADMIN", "OFFICIAL", "PRINCIPAL"]:
@@ -50,7 +50,7 @@ def institutions(request):
 # CLASSES
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def classes(request):
     queryset = ClassRoom.objects.select_related("institution")
@@ -75,7 +75,7 @@ def classes(request):
 # SECTIONS
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def sections(request):
     """
@@ -139,7 +139,7 @@ def sections(request):
 # SUBJECTS
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def subjects(request):
 
@@ -279,7 +279,7 @@ def _subjects_for_student(request):
 # TEACHING ASSIGNMENTS
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def teaching_assignments(request):
     if request.user.role not in ["ADMIN", "OFFICIAL", "PRINCIPAL"]:
@@ -328,7 +328,7 @@ def teaching_assignments(request):
 # MY ASSIGNMENTS (TEACHER ONLY)
 # =========================================================
 
-@login_required
+@require_auth
 @require_http_methods(["GET"])
 def my_assignments(request):
     if request.user.role != "TEACHER":

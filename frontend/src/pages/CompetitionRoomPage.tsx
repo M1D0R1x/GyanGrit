@@ -251,31 +251,43 @@ export default function CompetitionRoomPage() {
       .finally(() => setLoadingList(false));
   }, [numRoomId]);
 
+  const isAdminOrPrincipal = user?.role === "ADMIN" || user?.role === "PRINCIPAL";
+
   // ── Load teacher create form dependencies ─────────────────────────────
   useEffect(() => {
     if (!isTeacher || !showCreate) return;
-    type AssignmentRow = { section_id: number; section_name: string; class_name: string };
-    apiGet<AssignmentRow[]>("/academics/my-assignments/")
-      .then((assignments) => {
-        // deduplicate sections
-        const seen = new Set<number>();
-        const secs: Section[] = [];
-        assignments.forEach((a) => {
-          if (!seen.has(a.section_id)) {
-            seen.add(a.section_id);
-            secs.push({ id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}`, short_label: a.section_name, class_name: a.class_name });
-          }
-        });
-        setSections(secs);
-      })
-      .catch(() => {});
+
+    if (isAdminOrPrincipal) {
+      // ADMIN/PRINCIPAL: fetch all sections from dedicated endpoint (no duplicates)
+      apiGet<{ id: number; short_label: string; class_name?: string }[]>("/academics/sections/")
+        .then((secs) => {
+          setSections(secs.map(s => ({ id: s.id, name: s.short_label, short_label: s.short_label, class_name: "" })));
+        })
+        .catch(() => {});
+    } else {
+      // TEACHER: use my-assignments (section+subject pairs they teach)
+      type AssignmentRow = { section_id: number; section_name: string; class_name: string };
+      apiGet<AssignmentRow[]>("/academics/my-assignments/")
+        .then((assignments) => {
+          const seen = new Set<number>();
+          const secs: Section[] = [];
+          assignments.forEach((a) => {
+            if (!seen.has(a.section_id)) {
+              seen.add(a.section_id);
+              secs.push({ id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}`, short_label: a.section_name, class_name: a.class_name });
+            }
+          });
+          setSections(secs);
+        })
+        .catch(() => {});
+    }
+
     apiGet<{ id: number; title: string }[]>("/courses/")
       .then((courses) => {
-        // Use courses as proxy for assessments selection
         setAssessments(courses.map((c) => ({ id: c.id, title: c.title })));
       })
       .catch(() => {});
-  }, [isTeacher, showCreate]);
+  }, [isTeacher, showCreate, isAdminOrPrincipal]);
 
   // ── Load room detail ──────────────────────────────────────────────────
   const loadRoom = useCallback(async () => {

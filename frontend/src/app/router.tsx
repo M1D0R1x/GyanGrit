@@ -8,6 +8,34 @@ import RegisterPage        from "../pages/RegisterPage";
 import VerifyOtpPage       from "../pages/VerifyOtpPage";
 import CompleteProfilePage from "../pages/CompleteProfilePage";
 
+/**
+ * Retry-aware lazy loader for code-split pages.
+ *
+ * After a Vercel deploy, old JS chunk URLs (with content hashes) become 404s.
+ * If a user has the app open and navigates to a lazy route, the old chunk
+ * fails to load: "Failed to fetch dynamically imported module".
+ *
+ * This wrapper catches that error and does a hard reload ONE time so the
+ * browser fetches the new index.html which points to the new chunk hashes.
+ * A sessionStorage flag prevents infinite reload loops.
+ */
+function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
+  return lazy(() =>
+    factory().catch((err: unknown) => {
+      const key = "chunk-retry-" + window.location.pathname;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        window.location.reload();
+        // Return a never-resolving promise so React doesn't render stale state
+        return new Promise(() => {});
+      }
+      // Already retried once — surface the error
+      sessionStorage.removeItem(key);
+      throw err;
+    })
+  );
+}
+
 import { RequireRole }   from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
 
@@ -18,61 +46,61 @@ import ServerErrorPage  from "../pages/errors/ServerErrorPage";
 import NetworkErrorPage from "../pages/errors/NetworkErrorPage";
 
 // ── Student ──────────────────────────────────────────────────────────────────
-const DashboardPage      = lazy(() => import("../pages/DashboardPage"));
-const CoursesPage        = lazy(() => import("../pages/CoursesPage"));
-const LessonsPage        = lazy(() => import("../pages/LessonsPage"));
-const LessonPage         = lazy(() => import("../pages/LessonPage"));
-const SectionLessonPage  = lazy(() => import("../pages/SectionLessonPage"));
-const LearningPathsPage  = lazy(() => import("../pages/LearningPathsPage"));
-const LearningPathPage   = lazy(() => import("../pages/LearningPathPage"));
-const ProfilePage        = lazy(() => import("../pages/ProfilePage"));
-const LeaderboardPage    = lazy(() => import("../pages/LeaderboardPage"));
+const DashboardPage      = lazyRetry(() => import("../pages/DashboardPage"));
+const CoursesPage        = lazyRetry(() => import("../pages/CoursesPage"));
+const LessonsPage        = lazyRetry(() => import("../pages/LessonsPage"));
+const LessonPage         = lazyRetry(() => import("../pages/LessonPage"));
+const SectionLessonPage  = lazyRetry(() => import("../pages/SectionLessonPage"));
+const LearningPathsPage  = lazyRetry(() => import("../pages/LearningPathsPage"));
+const LearningPathPage   = lazyRetry(() => import("../pages/LearningPathPage"));
+const ProfilePage        = lazyRetry(() => import("../pages/ProfilePage"));
+const LeaderboardPage    = lazyRetry(() => import("../pages/LeaderboardPage"));
 
 // ── Assessments ──────────────────────────────────────────────────────────────
-const AssessmentsPage        = lazy(() => import("../pages/AssessmentsPage"));
-const AssessmentPage         = lazy(() => import("../pages/AssessmentPage"));
-const AssessmentTakePage     = lazy(() => import("../pages/AssessmentTakePage"));
-const AssessmentResultPage   = lazy(() => import("../pages/AssessmentsResultPage"));
-const AssessmentHistoryPage  = lazy(() => import("../pages/AssessmentHistoryPage"));
-const CourseAssessmentsPage  = lazy(() => import("../pages/CourseAssessmentsPage"));
+const AssessmentsPage        = lazyRetry(() => import("../pages/AssessmentsPage"));
+const AssessmentPage         = lazyRetry(() => import("../pages/AssessmentPage"));
+const AssessmentTakePage     = lazyRetry(() => import("../pages/AssessmentTakePage"));
+const AssessmentResultPage   = lazyRetry(() => import("../pages/AssessmentsResultPage"));
+const AssessmentHistoryPage  = lazyRetry(() => import("../pages/AssessmentHistoryPage"));
+const CourseAssessmentsPage  = lazyRetry(() => import("../pages/CourseAssessmentsPage"));
 
 // ── Teacher ──────────────────────────────────────────────────────────────────
-const TeacherDashboardPage     = lazy(() => import("../pages/TeacherDashboardPage"));
-const TeacherClassDetailPage   = lazy(() => import("../pages/TeacherClassDetailPage"));
-const TeacherStudentDetailPage = lazy(() => import("../pages/TeacherStudentDetailPage"));
-const GradebookPage            = lazy(() => import("../pages/GradebookPage"));
+const TeacherDashboardPage     = lazyRetry(() => import("../pages/TeacherDashboardPage"));
+const TeacherClassDetailPage   = lazyRetry(() => import("../pages/TeacherClassDetailPage"));
+const TeacherStudentDetailPage = lazyRetry(() => import("../pages/TeacherStudentDetailPage"));
+const GradebookPage            = lazyRetry(() => import("../pages/GradebookPage"));
 
 // ── Other roles ──────────────────────────────────────────────────────────────
-const PrincipalDashboardPage = lazy(() => import("../pages/PrincipalDashboardPage"));
-const OfficialDashboardPage  = lazy(() => import("../pages/OfficialDashboardPage"));
-const AdminDashboardPage     = lazy(() => import("../pages/AdminDashboardPage"));
+const PrincipalDashboardPage = lazyRetry(() => import("../pages/PrincipalDashboardPage"));
+const OfficialDashboardPage  = lazyRetry(() => import("../pages/OfficialDashboardPage"));
+const AdminDashboardPage     = lazyRetry(() => import("../pages/AdminDashboardPage"));
 
 // ── Admin / shared management ────────────────────────────────────────────────
-const AdminContentPage           = lazy(() => import("../pages/AdminContentPage"));
-const AdminLessonEditorPage      = lazy(() => import("../pages/AdminLessonEditorPage"));
-const AdminAssessmentBuilderPage = lazy(() => import("../pages/AdminAssessmentBuilderPage"));
-const AdminJoinCodesPage         = lazy(() => import("../pages/AdminJoinCodesPage"));
-const UserManagementPage         = lazy(() => import("../pages/UserManagementPage"));
+const AdminContentPage           = lazyRetry(() => import("../pages/AdminContentPage"));
+const AdminLessonEditorPage      = lazyRetry(() => import("../pages/AdminLessonEditorPage"));
+const AdminAssessmentBuilderPage = lazyRetry(() => import("../pages/AdminAssessmentBuilderPage"));
+const AdminJoinCodesPage         = lazyRetry(() => import("../pages/AdminJoinCodesPage"));
+const UserManagementPage         = lazyRetry(() => import("../pages/UserManagementPage"));
 
 // ── Shared ────────────────────────────────────────────────────────────────────
-const NotificationsPage    = lazy(() => import("../pages/NotificationsPage"));
+const NotificationsPage    = lazyRetry(() => import("../pages/NotificationsPage"));
 
 // ── Competition Rooms ─────────────────────────────────────────────────────────
-const CompetitionRoomPage  = lazy(() => import("../pages/CompetitionRoomPage"));
+const CompetitionRoomPage  = lazyRetry(() => import("../pages/CompetitionRoomPage"));
 
 // ── Chat Rooms ────────────────────────────────────────────────────────────────
-const ChatRoomPage              = lazy(() => import("../pages/ChatRoomPage"));
-const AdminChatManagementPage   = lazy(() => import("../pages/AdminChatManagementPage"));
+const ChatRoomPage              = lazyRetry(() => import("../pages/ChatRoomPage"));
+const AdminChatManagementPage   = lazyRetry(() => import("../pages/AdminChatManagementPage"));
 
 // ── Flashcards ────────────────────────────────────────────────────────────────
-const FlashcardDecksPage    = lazy(() => import("../pages/FlashcardDecksPage"));
-const FlashcardsStudyPage   = lazy(() => import("../pages/FlashcardsStudyPage"));
+const FlashcardDecksPage    = lazyRetry(() => import("../pages/FlashcardDecksPage"));
+const FlashcardsStudyPage   = lazyRetry(() => import("../pages/FlashcardsStudyPage"));
 
 // ── Live Sessions ─────────────────────────────────────────────────────────────
-const LiveSessionPage       = lazy(() => import("../pages/LiveSessionPage"));
+const LiveSessionPage       = lazyRetry(() => import("../pages/LiveSessionPage"));
 
 // ── AI Chatbot ────────────────────────────────────────────────────────────────
-const AIChatPage            = lazy(() => import("../pages/AIChatPage"));
+const AIChatPage            = lazyRetry(() => import("../pages/AIChatPage"));
 
 // ─────────────────────────────────────────────────────────────────────────────
 

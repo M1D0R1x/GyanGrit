@@ -115,6 +115,11 @@ export default function LiveSessionPage() {
   const [newSubject,  setNewSubject]  = useState<number | "">("");
   const [creating,    setCreating]    = useState(false);
   const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
+  // For ADMIN/PRINCIPAL: dedicated section + subject lists (no duplication from assignments)
+  const [allSections, setAllSections] = useState<{ id: number; short_label: string }[]>([]);
+  const [allSubjects, setAllSubjects] = useState<{ id: number; name: string }[]>([]);
+
+  const isAdminOrPrincipal = user?.role === "ADMIN" || user?.role === "PRINCIPAL";
 
   // Load sessions
   useEffect(() => {
@@ -125,11 +130,22 @@ export default function LiveSessionPage() {
       .finally(() => setLoading(false));
 
     if (isTeacher) {
-      apiGet<typeof assignments>("/academics/my-assignments/")
-        .then(setAssignments)
-        .catch(() => {});
+      if (isAdminOrPrincipal) {
+        // ADMIN/PRINCIPAL: fetch all sections + all subjects (no assignment duplication)
+        apiGet<{ id: number; short_label: string }[]>("/academics/sections/")
+          .then(setAllSections)
+          .catch(() => {});
+        apiGet<{ id: number; name: string }[]>("/academics/subjects/")
+          .then(setAllSubjects)
+          .catch(() => {});
+      } else {
+        // TEACHER: use my-assignments (section+subject pairs they teach)
+        apiGet<typeof assignments>("/academics/my-assignments/")
+          .then(setAssignments)
+          .catch(() => {});
+      }
     }
-  }, [isTeacher]);
+  }, [isTeacher, isAdminOrPrincipal]);
 
   // Auto-join if sessionId in URL
   useEffect(() => {
@@ -182,8 +198,15 @@ export default function LiveSessionPage() {
     } finally { setCreating(false); }
   }, [newTitle, newDesc, newSection, newSubject]);
 
-  const uniqueSections = [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
-  const subjectsForSection = assignments.filter(a => a.section_id === Number(newSection));
+  // Sections: ADMIN/PRINCIPAL use /academics/sections/, TEACHER uses my-assignments
+  const uniqueSections = isAdminOrPrincipal
+    ? allSections.map(s => ({ id: s.id, name: s.short_label }))
+    : [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
+
+  // Subjects: ADMIN/PRINCIPAL see ALL subjects, TEACHER sees only their assigned subjects for the selected section
+  const subjectOptions = isAdminOrPrincipal
+    ? allSubjects
+    : [...new Map(assignments.filter(a => a.section_id === Number(newSection)).map(a => [a.subject_id, { id: a.subject_id, name: a.subject_name }])).values()];
 
   // ── In-room view ──
   if (inRoom && liveToken) {
@@ -261,10 +284,10 @@ export default function LiveSessionPage() {
               <option value="">Select class / section *</option>
               {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            {subjectsForSection.length > 0 && (
+            {subjectOptions.length > 0 && (
               <select className="form-input" value={newSubject} onChange={e => setNewSubject(Number(e.target.value))} style={{ marginBottom: "var(--space-3)" }}>
                 <option value="">Select subject</option>
-                {subjectsForSection.map(a => <option key={a.subject_id} value={a.subject_id}>{a.subject_name}</option>)}
+                {subjectOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             )}
             <div style={{ display: "flex", gap: "var(--space-2)" }}>

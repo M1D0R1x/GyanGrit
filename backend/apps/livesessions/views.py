@@ -136,6 +136,27 @@ def session_list_create(request):
         scheduled_at=timezone.now() if not scheduled else scheduled,
     )
     logger.info("LiveSession created: id=%s room=%s", session.id, room_name)
+
+    # Push notification to section students — "session scheduled"
+    try:
+        from apps.accounts.models import User
+        from apps.notifications.push import send_push_to_users
+        student_ids = list(
+            User.objects.filter(role="STUDENT", section_id=section.id)
+            .values_list("id", flat=True)
+        )
+        if student_ids:
+            teacher_name = user.get_full_name() or user.username
+            send_push_to_users(
+                user_ids=student_ids,
+                title="\U0001f4cb Live Class Scheduled",
+                body=f"{teacher_name} scheduled: {session.title}",
+                url=f"/live/{session.id}",
+                tag=f"live-session-{session.id}",
+            )
+    except Exception as exc:
+        logger.warning("Push notify failed for new session %s: %s", session.id, exc)
+
     return JsonResponse(_session_to_dict(session), status=201)
 
 

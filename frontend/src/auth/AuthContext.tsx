@@ -142,12 +142,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Use authCallback so Ably can auto-refresh tokens when they expire.
         // This eliminates the "no way to renew" warning.
         const client = new Ably.Realtime({
-          authCallback: async (_data, callback) => {
+          authCallback: async (
+            _data: unknown,
+            callback: (error: string | null, token: unknown) => void,
+          ) => {
             try {
               const tokenData = await getAblyToken(undefined, "chat");
-              callback(null, { token: tokenData.token, expires: tokenData.expires, clientId: tokenData.client_id } as unknown as Ably.TokenDetails);
+              callback(null, {
+                token:    tokenData.token,
+                expires:  tokenData.expires,
+                clientId: tokenData.client_id,
+              });
             } catch (err) {
-              callback(err as Error, null);
+              callback(
+                err instanceof Error ? err.message : "Token fetch failed",
+                null,
+              );
             }
           },
         });

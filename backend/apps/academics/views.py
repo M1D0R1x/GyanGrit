@@ -331,12 +331,30 @@ def teaching_assignments(request):
 @require_auth
 @require_http_methods(["GET"])
 def my_assignments(request):
-    if request.user.role != "TEACHER":
+    """
+    GET /api/v1/academics/my-assignments/
+
+    Returns teaching assignments for the current user.
+    TEACHER: their own TeachingAssignment records.
+    PRINCIPAL: all assignments in their institution.
+    ADMIN: all assignments.
+    """
+    user = request.user
+    if user.role not in ("TEACHER", "PRINCIPAL", "ADMIN"):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    assignments = TeachingAssignment.objects.filter(
-        teacher=request.user
-    ).select_related(
+    if user.role == "ADMIN" or user.is_superuser:
+        qs = TeachingAssignment.objects.all()
+    elif user.role == "PRINCIPAL":
+        if not user.institution:
+            return JsonResponse([], safe=False)
+        qs = TeachingAssignment.objects.filter(
+            section__classroom__institution=user.institution
+        )
+    else:
+        qs = TeachingAssignment.objects.filter(teacher=user)
+
+    assignments = qs.select_related(
         "subject",
         "section",
         "section__classroom",

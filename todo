@@ -9,6 +9,118 @@
 None — all clear as of 2026-03-26.
 
 ---
+[PWA] Service Worker registered: https://gyan-grit.vercel.app/
+index-DTip3qhh.js:29 03:01:59.490 Ably: Auth(): Warning: library initialized with a token literal without any way to renew the token when it expires (no authUrl, authCallback, or key). See https://help.ably.io/error/40171 for help
+(anonymous) @ index-DTip3qhh.js:29
+n @ ably-DEW2HPHE.js:1
+(anonymous) @ ably-DEW2HPHE.js:1
+logAction @ ably-DEW2HPHE.js:1
+logActionNoStrip @ ably-DEW2HPHE.js:1
+Y.logAction @ ably-DEW2HPHE.js:1
+ji @ ably-DEW2HPHE.js:1
+Kn @ ably-DEW2HPHE.js:7
+ei @ ably-DEW2HPHE.js:7
+Qt @ ably-DEW2HPHE.js:7
+E @ index-DTip3qhh.js:36
+await in E
+(anonymous) @ index-DTip3qhh.js:36
+Oo @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+Yv @ index-DTip3qhh.js:9
+(anonymous) @ index-DTip3qhh.js:9
+le @ index-DTip3qhh.js:2
+index-DTip3qhh.js:29  GET https://gyangrit.onrender.com/api/v1/notifications/push/vapid-key/ 500 (Internal Server Error)
+(anonymous) @ index-DTip3qhh.js:29
+Zm @ index-DTip3qhh.js:36
+d @ push-Sub77ltH.js:1
+await in d
+(anonymous) @ index-DTip3qhh.js:36
+Promise.then
+(anonymous) @ index-DTip3qhh.js:36
+Oo @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+Yv @ index-DTip3qhh.js:9
+(anonymous) @ index-DTip3qhh.js:9
+le @ index-DTip3qhh.js:2
+index-DTip3qhh.js:29 [Push] Failed to fetch VAPID key: Error: 500
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Server Error (500)</title>
+</head>
+<body>
+  <h1>Server Error (500)</h1><p></p>
+</body>
+</html>
+
+    at Zm (index-DTip3qhh.js:36:32574)
+    at async d (push-Sub77ltH.js:1:629)
+(anonymous) @ index-DTip3qhh.js:29
+d @ push-Sub77ltH.js:1
+await in d
+(anonymous) @ index-DTip3qhh.js:36
+Promise.then
+(anonymous) @ index-DTip3qhh.js:36
+Oo @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+Yv @ index-DTip3qhh.js:9
+(anonymous) @ index-DTip3qhh.js:9
+le @ index-DTip3qhh.js:2
+index-DTip3qhh.js:29  GET https://gyangrit.onrender.com/api/v1/academics/my-assignments/ 403 (Forbidden)
+(anonymous) @ index-DTip3qhh.js:29
+Zm @ index-DTip3qhh.js:36
+(anonymous) @ LiveSessionPage-ooK3PQ0i.js:40
+Oo @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+ar @ index-DTip3qhh.js:9
+Tv @ index-DTip3qhh.js:9
+Yv @ index-DTip3qhh.js:9
+(anonymous) @ index-DTip3qhh.js:9
+le @ index-DTip3qhh.js:2
 
 ## Resolved Bugs
 

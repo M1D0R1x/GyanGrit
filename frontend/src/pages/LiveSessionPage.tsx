@@ -114,7 +114,7 @@ export default function LiveSessionPage() {
   const [newSection,  setNewSection]  = useState<number | "">("");
   const [newSubject,  setNewSubject]  = useState<number | "">("");
   const [creating,    setCreating]    = useState(false);
-  const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; subject_id: number; subject_name: string }[]>([]);
+  const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
 
   // Load sessions
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function LiveSessionPage() {
     } finally { setCreating(false); }
   }, [newTitle, newDesc, newSection, newSubject]);
 
-  const uniqueSections = [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: a.section_name }])).values()];
+  const uniqueSections = [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
   const subjectsForSection = assignments.filter(a => a.section_id === Number(newSection));
 
   // ── In-room view ──

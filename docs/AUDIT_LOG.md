@@ -129,6 +129,12 @@
 | 14 | No push on live session start | `livesessions/views.py` | Added send_push_to_users in session_start |
 | 15 | No push on assessment publish | `assessments/views.py` | Added push in update_assessment when is_published flips |
 | 16 | Bell panel 26KB payload | `notifications/views.py` | Truncate message to 120 chars in bell panel |
+| 17 | Push broken: missing settings import | `notifications/views.py` | Added `from django.conf import settings` |
+| 18 | Vercel static 404s on JS chunks | `vercel.json` | Added `/assets/:path*` before SPA catch-all |
+| 19 | FlashcardDecksPage wrong endpoint | `FlashcardDecksPage.tsx` | `/accounts/` → `/academics/my-assignments/` |
+| 20 | CompetitionRoomPage section label | `CompetitionRoomPage.tsx` | Shows "Class 8 - A" instead of just "A" |
+| 21 | my_assignments 403 for PRINCIPAL/ADMIN | `academics/views.py` | Scoped query for all roles |
+| 22 | LiveSessionPage section label | `LiveSessionPage.tsx` | Shows "Class 8 - A" instead of just "A" |
 
 ---
 

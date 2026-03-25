@@ -3,425 +3,195 @@ backend
 ├── Dockerfile
 ├── __init__.py
 ├── apps
-│   ├── __init__.py
-│   ├── academics
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── constants.py
-│   │   ├── management
-│   │   │   └── commands
-│   │   │       └── seed_punjab.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── signals.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── accesscontrol
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── permissions.py
-│   │   ├── scoped_service.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── accounts
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── middleware.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_joincode_subject.py
-│   │   │   ├── 0003_user_full_name_user_mobile_number_and_more.py
-│   │   │   ├── 0004_rename_mobile_number_user_mobile_primary_and_more.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── services.py
-│   │   ├── static
-│   │   │   └── admin
-│   │   │       └── js
-│   │   │           └── joincode_dynamic.js
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── ai_assistant
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── assessments
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── signals.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── chatrooms
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── management
-│   │   │   ├── __init__.py
-│   │   │   └── commands
-│   │   │       ├── __init__.py
-│   │   │       └── bootstrap_chatrooms.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── signals.py
-│   │   └── views.py
-│   ├── competitions
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── content
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── management
-│   │   │   └── commands
-│   │   │       └── seed_content.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_lesson_pdf_url_lesson_updated_at_and_more.py
-│   │   │   ├── 0003_sectionlesson.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── flashcards
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── gamification
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── signals.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── gradebook
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_rename_gradebook_g_student_8a3c1f_idx_gradebook_g_student_901ddb_idx_and_more.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── learning
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── signals.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── livesessions
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── media
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── r2.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   ├── notifications
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── api
-│   │   │   ├── __init__.py
-│   │   │   └── v1
-│   │   │       ├── __init__.py
-│   │   │       └── urls.py
-│   │   ├── apps.py
-│   │   ├── migrations
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_remove_notification_title_remove_notification_type_and_more.py
-│   │   │   ├── 0003_pushsubscription.py
-│   │   │   └── __init__.py
-│   │   ├── models.py
-│   │   ├── push.py
-│   │   ├── signals.py
-│   │   ├── tests.py
-│   │   └── views.py
-│   └── roster
-│       ├── __init__.py
-│       ├── admin.py
-│       ├── api
-│       │   ├── __init__.py
-│       │   └── v1
-│       │       ├── __init__.py
-│       │       └── urls.py
-│       ├── apps.py
-│       ├── migrations
-│       │   └── __init__.py
-│       ├── models.py
-│       ├── services.py
-│       ├── tests.py
-│       └── views.py
-├── build.sh
-├── gunicorn.conf.py
+│   ├── __init__.py
+│   ├── academics          # Districts, schools, classrooms, sections, subjects, teaching assignments
+│   │   ├── api/v1/urls.py
+│   │   ├── apps.py
+│   │   ├── constants.py
+│   │   ├── management/commands/seed_punjab.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   └── views.py
+│   ├── accesscontrol      # Role decorators, queryset scoping (library app — no endpoints)
+│   │   ├── permissions.py
+│   │   └── scoped_service.py
+│   ├── accounts           # Users, auth, OTP, join codes, device sessions, profile
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   ├── services.py    # OTP delivery (Fast2SMS + email)
+│   │   ├── middleware.py   # SingleActiveSessionMiddleware
+│   │   └── views.py
+│   ├── ai_assistant       # Gemini-powered AI curriculum tutor
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── assessments        # Quizzes, scoring, attempt history, builder
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   ├── signals.py     # Auto-update total_marks
+│   │   └── views.py
+│   ├── chatrooms          # Real-time messaging via Ably
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── competitions       # Live quiz competition rooms via Ably
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── content            # Courses, lessons, section lessons, progress, analytics
+│   │   ├── api/v1/urls.py
+│   │   ├── management/commands/seed_content.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── flashcards         # Spaced-repetition flashcard decks (SM-2 algorithm)
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── gamification       # Points, badges, streaks, leaderboard
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   ├── signals.py     # Lesson/assessment → point/badge/streak awards
+│   │   └── views.py
+│   ├── gradebook          # Term-based marks & grading
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── learning           # Enrollments, learning paths, student dashboard
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   ├── signals.py     # Auto-enroll on StudentSubject creation
+│   │   └── views.py
+│   ├── livesessions       # LiveKit WebRTC live classes
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py
+│   │   └── views.py
+│   ├── media              # Cloudflare R2 presigned URL management
+│   │   ├── api/v1/urls.py
+│   │   ├── r2.py
+│   │   └── views.py
+│   ├── notifications      # In-app + push notification delivery
+│   │   ├── api/v1/urls.py
+│   │   ├── models.py      # Broadcast, Notification, PushSubscription
+│   │   ├── push.py        # pywebpush delivery service
+│   │   └── views.py
+│   └── roster             # Bulk student pre-registration via Excel
+│       ├── api/v1/urls.py
+│       ├── services.py
+│       └── views.py
+├── gunicorn.conf.py       # gthread workers (2 × 4 threads)
 ├── gyangrit
-│   ├── __init__.py
-│   ├── asgi.py
-│   ├── settings
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── dev.py
-│   │   └── prod.py
-│   ├── urls.py
-│   └── wsgi.py
-├── gyangrit_backup.dump
-├── manage.py
-├── package-lock.json
-├── package.json
-├── project_structure_clean.txt
-├── railway.json
+│   ├── settings
+│   │   ├── base.py        # Shared config, VAPID, LiveKit, Gemini, Ably
+│   │   ├── dev.py
+│   │   └── prod.py        # Sentry, Redis, WhiteNoise
+│   ├── urls.py            # Root URL dispatcher — all 17 apps mounted
+│   └── wsgi.py
 ├── requirements
-│   ├── base.txt
-│   ├── dev.txt
-│   └── prod.txt
-└── runtime.txt
+│   ├── base.txt           # Django, psycopg2, pywebpush, ably, openpyxl, etc.
+│   ├── dev.txt
+│   └── prod.txt           # gunicorn, sentry-sdk, redis, pywebpush
+└── runtime.txt            # Python 3.11.12
+
 frontend
-├── eslint.config.js
-├── index.html
-├── package-lock.json
-├── package.json
 ├── public
-│   ├── favicon.svg
-│   ├── icons
-│   │   ├── icon-180.png
-│   │   ├── icon-192.png
-│   │   └── icon-512.png
-│   ├── manifest.json
-│   └── sw.js
-├── src
-│   ├── app
-│   │   └── router.tsx
-│   ├── auth
-│   │   ├── AuthContext.tsx
-│   │   ├── RequireRole.tsx
-│   │   ├── RoleBasedRedirect.tsx
-│   │   └── authTypes.ts
-│   ├── components
-│   │   ├── BottomNav.tsx
-│   │   ├── LessonItem.tsx
-│   │   ├── Logo.tsx
-│   │   ├── LogoutButton.tsx
-│   │   ├── NavMenu.tsx
-│   │   ├── NotificationDetailModal.tsx
-│   │   ├── NotificationPanel.tsx
-│   │   └── TopBar.tsx
-│   ├── index.css
-│   ├── main.tsx
-│   ├── nav-menu-animation.css
-│   ├── pages
-│   │   ├── AIChatPage.tsx
-│   │   ├── AdminAssessmentBuilderPage.tsx
-│   │   ├── AdminChatManagementPage.tsx
-│   │   ├── AdminContentPage.tsx
-│   │   ├── AdminDashboardPage.tsx
-│   │   ├── AdminJoinCodesPage.tsx
-│   │   ├── AdminLessonEditorPage.tsx
-│   │   ├── AssessmentHistoryPage.tsx
-│   │   ├── AssessmentPage.tsx
-│   │   ├── AssessmentTakePage.tsx
-│   │   ├── AssessmentsPage.tsx
-│   │   ├── AssessmentsResultPage.tsx
-│   │   ├── ChatRoomPage.tsx
-│   │   ├── CompetitionRoomPage.tsx
-│   │   ├── CompleteProfilePage.tsx
-│   │   ├── CourseAssessmentsPage.tsx
-│   │   ├── CoursesPage.tsx
-│   │   ├── DashboardPage.tsx
-│   │   ├── FlashcardDecksPage.tsx
-│   │   ├── FlashcardsStudyPage.tsx
-│   │   ├── GradebookPage.tsx
-│   │   ├── LeaderboardPage.tsx
-│   │   ├── LearningPathPage.tsx
-│   │   ├── LearningPathsPage.tsx
-│   │   ├── LessonPage.tsx
-│   │   ├── LessonsPage.tsx
-│   │   ├── LiveSessionPage.tsx
-│   │   ├── LoginPage.tsx
-│   │   ├── NotificationsPage.tsx
-│   │   ├── OfficialDashboardPage.tsx
-│   │   ├── PrincipalDashboardPage.tsx
-│   │   ├── ProfilePage.tsx
-│   │   ├── RegisterPage.tsx
-│   │   ├── SectionLessonPage.tsx
-│   │   ├── TeacherClassDetailPage.tsx
-│   │   ├── TeacherDashboardPage.tsx
-│   │   ├── TeacherStudentDetailPage.tsx
-│   │   ├── UserManagementPage.tsx
-│   │   ├── VerifyOtpPage.tsx
-│   │   └── errors
-│   │       ├── ErrorPage.tsx
-│   │       ├── ForbiddenPage.tsx
-│   │       ├── NetworkErrorPage.tsx
-│   │       ├── NotFoundPage.tsx
-│   │       └── ServerErrorPage.tsx
-│   ├── public
-│   │   └── favicon.svg
-│   ├── services
-│   │   ├── aiAssistant.ts
-│   │   ├── api.ts
-│   │   ├── assessments.ts
-│   │   ├── chat.ts
-│   │   ├── competitions.ts
-│   │   ├── content.ts
-│   │   ├── courseProgress.ts
-│   │   ├── flashcards.ts
-│   │   ├── gamification.ts
-│   │   ├── gradebook.ts
-│   │   ├── learningEnrollments.ts
-│   │   ├── learningPaths.ts
-│   │   ├── livesessions.ts
-│   │   ├── media.ts
-│   │   ├── notifications.ts
-│   │   ├── offline.ts
-│   │   ├── progress.ts
-│   │   ├── push.ts
-│   │   └── teacherAnalytics.ts
-│   └── utils
-│       └── slugs.ts
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
-├── vercel.json
-└── vite.config.ts
+│   ├── favicon.svg
+│   ├── icons/             # PWA icons (192, 512, 180)
+│   ├── manifest.json
+│   └── sw.js              # Service worker: cache, offline, push handler
+├── vercel.json            # Explicit routes for sw.js, manifest, SPA catch-all
+├── .env.production        # VITE_API_URL for Render backend
+└── src
+    ├── app
+    │   └── router.tsx     # All routes with Protected() wrapper + lazy loading
+    ├── auth
+    │   ├── AuthContext.tsx       # UserProfile state, CSRF init, push auto-subscribe, Ably listener
+    │   ├── authTypes.ts         # Role, UserProfile, AuthState (with kickedMessage)
+    │   ├── RequireRole.tsx      # Auth + role guard + profile_complete check
+    │   └── RoleBasedRedirect.tsx # Post-login routing + profile redirect
+    ├── components
+    │   ├── BottomNav.tsx              # Mobile bottom nav (student-only, 5 tabs)
+    │   ├── LessonItem.tsx
+    │   ├── Logo.tsx
+    │   ├── LogoutButton.tsx
+    │   ├── NavMenu.tsx
+    │   ├── NotificationDetailModal.tsx
+    │   ├── NotificationPanel.tsx      # Bell dropdown with real-time Ably updates
+    │   └── TopBar.tsx
+    ├── index.css                      # Custom CSS design system (~1600 lines)
+    ├── main.tsx                       # Sentry init, SW registration
+    ├── pages (38 total)
+    │   ├── errors/                    # NotFoundPage, ForbiddenPage, ServerErrorPage, NetworkErrorPage
+    │   ├── LoginPage.tsx              # + kicked banner for multi-device logout
+    │   ├── RegisterPage.tsx
+    │   ├── VerifyOtpPage.tsx          # + 60s countdown resend button
+    │   ├── CompleteProfilePage.tsx
+    │   ├── DashboardPage.tsx
+    │   ├── CoursesPage.tsx
+    │   ├── LessonsPage.tsx
+    │   ├── LessonPage.tsx             # + Save for Offline button (IndexedDB)
+    │   ├── SectionLessonPage.tsx
+    │   ├── AssessmentsPage.tsx
+    │   ├── AssessmentPage.tsx
+    │   ├── AssessmentTakePage.tsx
+    │   ├── AssessmentsResultPage.tsx
+    │   ├── AssessmentHistoryPage.tsx
+    │   ├── CourseAssessmentsPage.tsx
+    │   ├── LearningPathsPage.tsx
+    │   ├── LearningPathPage.tsx
+    │   ├── LeaderboardPage.tsx
+    │   ├── ProfilePage.tsx
+    │   ├── NotificationsPage.tsx      # Inbox + send + sent history tabs
+    │   ├── TeacherDashboardPage.tsx
+    │   ├── TeacherClassDetailPage.tsx
+    │   ├── TeacherStudentDetailPage.tsx
+    │   ├── GradebookPage.tsx
+    │   ├── PrincipalDashboardPage.tsx
+    │   ├── OfficialDashboardPage.tsx
+    │   ├── AdminDashboardPage.tsx
+    │   ├── AdminContentPage.tsx
+    │   ├── AdminLessonEditorPage.tsx
+    │   ├── AdminAssessmentBuilderPage.tsx
+    │   ├── AdminJoinCodesPage.tsx
+    │   ├── UserManagementPage.tsx
+    │   ├── CompetitionRoomPage.tsx
+    │   ├── ChatRoomPage.tsx
+    │   ├── AdminChatManagementPage.tsx
+    │   ├── FlashcardDecksPage.tsx
+    │   ├── FlashcardsStudyPage.tsx
+    │   ├── LiveSessionPage.tsx
+    │   └── AIChatPage.tsx
+    ├── services (19 total)
+    │   ├── api.ts                 # Base fetch + CSRF + session_kicked detection
+    │   ├── assessments.ts
+    │   ├── chat.ts
+    │   ├── competitions.ts
+    │   ├── content.ts
+    │   ├── courseProgress.ts
+    │   ├── flashcards.ts
+    │   ├── gamification.ts
+    │   ├── gradebook.ts
+    │   ├── learningEnrollments.ts
+    │   ├── learningPaths.ts
+    │   ├── livesessions.ts
+    │   ├── media.ts
+    │   ├── notifications.ts
+    │   ├── offline.ts             # IndexedDB for lessons + flashcards
+    │   ├── progress.ts
+    │   ├── push.ts                # Web Push subscription management (VAPID)
+    │   ├── teacherAnalytics.ts
+    │   └── aiAssistant.ts
+    └── utils
+        └── slugs.ts
+
 docs
-├── ALTERNATIVE_DEPLOYMENT.md
+├── ALTERNATIVE_DEPLOYMENT.md    # AWS EC2 Mumbai, Oracle, GCP Cloud Run, keep-alive
 ├── API_AND_FRONTEND_END_POINTS.md
-├── AUDIT_LOG.md
-├── BACKEND_DEPLOYMENT_RENDER.md
+├── AUDIT_LOG.md                 # 38 pages, 17 apps, 19 services, 16 issues tracked
 ├── DATA_MODEL.md
 ├── DEPLOYMENT.md
-├── DOMAIN_AND_SERVICES.md
-├── FRONTEND_DEPLOYMENT_VERCEL.md
+├── DOMAIN_AND_SERVICES.md       # gyangrit.site, Namecheap, DNS, email guide
 ├── GAMIFICATION.md
 ├── LEARNING_LOOP.md
 ├── SIGNAL_CHAIN.md
 ├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
-└── tasks_opus4.6.md
-
-91 directories, 334 files
+└── tasks_opus4.6.md             # Session-by-session task plan + final status

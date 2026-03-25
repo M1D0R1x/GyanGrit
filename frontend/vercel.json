@@ -20,7 +20,7 @@
     { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/icons/:path*", "destination": "/icons/:path*" },
     { "source": "/favicon.svg", "destination": "/favicon.svg" },
-    { "source": "/screenshots/:path*", "destination": "/screenshots/:path*" },
+    { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

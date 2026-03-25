@@ -102,7 +102,7 @@ export default function FlashcardDecksPage() {
       .finally(() => setLoading(false));
 
     if (user?.role === "TEACHER") {
-      apiGet<TeachingAssignment[]>("/accounts/my-assignments/")
+      apiGet<TeachingAssignment[]>("/academics/my-assignments/")
         .then(setAssignments)
         .catch(() => {});
     } else {

@@ -180,7 +180,7 @@
 - [x] README.md updated to reflect 17 apps, 38 pages, 19 services
 - [x] Domain guide written (DOMAIN_AND_SERVICES.md)
 - [ ] QStash scheduled tasks (post-capstone — not blocking)
-- [ ] .claude project knowledge docs refreshed
+- [x] .claude project knowledge docs refreshed (project_structure_clean.txt updated, UPDATE_PROJECT_KNOWLEDGE.md guide created)
 
 ---
 

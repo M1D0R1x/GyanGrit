@@ -24,6 +24,7 @@ Filter params (consistent naming across both history endpoints):
 import json
 import logging
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db import transaction

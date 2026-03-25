@@ -263,7 +263,7 @@ export default function CompetitionRoomPage() {
         assignments.forEach((a) => {
           if (!seen.has(a.section_id)) {
             seen.add(a.section_id);
-            secs.push({ id: a.section_id, name: a.section_name, short_label: a.section_name, class_name: a.class_name });
+            secs.push({ id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}`, short_label: a.section_name, class_name: a.class_name });
           }
         });
         setSections(secs);

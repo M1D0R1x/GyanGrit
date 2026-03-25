@@ -72,7 +72,8 @@ def _subject_matches_slug(subject_name: str, slug: str) -> bool:
 # HEALTH
 # ─────────────────────────────────────────────────────────────────────────────
 
-@require_http_methods(["GET"])
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
 def health(request):
     return JsonResponse({
         "status": "ok",

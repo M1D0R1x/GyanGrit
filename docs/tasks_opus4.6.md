@@ -21,7 +21,25 @@
 
 ---
 
-## Session 2 — Bug Fixes & Endpoint Audit (NEXT)
+### Session 2 — Bug Fixes, Push, Offline, OTP (2026-03-25, completed)
+- Fixed Live Session class dropdown (wrong endpoint path)
+- Multi-device logout notification (middleware JSON 401 + frontend banner)
+- Endpoint audit: all 17 service files verified against backend URLs
+- Resend OTP: backend endpoint with 60s rate limit + frontend countdown timer
+- Profile completion redirect in RoleBasedRedirect
+- Push Notifications full stack:
+  - PushSubscription model + migration
+  - pywebpush delivery service (push.py)
+  - subscribe/unsubscribe/vapid-key endpoints
+  - Frontend push.ts service + auto-subscribe in AuthContext
+  - Push delivery integrated into notification broadcasts
+- Offline content: IndexedDB storage service (offline.ts)
+- Save for Offline button on LessonPage
+- VAPID keys generated
+
+---
+
+## Session 2 — Bug Fixes & Endpoint Audit (COMPLETED)
 
 ### Priority 1: Critical Bugs (Blocking normal usage)
 

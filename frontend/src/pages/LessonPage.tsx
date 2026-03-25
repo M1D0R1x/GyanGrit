@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getLessonDetail, type LessonDetail } from "../services/content";
 import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
+import { saveLessonOffline, isLessonSavedOffline, removeOfflineLesson, type OfflineLesson } from "../services/offline";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 
@@ -307,6 +308,83 @@ function VideoEmbed({
           </div>
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Save Offline button ──────────────────────────────────────────────────────
+
+function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
+  const [saved, setSaved]     = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    isLessonSavedOffline(lesson.id).then((v) => {
+      setSaved(v);
+      setChecked(true);
+    });
+  }, [lesson.id]);
+
+  if (!checked) return null;
+
+  const handleToggle = async () => {
+    setSaving(true);
+    try {
+      if (saved) {
+        await removeOfflineLesson(lesson.id);
+        setSaved(false);
+      } else {
+        const offlineData: OfflineLesson = {
+          id: lesson.id,
+          courseId: (lesson as unknown as { course_id?: number }).course_id ?? 0,
+          title: lesson.title,
+          content: lesson.content ?? "",
+          pdfUrl: lesson.pdf_url ?? "",
+          order: lesson.order ?? 0,
+          savedAt: new Date().toISOString(),
+        };
+        await saveLessonOffline(offlineData);
+        setSaved(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      marginTop: "var(--space-6)",
+      padding: "var(--space-4)",
+      background: saved ? "rgba(16,185,129,0.06)" : "var(--bg-elevated)",
+      border: `1px solid ${saved ? "rgba(16,185,129,0.2)" : "var(--border-subtle)"}`,
+      borderRadius: "var(--radius-lg)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "var(--space-3)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+        <span style={{ fontSize: 20 }}>{saved ? "\u2705" : "\uD83D\uDCE5"}</span>
+        <div>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
+            {saved ? "Saved for offline" : "Save for offline"}
+          </div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            {saved ? "Available without internet" : "Read this lesson anytime"}
+          </div>
+        </div>
+      </div>
+      <button
+        className={`btn ${saved ? "btn--ghost" : "btn--secondary"}`}
+        onClick={handleToggle}
+        disabled={saving}
+        style={{ fontSize: "var(--text-xs)", padding: "var(--space-2) var(--space-3)" }}
+      >
+        {saving ? "Saving\u2026" : saved ? "Remove" : "Save"}
+      </button>
     </div>
   );
 }
@@ -632,6 +710,11 @@ export default function LessonPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Save for Offline button */}
+        {(lesson.content || lesson.pdf_url) && (
+          <SaveOfflineButton lesson={lesson} />
         )}
 
         {/* Mark complete CTA */}

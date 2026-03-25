@@ -15,6 +15,7 @@ urlpatterns = [
     # Registration helpers
     path("student-register/",   views.student_register),
     path("verify-otp/",         views.verify_otp),
+    path("resend-otp/",         views.resend_otp),
     path("validate-join-code/", views.validate_join_code),
 
     # Scoped lists

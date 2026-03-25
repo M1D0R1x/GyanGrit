@@ -26,6 +26,12 @@ export default function RoleBasedRedirect() {
     return <Navigate to="/login" replace />;
   }
 
+  // Redirect to profile completion if profile is incomplete (first login)
+  // Skip for ADMIN — they may not need profile fields
+  if (auth.user && !auth.user.profile_complete && auth.user.role !== "ADMIN") {
+    return <Navigate to="/complete-profile" replace />;
+  }
+
   switch (auth.user?.role) {
     case "STUDENT":   return <Navigate to="/dashboard"   replace />;
     case "TEACHER":   return <Navigate to="/teacher"     replace />;

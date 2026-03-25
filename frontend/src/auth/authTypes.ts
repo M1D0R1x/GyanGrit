@@ -74,5 +74,7 @@ export type AuthState = {
   loading:       boolean;
   authenticated: boolean;
   user:          UserProfile | null;
+  kickedMessage: string | null;
+  clearKicked:   () => void;
   refresh:       () => Promise<void>;
 };

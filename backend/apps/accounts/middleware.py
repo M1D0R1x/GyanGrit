@@ -16,6 +16,7 @@ _EXEMPT_PATHS = frozenset([
     "/api/v1/accounts/register/",
     "/api/v1/accounts/student-register/",
     "/api/v1/accounts/validate-join-code/",
+    "/api/v1/accounts/resend-otp/",
     "/api/v1/academics/districts/",
     "/api/v1/academics/schools/",
 ])
@@ -78,6 +79,14 @@ class SingleActiveSessionMiddleware(MiddlewareMixin):
                 )
                 logout(request)
                 device_session.delete()
+
+                # Return a JSON response so the frontend can show a message
+                # instead of silently redirecting to login.
+                from django.http import JsonResponse
+                return JsonResponse(
+                    {"error": "session_kicked", "message": "You were logged out because your account was signed in on another device."},
+                    status=401,
+                )
 
         except DeviceSession.DoesNotExist:
             # No device session on record — login view will create one.

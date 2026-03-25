@@ -125,7 +125,7 @@ export default function LiveSessionPage() {
       .finally(() => setLoading(false));
 
     if (isTeacher) {
-      apiGet<typeof assignments>("/accounts/my-assignments/")
+      apiGet<typeof assignments>("/academics/my-assignments/")
         .then(setAssignments)
         .catch(() => {});
     }

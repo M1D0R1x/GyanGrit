@@ -16,4 +16,9 @@ urlpatterns = [
 
     # ── Audience options dropdown ─────────────────────────────────────────────
     path("audience-options/",         views.audience_options),
+
+    # ── Push notifications ────────────────────────────────────────────────────
+    path("push/subscribe/",           views.push_subscribe),
+    path("push/unsubscribe/",         views.push_unsubscribe),
+    path("push/vapid-key/",           views.vapid_public_key),
 ]

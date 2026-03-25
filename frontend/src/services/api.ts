@@ -7,13 +7,11 @@
  * - CSRF token is read from gyangrit_csrftoken cookie and sent as X-CSRFToken
  * - Never hardcode base URLs anywhere in the app — always import API_BASE_URL
  *
- * CHANGE (2026-03-15):
- *   Exported API_BASE_URL so media.ts can use it without a hardcoded localhost string.
- *
  * CHANGE (2026-03-25):
- *   - initCsrf() now throws on non-ok responses so retryWithBackoff in AuthContext
- *     can detect cold-start 502s and retry.
- *   - Added .env.production with correct Render URL.
+ *   - initCsrf() throws on non-ok for retry logic
+ *   - Added session_kicked detection: when the middleware returns 401 with
+ *     error="session_kicked", fires a custom event so AuthContext can show
+ *     the "logged out from another device" message.
  */
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
@@ -23,6 +21,28 @@ function getCsrfToken(): string | undefined {
     new RegExp("(^| )gyangrit_csrftoken=([^;]+)")
   );
   return match ? match[2] : undefined;
+}
+
+/**
+ * Check if a response is a "session_kicked" 401 from SingleActiveSessionMiddleware.
+ * If so, dispatch a window event that AuthContext listens to.
+ */
+async function handleKicked(res: Response): Promise<void> {
+  if (res.status === 401) {
+    try {
+      const cloned = res.clone();
+      const body = await cloned.json();
+      if (body?.error === "session_kicked") {
+        window.dispatchEvent(
+          new CustomEvent("session:kicked", {
+            detail: { message: body.message },
+          })
+        );
+      }
+    } catch {
+      // Not JSON or no body — just a normal 401 (unauthenticated)
+    }
+  }
 }
 
 export async function initCsrf(): Promise<void> {
@@ -42,6 +62,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   });
 
   if (!res.ok) {
+    await handleKicked(res);
     const text = await res.text();
     throw new Error(`${res.status} ${text}`);
   }
@@ -63,6 +84,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   });
 
   if (!res.ok) {
+    await handleKicked(res);
     const text = await res.text();
     throw new Error(`${res.status} ${text}`);
   }
@@ -84,6 +106,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   });
 
   if (!res.ok) {
+    await handleKicked(res);
     const text = await res.text();
     throw new Error(`${res.status} ${text}`);
   }
@@ -106,6 +129,7 @@ export async function apiDelete<T = Record<string, unknown>>(
   });
 
   if (!res.ok) {
+    await handleKicked(res);
     const text = await res.text();
     throw new Error(`${res.status} ${text}`);
   }

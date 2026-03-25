@@ -29,6 +29,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    auth.clearKicked();
 
     try {
       const response = await apiPost<LoginApiResponse>("/accounts/login/", {
@@ -38,7 +39,7 @@ export default function LoginPage() {
 
       if (response.otp_required) {
         navigate("/verify-otp", {
-          state: { username },
+          state: { username, otp_channel: (response as { otp_channel?: string }).otp_channel },
           replace: true,
         });
         return;
@@ -66,6 +67,19 @@ export default function LoginPage() {
         </p>
 
         <hr className="login-card__divider" />
+
+        {auth.kickedMessage && (
+          <div className="alert alert--warning" role="alert" style={{ marginBottom: "var(--space-4)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            {auth.kickedMessage}
+          </div>
+        )}
 
         {error && (
           <div className="alert alert--error" role="alert">

@@ -314,3 +314,12 @@ LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# ── Web Push (VAPID) ─────────────────────────────────────────────────────────
+# Generate keys once:
+#   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); print(v.private_pem().decode()); print(v.public_key)"
+# Or: python manage.py generate_vapid_keys
+# Then set VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY in Render env vars.
+VAPID_PRIVATE_KEY    = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY     = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_CLAIMS_EMAIL   = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@gyangrit.com")

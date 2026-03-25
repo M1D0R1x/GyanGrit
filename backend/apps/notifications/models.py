@@ -174,3 +174,35 @@ class Notification(models.Model):
             n.id, user.username, notification_type, subject,
         )
         return n
+
+
+class PushSubscription(models.Model):
+    """
+    Web Push subscription for browser/PWA push notifications.
+
+    Each browser that grants permission creates one subscription.
+    A user may have multiple subscriptions (phone + laptop).
+    Stale subscriptions (HTTP 410 from push service) are auto-deleted.
+
+    Fields match the PushSubscription JS API:
+      - endpoint: the push service URL (unique per browser instance)
+      - p256dh: public key for payload encryption
+      - auth: auth secret for payload encryption
+    """
+    user     = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=500, unique=True)
+    p256dh   = models.CharField(max_length=200)
+    auth     = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"PushSub user={self.user_id} endpoint=...{self.endpoint[-30:]}"

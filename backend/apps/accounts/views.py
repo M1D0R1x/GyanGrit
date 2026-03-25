@@ -318,6 +318,68 @@ def verify_otp(request):
 
 
 # =========================================================
+# RESEND OTP
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def resend_otp(request):
+    """
+    Resend OTP for a user who has already attempted login.
+    Generates a new 6-digit code, deletes old ones, and re-sends.
+
+    Rate limit: Only allowed once every 60 seconds per user (enforced
+    by checking the most recent OTPVerification created_at).
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    username = body.get("username", "").strip()
+    if not username:
+        return JsonResponse({"error": "username is required"}, status=400)
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "Invalid credentials"}, status=400)
+
+    # Rate limit: 60s cooldown
+    recent = (
+        OTPVerification.objects
+        .filter(user=user)
+        .order_by("-created_at")
+        .first()
+    )
+    if recent:
+        elapsed = (timezone.now() - recent.created_at).total_seconds()
+        if elapsed < 60:
+            wait = int(60 - elapsed)
+            return JsonResponse(
+                {"error": f"Please wait {wait} seconds before requesting a new OTP.", "retry_after": wait},
+                status=429,
+            )
+
+    # Generate new OTP
+    otp_code = str(secrets.randbelow(900000) + 100000)
+    OTPVerification.objects.filter(user=user).delete()
+    OTPVerification.objects.create(user=user, otp_code=otp_code)
+
+    _delivered, channel = send_otp(user, otp_code)
+
+    response_data = {
+        "resent":      True,
+        "otp_channel": channel,
+    }
+    if settings.DEBUG:
+        response_data["otp_code"] = otp_code
+
+    logger.info("OTP resent for user %s via %s", username, channel)
+    return JsonResponse(response_data)
+
+
+# =========================================================
 # LOGOUT
 # =========================================================
 

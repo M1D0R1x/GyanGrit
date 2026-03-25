@@ -8,6 +8,7 @@ whitenoise[brotli]>=6.6         # Serves Django static files without nginx
 dj-database-url>=2.1            # Parses DATABASE_URL env var into Django DATABASES dict
 sentry-sdk[django]>=2.0         # Error tracking + performance monitoring (Sentry)
 redis>=5.0                      # Redis client for Upstash session store + cache
+pywebpush>=2.0                  # Web Push notifications (VAPID)
 
 # NOTE: gevent removed — gthread workers don't need it.
 # gevent's ssl monkey-patching crashes on Python 3.14 (Render's default).

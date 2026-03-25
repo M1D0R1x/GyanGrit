@@ -560,6 +560,25 @@ def send_notification(request):
         broadcast.id, user.id, len(recipients), audience_type, audience_label,
     )
 
+    # ── Push notifications (best-effort, non-blocking) ────────────────────
+    # Send browser push to all recipients who have subscriptions.
+    # Runs after the DB transaction is committed so notifications exist.
+    # Wrapped in try/except — push failure never blocks the broadcast.
+    try:
+        from .push import send_push_to_users
+        recipient_ids = [r.id for r in recipients]
+        push_count = send_push_to_users(
+            user_ids=recipient_ids,
+            title=subject,
+            body=message[:200] if message else subject,
+            url=link or "/notifications",
+            tag=f"broadcast-{broadcast.id}",
+        )
+        if push_count:
+            logger.info("Push sent to %d devices for broadcast %s", push_count, broadcast.id)
+    except Exception as exc:
+        logger.warning("Push delivery failed for broadcast %s: %s", broadcast.id, exc)
+
     return JsonResponse({
         "success":         True,
         "broadcast_id":    broadcast.id,
@@ -745,3 +764,69 @@ def audience_options(request):
         "classrooms":             classrooms,
         "institutions":           institutions,
     })
+
+
+# =========================================================
+# PUSH SUBSCRIPTION
+# =========================================================
+
+@require_auth
+@require_http_methods(["POST"])
+@csrf_exempt
+def push_subscribe(request):
+    """
+    Register a push subscription for the current user.
+    Called by the frontend after the user grants notification permission.
+    Upserts — same endpoint won't create duplicates.
+    """
+    import json as _json
+    from .models import PushSubscription
+
+    try:
+        body = _json.loads(request.body)
+    except (ValueError, _json.JSONDecodeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    endpoint = body.get("endpoint", "").strip()
+    p256dh   = body.get("p256dh", "").strip()
+    auth     = body.get("auth", "").strip()
+
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({"error": "endpoint, p256dh, and auth are required"}, status=400)
+
+    sub, created = PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={"user": request.user, "p256dh": p256dh, "auth": auth},
+    )
+    logger.info("Push subscription %s: user=%s", "created" if created else "updated", request.user.id)
+    return JsonResponse({"subscribed": True, "id": sub.id})
+
+
+@require_auth
+@require_http_methods(["POST"])
+@csrf_exempt
+def push_unsubscribe(request):
+    """Remove a push subscription for the current user."""
+    import json as _json
+    from .models import PushSubscription
+
+    try:
+        body = _json.loads(request.body)
+    except (ValueError, _json.JSONDecodeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    endpoint = body.get("endpoint", "").strip()
+    if not endpoint:
+        return JsonResponse({"error": "endpoint is required"}, status=400)
+
+    deleted, _ = PushSubscription.objects.filter(
+        user=request.user, endpoint=endpoint
+    ).delete()
+    return JsonResponse({"unsubscribed": True, "deleted": deleted})
+
+
+@require_http_methods(["GET"])
+def vapid_public_key(request):
+    """Return the VAPID public key so the frontend can subscribe."""
+    key = getattr(settings, "VAPID_PUBLIC_KEY", "").strip()
+    return JsonResponse({"public_key": key})

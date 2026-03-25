@@ -13,30 +13,22 @@ import { getAblyToken } from "../services/competitions";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Keep-alive ping
-// Render (and Railway) free/hobby tiers sleep after 15 min of inactivity.
-// We ping /api/v1/health/ every 10 minutes to prevent cold starts.
-// Uses plain fetch (no credentials, no CSRF) — health endpoint is public.
-// Only runs in production (import.meta.env.PROD) to avoid noise in dev.
+// Keep-alive ping — prevents Render cold starts
 // ─────────────────────────────────────────────────────────────────────────────
 
-const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
 
 function startKeepAlive() {
-  if (!import.meta.env.PROD) return; // dev: skip
+  if (!import.meta.env.PROD) return;
   const ping = () => {
-    fetch(`${API_BASE_URL}/health/`, { method: "GET" }).catch(() => {
-      // Silently ignore — if the server is down the user will see auth errors
-    });
+    fetch(`${API_BASE_URL}/health/`, { method: "GET" }).catch(() => {});
   };
-  ping(); // ping immediately on app load
+  ping();
   return setInterval(ping, KEEP_ALIVE_INTERVAL_MS);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Retry helper for cold-start resilience
-// Render free tier can take 30-60s to wake. We retry CSRF + /me up to 3 times
-// with increasing delay so the user isn't stuck on a loading screen.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function retryWithBackoff<T>(
@@ -49,10 +41,8 @@ async function retryWithBackoff<T>(
       return await fn();
     } catch (err) {
       if (attempt === retries) throw err;
-      const delay = baseDelayMs * Math.pow(2, attempt); // 2s, 4s, 8s
-      console.warn(
-        `[AuthContext] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`
-      );
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      console.warn(`[AuthContext] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -64,9 +54,12 @@ async function retryWithBackoff<T>(
 const AuthContext = createContext<AuthState>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading]             = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [user, setUser]                   = useState<UserProfile | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [authenticated, setAuthenticated]   = useState(false);
+  const [user, setUser]                     = useState<UserProfile | null>(null);
+  const [kickedMessage, setKickedMessage]   = useState<string | null>(null);
+
+  const clearKicked = useCallback(() => setKickedMessage(null), []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -107,9 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── CSRF init on mount ─────────────────────────────────────────────────
   useEffect(() => {
-    // Seed CSRF cookie first, then verify auth state.
-    // Uses retry logic to handle Render cold starts (502s for 30-60s).
     retryWithBackoff(() => initCsrf(), 3, 2000)
       .then(() => refresh())
       .catch((err) => {
@@ -118,18 +110,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, [refresh]);
 
-  // Keep the Render/Railway backend warm — ping every 10 minutes
+  // ── Keep-alive ping ────────────────────────────────────────────────────
   useEffect(() => {
     const intervalId = startKeepAlive();
-    return () => {
-      if (intervalId) clearInterval(intervalId);
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, []);
+
+  // ── Session kicked listener ────────────────────────────────────────────
+  // When SingleActiveSessionMiddleware forces logout on another device,
+  // api.ts dispatches "session:kicked" with the message. We pick it up
+  // here and set kickedMessage so LoginPage can show the banner.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setKickedMessage(detail?.message ?? "You were logged out from another device.");
+      setAuthenticated(false);
+      setUser(null);
     };
+    window.addEventListener("session:kicked", handler);
+    return () => window.removeEventListener("session:kicked", handler);
   }, []);
 
   // ── Ably notification listener ─────────────────────────────────────────
-  // Subscribes to notifications:{user_id} once authenticated.
-  // On any chat_message event, dispatches window event "notif:new"
-  // which TopBar catches to immediately refresh the unread badge.
   useEffect(() => {
     if (!authenticated || !user) return;
     let mounted = true;
@@ -148,7 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const channel = client.channels.get(`notifications:${user.id}`);
         channel.subscribe((msg) => {
           if (!mounted) return;
-          // Dispatch custom event — TopBar listens to this for instant bell refresh
           window.dispatchEvent(new CustomEvent("notif:new", { detail: msg.data }));
         });
 
@@ -157,7 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           client.close();
         };
       } catch {
-        // Ably not available — TopBar polls every 30s as fallback
         return undefined;
       }
     };
@@ -172,10 +172,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, user?.id]);
 
+  // ── Push notification auto-subscribe ─────────────────────────────────
+  // After login, subscribe to browser push if permission is not denied.
+  // Lazy-imports push.ts to keep the main bundle small.
+  useEffect(() => {
+    if (!authenticated) return;
+    import("../services/push")
+      .then(({ isPushSupported, getPushPermission, subscribeToPush }) => {
+        if (!isPushSupported()) return;
+        if (getPushPermission() === "denied") return;
+        subscribeToPush().catch(() => {});
+      })
+      .catch(() => {});
+  }, [authenticated]);
+
   const value: AuthState = {
     loading,
     authenticated,
     user,
+    kickedMessage,
+    clearKicked,
     refresh,
   };
 

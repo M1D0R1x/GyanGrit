@@ -49,8 +49,14 @@ Browser (React SPA)
   │  assessments    quizzes, scoring, attempts               │
   │  roster         bulk student pre-registration            │
   │  gamification   points, badges, streaks, leaderboard     │
-  │  notifications  in-app notifications                     │
+  │  notifications  in-app + push notifications              │
   │  media          Cloudflare R2 media management           │
+  │  ai_assistant   Gemini-powered curriculum tutor          │
+  │  chatrooms      real-time chat via Ably                  │
+  │  competitions   live quiz competition rooms              │
+  │  flashcards     spaced-repetition flashcard decks        │
+  │  gradebook      term-based marks & grading               │
+  │  livesessions   LiveKit WebRTC live classes              │
   └──────────────────────────────────────────────────────────┘
         │
         ▼
@@ -127,8 +133,14 @@ GyanGrit/
 │   │   ├── assessments/     quizzes, scoring, attempt history, builder
 │   │   ├── roster/          Excel-based bulk student registration
 │   │   ├── gamification/    points, badges, streaks, leaderboard
-│   │   ├── notifications/   in-app notification delivery
-│   │   └── media/           Cloudflare R2 presigned URL management
+│   │   ├── notifications/   in-app + push notification delivery
+│   │   ├── media/           Cloudflare R2 presigned URL management
+│   │   ├── ai_assistant/    Gemini-powered AI curriculum tutor
+│   │   ├── chatrooms/       real-time messaging via Ably
+│   │   ├── competitions/    live quiz competition rooms
+│   │   ├── flashcards/      spaced-repetition study decks
+│   │   ├── gradebook/       term-based marks & grading
+│   │   └── livesessions/    LiveKit WebRTC live classes
 │   ├── gyangrit/
 │   │   └── settings/        base.py · dev.py · prod.py
 │   └── requirements/        base.txt · dev.txt · prod.txt
@@ -136,8 +148,8 @@ GyanGrit/
 │   └── src/
 │       ├── auth/            AuthContext, role guards, types
 │       ├── components/      TopBar, BottomNav, LessonItem, NotificationPanel, LogoutButton
-│       ├── pages/           one file per route (~30 pages)
-│       ├── services/        api.ts and per-domain service files (11 files)
+│       ├── pages/           one file per route (38 pages)
+│       ├── services/        api.ts and per-domain service files (19 files)
 │       └── app/             router.tsx
 └── docs/
     ├── API_AND_FRONTEND_END_POINTS.md
@@ -155,7 +167,7 @@ GyanGrit/
 
 | Document | Description |
 |---|---|
-| [API & Endpoints](docs/API_AND_FRONTEND_END_POINTS.md) | Full API reference — all 10 apps, request/response shapes, role restrictions |
+| [API & Endpoints](docs/API_AND_FRONTEND_END_POINTS.md) | Full API reference — all 17 apps, request/response shapes, role restrictions |
 | [Architecture](docs/SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md) | System design, models, data scoping, security, frontend structure |
 | [Data Model](docs/DATA_MODEL.md) | Every model, field, constraint, and the design decision behind each |
 | [Learning Loop](docs/LEARNING_LOOP.md) | Content loop, assessment loop, and learning path flow |
@@ -206,4 +218,4 @@ Built to address the digital education divide in rural Punjab:
 - District-level administrative oversight
 - Single-device policy for shared-device households
 - Gamification to maintain student engagement
-- Offline-first architecture (PWA roadmap)
+- PWA with offline content download and push notifications

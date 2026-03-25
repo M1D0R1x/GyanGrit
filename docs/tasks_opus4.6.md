@@ -27,7 +27,17 @@
 - Endpoint audit: all 17 service files verified against backend URLs
 - Resend OTP: backend endpoint with 60s rate limit + frontend countdown timer
 - Profile completion redirect in RoleBasedRedirect
-- Push Notifications full stack:
+- Push Notifications full stack
+- Offline content IndexedDB + Save for Offline button on LessonPage
+- VAPID keys generated
+
+### Session 3 — TS Fixes, Full Audit, Docs, Domain (2026-03-25, completed)
+- Fixed TS error: push.ts Uint8Array → return ArrayBuffer directly
+- Fixed TS error: LessonPage.order → hardcoded 0 (was already fixed but re-verified)
+- Created AUDIT_LOG.md — 38 pages verified, 17 apps verified, 19 services matched, 13 issues logged
+- Created DOMAIN_AND_SERVICES.md — domain comparison, Namecheap guide, DNS setup, email options
+- Updated README.md — 17 apps (was 10), 38 pages (was 30), 19 services (was 11)
+- Full push notification stack:
   - PushSubscription model + migration
   - pywebpush delivery service (push.py)
   - subscribe/unsubscribe/vapid-key endpoints

@@ -116,7 +116,9 @@ Remember: You are a helpful tutor, not a search engine. Guide students to unders
         },
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # Model: gemini-2.0-flash (gemini-1.5-flash was deprecated in March 2026)
+    # See: https://ai.google.dev/gemini-api/docs/models
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
 
     try:
         resp = http_requests.post(url, json=payload, timeout=15)

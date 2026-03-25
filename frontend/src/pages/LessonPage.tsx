@@ -337,11 +337,11 @@ function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
       } else {
         const offlineData: OfflineLesson = {
           id: lesson.id,
-          courseId: (lesson as unknown as { course_id?: number }).course_id ?? 0,
+          courseId: lesson.course?.id ?? 0,
           title: lesson.title,
           content: lesson.content ?? "",
           pdfUrl: lesson.pdf_url ?? "",
-          order: lesson.order ?? 0,
+          order: 0,
           savedAt: new Date().toISOString(),
         };
         await saveLessonOffline(offlineData);

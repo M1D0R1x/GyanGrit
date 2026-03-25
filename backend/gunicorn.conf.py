@@ -1,32 +1,39 @@
 # gunicorn.conf.py
 # Gunicorn configuration for GyanGrit production (Render free tier).
 #
-# Why gevent workers:
-#   Render free tier = 512MB RAM, 0.1 vCPU, 1 sync worker by default.
-#   1 sync worker = 1 request at a time → queue builds up with 50 users.
-#   1 gevent worker = 100 async connections → handles 50+ users on same hardware.
-#   Gevent works by yielding on I/O (DB queries, Ably HTTP calls, R2 requests)
-#   so the worker handles other requests while waiting for the DB to respond.
+# WORKER CLASS: gthread (threaded sync workers)
+# ─────────────────────────────────────────────────────────────────
+# Previously used gevent, but gevent's monkey-patching of ssl causes
+# crashes and warnings on Python 3.13+ / 3.14. The ssl MonkeyPatchWarning
+# ("Monkey-patching ssl after ssl has already been imported") is triggered
+# by redis, boto3, urllib3, and anyio all importing ssl before gevent
+# can patch it (because preload_app=True loads Django first).
 #
-# IMPORTANT: Python version must be 3.11 or 3.12. Python 3.14 causes gevent
-# worker crashes. Pin via runtime.txt (python-3.11.12) in the repo root.
+# gthread is simpler, stable across all Python versions, and sufficient
+# for GyanGrit's scale (~50 concurrent users on free tier):
+#   - 2 workers × 4 threads = 8 concurrent requests
+#   - No monkey-patching required
+#   - psycopg, redis, and boto3 all work without gevent-specific hacks
+#
+# If you need more concurrency later (500+ users), switch back to gevent
+# on Python 3.11/3.12 where it's stable.
 
 import os
 
 # ── Worker class ───────────────────────────────────────────────────────────
-worker_class       = "gevent"
-workers            = 1          # 1 worker is correct for 512MB — gevent handles concurrency
-worker_connections = 100        # max simultaneous connections per worker
+worker_class       = "gthread"
+workers            = 2          # 2 workers for 512MB RAM (each ~80-120MB)
+threads            = 4          # 4 threads per worker = 8 concurrent requests
 
 # ── Preload ────────────────────────────────────────────────────────────────
-# Load the Django app BEFORE forking workers. This means:
-#   1. Import errors show up in the boot log (not silently swallowed)
-#   2. Shared memory between master and workers (saves ~50MB on free tier)
+# Load Django BEFORE forking workers:
+#   1. Import errors show up in boot log (not silently swallowed)
+#   2. Shared memory between workers (saves ~50MB)
 #   3. If Django can't start, gunicorn exits immediately with a clear error
 preload_app = True
 
 # ── Timeouts ──────────────────────────────────────────────────────────────
-timeout            = 120        # 120s — generous for cold Supabase connections from Singapore
+timeout            = 120        # 120s — generous for slow Supabase connections from Singapore
 graceful_timeout   = 30         # 30s to finish in-flight requests on restart
 keepalive          = 5
 
@@ -43,15 +50,10 @@ loglevel           = "info"
 max_requests       = 500        # recycle worker after 500 requests (prevents memory leaks)
 max_requests_jitter = 50        # randomise so all workers don't restart simultaneously
 
-# ── Django DB connection fix for gevent ───────────────────────────────────────
-# CRITICAL: gevent green threads share OS threads. Django's CONN_MAX_AGE
-# creates persistent DB connections bound to the thread they were created in.
-# With gevent, a connection opened in green thread A cannot be used by green
-# thread B — even if both run on the same OS thread — causing:
-#   DatabaseWrapper objects created in a thread can only be used in that same thread
-#
-# Fix: close all connections after each worker forks so each green thread
-# creates its own fresh connection on first use.
+# ── Django DB connection cleanup ──────────────────────────────────────────
+# Close DB connections after forking so each worker gets its own connection.
+# With gthread, Django's CONN_MAX_AGE=0 (set in prod.py) already ensures
+# connections are closed after each request. This is a safety net.
 def post_fork(server, worker):
     from django.db import connections
     for conn in connections.all():

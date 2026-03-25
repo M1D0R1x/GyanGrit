@@ -243,13 +243,23 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
 
-  const url = event.notification.data?.url || "/dashboard";
+  const path = event.notification.data?.url || "/dashboard";
+  // Build full URL from SW origin (works in both browser and PWA)
+  const fullUrl = new URL(path, self.location.origin).href;
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Try to focus an existing window/tab
       for (const client of clientList) {
-        if (client.url.includes(url) && "focus" in client) return client.focus();
+        if ("focus" in client) {
+          client.focus();
+          // Navigate the existing window to the notification URL
+          client.navigate(fullUrl);
+          return client;
+        }
       }
-      return clients.openWindow(url);
+      // No existing window — open a new one
+      return clients.openWindow(fullUrl);
     })
   );
 });

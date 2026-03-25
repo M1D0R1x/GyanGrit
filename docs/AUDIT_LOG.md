@@ -135,6 +135,9 @@
 | 20 | CompetitionRoomPage section label | `CompetitionRoomPage.tsx` | Shows "Class 8 - A" instead of just "A" |
 | 21 | my_assignments 403 for PRINCIPAL/ADMIN | `academics/views.py` | Scoped query for all roles |
 | 22 | LiveSessionPage section label | `LiveSessionPage.tsx` | Shows "Class 8 - A" instead of just "A" |
+| 23 | Ably token expiry warning | `AuthContext.tsx` | Switched to authCallback for auto-refresh |
+| 24 | Push notification click does nothing | `sw.js` | Build full URL from SW origin + use client.navigate |
+| 25 | Safari login broken | `LoginPage.tsx` | Added Safari warning banner (cross-site cookie ITP) |
 
 ---
 

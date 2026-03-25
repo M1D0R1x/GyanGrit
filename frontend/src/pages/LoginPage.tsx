@@ -16,6 +16,14 @@ const ROLE_PATHS: Record<Role, string> = {
   ADMIN:     "/admin-panel",
 };
 
+// Safari blocks cross-site cookies by default (ITP). Since the API is on
+// a different domain (gyangrit.onrender.com), session cookies get blocked.
+// Detect and show a warning.
+function isSafari(): boolean {
+  const ua = navigator.userAgent;
+  return /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua);
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -67,6 +75,19 @@ export default function LoginPage() {
         </p>
 
         <hr className="login-card__divider" />
+
+        {isSafari() && (
+          <div className="alert alert--warning" role="alert" style={{ marginBottom: "var(--space-4)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            Safari may block login due to cross-site cookie restrictions. Please use Chrome or Edge for the best experience.
+          </div>
+        )}
 
         {auth.kickedMessage && (
           <div className="alert alert--warning" role="alert" style={{ marginBottom: "var(--space-4)" }}>

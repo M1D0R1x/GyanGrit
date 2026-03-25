@@ -219,20 +219,7 @@ def student_register(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def login_view(request):
-    try:
-        return _login_view_inner(request)
-    except Exception:
-        # Temporary: log full traceback and return it in response for debugging.
-        # REMOVE THIS after the 500 is diagnosed — never expose tracebacks in prod.
-        logger.exception("login_view crashed")
-        import traceback
-        return JsonResponse(
-            {"error": "Internal server error", "trace": traceback.format_exc()},
-            status=500,
-        )
 
-
-def _login_view_inner(request):
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):

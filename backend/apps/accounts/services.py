@@ -82,7 +82,7 @@ def _send_sms_fast2sms(mobile: str, otp_code: str) -> bool:
             "https://www.fast2sms.com/dev/bulkV2",
             headers={"authorization": api_key, "Content-Type": "application/json"},
             json={"route": "otp", "variables_values": otp_code, "numbers": digits},
-            timeout=8,
+            timeout=4,  # reduced from 8s — fail fast, fall back to email
         )
         data = resp.json()
         if data.get("return") is True:

@@ -62,7 +62,7 @@ def _parse_origins(raw: str) -> list[str]:
 # Core
 # ─────────────────────────────────────────────────────────────────────────────
 
-DEBUG = True
+DEBUG = False
 
 SECRET_KEY = os.environ["SECRET_KEY"]
 

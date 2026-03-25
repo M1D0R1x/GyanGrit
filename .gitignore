@@ -12,6 +12,9 @@ Thumbs.db
 .idea/
 *.iml
 
+# AI Agents & Local AI tools
+.agents/
+
 ############################################
 # Python / Django
 ############################################
@@ -34,13 +37,6 @@ secret_key.txt
 
 ############################################
 # Environment files — ALL of them, no exceptions
-# .env.example contains real-looking credentials
-# and should never be committed.
-# Keep your own copy locally or in 1Password.
-#
-# NOTE: frontend/.env.production is force-added (git add -f)
-# because Vercel needs it as a build-time fallback for VITE_API_URL.
-# It contains NO secrets — only public URLs and DSN.
 ############################################
 .env
 .env.*
@@ -96,8 +92,6 @@ frontend/build/
 
 ############################################
 # Service workers & cache
-# NOTE: sw.js is NOT gitignored — it's a hand-written file that
-# MUST be deployed to Vercel. Workbox-generated files are still ignored.
 ############################################
 frontend/public/workbox-*
 

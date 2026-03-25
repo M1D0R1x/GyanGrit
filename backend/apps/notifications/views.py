@@ -72,12 +72,21 @@ ROLE_ALLOWED_AUDIENCES = {
 # SHARED HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _serialize_notification(n) -> dict:
-    """Serialize a Notification row to the standard inbox shape."""
+def _serialize_notification(n, truncate_message: bool = False) -> dict:
+    """Serialize a Notification row to the standard inbox shape.
+
+    Args:
+        truncate_message: If True, truncate message to 120 chars (bell panel).
+                          Full message is returned in history/detail endpoints.
+    """
+    msg = n.message
+    if truncate_message and msg and len(msg) > 120:
+        msg = msg[:120] + "\u2026"
+
     return {
         "id":              n.id,
         "subject":         n.subject,
-        "message":         n.message,
+        "message":         msg,
         "type":            n.notification_type,
         "is_read":         n.is_read,
         "link":            n.link,
@@ -361,7 +370,7 @@ def list_notifications(request):
 
     return JsonResponse({
         "unread":        unread_count,
-        "notifications": [_serialize_notification(n) for n in notifications],
+        "notifications": [_serialize_notification(n, truncate_message=True) for n in notifications],
     })
 
 

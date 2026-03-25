@@ -125,7 +125,10 @@
 | 10 | No push notifications | `notifications/` (multiple files) | Full VAPID push stack |
 | 11 | No offline storage | `offline.ts`, `LessonPage.tsx` | IndexedDB + Save button |
 | 12 | TS error: LessonDetail.order | `LessonPage.tsx` | Use `lesson.course?.id`, hardcode order=0 |
-| 13 | TS error: Uint8Array type | `push.ts` | Cast to `BufferSource` |
+| 13 | TS error: Uint8Array type | `push.ts` | Return ArrayBuffer directly |
+| 14 | No push on live session start | `livesessions/views.py` | Added send_push_to_users in session_start |
+| 15 | No push on assessment publish | `assessments/views.py` | Added push in update_assessment when is_published flips |
+| 16 | Bell panel 26KB payload | `notifications/views.py` | Truncate message to 120 chars in bell panel |
 
 ---
 

@@ -159,6 +159,26 @@ def session_start(request, session_id):
     except Exception as exc:
         logger.warning("Ably notify failed: %s", exc)
 
+    # Push notification to section students (best-effort)
+    try:
+        from apps.accounts.models import User
+        from apps.notifications.push import send_push_to_users
+        student_ids = list(
+            User.objects.filter(role="STUDENT", section_id=session.section_id)
+            .values_list("id", flat=True)
+        )
+        if student_ids:
+            teacher_name = session.teacher.get_full_name() or session.teacher.username
+            send_push_to_users(
+                user_ids=student_ids,
+                title="\U0001f534 Live Class Started",
+                body=f"{teacher_name} started: {session.title}",
+                url=f"/live/{session.id}",
+                tag=f"live-session-{session.id}",
+            )
+    except Exception as exc:
+        logger.warning("Push notify failed for live session %s: %s", session.id, exc)
+
     return JsonResponse(_session_to_dict(session))
 
 

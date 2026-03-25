@@ -109,6 +109,8 @@ def update_assessment(request, assessment_id):
         if not has_access_to_course(request.user, assessment.course):
             return JsonResponse({"detail": "Forbidden"}, status=403)
 
+    was_published = assessment.is_published
+
     update_fields = []
     for field in ["title", "description", "pass_marks", "is_published"]:
         if field in body:
@@ -117,6 +119,27 @@ def update_assessment(request, assessment_id):
 
     if update_fields:
         assessment.save(update_fields=update_fields)
+
+    # Push notification when assessment is newly published
+    if not was_published and assessment.is_published:
+        try:
+            from apps.notifications.push import send_push_to_users
+            # Find all students enrolled in this course
+            enrolled_ids = list(
+                Enrollment.objects.filter(course=assessment.course, status="enrolled")
+                .values_list("user_id", flat=True)
+            )
+            if enrolled_ids:
+                send_push_to_users(
+                    user_ids=enrolled_ids,
+                    title="New Assessment Available",
+                    body=f"{assessment.title} — {assessment.course.title}",
+                    url=f"/assessments",
+                    tag=f"assessment-published-{assessment.id}",
+                )
+                logger.info("Push sent for published assessment %s to %d students", assessment.id, len(enrolled_ids))
+        except Exception as exc:
+            logger.warning("Push failed for assessment %s: %s", assessment.id, exc)
 
     return JsonResponse({
         "id": assessment.id,

@@ -1,0 +1,133 @@
+/* 
+   GyanGrit 2.0: Sidebar Drawer Styles
+   Architecture: Tonal Layering, Vertical Role Accents, Floating Surfaces.
+   Isolated Workspace: .antigravity/edits/frontend/src/components/SidebarDrawer.css
+*/
+
+.sidebar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--z-overlay);
+  transition: transform var(--transition-normal);
+}
+
+.sidebar-container--hidden {
+  transform: translateX(-100%);
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: calc(var(--z-overlay) - 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.sidebar-overlay--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Role Accent Bar ── */
+.sidebar-accent-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.sidebar-accent-bar--student   { background: var(--role-student);   box-shadow: -2px 0 12px var(--role-student)44; }
+.sidebar-accent-bar--teacher   { background: var(--role-teacher);   box-shadow: -2px 0 12px var(--role-teacher)44; }
+.sidebar-accent-bar--principal { background: var(--role-principal); box-shadow: -2px 0 12px var(--role-principal)44; }
+.sidebar-accent-bar--official  { background: var(--role-official);  box-shadow: -2px 0 12px var(--role-official)44; }
+.sidebar-accent-bar--admin     { background: var(--role-admin);     box-shadow: -2px 0 12px var(--role-admin)44; }
+
+/* ── Content ── */
+.sidebar-header {
+  padding: var(--space-8);
+  margin-bottom: var(--space-4);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 0 var(--space-4);
+  overflow-y: auto;
+}
+
+.nav-group-header {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: var(--space-8) var(--space-4) var(--space-2);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-xl);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.nav-item:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  transform: translateX(4px);
+}
+
+.nav-item--active {
+  background: var(--brand-primary)12;
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary)22;
+}
+
+.nav-item__icon {
+  font-size: 18px;
+}
+
+/* ── Footer ── */
+.sidebar-footer {
+  padding: var(--space-6);
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-elevated);
+}
+
+.user-pill-mini {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.user-avatar-mini {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 12px;
+}

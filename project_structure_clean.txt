@@ -1,5 +1,6 @@
 backend
 ├── COMMANDS.md
+├── Dockerfile
 ├── __init__.py
 ├── apps
 │   ├── __init__.py
@@ -255,8 +256,10 @@ backend
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
 │   │   │   ├── 0002_remove_notification_title_remove_notification_type_and_more.py
+│   │   │   ├── 0003_pushsubscription.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── push.py
 │   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
@@ -291,17 +294,20 @@ backend
 ├── manage.py
 ├── package-lock.json
 ├── package.json
+├── project_structure_clean.txt
 ├── railway.json
-└── requirements
-    ├── base.txt
-    ├── dev.txt
-    └── prod.txt
+├── requirements
+│   ├── base.txt
+│   ├── dev.txt
+│   └── prod.txt
+└── runtime.txt
 frontend
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
 ├── package.json
 ├── public
+│   ├── favicon.svg
 │   ├── icons
 │   │   ├── icon-180.png
 │   │   ├── icon-192.png
@@ -392,7 +398,9 @@ frontend
 │   │   ├── livesessions.ts
 │   │   ├── media.ts
 │   │   ├── notifications.ts
+│   │   ├── offline.ts
 │   │   ├── progress.ts
+│   │   ├── push.ts
 │   │   └── teacherAnalytics.ts
 │   └── utils
 │       └── slugs.ts
@@ -402,14 +410,18 @@ frontend
 ├── vercel.json
 └── vite.config.ts
 docs
+├── ALTERNATIVE_DEPLOYMENT.md
 ├── API_AND_FRONTEND_END_POINTS.md
+├── AUDIT_LOG.md
 ├── BACKEND_DEPLOYMENT_RENDER.md
 ├── DATA_MODEL.md
 ├── DEPLOYMENT.md
+├── DOMAIN_AND_SERVICES.md
 ├── FRONTEND_DEPLOYMENT_VERCEL.md
 ├── GAMIFICATION.md
 ├── LEARNING_LOOP.md
 ├── SIGNAL_CHAIN.md
-└── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
+├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
+└── tasks_opus4.6.md
 
-91 directories, 322 files
+91 directories, 334 files

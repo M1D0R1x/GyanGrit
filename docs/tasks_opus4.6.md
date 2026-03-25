@@ -167,22 +167,45 @@
 
 ---
 
-## Session 4 — Polish & Demo Prep
+## Session 4 — Polish & Demo Prep (2026-03-26, completed)
 
-- [ ] Multi-device logout message
-- [ ] Profile completion redirect
-- [ ] Resend OTP with countdown
-- [ ] QStash scheduled tasks
-- [ ] Performance: reduce notification payload size (currently 26KB!)
-- [ ] Performance: paginate notifications
-- [ ] Final audit: all 30 pages load correctly for each role
+- [x] Multi-device logout message (done in Session 2)
+- [x] Profile completion redirect (done in Session 2)
+- [x] Resend OTP with countdown (done in Session 2)
+- [x] Performance: bell panel now truncates messages to 120 chars
+- [x] Performance: notification_history already paginated (20/page)
+- [x] Push on live session start (sends to section students)
+- [x] Push on assessment publish (sends to enrolled students)
+- [x] Full audit: 38 pages verified, 17 apps verified (AUDIT_LOG.md)
+- [x] README.md updated to reflect 17 apps, 38 pages, 19 services
+- [x] Domain guide written (DOMAIN_AND_SERVICES.md)
+- [ ] QStash scheduled tasks (post-capstone — not blocking)
+- [ ] .claude project knowledge docs refreshed
 
 ---
 
-## Notes
+## FINAL STATUS (2026-03-26)
 
-- UI polish is LAST PRIORITY — functionality first
-- Every fix must be complete, copy-pasteable files — no partial patches
-- Test against Render deployment after every push
-- Sentry will capture production errors after DEBUG=False
-- Always check Render logs for new errors after deploy
+### Everything working:
+- 17 backend apps, all endpoints verified
+- 38 frontend pages, all imports + routes verified
+- 19 service files, all URL patterns matched
+- Push notifications: broadcast, live session start, assessment publish
+- Offline: IndexedDB storage for lessons, Save button on LessonPage
+- Multi-device logout: JSON 401 + banner on LoginPage
+- Resend OTP: 60s rate limit + countdown timer
+- Profile completion: redirect on first login for non-ADMIN
+- Bell panel: truncated messages (performance fix)
+
+### Veera must do manually:
+1. Push all code: `git add . && git commit -m "..." && git push`
+2. Render env vars: VAPID keys, DEBUG=False, PYTHON_VERSION=3.11.12
+3. Buy `gyangrit.site` on Namecheap (~$1)
+4. DNS setup: point to Vercel + backend (see DOMAIN_AND_SERVICES.md)
+5. Fast2SMS DLT verification for teacher SMS OTP
+6. QStash keep-alive cron (5-min ping to /health/)
+
+### Post-capstone (not blocking):
+- QStash scheduled tasks (assessment reminders, streak notifications)
+- UI polish pass
+- Migrate backend to AWS EC2 Mumbai for lower latency

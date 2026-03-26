@@ -188,6 +188,15 @@ def session_list_create(request):
     section = get_object_or_404(Section, id=section_id)
     subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
 
+    from django.utils.dateparse import parse_datetime
+    parsed_scheduled = timezone.now()
+    if scheduled:
+        dt = parse_datetime(scheduled)
+        if dt:
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            parsed_scheduled = dt
+
     # Unique room name: section_id + short uuid
     room_name = f"gyangrit-{section_id}-{uuid.uuid4().hex[:8]}"
 
@@ -196,7 +205,7 @@ def session_list_create(request):
         teacher=user, status=SessionStatus.SCHEDULED,
         livekit_room_name=room_name,
         description=description,
-        scheduled_at=timezone.now() if not scheduled else scheduled,
+        scheduled_at=parsed_scheduled,
     )
     logger.info("LiveSession created: id=%s room=%s", session.id, room_name)
 

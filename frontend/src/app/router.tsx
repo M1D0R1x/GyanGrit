@@ -241,7 +241,9 @@ export const router = createBrowserRouter([
   { path: "/teacher/live",            element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
   { path: "/teacher/live/:sessionId", element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
   { path: "/principal/live",          element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
+  { path: "/principal/live/:sessionId", element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
   { path: "/admin/live",              element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
+  { path: "/admin/live/:sessionId",   element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
 
   // ── AI Chatbot ───────────────────────────────────────────────────────────────
   { path: "/ai-tutor",                element: <Protected role="STUDENT"><AIChatPage /></Protected> },

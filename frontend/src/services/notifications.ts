@@ -155,14 +155,24 @@ export type NotificationFilterParams = {
 
 // ── Service functions ─────────────────────────────────────────────────────
 
-/** Quick inbox fetch — used by the bell panel (returns 20 items). */
+/**
+ * Quick inbox fetch — used by the bell panel (returns 20 items).
+ *
+ * Incremental fetch: pass `since` (ISO 8601 datetime) to only get
+ * notifications created after that timestamp. On the first call,
+ * omit `since` to get the full inbox. On subsequent polls, pass the
+ * `created_at` of the most recent notification you already have.
+ * This drops the payload from ~5KB to near-zero on quiet periods.
+ */
 export const fetchNotifications = (params?: {
   type?:        NotificationType;
   unread_only?: boolean;
+  since?:       string;  // ISO 8601 datetime for incremental fetch
 }) => {
   const qs = new URLSearchParams();
   if (params?.type)        qs.set("type", params.type);
   if (params?.unread_only) qs.set("unread_only", "1");
+  if (params?.since)       qs.set("since", params.since);
   const query = qs.toString() ? `?${qs}` : "";
   return apiGet<NotificationInbox>(`/notifications/${query}`);
 };

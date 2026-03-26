@@ -128,10 +128,25 @@ export default function TopBar({ title }: Props) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef    = useRef<HTMLDivElement>(null);
 
+  // Track the newest notification timestamp for incremental fetch.
+  // On first call, fetch everything. On subsequent polls, only fetch
+  // notifications newer than the last one we saw.
+  const lastFetchRef = useRef<string | undefined>(undefined);
+
   const refreshUnread = useCallback(() => {
     if (!auth.authenticated) return;
-    fetchNotifications()
-      .then((data) => { if (data) setUnreadCount(data.unread); })
+    fetchNotifications({ since: lastFetchRef.current })
+      .then((data) => {
+        if (!data) return;
+        setUnreadCount(data.unread);
+        // Update the cursor: newest notification's created_at
+        if (data.notifications.length > 0) {
+          lastFetchRef.current = data.notifications[0].created_at;
+        } else if (!lastFetchRef.current) {
+          // No notifications at all — set cursor to "now" so next poll is incremental
+          lastFetchRef.current = new Date().toISOString();
+        }
+      })
       .catch(() => { /* silent */ });
   }, [auth.authenticated]);
 

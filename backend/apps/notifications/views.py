@@ -352,12 +352,26 @@ def list_notifications(request):
     Quick inbox — 20 most recent notifications + unread count.
     Used by NotificationPanel (bell dropdown).
     Supports ?type= and ?unread_only=1 filters.
+
+    Incremental fetch:
+      ?since=<ISO 8601 datetime>  — only return notifications created after
+      this timestamp. The frontend sends the created_at of its newest
+      notification on subsequent polls, so the payload drops to near-zero
+      when nothing new has arrived.
     """
     qs = (
         Notification.objects
         .filter(user=request.user)
         .select_related("broadcast__sender")
     )
+
+    # Incremental fetch — only return notifications newer than `since`
+    since_raw = request.GET.get("since", "").strip()
+    if since_raw:
+        from django.utils.dateparse import parse_datetime
+        since_dt = parse_datetime(since_raw)
+        if since_dt:
+            qs = qs.filter(created_at__gt=since_dt)
 
     notif_type = request.GET.get("type", "").strip()
     if notif_type:

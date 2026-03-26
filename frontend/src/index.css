@@ -2481,3 +2481,243 @@ a:hover {
 .notification-body a:hover {
   opacity: 0.75;
 }
+
+/* ================================================================
+   LIVE SESSION — In-room layout, chat panel, hand raise
+================================================================ */
+
+.live-room {
+  height:          100vh;
+  display:         flex;
+  flex-direction:  column;
+  background:      #0f0f0f;
+  color:           #fff;
+  overflow:        hidden;
+}
+
+.live-room__header {
+  padding:         var(--space-3) var(--space-4);
+  background:      #1a1a1a;
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  flex-shrink:     0;
+  border-bottom:   1px solid #2a2a2a;
+  gap:             var(--space-3);
+}
+
+.live-room__title {
+  font-family:  var(--font-display);
+  font-weight:  700;
+  font-size:    var(--text-sm);
+  display:      flex;
+  align-items:  center;
+  gap:          var(--space-3);
+  flex-wrap:    wrap;
+}
+
+.live-room__body {
+  flex:      1;
+  display:   flex;
+  min-height: 0;
+  position:  relative;
+}
+
+.live-room__video {
+  flex:      1;
+  display:   flex;
+  flex-direction: column;
+  min-width: 0;
+  position:  relative;
+}
+
+/* Sidebar — slides in from the right */
+.live-room__sidebar {
+  width:        0;
+  overflow:     hidden;
+  transition:   width 0.25s ease;
+  display:      flex;
+  flex-direction: column;
+  background:   #141414;
+  border-left:  1px solid #2a2a2a;
+  flex-shrink:  0;
+}
+
+.live-room__sidebar--open {
+  width: 320px;
+}
+
+@media (max-width: 768px) {
+  .live-room__sidebar--open {
+    width: 260px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* On very small screens, sidebar overlays the video */
+  .live-room__sidebar--open {
+    position:   absolute;
+    right:      0;
+    top:        0;
+    bottom:     0;
+    width:      85vw;
+    max-width:  320px;
+    z-index:    20;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+  }
+}
+
+/* ── Hand Raise Button (student) ─────────────────────────────── */
+
+.live-hand-btn {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           var(--space-1);
+  padding:       var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border:        1px solid #444;
+  background:    transparent;
+  color:         #ccc;
+  font-size:     var(--text-xs);
+  font-weight:   600;
+  cursor:        pointer;
+  transition:    all 0.15s ease;
+  white-space:   nowrap;
+}
+
+.live-hand-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color:      #fff;
+}
+
+.live-hand-btn--active {
+  background:   rgba(251,191,36,0.15);
+  border-color: var(--role-principal);
+  color:        var(--role-principal);
+  animation:    pulse-hand 1.5s ease infinite;
+}
+
+@keyframes pulse-hand {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.3); }
+  50%      { box-shadow: 0 0 0 6px rgba(251,191,36,0); }
+}
+
+/* ── Raised Hands Panel (teacher sees) ───────────────────────── */
+
+.live-hands-panel {
+  padding:       var(--space-3);
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink:   0;
+}
+
+.live-hands-panel__header {
+  font-family:   var(--font-display);
+  font-weight:   700;
+  font-size:     var(--text-xs);
+  color:         var(--role-principal);
+  margin-bottom: var(--space-2);
+}
+
+.live-hands-panel__item {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  padding:         var(--space-1) 0;
+  font-size:       var(--text-xs);
+  color:           #ddd;
+  animation:       fadeInUp 0.2s ease;
+}
+
+/* ── In-Room Chat Panel ──────────────────────────────────────── */
+
+.live-chat-panel {
+  flex:          1;
+  display:       flex;
+  flex-direction: column;
+  min-height:    0;
+}
+
+.live-chat-panel__header {
+  font-family:   var(--font-display);
+  font-weight:   700;
+  font-size:     var(--text-xs);
+  color:         #aaa;
+  padding:       var(--space-3);
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink:   0;
+}
+
+.live-chat-panel__messages {
+  flex:          1;
+  overflow-y:    auto;
+  padding:       var(--space-2) var(--space-3);
+  display:       flex;
+  flex-direction: column;
+  gap:           var(--space-2);
+  min-height:    0;
+}
+
+.live-chat-panel__empty {
+  color:       #555;
+  font-size:   var(--text-xs);
+  text-align:  center;
+  padding:     var(--space-8) var(--space-4);
+}
+
+.live-chat-panel__input {
+  display:      flex;
+  gap:          var(--space-2);
+  padding:      var(--space-2) var(--space-3);
+  border-top:   1px solid #2a2a2a;
+  flex-shrink:  0;
+  background:   #1a1a1a;
+}
+
+.live-chat-panel__input .form-input {
+  background:   #222;
+  border-color: #333;
+  color:        #eee;
+}
+
+.live-chat-panel__input .form-input::placeholder {
+  color: #555;
+}
+
+/* ── Chat messages ───────────────────────────────────────────── */
+
+.live-chat-msg {
+  display:       flex;
+  flex-direction: column;
+  gap:           1px;
+  animation:     fadeInUp 0.15s ease;
+}
+
+.live-chat-msg__name {
+  font-size:   10px;
+  font-weight: 700;
+  color:       var(--brand-primary);
+}
+
+.live-chat-msg--mine .live-chat-msg__name {
+  color: var(--success);
+}
+
+.live-chat-msg__text {
+  font-size:     var(--text-xs);
+  color:         #ddd;
+  line-height:   1.45;
+  word-break:    break-word;
+}
+
+/* ── Controls bar wrapper ────────────────────────────────────── */
+
+.live-controls-bar {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-2);
+  padding:         var(--space-2) var(--space-3);
+  background:      #1a1a1a;
+  border-top:      1px solid #2a2a2a;
+  flex-shrink:     0;
+}

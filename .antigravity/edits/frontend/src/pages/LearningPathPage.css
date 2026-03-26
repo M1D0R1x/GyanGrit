@@ -1,0 +1,131 @@
+.path-detail-header {
+  padding: var(--space-4) 0 var(--space-12);
+}
+
+.path-progress-card {
+  margin-top: var(--space-8);
+  padding: var(--space-6) var(--space-8) !important;
+  background: var(--bg-surface-glass) !important;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-4);
+}
+
+.progress-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.progress-value {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--brand-primary);
+}
+
+.progress-stats {
+  margin-top: var(--space-3);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.course-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.course-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-8) !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.course-strip:hover {
+  transform: translateX(8px);
+  background: var(--bg-surface) !important;
+  border-color: var(--brand-primary)44;
+}
+
+.course-strip__order {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.course-strip:hover .course-strip__order {
+  background: var(--brand-primary)12;
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.course-strip__info {
+  flex: 1;
+}
+
+.course-strip__info h3 {
+  font-size: var(--text-base);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.course-strip__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.subject-tag {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border-subtle);
+}
+
+.course-strip__action .arrow {
+  color: var(--text-muted);
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+
+.course-strip:hover .course-strip__action .arrow {
+  opacity: 0.8;
+  color: var(--brand-primary);
+  transform: translateX(4px);
+}
+
+@media (max-width: 640px) {
+  .course-strip {
+    padding: var(--space-4) var(--space-6) !important;
+    gap: var(--space-4);
+  }
+}

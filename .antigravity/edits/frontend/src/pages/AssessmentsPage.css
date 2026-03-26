@@ -1,0 +1,142 @@
+.history-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6) !important;
+  margin-bottom: var(--space-8);
+  cursor: pointer;
+  background: var(--bg-surface-glass) !important;
+  transition: all 0.3s ease;
+}
+
+.history-hero:hover {
+  border-color: var(--brand-primary)44;
+  transform: translateY(-2px);
+}
+
+.history-hero__content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.filter-system {
+  margin-bottom: var(--space-8);
+}
+
+.status-toggle {
+  display: flex;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  margin-top: var(--space-4);
+  width: fit-content;
+}
+
+.status-toggle__btn {
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-full);
+  border: none;
+  background: none;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  transition: all 0.3s ease;
+}
+
+.status-toggle__btn.active {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.assessments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.assessment-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6) !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.assessment-row:hover {
+  transform: translateX(4px);
+  background: var(--bg-surface) !important;
+  border-color: var(--brand-primary)44;
+}
+
+.unattempted-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid var(--bg-elevated);
+}
+
+.assessment-row__body {
+  flex: 1;
+}
+
+.assessment-row__body h3 {
+  font-size: var(--text-base);
+  font-weight: 700;
+  margin: 2px 0 4px;
+}
+
+.assessment-row__body .meta,
+.assessment-row__body .stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.subject-tag {
+  color: var(--brand-primary);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.assessment-row__status .arrow {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+.pass-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.assessment-row--passed {
+  opacity: 0.8;
+}
+
+/* Circular Score (duplicated or imported from components eventually) */
+.circular-score {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circular-score svg { transform: rotate(-90deg); }
+.circular-score__text {
+  position: absolute;
+  font-family: var(--font-display);
+  font-weight: 900;
+}

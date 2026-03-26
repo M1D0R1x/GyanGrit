@@ -9,41 +9,25 @@
  *     renders them read-only.
  *
  * The parent (LiveSessionPage) is responsible for:
- *   1. Calling onBroadcast with serialized state → sends via LiveKit data channel
+ *   1. Calling onBroadcast with serialized state -> sends via LiveKit data channel
  *   2. Passing incoming whiteboard state updates as the `remoteState` prop
  *
  * Throttling: teacher changes are broadcast at most every 200ms to avoid
  * flooding the data channel. Excalidraw fires onChange on every stroke point,
  * so without throttling we'd send 60+ messages per second while drawing.
  *
- * Package: @excalidraw/excalidraw (must be installed separately)
- *   npm install @excalidraw/excalidraw
+ * Package: @excalidraw/excalidraw@0.18.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Dynamic import types — actual import happens at render time via lazy loading
-import type {
-  ExcalidrawElement,
-} from "@excalidraw/excalidraw/types/element/types";
-import type { AppState } from "@excalidraw/excalidraw/types/types";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types/types";
-
-// Lazy-load the heavy Excalidraw component
-let ExcalidrawComponent: React.ComponentType<Record<string, unknown>> | null = null;
-let excalidrawLoaded = false;
-
-async function loadExcalidraw() {
-  if (excalidrawLoaded) return;
-  const mod = await import("@excalidraw/excalidraw");
-  ExcalidrawComponent = mod.Excalidraw;
-  excalidrawLoaded = true;
-}
+// v0.18.0 type imports — uses the package exports map ("./*" -> "./dist/types/excalidraw/*.d.ts")
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { AppState, ExcalidrawImperativeAPI, ExcalidrawProps } from "@excalidraw/excalidraw/types";
 
 // Serialized whiteboard state sent over data channel
 export type WhiteboardState = {
   type: "whiteboard";
   elements: ExcalidrawElement[];
-  // Only send scroll position, not full appState (too large)
   scrollX: number;
   scrollY: number;
   zoom: number;
@@ -58,36 +42,33 @@ type Props = {
 const BROADCAST_THROTTLE_MS = 200;
 
 export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props) {
-  const [loaded, setLoaded] = useState(excalidrawLoaded);
+  const [ExcalidrawComp, setExcalidrawComp] = useState<React.ComponentType<ExcalidrawProps> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const lastBroadcastRef = useRef(0);
   const pendingBroadcastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load Excalidraw on mount
+  // Dynamic import of the heavy Excalidraw component
   useEffect(() => {
-    if (excalidrawLoaded) {
-      setLoaded(true);
-      return;
-    }
-    loadExcalidraw()
-      .then(() => setLoaded(true))
-      .catch((err) => {
+    let cancelled = false;
+    import("@excalidraw/excalidraw")
+      .then((mod) => {
+        if (!cancelled) {
+          // mod.Excalidraw is a MemoExoticComponent — cast to satisfy TS
+          setExcalidrawComp(() => mod.Excalidraw as unknown as React.ComponentType<ExcalidrawProps>);
+        }
+      })
+      .catch((err: unknown) => {
         console.error("[Whiteboard] Failed to load Excalidraw:", err);
-        setError("Failed to load whiteboard. Please refresh the page.");
+        if (!cancelled) setError("Failed to load whiteboard. Please refresh the page.");
       });
+    return () => { cancelled = true; };
   }, []);
 
   // Apply remote state updates (student view)
   useEffect(() => {
     if (!remoteState || !apiRef.current || !readOnly) return;
-
-    apiRef.current.updateScene({
-      elements: remoteState.elements,
-    });
-    apiRef.current.scrollToContent(undefined, {
-      fitToViewport: false,
-    });
+    apiRef.current.updateScene({ elements: remoteState.elements });
   }, [remoteState, readOnly]);
 
   // Throttled broadcast of whiteboard changes (teacher)
@@ -100,7 +81,7 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
         lastBroadcastRef.current = Date.now();
         onBroadcast({
           type: "whiteboard",
-          elements: elements as ExcalidrawElement[],
+          elements: [...elements],
           scrollX: appState.scrollX,
           scrollY: appState.scrollY,
           zoom: appState.zoom.value,
@@ -110,12 +91,11 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
       if (now - lastBroadcastRef.current >= BROADCAST_THROTTLE_MS) {
         broadcast();
       } else {
-        // Schedule a trailing broadcast
         if (pendingBroadcastRef.current) clearTimeout(pendingBroadcastRef.current);
         pendingBroadcastRef.current = setTimeout(broadcast, BROADCAST_THROTTLE_MS);
       }
     },
-    [readOnly, onBroadcast]
+    [readOnly, onBroadcast],
   );
 
   // Cleanup pending broadcast on unmount
@@ -126,27 +106,21 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
   }, []);
 
   if (error) {
-    return (
-      <div className="whiteboard-error">
-        <span>⚠️ {error}</span>
-      </div>
-    );
+    return <div className="whiteboard-error"><span>{error}</span></div>;
   }
 
-  if (!loaded || !ExcalidrawComponent) {
+  if (!ExcalidrawComp) {
     return (
       <div className="whiteboard-loading">
         <div className="auth-loading__spinner" />
-        <span>Loading whiteboard…</span>
+        <span>Loading whiteboard...</span>
       </div>
     );
   }
 
-  const Excalidraw = ExcalidrawComponent;
-
   return (
     <div className="whiteboard-container">
-      <Excalidraw
+      <ExcalidrawComp
         excalidrawAPI={(api: ExcalidrawImperativeAPI) => { apiRef.current = api; }}
         onChange={handleChange}
         viewModeEnabled={readOnly}
@@ -165,7 +139,6 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
           appState: {
             viewBackgroundColor: "#1a1a2e",
             currentItemStrokeColor: "#ffffff",
-            currentItemFontFamily: 1,
           },
         }}
       />

@@ -7,7 +7,6 @@ import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import "./index.css";
-import "./nav-menu-animation.css";
 
 // ── Sentry error tracking ─────────────────────────────────────────────────────
 // Only initializes in production when DSN is set.

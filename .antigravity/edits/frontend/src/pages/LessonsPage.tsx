@@ -1,20 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSubjectLessons, type Lesson } from '../services/lesson';
+import { apiGet } from '../services/api';
+import { getCourseBySlug } from '../services/content';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 
+type LessonItem = {
+  id: number;
+  type: "global" | "section";
+  title: string;
+  order: number;
+  completed: boolean;
+  has_video: boolean;
+  has_pdf: boolean;
+  has_content: boolean;
+  section_label?: string;
+  created_by?: string | null;
+};
+
 const LessonsPage: React.FC = () => {
-  const { grade, subject_slug } = useParams<{ grade: string; subject_slug: string }>();
+  const { grade: gradeParam, subject: subjectSlug } = useParams<{ grade: string; subject: string }>();
   const navigate = useNavigate();
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonItem[]>([]);
+  const [courseName, setCourseName] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const grade = gradeParam ? Number(gradeParam) : null;
 
   useEffect(() => {
     async function load() {
-      if (!grade || !subject_slug) return;
+      if (!grade || !subjectSlug) return;
       try {
-        const data = await getSubjectLessons(parseInt(grade), subject_slug);
+        const course = await getCourseBySlug(grade, subjectSlug);
+        setCourseName(course.title);
+        const data = await apiGet<LessonItem[]>(`/courses/${course.id}/lessons/`);
         setLessons(data);
       } catch (err) {
         console.error("Lessons load failed:", err);
@@ -23,7 +42,7 @@ const LessonsPage: React.FC = () => {
       }
     }
     load();
-  }, [grade, subject_slug]);
+  }, [grade, subjectSlug]);
 
   if (loading) return (
     <div className="page-shell">
@@ -36,7 +55,7 @@ const LessonsPage: React.FC = () => {
 
   return (
     <div className="page-shell">
-      <TopBar title="Lessons" />
+      <TopBar title={courseName || "Lessons"} />
       <main className="page-content page-enter has-bottom-nav">
         {/* Editorial Header */}
         <section className="editorial-header animate-fade-up">
@@ -61,21 +80,24 @@ const LessonsPage: React.FC = () => {
           {lessons.map((lesson, idx) => (
             <div 
               key={lesson.id} 
-              className="assessment-row"
-              onClick={() => navigate(`/lessons/${lesson.id}`)}
+              className={`assessment-row ${lesson.completed ? 'assessment-row--completed' : ''}`}
+              onClick={() => navigate(lesson.type === 'section' ? `/lessons/section/${lesson.id}` : `/lessons/${lesson.id}`)}
+              style={{ opacity: lesson.completed ? 0.7 : 1 }}
             >
               <div className="assessment-row__icon">
-                 {idx + 1}
+                 {lesson.completed ? '✓' : idx + 1}
               </div>
               <div style={{ flex: 1 }}>
                 <div className="assessment-row__title">{lesson.title}</div>
                 <div className="assessment-row__meta">
-                  <span>MODULE {idx + 1}</span>
-                  {idx === 0 && <span style={{ color: 'var(--success)' }}>● READY TO START</span>}
+                  <span style={{ color: lesson.type === 'section' ? 'var(--role-teacher)' : 'inherit' }}>
+                    {lesson.type === 'section' ? 'SUPPLEMENTAL' : `MODULE ${idx + 1}`}
+                  </span>
+                  {lesson.completed && <span style={{ color: 'var(--role-student)' }}>● COMPLETED</span>}
                 </div>
               </div>
               <button className="assessment-row__btn">
-                STUDY
+                {lesson.completed ? 'REVIEW' : 'STUDY'}
               </button>
             </div>
           ))}
@@ -90,7 +112,7 @@ const LessonsPage: React.FC = () => {
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', maxWidth: '300px', margin: '0 auto 24px' }}>
               Finalize your knowledge by taking the module assessment to earn your mastery points.
             </p>
-            <button className="btn--primary" style={{ width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={() => navigate(`/assessments/take/${subject_slug}`)}>
+            <button className="btn--primary" style={{ width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={() => navigate(`/assessments/take/${subjectSlug}`)}>
               Take Assessment
             </button>
           </div>

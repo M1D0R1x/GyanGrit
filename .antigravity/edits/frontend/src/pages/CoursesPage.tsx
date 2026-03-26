@@ -1,19 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStudentEnrollments, type Enrollment } from '../services/course';
+import { apiGet } from '../services/api';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 
+type Course = {
+  id: number;
+  title: string;
+  description: string;
+  grade: number;
+  subject__name: string;
+  subject__id: number;
+};
+
 const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getStudentEnrollments();
-        setEnrollments(data);
+        const data = await apiGet<Course[]>('/courses/');
+        setCourses(data);
       } catch (err) {
         console.error("Courses load failed:", err);
       } finally {
@@ -56,22 +65,22 @@ const CoursesPage: React.FC = () => {
 
         {/* Courses Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-8)' }}>
-          {enrollments.map((enr) => (
+          {courses.map((c) => (
             <div 
-              key={enr.id} 
+              key={c.id} 
               className="glass-card" 
               style={{ cursor: 'pointer', padding: 'var(--space-10)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-              onClick={() => navigate(`/courses/${enr.grade}/${enr.subject_slug}`)}
+              onClick={() => navigate(`/courses/${c.grade}/${c.subject__name.toLowerCase()}`)}
             >
               <div style={{ fontSize: '32px' }}>
-                {enr.subject_name.toLowerCase().includes('english') ? '📖' : 
-                 enr.subject_name.toLowerCase().includes('math') ? '📐' : 
-                 enr.subject_name.toLowerCase().includes('science') ? '🧬' : '📓'}
+                {c.subject__name.toLowerCase().includes('english') ? '📖' : 
+                 c.subject__name.toLowerCase().includes('math') ? '📐' : 
+                 c.subject__name.toLowerCase().includes('science') ? '🧬' : '📓'}
               </div>
               <div>
-                <h3 style={{ fontSize: 'var(--text-2xl)', fontWeight: 800 }}>{enr.subject_name}</h3>
+                <h3 style={{ fontSize: 'var(--text-2xl)', fontWeight: 800 }}>{c.subject__name}</h3>
                 <div className="role-tag role-tag--student" style={{ marginTop: 'var(--space-2)', fontSize: '9px' }}>
-                  Grade {enr.grade}
+                  Grade {c.grade}
                 </div>
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>

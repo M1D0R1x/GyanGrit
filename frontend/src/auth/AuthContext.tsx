@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
 import { getAblyToken } from "../services/competitions";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
+import type { TokenParams, ErrorInfo, TokenDetails, TokenRequest } from "ably";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keep-alive ping — prevents Render cold starts
@@ -141,9 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { default: Ably } = await import("ably");
         // Use authCallback so Ably can auto-refresh tokens when they expire.
         // This eliminates the "no way to renew" warning.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client = new Ably.Realtime({
-          authCallback: async (_data: any, callback: any) => {
+          authCallback: async (
+            _data: TokenParams,
+            callback: (
+              error: ErrorInfo | string | null,
+              token: TokenDetails | TokenRequest | string | null,
+            ) => void,
+          ) => {
             try {
               const tokenData = await getAblyToken(undefined, "chat");
               callback(null, tokenData.token);
@@ -151,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               callback(err instanceof Error ? err.message : "Token fetch failed", null);
             }
           },
-        } as any);
+        });
         if (!mounted) { client.close(); return; }
 
         const channel = client.channels.get(`notifications:${user.id}`);

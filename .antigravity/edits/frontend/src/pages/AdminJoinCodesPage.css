@@ -1,0 +1,106 @@
+.joincodes-layout {
+  padding: var(--space-8) var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.joincodes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-10);
+}
+
+.joincodes-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.bulk-nexus-alert {
+  padding: var(--space-6) !important;
+  margin-bottom: var(--space-6);
+  border-left: 4px solid var(--role-admin);
+}
+
+.form-tabs {
+  display: flex;
+  gap: 24px;
+  margin-bottom: var(--space-8);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.form-tab {
+  background: none;
+  border: none;
+  padding: 12px 0;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.form-tab.active {
+  color: var(--brand-primary);
+}
+
+.form-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--brand-primary);
+  box-shadow: 0 0 10px var(--brand-primary-glow);
+}
+
+.joincode-table-nexus {
+  margin-top: var(--space-10);
+  overflow: hidden;
+}
+
+.code-cell {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 950;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  background: var(--bg-elevated);
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+}
+
+.bulk-result-card {
+  border: 1px solid var(--role-student)44 !important;
+  margin-bottom: var(--space-8);
+}
+
+.preview-table-container {
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  margin-top: var(--space-6);
+}
+
+/* Form Grid */
+.joincode-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+@media (max-width: 640px) {
+  .joincodes-layout { padding: var(--space-8) var(--space-4); }
+  .joincodes-header { flex-direction: column; align-items: stretch; }
+  .joincode-table-nexus { overflow-x: auto; }
+}

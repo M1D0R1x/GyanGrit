@@ -14,7 +14,7 @@ const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose }: Sideba
   const { user } = useAuth();
   const location = useLocation();
 
-  const role = (user?.role?.toLowerCase() || 'student') as Role;
+  const role = (user?.role?.toUpperCase() || 'STUDENT') as Role;
   const groups = getNavGroups(role);
 
   return (
@@ -24,7 +24,7 @@ const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose }: Sideba
         onClick={onClose}
       />
       
-      <aside className={`sidebar-container ${!isOpen ? 'sidebar-container--hidden' : ''}`}>
+      <aside className={`sidebar-drawer sidebar-drawer--${role.toLowerCase()} ${isOpen ? 'sidebar-drawer--open' : ''}`}>
         {/* Role Accent */}
         <div className={`sidebar-accent-bar sidebar-accent-bar--${role}`} />
 
@@ -46,7 +46,10 @@ const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose }: Sideba
                   onClick={onClose}
                 >
                   <span className="nav-item__icon">{item.icon}</span>
-                  <span className="nav-item__label">{item.label}</span>
+                  <div className="nav-item__content">
+                    <span className="nav-item__label">{item.label}</span>
+                    {item.note && <span className="nav-item__note">{item.note}</span>}
+                  </div>
                 </NavLink>
               ))}
             </div>

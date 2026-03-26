@@ -1,0 +1,94 @@
+.studio-layout {
+  padding: var(--space-8) var(--space-6);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.studio-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-8);
+  padding: 6px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+}
+
+.studio-tab-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  color: var(--text-dim);
+}
+
+.studio-tab-btn.active {
+  background: var(--bg-surface);
+  color: var(--brand-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.studio-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lesson-studio-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  transition: all 0.3s ease;
+}
+
+.lesson-studio-card:hover {
+  border-color: var(--brand-primary);
+  transform: translateY(-2px);
+}
+
+.video-input-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-elevated);
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.video-toggle-btn {
+  flex: 1;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.video-toggle-btn.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.studio-upload-nexus {
+  border: 2px dashed var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10);
+  text-align: center;
+  transition: all 0.3s ease;
+  background: rgba(255,255,255,0.02);
+}
+
+.studio-upload-nexus:hover {
+  border-color: var(--brand-primary);
+  background: rgba(var(--brand-primary-rgb), 0.05);
+}
+
+@media (max-width: 640px) {
+  .studio-layout { padding: var(--space-8) var(--space-4); }
+  .lesson-studio-card { flex-direction: column; align-items: stretch; text-align: center; }
+}

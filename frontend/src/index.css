@@ -2721,3 +2721,36 @@ a:hover {
   border-top:      1px solid #2a2a2a;
   flex-shrink:     0;
 }
+
+/* ── Whiteboard (Excalidraw) ──────────────────────────────────── */
+
+.whiteboard-container {
+  flex:       1;
+  min-height: 0;
+  position:   relative;
+}
+
+.whiteboard-container .excalidraw {
+  height: 100% !important;
+}
+
+.whiteboard-loading {
+  flex:            1;
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-3);
+  color:           #888;
+  font-size:       var(--text-sm);
+}
+
+.whiteboard-error {
+  flex:            1;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  color:           var(--error);
+  font-size:       var(--text-sm);
+  padding:         var(--space-4);
+}

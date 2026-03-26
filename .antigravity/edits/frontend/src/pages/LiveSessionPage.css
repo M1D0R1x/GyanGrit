@@ -1,0 +1,369 @@
+.live-room {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+.live-room__header {
+  padding: var(--space-4) var(--space-8);
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--glass-border);
+  gap: var(--space-6);
+  z-index: 10;
+}
+
+.live-room__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.live-pulse {
+  width: 10px;
+  height: 10px;
+  background: var(--role-teacher);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--role-teacher);
+  animation: pulse-live 1.5s infinite;
+}
+
+@keyframes pulse-live {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.live-room__label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--role-teacher);
+  display: block;
+}
+
+.live-room__session-title {
+  font-size: var(--text-base);
+  font-weight: 800;
+  margin: 0;
+}
+
+.live-room__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.nav-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--glass-border);
+}
+
+.hand-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.hand-btn--active {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+  animation: pulse-hand 2s infinite;
+}
+
+@keyframes pulse-hand {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+.live-room__layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.live-room__primary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  background: #000;
+}
+
+.live-content-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.video-grid-wrapper {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-4);
+  background: #000;
+}
+
+.whiteboard-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-room-actions {
+  padding: var(--space-4) var(--space-8);
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.action-spacer { flex: 1; }
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tool-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-lg);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tool-btn:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.tool-btn--active {
+  background: var(--role-teacher)22;
+  border-color: var(--role-teacher);
+  color: var(--role-teacher);
+}
+
+.live-room__sidebar {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(40px);
+  border-left: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.live-room__sidebar--open {
+  width: 360px;
+}
+
+/* Chat & Hands Panel internal styling */
+.live-chat-panel, .live-hands-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.live-chat-panel__header, .live-hands-panel__header {
+  padding: var(--space-4) var(--space-6);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.live-chat-panel__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.live-chat-msg {
+  display: flex;
+  flex-direction: column;
+}
+
+.live-chat-msg__name {
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--role-student);
+  margin-bottom: 2px;
+}
+
+.live-chat-msg--mine .live-chat-msg__name { color: var(--success); }
+
+.live-chat-msg__text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.live-chat-panel__input {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.live-hands-panel {
+  max-height: 40%;
+  border-bottom: 2px solid var(--role-teacher)44;
+}
+
+.live-hands-list {
+  padding: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.live-hands-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4) !important;
+}
+
+/* Session List UI */
+.session-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.session-card {
+  display: flex;
+  align-items: center;
+  padding: var(--space-6) var(--space-8) !important;
+  transition: transform 0.3s ease;
+}
+
+.session-card:hover {
+  transform: translateX(4px);
+}
+
+.session-card__info {
+  flex: 1;
+}
+
+.session-card__tags {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.status-pill {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-pill--live { color: var(--role-teacher); background: var(--role-teacher)11; }
+
+.live-indicator {
+  width: 6px;
+  height: 6px;
+  background: var(--role-teacher);
+  border-radius: 50%;
+  animation: pulse-live 1s infinite;
+}
+
+.session-subject { font-size: 9px; font-weight: 900; color: var(--text-dim); letter-spacing: 0.1em; }
+.session-title { font-size: var(--text-lg); font-weight: 800; margin-bottom: var(--space-2); }
+.session-meta { display: flex; gap: var(--space-6); }
+.meta-item { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: var(--text-muted); }
+
+.error-dock {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-height) + var(--space-6));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-6);
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 1000;
+}
+
+.error-dock button { background: none; border: none; color: var(--text-muted); cursor: pointer; }
+
+@media (max-width: 1024px) {
+  .live-room__sidebar--open { width: 300px; }
+}
+
+@media (max-width: 640px) {
+  .live-room__header { padding: var(--space-3) var(--space-4); }
+  .live-room__sidebar--open { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 100; }
+  .tool-btn span { display: none; }
+  .tool-btn { padding: var(--space-2) var(--space-4); }
+  .session-card { flex-direction: column; align-items: flex-start; gap: var(--space-6); }
+  .session-card button { width: 100%; }
+}

@@ -3,6 +3,15 @@
 ## Overview
 The "Infinite Obsidian" transformation has evolved GyanGrit from a functional utility into a high-end, tactile learning environment. This redesign prioritizes **Institutional Integrity**, **Scholar Agency**, and **Performance Continuity** for rural low-bandwidth scenarios.
 
+## Architecture: The Logic Bridge [LATEST]
+The redesign now utilizes a **Unified Navigation Utility** (`navigation.tsx`) and **Shadow Services** to maintain perfect parity with the backend while delivering a premium frontend. The "Resume Journey" logic is fully integrated into the student dashboard.
+
+## Current Progress [PHASE 9 COMPLETE]
+- **Core Shell**: TopBar, BottomNav, SidebarDrawer (Unified Sync)
+- **Student Flow**: Dashboard, Learning Paths, Assessments, Gradebook (Redesigned & Synced)
+- **Staff Flow**: Teacher Dashboard, Principal/Official Dashboards (Redesigned)
+- **System**: Auth, Profile, Notifications (Redesigned)
+
 ## Architectural Curator Philosophy
 - **Tonal Layering**: We use depth (Z-axis) defined by glass blurs rather than borders.
 - **Editorial Typography**: Sora is used for "Display" moments (headers, stats) while DM Sans handles legibility in high-density data.
@@ -11,7 +20,6 @@ The "Infinite Obsidian" transformation has evolved GyanGrit from a functional ut
   - `Student`: Azure/Knowledge (#3B82F6)
   - `Principal`: Emerald/Order (#10B981)
 
-## Implementation State (Isolated Workspace)
 All changes are contained within `.antigravity/edits/`. To apply these changes to the production root, execute:
 ```bash
 rsync -av .antigravity/edits/ ./

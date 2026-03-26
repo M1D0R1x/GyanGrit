@@ -89,6 +89,68 @@ def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> 
     return d
 
 
+# ── In-app + push notification helper ──────────────────────────────────────────
+
+def _notify_students_inapp(session: LiveSession, sender, subject_line: str, message: str, link: str):
+    """
+    Create an in-app notification (shows in bell panel) AND send browser push
+    to all students in the session's section.
+    """
+    from apps.accounts.models import User
+    from apps.notifications.models import Broadcast, Notification, AudienceType, NotificationType
+    from apps.notifications.push import send_push_to_users
+
+    student_ids = list(
+        User.objects.filter(role="STUDENT", section_id=session.section_id)
+        .values_list("id", flat=True)
+    )
+    if not student_ids:
+        return
+
+    # Create a Broadcast record (shows in teacher's "sent history")
+    broadcast = Broadcast.objects.create(
+        sender=sender,
+        subject=subject_line,
+        message=message,
+        notification_type=NotificationType.INFO,
+        audience_type=AudienceType.CLASS_STUDENTS,
+        class_id=session.section.classroom_id if session.section else None,
+        link=link,
+    )
+
+    # Create individual Notification records for each student (shows in bell panel)
+    notifications = [
+        Notification(
+            user_id=uid,
+            broadcast=broadcast,
+            subject=subject_line,
+            message=message,
+            notification_type=NotificationType.INFO,
+            link=link,
+        )
+        for uid in student_ids
+    ]
+    Notification.objects.bulk_create(notifications)
+
+    # Update recipient count on the broadcast
+    broadcast.recipient_count = len(student_ids)
+    broadcast.save(update_fields=["recipient_count"])
+
+    logger.info("In-app notifications created: session=%s students=%d", session.id, len(student_ids))
+
+    # Also send browser push (best-effort)
+    try:
+        send_push_to_users(
+            user_ids=student_ids,
+            title=subject_line,
+            body=message,
+            url=link,
+            tag=f"live-session-{session.id}",
+        )
+    except Exception as exc:
+        logger.warning("Push delivery failed for session %s: %s", session.id, exc)
+
+
 # ── Teacher endpoints ─────────────────────────────────────────────────────────
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -137,25 +199,17 @@ def session_list_create(request):
     )
     logger.info("LiveSession created: id=%s room=%s", session.id, room_name)
 
-    # Push notification to section students — "session scheduled"
+    # Notify students: in-app notification (bell panel) + browser push
     try:
-        from apps.accounts.models import User
-        from apps.notifications.push import send_push_to_users
-        student_ids = list(
-            User.objects.filter(role="STUDENT", section_id=section.id)
-            .values_list("id", flat=True)
+        _notify_students_inapp(
+            session=session,
+            sender=user,
+            subject_line=f"\U0001f4cb Live Class Scheduled: {session.title}",
+            message=f"{user.get_full_name() or user.username} scheduled a live class for {section.classroom.name}-{section.name}.",
+            link=f"/live/{session.id}",
         )
-        if student_ids:
-            teacher_name = user.get_full_name() or user.username
-            send_push_to_users(
-                user_ids=student_ids,
-                title="\U0001f4cb Live Class Scheduled",
-                body=f"{teacher_name} scheduled: {session.title}",
-                url=f"/live/{session.id}",
-                tag=f"live-session-{session.id}",
-            )
     except Exception as exc:
-        logger.warning("Push notify failed for new session %s: %s", session.id, exc)
+        logger.warning("Notify failed for new session %s: %s", session.id, exc)
 
     return JsonResponse(_session_to_dict(session), status=201)
 
@@ -180,25 +234,18 @@ def session_start(request, session_id):
     except Exception as exc:
         logger.warning("Ably notify failed: %s", exc)
 
-    # Push notification to section students (best-effort)
+    # In-app notification (bell panel) + browser push
     try:
-        from apps.accounts.models import User
-        from apps.notifications.push import send_push_to_users
-        student_ids = list(
-            User.objects.filter(role="STUDENT", section_id=session.section_id)
-            .values_list("id", flat=True)
+        teacher_name = session.teacher.get_full_name() or session.teacher.username
+        _notify_students_inapp(
+            session=session,
+            sender=request.user,
+            subject_line=f"\U0001f534 Live Class Started: {session.title}",
+            message=f"{teacher_name} is now live! Join the class.",
+            link=f"/live/{session.id}",
         )
-        if student_ids:
-            teacher_name = session.teacher.get_full_name() or session.teacher.username
-            send_push_to_users(
-                user_ids=student_ids,
-                title="\U0001f534 Live Class Started",
-                body=f"{teacher_name} started: {session.title}",
-                url=f"/live/{session.id}",
-                tag=f"live-session-{session.id}",
-            )
     except Exception as exc:
-        logger.warning("Push notify failed for live session %s: %s", session.id, exc)
+        logger.warning("Notify failed for live session %s: %s", session.id, exc)
 
     return JsonResponse(_session_to_dict(session))
 
@@ -303,7 +350,9 @@ def session_token(request, session_id):
         if session.teacher_id != request.user.id:
             return JsonResponse({"error": "Forbidden"}, status=403)
 
-    can_publish = request.user.role in ("TEACHER", "PRINCIPAL", "ADMIN")
+    # All participants can publish (mic/camera). Teacher always can.
+    # Students get publish rights so they can unmute/share camera when allowed.
+    can_publish = True
     identity    = str(request.user.id)
     name        = request.user.get_full_name() or request.user.username
 

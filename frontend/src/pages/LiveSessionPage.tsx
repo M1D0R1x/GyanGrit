@@ -116,8 +116,10 @@ export default function LiveSessionPage() {
   const [creating,    setCreating]    = useState(false);
   const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
   // For ADMIN/PRINCIPAL: dedicated section + subject lists (no duplication from assignments)
-  const [allSections, setAllSections] = useState<{ id: number; short_label: string }[]>([]);
+  const [allSections, setAllSections] = useState<{ id: number; short_label: string; institution_id: number; institution_name: string }[]>([]);
   const [allSubjects, setAllSubjects] = useState<{ id: number; name: string }[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<number | "">("")
+;
 
   const isAdminOrPrincipal = user?.role === "ADMIN" || user?.role === "PRINCIPAL";
 
@@ -208,9 +210,16 @@ export default function LiveSessionPage() {
     } finally { setCreating(false); }
   }, [newTitle, newDesc, newSection, newSubject]);
 
-  // Sections: ADMIN/PRINCIPAL use /academics/sections/, TEACHER uses my-assignments
+  // Schools: unique list for the school filter dropdown (ADMIN/PRINCIPAL only)
+  const schoolOptions = isAdminOrPrincipal
+    ? [...new Map(allSections.map(s => [s.institution_id, { id: s.institution_id, name: s.institution_name }])).values()]
+    : [];
+
+  // Sections: ADMIN/PRINCIPAL filtered by selected school, TEACHER uses my-assignments
   const uniqueSections = isAdminOrPrincipal
-    ? allSections.map(s => ({ id: s.id, name: s.short_label }))
+    ? allSections
+        .filter(s => !selectedSchool || s.institution_id === Number(selectedSchool))
+        .map(s => ({ id: s.id, name: s.short_label }))
     : [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
 
   // Subjects: ADMIN/PRINCIPAL see ALL subjects, TEACHER sees only their assigned subjects for the selected section
@@ -245,7 +254,7 @@ export default function LiveSessionPage() {
           token={liveToken.token}
           serverUrl={liveToken.livekit_url}
           connect={true}
-          video={isTeacher}
+          video={false}
           audio={isTeacher}
           onDisconnected={() => { setInRoom(false); setLiveToken(null); }}
           style={{ flex: 1 }}
@@ -256,7 +265,7 @@ export default function LiveSessionPage() {
             <>
               <RoomAudioRenderer />
               <StudentVideoLayout />
-              <ControlBar variation="minimal" />
+              <ControlBar controls={{ microphone: true, camera: true, screenShare: false, leave: true }} />
             </>
           )}
         </LiveKitRoom>
@@ -293,6 +302,12 @@ export default function LiveSessionPage() {
             <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--text-primary)" }}>New Live Session</div>
             <input className="form-input" placeholder="Session title *" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
             <input className="form-input" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
+            {isAdminOrPrincipal && schoolOptions.length > 1 && (
+              <select className="form-input" value={selectedSchool} onChange={e => { setSelectedSchool(Number(e.target.value) || ""); setNewSection(""); }} style={{ marginBottom: "var(--space-2)" }}>
+                <option value="">All schools — select to filter</option>
+                {schoolOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
             <select className="form-input" value={newSection} onChange={e => setNewSection(Number(e.target.value))} style={{ marginBottom: "var(--space-2)" }}>
               <option value="">Select class / section *</option>
               {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

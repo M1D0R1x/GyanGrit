@@ -194,7 +194,7 @@ def _user_can_post(user, room: ChatRoom, is_reply: bool) -> bool:
     if user.role in ("TEACHER", "PRINCIPAL"):
         return True
     if user.role == "STUDENT":
-        return is_reply  # students reply only
+        return is_reply  # students can reply only in subject rooms
     return False
 
 

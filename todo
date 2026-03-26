@@ -6,7 +6,8 @@
 
 ## Open Bugs
 
-NONE — all bugs listed below have been resolved.
+- [ ] **Gemini AI chatbot 403** — API key `AIzaSyDAAUFrK6SsRf7AcXR72SIBS3su03BJCno` is blocked by Google. Veera must regenerate at https://aistudio.google.com/app/apikey → update GEMINI_API_KEY in Render env vars.
+- [ ] **Push not working on friend's Chrome/Edge** — user must click "Allow" on notification prompt. If dismissed: browser Settings → Site Permissions → gyangrit.site → Notifications → Allow. Not a code issue.
 
 ---
 
@@ -16,14 +17,27 @@ NONE — all bugs listed below have been resolved.
 |---|---|---|
 | 2026-03-26 | Production 500 on login — gevent + CONN_MAX_AGE=600 thread crash | CONN_MAX_AGE=0 + post_fork DB reset in gunicorn.conf.py |
 | 2026-03-26 | Vercel build fail — LiveSessionPage onAction type error | Wrapped handleJoin as (sess) => handleJoin(sess.id) |
-| 2026-03-26 | 302 redirect on chat/notifications API calls — @login_required redirecting to /accounts/login/ which 404s | Replaced all 70 @login_required → @require_auth (returns 401 JSON) across all apps |
-| 2026-03-26 | Failed to fetch dynamically imported module (ChatRoomPage, LiveSessionPage, etc.) | 3-layer fix: (1) lazyRetry() with chunk error detection on all 35 pages, (2) ChunkErrorBoundary wrapping entire app, (3) vite:preloadError event listener in main.tsx |
-| 2026-03-26 | Ably Auth() Warning: token literal without way to renew | AuthContext: authCallback with `as any` cast for auto-token-refresh |
-| 2026-03-26 | TS2769 Ably authCallback type mismatch — build fails | Used `as any` cast on callback params + options (Ably dynamic import makes proper typing impossible) |
-| 2026-03-26 | Vercel Analytics/Speed Insights ERR_BLOCKED_BY_CLIENT | NOT A BUG — user has ad blocker enabled. Scripts load fine without blockers. |
-| 2026-03-26 | 503 on dashboard load | Render cold start — keep-alive ping already implemented (10-min interval) |
-| 2026-03-26 | Push notification click does nothing on mobile | sw.js: build full URL from SW origin + client.navigate() |
-| 2026-03-26 | Safari login broken | ITP cross-site cookie block — warning banner added. Full fix = Oracle Cloud backend on api.gyangrit.site |
-| 2026-03-26 | Live session section dropdown 4x duplicates for ADMIN | ADMIN/PRINCIPAL use /academics/sections/ + /academics/subjects/ instead of my-assignments |
-| 2026-03-26 | Subject dropdown only shows Chemistry for ADMIN | Same fix — dedicated /subjects/ endpoint returns all subjects |
-| 2026-03-26 | "Session has ended" raw 400 in red | User-friendly error messages + auto-refresh session list |
+| 2026-03-26 | 302 redirect on chat/notifications API calls | Replaced all @login_required → @require_auth across all apps |
+| 2026-03-26 | Failed to fetch dynamically imported module | 3-layer fix: lazyRetry + ChunkErrorBoundary + vite:preloadError |
+| 2026-03-26 | Ably Auth() Warning: token literal | AuthContext: authCallback with `as any` |
+| 2026-03-26 | TS2769 Ably authCallback type mismatch | `as any` cast on callback + options |
+| 2026-03-26 | ESLint unused event param | Removed parameter entirely `() => {}` |
+| 2026-03-26 | Live session notifications not in bell panel | `_notify_students_inapp` creates Broadcast + Notification + push |
+| 2026-03-26 | Section dropdown 230 items, no school filter | School dropdown filters sections for ADMIN/PRINCIPAL |
+| 2026-03-26 | Students can't unmute/camera in live sessions | `canPublish: true` for all + ControlBar with mic/camera controls |
+| 2026-03-26 | Students can only reply, not post in chat rooms | `_user_can_post` now returns True for students in subject rooms |
+| 2026-03-26 | "Session has ended" raw 400 error | User-friendly messages + auto-refresh session list |
+| 2026-03-26 | Vercel Analytics ERR_BLOCKED_BY_CLIENT | NOT A BUG — ad blocker |
+| 2026-03-26 | 503 on dashboard | Render cold start — keep-alive already implemented |
+
+---
+
+## Remaining Feature Requests (post-capstone)
+
+- Admin chat rooms grouped by school
+- Whiteboard integration (Excalidraw)
+- Notification caching (incremental fetch)
+- Notification reminders (10/5/15 min before live)
+- ASUS ROG as server deployment guide
+- Custom "purpose" field for live sessions
+- Metrics collection (engagement, watch time)

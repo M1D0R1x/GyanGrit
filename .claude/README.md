@@ -20,7 +20,7 @@ district-level analytics, and a gamification layer to keep students engaged.
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, Vite, TypeScript |
+| Frontend | React 19, Vite, TypeScript |
 | Backend | Django 4.2, Python 3.11+ |
 | Database | PostgreSQL via Supabase (all environments) |
 | Auth | Django session-based with single-device enforcement |

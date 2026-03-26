@@ -8,7 +8,7 @@ GyanGrit is a role-based digital learning platform for rural government schools 
 
 The system is built as a modular web application:
 - **Backend:** Django 4.2 with PostgreSQL (Supabase) in all environments
-- **Frontend:** React 18 + Vite + TypeScript
+- **Frontend:** React 19 + Vite + TypeScript
 - **Authentication:** Django session-based with single-device enforcement
 - **API:** REST under `/api/v1/`
 
@@ -280,7 +280,7 @@ See `docs/SIGNAL_CHAIN.md` for the complete diagram including guards and dedupli
 
 ### 5.1 Technology Stack
 
-- React 18 with TypeScript
+- React 19 with TypeScript
 - Vite for build and dev server
 - React Router v6 for client-side routing
 - CSS custom properties (design system in `src/index.css`)

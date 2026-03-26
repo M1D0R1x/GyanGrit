@@ -3,12 +3,9 @@ import { apiGet, apiPost } from "../services/api";
 import TopBar from "../components/TopBar";
 import { 
   Plus, 
-  Key, 
   Mail, 
   Download, 
   Trash2, 
-  ChevronRight, 
-  ShieldCheck, 
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
@@ -45,8 +42,6 @@ type FormMode    = "single" | "bulk";
 const ROLES: RoleType[]            = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
 const ROLE_FILTERS: string[]       = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
 const VALID_FILTERS: ValidFilter[] = ["ALL", "VALID", "USED"];
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:8000/api/v1";
 
 const EmailModal: React.FC<{ code: JoinCode; onClose: () => void; onSent: (msg: string) => void }> = ({ code, onClose, onSent }) => {
   const [email, setEmail]     = useState("");
@@ -119,22 +114,22 @@ const AdminJoinCodesPage: React.FC = () => {
   const [filterRole, setFilterRole]   = useState("ALL");
   const [filterValid, setFilterValid] = useState<ValidFilter>("ALL");
   const [emailCode, setEmailCode]     = useState<JoinCode | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [bulkResult, setBulkResult]   = useState<JoinCode[] | null>(null);
+  const [] = useState(false);
+  const [, setBulkResult]   = useState<JoinCode[] | null>(null);
 
   const [role, setRole]               = useState<RoleType>("STUDENT");
   const [institutionId, setInstitutionId] = useState("");
   const [sectionId, setSectionId]     = useState("");
   const [subjectId, setSubjectId]     = useState("");
-  const [districtId, setDistrictId]   = useState("");
+  const [districtId]   = useState("");
   const [expiresDays, setExpiresDays] = useState(3);
   const [bulkCount, setBulkCount]     = useState(10);
 
   const [institutions, setInstitutions] = useState<InstitutionItem[]>([]);
   const [sections, setSections]         = useState<SectionItem[]>([]);
   const [subjects, setSubjects]         = useState<SubjectItem[]>([]);
-  const [districts, setDistricts]       = useState<DistrictItem[]>([]);
-  const [sectionsLoading, setSectionsLoading] = useState(false);
+  const [, setDistricts]       = useState<DistrictItem[]>([]);
+  const [, setSectionsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +167,13 @@ const AdminJoinCodesPage: React.FC = () => {
       try {
         const data = await apiGet<SectionItem[]>(`/academics/sections/?classroom__institution_id=${institutionId}`);
         if (!cancelled) {
-          setSections(data ?? []);
+          const sorted = (data || []).sort((a, b) => {
+            const numA = parseInt(a.short_label || a.name);
+            const numB = parseInt(b.short_label || b.name);
+            if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+            return (a.short_label || a.name).localeCompare(b.short_label || b.name);
+          });
+          setSections(sorted);
           setSectionsLoading(false);
         }
       } catch { 
@@ -186,7 +187,6 @@ const AdminJoinCodesPage: React.FC = () => {
   const needsInstitution = role === "STUDENT" || role === "TEACHER" || role === "PRINCIPAL";
   const needsSection     = role === "STUDENT";
   const needsSubject     = role === "TEACHER";
-  const needsDistrict    = role === "OFFICIAL";
 
   const handleCreateSingle = async () => {
     setCreating(true); setError(null); setSuccess(null);
@@ -362,7 +362,7 @@ const AdminJoinCodesPage: React.FC = () => {
                  </tr>
               </thead>
               <tbody>
-                 {filtered.map((c, i) => (
+                 {filtered.map((c) => (
                    <tr key={c.id}>
                       <td><span className="code-cell">{c.code.slice(0, 8)}...</span></td>
                       <td><span className="role-tag" style={{ color: 'var(--role-admin)' }}>{c.role}</span></td>

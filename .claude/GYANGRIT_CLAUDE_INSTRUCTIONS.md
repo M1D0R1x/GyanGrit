@@ -36,7 +36,7 @@ starting any task.**
 - REST API versioned under `/api/v1/`
 
 ### Frontend
-- **React 18** + Vite + TypeScript
+- **React 19** + Vite + TypeScript
 - Context-based auth (`AuthContext`)
 - All API calls through `src/services/api.ts` — never hardcode base URLs
 - Session cookies sent with every request (`credentials: "include"`)

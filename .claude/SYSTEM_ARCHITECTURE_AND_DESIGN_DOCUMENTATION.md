@@ -8,7 +8,7 @@ GyanGrit is a role-based digital learning platform for rural government schools 
 
 The system is built as a modular web application:
 - **Backend:** Django 4.2 with PostgreSQL (Supabase) in all environments
-- **Frontend:** React 18 + Vite + TypeScript
+- **Frontend:** React 19 + Vite + TypeScript
 - **Authentication:** Django session-based with single-device enforcement
 - **API:** REST under `/api/v1/`
 
@@ -21,7 +21,7 @@ Browser (React + Vite)
         ↓  HTTPS + Session Cookie + CSRF Token
 REST API (/api/v1/)
         ↓
-Django Backend (10 modular apps)
+Django Backend (17 modular apps)
         ↓
 PostgreSQL (Supabase — all environments)
 ```
@@ -34,7 +34,7 @@ The frontend and backend are deployed independently. The frontend is a SPA that 
 
 ### 3.1 App Structure
 
-The backend is divided into 10 independent Django apps under `backend/apps/`:
+The backend is divided into 17 independent Django apps under `backend/apps/`:
 
 | App | Responsibility |
 |---|---|
@@ -46,8 +46,14 @@ The backend is divided into 10 independent Django apps under `backend/apps/`:
 | `assessments` | Assessments, questions, options, attempts, scoring, assessment builder |
 | `roster` | Bulk student pre-registration via Excel upload |
 | `gamification` | Points, badges, streaks, leaderboard |
-| `notifications` | In-app notification delivery and read-status tracking |
+| `notifications` | In-app + browser push notification delivery |
 | `media` | Cloudflare R2 media management (presigned upload/delete URLs) |
+| `ai_assistant` | Gemini 2.0 Flash powered curriculum AI tutor |
+| `chatrooms` | Real-time messaging via Ably (subject, staff, officials rooms) |
+| `competitions` | Live quiz competition rooms with real-time scoring |
+| `flashcards` | Spaced-repetition flashcard decks (SM-2 algorithm) |
+| `gradebook` | Term-based marks, categories (oral/practical/test), class-level reporting |
+| `livesessions` | LiveKit WebRTC live class sessions with attendance tracking |
 
 Each app owns its domain completely. Cross-app access goes through model relationships and signals — never through direct view imports.
 
@@ -274,7 +280,7 @@ See `docs/SIGNAL_CHAIN.md` for the complete diagram including guards and dedupli
 
 ### 5.1 Technology Stack
 
-- React 18 with TypeScript
+- React 19 with TypeScript
 - Vite for build and dev server
 - React Router v6 for client-side routing
 - CSS custom properties (design system in `src/index.css`)
@@ -339,8 +345,8 @@ src/
 │   ├── NotificationPanel.tsx — Slide-in notification panel (bell dropdown)
 │   ├── NotificationDetailModal.tsx — Full notification view with Markdown + attachment
 │   └── TopBar.tsx            — Sticky nav with user avatar, role badge, notification bell
-├── pages/                    — One file per route (30 pages)
-├── services/                 — One file per API domain (11 files)
+├── pages/                    — One file per route (38 pages)
+├── services/                 — One file per API domain (19 files)
 ├── utils/
 │   └── slugs.ts              — URL slug helpers
 └── app/

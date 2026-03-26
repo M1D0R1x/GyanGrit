@@ -7,10 +7,11 @@ import {
   ControlBar,
   useTracks,
   useRoomContext,
+  useParticipants,
 } from "@livekit/components-react";
 import { Track, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   listMySessions, createSession, startSession, endSession,
   getUpcomingSessions, joinSession, getSessionToken,
@@ -30,7 +31,8 @@ import {
   Users, 
   Plus,
   Radio,
-  ShieldAlert
+  ShieldAlert,
+  Settings
 } from 'lucide-react';
 import './LiveSessionPage.css';
 
@@ -59,7 +61,13 @@ type HandAckMsg = {
   target_id: string;
 };
 
-type DataMsg = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState;
+type PermMsg = {
+  type: "permissions";
+  mic: boolean;
+  camera: boolean;
+};
+
+type DataMsg = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState | PermMsg;
 
 type InRoomChat = {
   id: string;
@@ -67,6 +75,13 @@ type InRoomChat = {
   sender_id: string;
   message: string;
   timestamp: number;
+};
+
+type SectionItem = {
+  id: number;
+  short_label: string;
+  institution_id?: number;
+  institution_name?: string;
 };
 
 // ── Video layout ─────────────────────────────────────────────────────────────
@@ -168,11 +183,52 @@ function useInRoomChat(userName: string, userId: string) {
   return { messages, sendMessage };
 }
 
+// ── Room Permissions Hook ────────────────────────────────────────────────────
+
+function useRoomPermissions(isTeacher: boolean) {
+  const room = useRoomContext();
+  const [permissions, setPermissions] = useState({ mic: true, camera: true });
+
+  useEffect(() => {
+    if (!room) return;
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const msg: DataMsg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "permissions") {
+          setPermissions({ mic: msg.mic, camera: msg.camera });
+          if (!isTeacher) {
+            if (!msg.mic) room.localParticipant.setMicrophoneEnabled(false);
+            if (!msg.camera) room.localParticipant.setCameraEnabled(false);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => { room.off(RoomEvent.DataReceived, handleData); };
+  }, [room, isTeacher]);
+
+  const updatePermissions = useCallback((mic: boolean, camera: boolean) => {
+    if (!room || !isTeacher) return;
+    setPermissions({ mic, camera });
+    const msg: PermMsg = { type: "permissions", mic, camera };
+    room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(msg)), { reliable: true });
+  }, [room, isTeacher]);
+
+  return { permissions, updatePermissions };
+}
+
 // ── Whiteboard Hook ──────────────────────────────────────────────────────────
 
-function useWhiteboard() {
+function useWhiteboard(sessionId?: string) {
   const room = useRoomContext();
-  const [remoteState, setRemoteState] = useState<WhiteboardState | null>(null);
+  const [remoteState, setRemoteState] = useState<WhiteboardState | null>(() => {
+    if (!sessionId) return null;
+    const saved = localStorage.getItem(`gyangrit_wb_${sessionId}`);
+    if (saved) {
+      try { return JSON.parse(saved) as WhiteboardState; } catch { return null; }
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (!room) return;
@@ -188,8 +244,9 @@ function useWhiteboard() {
 
   const broadcastWhiteboard = useCallback((state: WhiteboardState) => {
     if (!room) return;
+    if (sessionId) localStorage.setItem(`gyangrit_wb_${sessionId}`, JSON.stringify(state));
     room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(state)), { reliable: true });
-  }, [room]);
+  }, [room, sessionId]);
 
   return { remoteState, broadcastWhiteboard };
 }
@@ -211,9 +268,9 @@ function ChatPanel({ messages, onSend, userId }: {
   const handleSend = () => { if (!input.trim()) return; onSend(input); setInput(""); };
 
   return (
-    <div className="live-chat-panel">
+    <div className="live-chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div className="live-chat-panel__header"><MessageSquare size={14} /> Live Dialogue</div>
-      <div className="live-chat-panel__messages" ref={listRef}>
+      <div className="live-chat-panel__messages" ref={listRef} style={{ flex: 1, overflowY: "auto" }}>
         {messages.length === 0 ? (
           <div className="live-chat-panel__empty">Channel quiet. Awaiting transmission.</div>
         ) : (
@@ -225,7 +282,7 @@ function ChatPanel({ messages, onSend, userId }: {
           ))
         )}
       </div>
-      <div className="live-chat-panel__input">
+      <div className="live-chat-panel__input" style={{ flexShrink: 0 }}>
         <input 
           type="text" 
           className="form-input" 
@@ -263,19 +320,81 @@ function HandRaisePanel({ raisedHands, onAcknowledge }: {
   );
 }
 
+// ── Participants Panel ───────────────────────────────────────────────────────
+
+function ParticipantsPanel({ teacherName }: { teacherName: string }) {
+  const participants = useParticipants();
+  const sorted = [...participants].sort((a, b) => {
+    if (a.name === teacherName) return -1;
+    if (b.name === teacherName) return 1;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
+  return (
+    <div className="live-chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div className="live-chat-panel__header"><Users size={14} /> Participants ({participants.length})</div>
+      <div className="live-chat-panel__messages" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-3)" }}>
+        {sorted.map(p => (
+          <div key={p.identity} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
+            <span style={{ fontWeight: p.name === teacherName ? 700 : 400, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+              {p.name || "Unknown"} {p.isLocal && <span style={{ opacity: 0.5 }}>(You)</span>}
+              {p.name === teacherName && "🎓"}
+            </span>
+            <span style={{ display: "flex", gap: "var(--space-2)", opacity: 0.8 }}>
+              {p.isMicrophoneEnabled ? "🎙️" : "🔇"}
+              {p.isCameraEnabled ? "📷" : ""}
+              {p.isScreenShareEnabled ? "💻" : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── In-Room Controls ─────────────────────────────────────────────────────────
 
-function InRoomControls({ onToggleChat, chatOpen, onToggleWhiteboard, whiteboardOpen, isTeacher }: {
-  onToggleChat: () => void;
-  chatOpen: boolean;
+function InRoomControls({ 
+  onToggleTab, activeTab, onToggleWhiteboard, whiteboardOpen, 
+  isTeacher, permissions, updatePermissions 
+}: {
+  onToggleTab: (tab: "chat" | "participants") => void;
+  activeTab: "chat" | "participants" | null;
   onToggleWhiteboard: () => void;
   whiteboardOpen: boolean;
   isTeacher: boolean;
+  permissions: { mic: boolean; camera: boolean; };
+  updatePermissions: (m: boolean, c: boolean) => void;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="live-room-actions">
-       <div className="action-group">
-          <ControlBar variation="minimal" controls={{ microphone: true, camera: true, screenShare: true, leave: true }} />
+       <div className="action-group" style={{ position: "relative" }}>
+          <ControlBar variation="minimal" controls={{ 
+              microphone: isTeacher || permissions.mic, 
+              camera: isTeacher || permissions.camera, 
+              screenShare: true, leave: true 
+          }} />
+
+          {isTeacher && (
+            <div style={{ position: "relative", marginLeft: 'var(--space-3)' }}>
+              <button className="tool-btn" onClick={() => setShowSettings(v => !v)} title="Room Settings">
+                <Settings size={18} />
+              </button>
+              {showSettings && (
+                <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: "var(--space-2)", color: "var(--text-muted)", fontFamily: 'var(--font-display)', letterSpacing: '1px' }}>STUDENT PERMISSIONS</div>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
+                    <input type="checkbox" checked={permissions.mic} onChange={e => updatePermissions(e.target.checked, permissions.camera)} /> Allow unmute
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+                    <input type="checkbox" checked={permissions.camera} onChange={e => updatePermissions(permissions.mic, e.target.checked)} /> Allow camera
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
        </div>
        <div className="action-spacer" />
        <div className="action-group">
@@ -287,9 +406,18 @@ function InRoomControls({ onToggleChat, chatOpen, onToggleWhiteboard, whiteboard
             <Monitor size={18} />
             <span>{isTeacher ? "WHITEBOARD" : (whiteboardOpen ? "HIDE BOARD" : "VIEW BOARD")}</span>
           </button>
+          
           <button 
-            className={`tool-btn ${chatOpen ? 'tool-btn--active' : ''}`} 
-            onClick={onToggleChat}
+            className={`tool-btn ${activeTab === 'participants' ? 'tool-btn--active' : ''}`} 
+            onClick={() => onToggleTab("participants")}
+            title="Participants"
+          >
+            <Users size={18} />
+          </button>
+
+          <button 
+            className={`tool-btn ${activeTab === 'chat' ? 'tool-btn--active' : ''}`} 
+            onClick={() => onToggleTab("chat")}
             title="Chat"
           >
             <MessageSquare size={18} />
@@ -311,12 +439,23 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
 }) {
   const { raisedHands, myHandRaised, toggleHand, acknowledgeHand } = useHandRaise(userName, userId);
   const { messages, sendMessage } = useInRoomChat(userName, userId);
-  const { remoteState, broadcastWhiteboard } = useWhiteboard();
+  const { remoteState, broadcastWhiteboard } = useWhiteboard(activeSession?.id);
+  const { permissions, updatePermissions } = useRoomPermissions(isTeacher);
   
-  const [chatOpen, setChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "participants" | null>(null);
   const [manualWhiteboardOpen, setManualWhiteboardOpen] = useState(false);
   
-  // Students auto-open if broadcast detected
+  const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isTeacher && remoteState && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      const id = requestAnimationFrame(() => setManualWhiteboardOpen(true));
+      return () => cancelAnimationFrame(id);
+    }
+    return undefined;
+  }, [isTeacher, remoteState]);
+
   const whiteboardOpen = isTeacher ? manualWhiteboardOpen : (manualWhiteboardOpen || remoteState !== null);
 
   return (
@@ -371,17 +510,22 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
             )}
           </div>
           <InRoomControls 
-            onToggleChat={() => setChatOpen(v => !v)} 
-            chatOpen={chatOpen} 
+            onToggleTab={(t) => setActiveTab(v => v === t ? null : t)}
+            activeTab={activeTab} 
             onToggleWhiteboard={() => setManualWhiteboardOpen(v => !v)}
             whiteboardOpen={whiteboardOpen}
             isTeacher={isTeacher}
+            permissions={permissions}
+            updatePermissions={updatePermissions}
           />
         </div>
 
-        <aside className={`live-room__sidebar ${chatOpen ? 'live-room__sidebar--open' : ''}`}>
+        <aside className={`live-room__sidebar ${activeTab ? 'live-room__sidebar--open' : ''}`}>
           {isTeacher && <HandRaisePanel raisedHands={raisedHands} onAcknowledge={acknowledgeHand} />}
-          <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+          {activeTab === "participants" && <ParticipantsPanel teacherName={activeSession?.teacher_name || "Teacher"} />}
+          <div style={{ display: activeTab === "chat" ? "block" : "none", height: "100%" }}>
+            <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+          </div>
         </aside>
       </main>
     </div>
@@ -395,7 +539,8 @@ const SessionCard: React.FC<{
   onAction: (s: LiveSession) => void;
   actionLabel: string;
   isActionDisabled?: boolean;
-}> = ({ session, onAction, actionLabel, isActionDisabled }) => {
+  loadingAction?: boolean;
+}> = ({ session, onAction, actionLabel, isActionDisabled, loadingAction }) => {
   const isLive = session.status === "live";
 
   return (
@@ -410,18 +555,18 @@ const SessionCard: React.FC<{
         </div>
         <h3 className="session-title">{session.title}</h3>
         <div className="session-meta">
-           <div className="meta-item"><Clock size={12} /> SESSION</div>
+           {session.scheduled_at && <div className="meta-item"><Clock size={12} /> {new Date(session.scheduled_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>}
            <div className="meta-item"><Users size={12} /> {session.teacher_name}</div>
            {session.attendance_count !== undefined && <div className="meta-item"><Plus size={12} /> {session.attendance_count} JOINED</div>}
         </div>
       </div>
       <button 
         className={isLive ? "btn--primary" : "btn--ghost"} 
-        disabled={isActionDisabled}
+        disabled={isActionDisabled || loadingAction}
         onClick={() => onAction(session)}
         style={{ minWidth: '120px' }}
       >
-        {actionLabel.toUpperCase()}
+        {loadingAction ? <div className="btn__spinner" style={{ width: 14, height: 14 }} /> : actionLabel.toUpperCase()}
       </button>
     </div>
   );
@@ -432,7 +577,8 @@ const SessionCard: React.FC<{
 const LiveSessionPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   
   const isTeacher = ["TEACHER", "PRINCIPAL", "ADMIN"].includes(user?.role || "");
   const isAdminOrPrincipal = ["ADMIN", "PRINCIPAL"].includes(user?.role || "");
@@ -444,19 +590,21 @@ const LiveSessionPage: React.FC = () => {
   const [liveToken, setLiveToken] = useState<LiveToken | null>(null);
   const [inRoom, setInRoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newScheduledAt, setNewScheduledAt] = useState("");
   const [newSection, setNewSection] = useState<number | "">("");
   const [newSubject, setNewSubject] = useState<number | "">("");
   const [creating, setCreating] = useState(false);
 
   // Management data
   const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
-  const [allSections, setAllSections] = useState<{ id: number; short_label: string; institution_id: number; institution_name: string }[]>([]);
+  const [allSections, setAllSections] = useState<SectionItem[]>([]);
   const [allSubjects, setAllSubjects] = useState<{ id: number; name: string }[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<number | "">("");
+  const [selectedSchool] = useState<number | "">("");
 
   useEffect(() => {
     const fetchFn = isTeacher ? listMySessions : getUpcomingSessions;
@@ -464,55 +612,66 @@ const LiveSessionPage: React.FC = () => {
     
     if (isTeacher) {
       if (isAdminOrPrincipal) {
-        apiGet<any[]>("/academics/sections/").then(setAllSections).catch(() => {});
-        apiGet<any[]>("/academics/subjects/").then(setAllSubjects).catch(() => {});
+        apiGet<SectionItem[]>("/academics/sections/").then(setAllSections).catch(() => {});
+        apiGet<{ id: number; name: string }[]>("/academics/subjects/").then(setAllSubjects).catch(() => {});
       } else {
-        apiGet<any[]>("/academics/my-assignments/").then(setAssignments).catch(() => {});
+        apiGet<typeof assignments>("/academics/my-assignments/").then(setAssignments).catch(() => {});
       }
     }
   }, [isTeacher, isAdminOrPrincipal]);
 
   useEffect(() => {
-    if (sessionId && !inRoom) handleJoin(Number(sessionId));
-  }, [sessionId, inRoom]);
+    if (sessionId && !inRoom && !authLoading) handleJoin(sessionId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, authLoading]);
 
-  const handleJoin = useCallback(async (id: number) => {
+  const handleJoin = useCallback(async (id: string) => {
     setError(null);
-    setLoading(true);
     try {
       if (!isTeacher) await joinSession(id);
       const token = await getSessionToken(id);
       setLiveToken(token);
       setInRoom(true);
+      const currentSegments = location.pathname.split('/').filter(Boolean);
+      if (currentSegments[currentSegments.length - 1] !== id) {
+        navigate(`${location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname}/${id}`, { replace: true });
+      }
     } catch (err: any) {
       let msg = "SIGNAL LOST: Channel unreachable.";
-      const raw = err.message?.toLowerCase() || "";
+      const raw = err?.message?.toLowerCase() || "";
       if (raw.includes("ended")) msg = "SESSION TERMINATED: The orbital sync has concluded.";
       else if (raw.includes("not live")) msg = "ARENA COLD: Waiting for broadcasters to go live.";
-      else if (raw.includes("forbidden")) msg = "ACCESS DENIED: Credentials insufficient.";
+      else if (raw.includes("forbidden") || raw.includes("403")) msg = "ACCESS DENIED: Credentials insufficient.";
       setError(msg);
-    } finally {
-      setLoading(false);
+      
+      const fetchFn = isTeacher ? listMySessions : getUpcomingSessions;
+      fetchFn().then(setSessions).catch(() => {});
     }
-  }, [isTeacher]);
+  }, [isTeacher, location.pathname, navigate]);
 
   const handleStart = useCallback(async (session: LiveSession) => {
     try {
+      setStartingId(session.id);
       const updated = await startSession(session.id);
       setSessions(prev => prev.map(s => s.id === session.id ? updated : s));
       await handleJoin(session.id);
-    } catch { setError("SYSTEM ERROR: Sync initiation failed."); }
+    } catch { setError("SYSTEM ERROR: Sync initiation failed."); } finally { setStartingId(null); }
   }, [handleJoin]);
+
+  const handleLeaveRoom = useCallback(() => {
+    setInRoom(false); setLiveToken(null);
+    const basePath = location.pathname.split('/').filter(Boolean).filter(p => p !== String(sessionId)).join('/');
+    navigate(`/${basePath}`, { replace: true });
+  }, [location.pathname, navigate, sessionId]);
 
   const handleEnd = useCallback(async (session: LiveSession) => {
     if (!window.confirm("CONFIRM TERMINATION: Conclude broadcaster sync?")) return;
     try {
       const updated = await endSession(session.id);
       setSessions(prev => prev.map(s => s.id === session.id ? updated : s));
-      setInRoom(false);
-      setLiveToken(null);
+      handleLeaveRoom();
     } catch { setError("SYSTEM ERROR: Global broadcast termination failed."); }
-  }, []);
+  }, [handleLeaveRoom]);
 
   const handleCreate = useCallback(async () => {
     if (!newTitle.trim() || !newSection) return;
@@ -522,22 +681,32 @@ const LiveSessionPage: React.FC = () => {
         title: newTitle.trim(), 
         description: newDesc.trim(), 
         section_id: Number(newSection), 
-        subject_id: newSubject ? Number(newSubject) : undefined 
+        subject_id: newSubject ? Number(newSubject) : undefined,
+        scheduled_at: newScheduledAt || undefined
       });
       setSessions(prev => [s, ...prev]);
       setShowCreate(false);
-      setNewTitle("");
-      setNewDesc("");
-      setNewSection("");
-      setNewSubject("");
+      setNewTitle(""); setNewDesc(""); setNewSection(""); setNewSubject(""); setNewScheduledAt("");
     } catch {
        setError("ENCRYPTION ERROR: Provisioning failed.");
     } finally { setCreating(false); }
-  }, [newTitle, newDesc, newSection, newSubject]);
+  }, [newTitle, newDesc, newSection, newSubject, newScheduledAt]);
+
+  const uniqueSections = isAdminOrPrincipal
+    ? allSections.filter(s => !selectedSchool || s.institution_id === Number(selectedSchool)).map(s => ({ id: s.id, name: s.short_label }))
+    : [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
+  
+  // Sort sections by class number descending (e.g. 12, 11, 10...)
+  uniqueSections.sort((a, b) => {
+    const numA = parseInt((a.name.match(/\d+/) || ["0"])[0], 10);
+    const numB = parseInt((b.name.match(/\d+/) || ["0"])[0], 10);
+    if (numA !== numB) return numB - numA;
+    return a.name.localeCompare(b.name);
+  });
 
   // View Calculation
   if (inRoom && liveToken) {
-    const activeSession = sessions.find(s => s.status === "live") || sessions.find(s => s.id === Number(sessionId));
+    const activeSession = sessions.find(s => s.status === "live") || sessions.find(s => s.id === sessionId);
     return (
       <LiveKitRoom 
         token={liveToken.token} 
@@ -545,14 +714,14 @@ const LiveSessionPage: React.FC = () => {
         connect={true} 
         video={false} 
         audio={isTeacher}
-        onDisconnected={() => { setInRoom(false); setLiveToken(null); navigate('/live'); }}
+        onDisconnected={handleLeaveRoom}
       >
         <RoomAudioRenderer />
         <InRoomView 
           isTeacher={isTeacher} 
           activeSession={activeSession} 
           onEnd={handleEnd}
-          onLeave={() => { setInRoom(true); setLiveToken(null); navigate('/live'); }} 
+          onLeave={handleLeaveRoom} 
           userName={userName} 
           userId={userId} 
         />
@@ -590,28 +759,44 @@ const LiveSessionPage: React.FC = () => {
         {/* Create Form */}
         {showCreate && (
           <div className="glass-card create-session-card animate-fade-up">
-            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, marginBottom: 'var(--space-6)' }}>SESSION PARAMETERS</h3>
-            <div className="form-group">
-               <input className="form-input" placeholder="Title Vector *" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-               <input className="form-input" placeholder="Mission Description (Optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-               
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                  <select className="form-input" value={newSection} onChange={e => setNewSection(Number(e.target.value))}>
-                    <option value="">COHORT SECTION *</option>
-                    {isAdminOrPrincipal ? 
-                      allSections.map(s => <option key={s.id} value={s.id}>{s.short_label}</option>) :
-                      assignments.map(a => <option key={a.section_id} value={a.section_id}>{a.section_name} ({a.class_name})</option>)
-                    }
+            <div className="modal-header-nexus" style={{ marginBottom: 'var(--space-6)' }}>
+              <div className="inst-label">SESSION ARCHITECT</div>
+              <h3 className="modal-title" style={{ fontSize: '20px' }}>PROVISION NEW ARENA</h3>
+            </div>
+            <div className="joincode-form-grid">
+               <div className="obsidian-form-group">
+                  <label className="obsidian-label">TITLE VECTOR *</label>
+                  <input className="obsidian-input" placeholder="e.g. Module 4 Synthesis" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+               </div>
+               <div className="obsidian-form-group">
+                  <label className="obsidian-label">MISSION OVERVIEW</label>
+                  <input className="obsidian-input" placeholder="Optional description..." value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+               </div>
+               <div className="obsidian-form-group">
+                  <label className="obsidian-label">SCHEDULED IGNITION (LOCAL) *</label>
+                  <input type="datetime-local" className="obsidian-input" value={newScheduledAt} onChange={e => setNewScheduledAt(e.target.value)} style={{ colorScheme: 'dark' }} />
+               </div>
+               <div className="obsidian-form-group">
+                  <label className="obsidian-label">COHORT SECTION *</label>
+                  <select className="obsidian-select" value={newSection} onChange={e => setNewSection(Number(e.target.value))}>
+                    <option value="">Select section...</option>
+                    {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <select className="form-input" value={newSubject} onChange={e => setNewSubject(Number(e.target.value))}>
-                    <option value="">SUBJECT NODAL</option>
+               </div>
+               <div className="obsidian-form-group">
+                  <label className="obsidian-label">SUBJECT NODAL</label>
+                  <select className="obsidian-select" value={newSubject} onChange={e => setNewSubject(Number(e.target.value))}>
+                    <option value="">Optional link...</option>
                     {allSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                </div>
             </div>
-            <button className="btn--primary" onClick={handleCreate} disabled={creating || !newTitle.trim() || !newSection}>
-               {creating ? "ENCRYPTING..." : "INITIALIZE BROADCAST"}
-            </button>
+            <div className="mgmt-actions" style={{ gap: '12px', marginTop: 'var(--space-6)' }}>
+              <button className="btn--primary" style={{ flex: 1 }} onClick={handleCreate} disabled={creating || !newTitle.trim() || !newSection}>
+                 {creating ? "ENCRYPTING..." : "INITIALIZE BROADCAST"}
+              </button>
+              <button className="btn--secondary" onClick={() => setShowCreate(false)} disabled={creating}>CANCEL</button>
+            </div>
           </div>
         )}
 
@@ -633,28 +818,28 @@ const LiveSessionPage: React.FC = () => {
             ) : (
               sessions.map(s => {
                 let label = "SCHEDULED";
-                let disabled = !isTeacher;
                 
-                if (s.status === "live") {
-                   label = isTeacher ? "REJOIN ARENA" : "JOIN BROADCAST";
-                   disabled = false;
-                } else if (s.status === "scheduled" && isTeacher) {
-                   label = "INITIATE BROADCAST";
-                   disabled = false;
-                } else if (s.status === "ended") {
-                   label = "ARCHIVED";
-                   disabled = true;
+                if (isTeacher) {
+                  label = s.status === "scheduled" ? "INITIATE BROADCAST" : s.status === "live" ? "REJOIN ARENA" : "ARCHIVED";
+                  const isStarting = startingId === s.id;
+                  return (
+                    <SessionCard 
+                      key={s.id} session={s} actionLabel={isStarting ? "CONNECTING..." : label}
+                      isActionDisabled={s.status === "ended" || isStarting} loadingAction={isStarting}
+                      onAction={s.status === "ended" || isStarting ? () => {} : s.status === "scheduled" ? handleStart : (sess) => handleJoin(sess.id)}
+                    />
+                  );
+                } else {
+                  const isJoining = startingId === s.id;
+                  const btnLabel = isJoining ? "JOINING..." : s.status === "live" ? "JOIN BROADCAST" : "SCHEDULED";
+                  return (
+                    <SessionCard 
+                      key={s.id} session={s} actionLabel={btnLabel}
+                      isActionDisabled={s.status !== "live" || isJoining} loadingAction={isJoining}
+                      onAction={s.status === "live" && !isJoining ? async (sess) => { setStartingId(sess.id); try { await handleJoin(sess.id); } finally { setStartingId(null); } } : () => {}}
+                    />
+                  );
                 }
-
-                return (
-                  <SessionCard 
-                    key={s.id} 
-                    session={s} 
-                    actionLabel={label}
-                    isActionDisabled={disabled}
-                    onAction={s.status === "scheduled" ? handleStart : (sess) => handleJoin(sess.id)}
-                  />
-                );
               })
             )}
           </div>

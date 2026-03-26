@@ -1138,8 +1138,9 @@ Example: `/courses/10/punjabi`, `/assessments/8/social-studies/5`
 | `/learning/:pathId` | LearningPathPage | Path detail with courses |
 | `/leaderboard` | LeaderboardPage | Class + school leaderboard |
 | `/profile` | ProfilePage | User profile + badge shelf + logout |
+| `/live/:publicId` | LiveSessionPage | Active live session (8-char alphanumeric hex ID) |
 
-### Teacher Routes
+### Teacher & Admin Routes
 
 | Route | Component | Purpose |
 |---|---|---|
@@ -1148,6 +1149,7 @@ Example: `/courses/10/punjabi`, `/assessments/8/social-studies/5`
 | `/teacher/classes/:classId/students/:studentId` | TeacherStudentDetailPage | Individual student history |
 | `/teacher/courses/:courseId/lessons` | AdminLessonEditorPage | Lesson editor (curriculum + section tabs) |
 | `/teacher/courses/:courseId/assessments` | AdminAssessmentBuilderPage | Assessment builder |
+| `/admin/live/:publicId` | LiveSessionPage | Teacher live session view (alphanumeric ID) |
 | `/teacher/users` | UserManagementPage | Manage join codes for students |
 
 ### Principal Routes

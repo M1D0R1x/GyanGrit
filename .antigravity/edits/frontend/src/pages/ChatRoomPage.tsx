@@ -557,15 +557,21 @@ export default function ChatRoomPage() {
             <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
               Rooms
             </div>
-            {(["officials", "staff", "subject"] as const).map((type) => {
-              const group = rooms.filter((r) => r.room_type === type);
-              if (!group.length) return null;
-              return (
-                <div key={type}>
-                  <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
-                    {ROOM_TYPE_LABELS[type]}
+            
+            {user?.role === "ADMIN" ? (
+              Object.entries(
+                rooms.reduce((acc, r) => {
+                  const inst = (r as any).institution_name || "GyanGrit District";
+                  if (!acc[inst]) acc[inst] = [];
+                  acc[inst].push(r);
+                  return acc;
+                }, {} as Record<string, ChatRoom[]>)
+              ).sort(([a], [b]) => a.localeCompare(b)).map(([instName, groupRooms]) => (
+                <div key={instName}>
+                  <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--brand-primary)", marginTop: "var(--space-2)" }}>
+                    {instName}
                   </div>
-                  {group.map((r) => (
+                  {groupRooms.map(r => (
                     <button key={r.id} onClick={() => setActiveRoom(r)} style={{
                       width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
                       borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
@@ -577,8 +583,31 @@ export default function ChatRoomPage() {
                     </button>
                   ))}
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              (["officials", "staff", "subject"] as const).map((type) => {
+                const group = rooms.filter((r) => r.room_type === type);
+                if (!group.length) return null;
+                return (
+                  <div key={type}>
+                    <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
+                      {ROOM_TYPE_LABELS[type]}
+                    </div>
+                    {group.map((r) => (
+                      <button key={r.id} onClick={() => setActiveRoom(r)} style={{
+                        width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
+                        borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
+                        textAlign: "left", cursor: "pointer",
+                      }}>
+                        <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {r.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 

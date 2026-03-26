@@ -89,13 +89,13 @@ const UserManagementPage: React.FC = () => {
   const [institutionId, setInstitutionId] = useState("");
   const [sectionId, setSectionId]     = useState("");
   const [subjectId, setSubjectId]     = useState("");
-  const [districtId, setDistrictId]   = useState("");
+  const [districtId]   = useState("");
   const [expiresDays, setExpiresDays] = useState(3);
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [sections, setSections]         = useState<Section[]>([]);
   const [subjects, setSubjects]         = useState<Subject[]>([]);
-  const [districts, setDistricts]       = useState<District[]>([]);
+  const [, setDistricts]       = useState<District[]>([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
   const { needsInstitution, needsSection, needsSubject, needsDistrict } = getRequiredFields(role);
@@ -144,7 +144,16 @@ const UserManagementPage: React.FC = () => {
       setSectionsLoading(true);
       try {
         const data = await apiGet<Section[]>(`/academics/sections/?classroom__institution_id=${institutionId}`);
-        if (!cancelled) { setSections(data ?? []); setSectionsLoading(false); }
+        if (!cancelled) {
+          const sorted = (data || []).sort((a, b) => {
+            const numA = parseInt(a.short_label || a.name);
+            const numB = parseInt(b.short_label || b.name);
+            if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+            return (a.short_label || a.name).localeCompare(b.short_label || b.name);
+          });
+          setSections(sorted);
+          setSectionsLoading(false);
+        }
       } catch { if (!cancelled) setSectionsLoading(false); }
     }
     loadSections();

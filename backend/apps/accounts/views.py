@@ -1031,6 +1031,8 @@ def complete_profile(request):
     if errors:
         return JsonResponse({"errors": errors}, status=400)
 
+    was_complete = user.profile_complete
+
     is_complete = bool(
         user.first_name.strip()
         and user.last_name.strip()
@@ -1040,6 +1042,32 @@ def complete_profile(request):
 
     user.profile_complete = is_complete
     user.save(update_fields=update_fields)
+
+    # Trigger Welcome Notification on first completion
+    if is_complete and not was_complete:
+        from apps.notifications.models import Notification, NotificationType
+        
+        sch_str = user.institution.name if hasattr(user, "institution") and user.institution else "GyanGrit"
+        
+        sec_str = ""
+        if hasattr(user, "section") and user.section:
+            if hasattr(user.section, "classroom") and user.section.classroom:
+                sec_str = f"Class {user.section.classroom.name}-{user.section.name}"
+            else:
+                sec_str = user.section.name
+
+        msg = f"Congratulations {user.first_name} {user.last_name}, you successfully completed your registration as {str(user.role).capitalize()}"
+        if sec_str:
+            msg += f" in {sec_str}, {sch_str}!"
+        else:
+            msg += f" at {sch_str}!"
+
+        Notification.send(
+            user=user,
+            subject="Welcome to GyanGrit!",
+            message=msg,
+            notification_type=NotificationType.SUCCESS
+        )
 
     logger.info("Profile updated: user=%s complete=%s", user.id, user.profile_complete)
 

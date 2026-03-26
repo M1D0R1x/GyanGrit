@@ -45,6 +45,22 @@ async function handleKicked(res: Response): Promise<void> {
   }
 }
 
+async function buildErrorMessage(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    return json?.detail || json?.error?.message || json?.error || json?.message || text;
+  } catch {
+    const trimmed = text.trim().toLowerCase();
+    if (trimmed.startsWith("<!doctype html>") || trimmed.startsWith("<html")) {
+      if (res.status === 404) return "Not Found: The requested resource does not exist.";
+      if (res.status >= 500) return "Internal Server Error: The server encountered an unexpected condition.";
+      return "Unexpected HTML response received from server.";
+    }
+    return text;
+  }
+}
+
 export async function initCsrf(): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/accounts/csrf/`, {
     credentials: "include",
@@ -63,8 +79,8 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   if (!res.ok) {
     await handleKicked(res);
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    const msg = await buildErrorMessage(res);
+    throw new Error(`${res.status} ${msg}`);
   }
 
   return res.json() as Promise<T>;
@@ -85,8 +101,8 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
   if (!res.ok) {
     await handleKicked(res);
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    const msg = await buildErrorMessage(res);
+    throw new Error(`${res.status} ${msg}`);
   }
 
   return res.json() as Promise<T>;
@@ -107,8 +123,8 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 
   if (!res.ok) {
     await handleKicked(res);
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    const msg = await buildErrorMessage(res);
+    throw new Error(`${res.status} ${msg}`);
   }
 
   return res.json() as Promise<T>;
@@ -130,8 +146,8 @@ export async function apiDelete<T = Record<string, unknown>>(
 
   if (!res.ok) {
     await handleKicked(res);
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    const msg = await buildErrorMessage(res);
+    throw new Error(`${res.status} ${msg}`);
   }
 
   // DELETE endpoints may return 204 No Content — handle gracefully

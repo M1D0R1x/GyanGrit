@@ -141,26 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { default: Ably } = await import("ably");
         // Use authCallback so Ably can auto-refresh tokens when they expire.
         // This eliminates the "no way to renew" warning.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client = new Ably.Realtime({
-          authCallback: async (
-            _data: unknown,
-            callback: (error: string | null, token: unknown) => void,
-          ) => {
+          authCallback: async (_data: any, callback: any) => {
             try {
               const tokenData = await getAblyToken(undefined, "chat");
-              callback(null, {
-                token:    tokenData.token,
-                expires:  tokenData.expires,
-                clientId: tokenData.client_id,
-              });
+              callback(null, tokenData.token);
             } catch (err) {
-              callback(
-                err instanceof Error ? err.message : "Token fetch failed",
-                null,
-              );
+              callback(err instanceof Error ? err.message : "Token fetch failed", null);
             }
           },
-        });
+        } as any);
         if (!mounted) { client.close(); return; }
 
         const channel = client.channels.get(`notifications:${user.id}`);

@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import * as Sentry from "@sentry/react";
 import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
+import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import "./index.css";
 import "./nav-menu-animation.css";
 
@@ -71,12 +72,24 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
   });
 }
 
+// Handle Vite's preload error event (fires before React sees the error)
+// This is the earliest possible interception point for stale chunk 404s.
+window.addEventListener("vite:preloadError", (event) => {
+  const key = `chunk-preload-${window.location.pathname}`;
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, "1");
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
-  <AuthProvider>
-    <RouterProvider router={router} />
-    {/* Vercel Analytics — tracks page views and web vitals in production */}
-    <Analytics />
-    {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
-    <SpeedInsights />
-  </AuthProvider>
+  <ChunkErrorBoundary>
+    <AuthProvider>
+      <RouterProvider router={router} />
+      {/* Vercel Analytics — tracks page views and web vitals in production */}
+      <Analytics />
+      {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
+      <SpeedInsights />
+    </AuthProvider>
+  </ChunkErrorBoundary>
 );

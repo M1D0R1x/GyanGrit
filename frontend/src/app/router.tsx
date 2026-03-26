@@ -22,15 +22,24 @@ import CompleteProfilePage from "../pages/CompleteProfilePage";
 function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
   return lazy(() =>
     factory().catch((err: unknown) => {
-      const key = "chunk-retry-" + window.location.pathname;
-      if (!sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, "1");
-        window.location.reload();
-        // Return a never-resolving promise so React doesn't render stale state
-        return new Promise(() => {});
+      const isChunkError =
+        err instanceof TypeError ||
+        (err instanceof Error &&
+          (err.message.includes("Failed to fetch") ||
+           err.message.includes("dynamically imported module") ||
+           err.message.includes("Loading chunk")));
+
+      if (isChunkError) {
+        const key = `chunk-retry-${window.location.pathname}`;
+        if (!sessionStorage.getItem(key)) {
+          console.warn(`[lazyRetry] Chunk load failed for ${window.location.pathname} — reloading`);
+          sessionStorage.setItem(key, "1");
+          window.location.reload();
+          return new Promise(() => {}); // never resolve — page is reloading
+        }
+        // Already retried — let ChunkErrorBoundary handle it
+        sessionStorage.removeItem(key);
       }
-      // Already retried once — surface the error
-      sessionStorage.removeItem(key);
       throw err;
     })
   );

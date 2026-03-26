@@ -161,8 +161,18 @@ export default function LiveSessionPage() {
       setLiveToken(token);
       setInRoom(true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to join session.";
+      let msg = "Failed to join session.";
+      if (err instanceof Error) {
+        const raw = err.message.toLowerCase();
+        if (raw.includes("ended")) msg = "This session has ended. The teacher has closed the live class.";
+        else if (raw.includes("not live")) msg = "This session hasn't started yet. Wait for the teacher to go live.";
+        else if (raw.includes("forbidden") || raw.includes("403")) msg = "You don't have access to this session.";
+        else msg = err.message;
+      }
       setError(msg);
+      // Refresh session list so UI updates the status
+      const fetch = isTeacher ? listMySessions : getUpcomingSessions;
+      fetch().then(setSessions).catch(() => {});
     }
   }, [isTeacher]);
 
@@ -260,7 +270,10 @@ export default function LiveSessionPage() {
       <TopBar title="Live Classes" />
       <main style={{ padding: "var(--space-4)", paddingBottom: 80, maxWidth: 640, margin: "0 auto" }}>
         {error && (
-          <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }} onClick={() => setError(null)}>{error}</div>
+          <div className="alert alert--error" style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: "var(--space-3)" }}>
+            <span style={{ flex: 1 }}>{error}</span>
+            <button onClick={() => setError(null)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16, lineHeight: 1, opacity: 0.7 }} aria-label="Dismiss">✕</button>
+          </div>
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>

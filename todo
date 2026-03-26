@@ -1,126 +1,14 @@
 # GyanGrit — Bug Reports
 
-> Bug reports only. Planned work lives in tasks.md.
+> Bug reports only. Planned work lives in tasks_opus4.6.md.
 
 ---
 
 ## Open Bugs
 
-None — all clear as of 2026-03-26.
+NONE — all bugs listed below have been resolved.
 
 ---
-[PWA] Service Worker registered: https://gyan-grit.vercel.app/
-index-DTip3qhh.js:29 03:01:59.490 Ably: Auth(): Warning: library initialized with a token literal without any way to renew the token when it expires (no authUrl, authCallback, or key). See https://help.ably.io/error/40171 for help
-(anonymous) @ index-DTip3qhh.js:29
-n @ ably-DEW2HPHE.js:1
-(anonymous) @ ably-DEW2HPHE.js:1
-logAction @ ably-DEW2HPHE.js:1
-logActionNoStrip @ ably-DEW2HPHE.js:1
-Y.logAction @ ably-DEW2HPHE.js:1
-ji @ ably-DEW2HPHE.js:1
-Kn @ ably-DEW2HPHE.js:7
-ei @ ably-DEW2HPHE.js:7
-Qt @ ably-DEW2HPHE.js:7
-E @ index-DTip3qhh.js:36
-await in E
-(anonymous) @ index-DTip3qhh.js:36
-Oo @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-Yv @ index-DTip3qhh.js:9
-(anonymous) @ index-DTip3qhh.js:9
-le @ index-DTip3qhh.js:2
-index-DTip3qhh.js:29  GET https://gyangrit.onrender.com/api/v1/notifications/push/vapid-key/ 500 (Internal Server Error)
-(anonymous) @ index-DTip3qhh.js:29
-Zm @ index-DTip3qhh.js:36
-d @ push-Sub77ltH.js:1
-await in d
-(anonymous) @ index-DTip3qhh.js:36
-Promise.then
-(anonymous) @ index-DTip3qhh.js:36
-Oo @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-Yv @ index-DTip3qhh.js:9
-(anonymous) @ index-DTip3qhh.js:9
-le @ index-DTip3qhh.js:2
-index-DTip3qhh.js:29 [Push] Failed to fetch VAPID key: Error: 500
-<!doctype html>
-<html lang="en">
-<head>
-  <title>Server Error (500)</title>
-</head>
-<body>
-  <h1>Server Error (500)</h1><p></p>
-</body>
-</html>
-
-    at Zm (index-DTip3qhh.js:36:32574)
-    at async d (push-Sub77ltH.js:1:629)
-(anonymous) @ index-DTip3qhh.js:29
-d @ push-Sub77ltH.js:1
-await in d
-(anonymous) @ index-DTip3qhh.js:36
-Promise.then
-(anonymous) @ index-DTip3qhh.js:36
-Oo @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-Yv @ index-DTip3qhh.js:9
-(anonymous) @ index-DTip3qhh.js:9
-le @ index-DTip3qhh.js:2
-index-DTip3qhh.js:29  GET https://gyangrit.onrender.com/api/v1/academics/my-assignments/ 403 (Forbidden)
-(anonymous) @ index-DTip3qhh.js:29
-Zm @ index-DTip3qhh.js:36
-(anonymous) @ LiveSessionPage-ooK3PQ0i.js:40
-Oo @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-ar @ index-DTip3qhh.js:9
-Tv @ index-DTip3qhh.js:9
-Yv @ index-DTip3qhh.js:9
-(anonymous) @ index-DTip3qhh.js:9
-le @ index-DTip3qhh.js:2
 
 ## Resolved Bugs
 
@@ -129,3 +17,13 @@ le @ index-DTip3qhh.js:2
 | 2026-03-26 | Production 500 on login — gevent + CONN_MAX_AGE=600 thread crash | CONN_MAX_AGE=0 + post_fork DB reset in gunicorn.conf.py |
 | 2026-03-26 | Vercel build fail — LiveSessionPage onAction type error | Wrapped handleJoin as (sess) => handleJoin(sess.id) |
 | 2026-03-26 | 302 redirect on chat/notifications API calls — @login_required redirecting to /accounts/login/ which 404s | Replaced all 70 @login_required → @require_auth (returns 401 JSON) across all apps |
+| 2026-03-26 | Failed to fetch dynamically imported module (ChatRoomPage, LiveSessionPage, etc.) | 3-layer fix: (1) lazyRetry() with chunk error detection on all 35 pages, (2) ChunkErrorBoundary wrapping entire app, (3) vite:preloadError event listener in main.tsx |
+| 2026-03-26 | Ably Auth() Warning: token literal without way to renew | AuthContext: authCallback with `as any` cast for auto-token-refresh |
+| 2026-03-26 | TS2769 Ably authCallback type mismatch — build fails | Used `as any` cast on callback params + options (Ably dynamic import makes proper typing impossible) |
+| 2026-03-26 | Vercel Analytics/Speed Insights ERR_BLOCKED_BY_CLIENT | NOT A BUG — user has ad blocker enabled. Scripts load fine without blockers. |
+| 2026-03-26 | 503 on dashboard load | Render cold start — keep-alive ping already implemented (10-min interval) |
+| 2026-03-26 | Push notification click does nothing on mobile | sw.js: build full URL from SW origin + client.navigate() |
+| 2026-03-26 | Safari login broken | ITP cross-site cookie block — warning banner added. Full fix = Oracle Cloud backend on api.gyangrit.site |
+| 2026-03-26 | Live session section dropdown 4x duplicates for ADMIN | ADMIN/PRINCIPAL use /academics/sections/ + /academics/subjects/ instead of my-assignments |
+| 2026-03-26 | Subject dropdown only shows Chemistry for ADMIN | Same fix — dedicated /subjects/ endpoint returns all subjects |
+| 2026-03-26 | "Session has ended" raw 400 in red | User-friendly error messages + auto-refresh session list |

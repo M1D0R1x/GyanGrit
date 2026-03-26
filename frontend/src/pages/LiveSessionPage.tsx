@@ -25,6 +25,7 @@ import {
   ControlBar,
   useTracks,
   useRoomContext,
+  useParticipants,
 } from "@livekit/components-react";
 import { Track, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
@@ -65,7 +66,13 @@ type HandAckMsg = {
   target_id: string;
 };
 
-type DataMsg = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState;
+type PermMsg = {
+  type: "permissions";
+  mic: boolean;
+  camera: boolean;
+};
+
+type DataMsg = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState | PermMsg;
 
 type InRoomChat = {
   id: string;
@@ -182,11 +189,52 @@ function useInRoomChat(userName: string, userId: string) {
   return { messages, sendMessage };
 }
 
+// ── Room Permissions Hook ────────────────────────────────────────────────────
+
+function useRoomPermissions(isTeacher: boolean) {
+  const room = useRoomContext();
+  const [permissions, setPermissions] = useState({ mic: true, camera: true });
+
+  useEffect(() => {
+    if (!room) return;
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const msg: DataMsg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "permissions") {
+          setPermissions({ mic: msg.mic, camera: msg.camera });
+          if (!isTeacher) {
+            if (!msg.mic) room.localParticipant.setMicrophoneEnabled(false);
+            if (!msg.camera) room.localParticipant.setCameraEnabled(false);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => { room.off(RoomEvent.DataReceived, handleData); };
+  }, [room, isTeacher]);
+
+  const updatePermissions = useCallback((mic: boolean, camera: boolean) => {
+    if (!room || !isTeacher) return;
+    setPermissions({ mic, camera });
+    const msg: PermMsg = { type: "permissions", mic, camera };
+    room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(msg)), { reliable: true });
+  }, [room, isTeacher]);
+
+  return { permissions, updatePermissions };
+}
+
 // ── Whiteboard Hook ──────────────────────────────────────────────────────────
 
-function useWhiteboard() {
+function useWhiteboard(sessionId?: number) {
   const room = useRoomContext();
-  const [remoteState, setRemoteState] = useState<WhiteboardState | null>(null);
+  const [remoteState, setRemoteState] = useState<WhiteboardState | null>(() => {
+    if (!sessionId) return null;
+    const saved = localStorage.getItem(`gyangrit_wb_${sessionId}`);
+    if (saved) {
+      try { return JSON.parse(saved) as WhiteboardState; } catch { return null; }
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (!room) return;
@@ -202,8 +250,9 @@ function useWhiteboard() {
 
   const broadcastWhiteboard = useCallback((state: WhiteboardState) => {
     if (!room) return;
+    if (sessionId) localStorage.setItem(`gyangrit_wb_${sessionId}`, JSON.stringify(state));
     room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(state)), { reliable: true });
-  }, [room]);
+  }, [room, sessionId]);
 
   return { remoteState, broadcastWhiteboard };
 }
@@ -271,18 +320,73 @@ function HandRaisePanel({ raisedHands, onAcknowledge }: {
   );
 }
 
+// ── Participants Panel ───────────────────────────────────────────────────────
+
+function ParticipantsPanel({ teacherName }: { teacherName: string }) {
+  const participants = useParticipants();
+  const sorted = [...participants].sort((a, b) => {
+    if (a.name === teacherName) return -1;
+    if (b.name === teacherName) return 1;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
+  return (
+    <div className="live-chat-panel">
+      <div className="live-chat-panel__header">{"\uD83D\uDC65"} Participants ({participants.length})</div>
+      <div className="live-chat-panel__messages" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-3)" }}>
+        {sorted.map(p => (
+          <div key={p.identity} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
+            <span style={{ fontWeight: p.name === teacherName ? 700 : 400, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+              {p.name || "Unknown"} {p.isLocal && <span style={{ opacity: 0.5 }}>(You)</span>}
+              {p.name === teacherName && "🎓"}
+            </span>
+            <span style={{ display: "flex", gap: "var(--space-2)", opacity: 0.8 }}>
+              {p.isMicrophoneEnabled ? "🎙️" : "🔇"}
+              {p.isCameraEnabled ? "📷" : ""}
+              {p.isScreenShareEnabled ? "💻" : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── In-Room Controls ─────────────────────────────────────────────────────────
 
-function InRoomControls({ onToggleChat, chatOpen }: {
-  onToggleChat: () => void;
-  chatOpen: boolean;
+function InRoomControls({
+  onToggleTab, activeTab, isTeacher, permissions, updatePermissions
+}: {
+  onToggleTab: (tab: "chat" | "participants") => void;
+  activeTab: "chat" | "participants" | null;
+  isTeacher: boolean;
+  permissions: { mic: boolean; camera: boolean; };
+  updatePermissions: (m: boolean, c: boolean) => void;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
   return (
-    <div className="live-controls-bar">
-      <ControlBar controls={{ microphone: true, camera: true, screenShare: true, leave: true }} />
-      <button className={`btn ${chatOpen ? "btn--primary" : "btn--ghost"}`}
-        onClick={onToggleChat} style={{ fontSize: "var(--text-xs)", color: chatOpen ? undefined : "#fff", borderColor: "#444" }}
-        title="Toggle chat">{"\uD83D\uDCAC"}</button>
+    <div className="live-controls-bar" style={{ position: "relative" }}>
+      <ControlBar controls={{ microphone: isTeacher || permissions.mic, camera: isTeacher || permissions.camera, screenShare: true, leave: true }} />
+      <div style={{ display: "flex", gap: "var(--space-2)", marginLeft: "var(--space-4)" }}>
+        {isTeacher && (
+          <div style={{ position: "relative" }}>
+            <button className="btn btn--ghost" onClick={() => setShowSettings(v => !v)} style={{ fontSize: "var(--text-xs)", color: "#fff", borderColor: "#444" }} title="Room Settings">⚙️</button>
+            {showSettings && (
+              <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: "var(--space-2)", color: "var(--text-muted)" }}>Student Permissions</div>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
+                  <input type="checkbox" checked={permissions.mic} onChange={e => updatePermissions(e.target.checked, permissions.camera)} /> Allow unmute
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+                  <input type="checkbox" checked={permissions.camera} onChange={e => updatePermissions(permissions.mic, e.target.checked)} /> Allow camera
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+        <button className={`btn ${activeTab === "participants" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("participants")} style={{ fontSize: "var(--text-xs)", color: activeTab === "participants" ? undefined : "#fff", borderColor: "#444" }} title="Participants">{"\uD83D\uDC65"}</button>
+        <button className={`btn ${activeTab === "chat" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("chat")} style={{ fontSize: "var(--text-xs)", color: activeTab === "chat" ? undefined : "#fff", borderColor: "#444" }} title="Toggle chat">{"\uD83D\uDCAC"}</button>
+      </div>
     </div>
   );
 }
@@ -299,8 +403,9 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
 }) {
   const { raisedHands, myHandRaised, toggleHand, acknowledgeHand } = useHandRaise(userName, userId);
   const { messages, sendMessage } = useInRoomChat(userName, userId);
-  const { remoteState, broadcastWhiteboard } = useWhiteboard();
-  const [chatOpen, setChatOpen] = useState(false);
+  const { remoteState, broadcastWhiteboard } = useWhiteboard(activeSession?.id);
+  const { permissions, updatePermissions } = useRoomPermissions(isTeacher);
+  const [activeTab, setActiveTab] = useState<"chat" | "participants" | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
 
   // Track whether we've auto-opened the whiteboard for this remote state instance
@@ -358,11 +463,18 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
           ) : (
             <VideoLayout />
           )}
-          <InRoomControls onToggleChat={() => setChatOpen(v => !v)} chatOpen={chatOpen} />
+          <InRoomControls
+            onToggleTab={(t) => setActiveTab(v => v === t ? null : t)}
+            activeTab={activeTab} isTeacher={isTeacher}
+            permissions={permissions} updatePermissions={updatePermissions}
+          />
         </div>
-        <div className={`live-room__sidebar ${chatOpen ? "live-room__sidebar--open" : ""}`}>
+        <div className={`live-room__sidebar ${activeTab ? "live-room__sidebar--open" : ""}`}>
           {isTeacher && <HandRaisePanel raisedHands={raisedHands} onAcknowledge={acknowledgeHand} />}
-          <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+          {activeTab === "participants" && <ParticipantsPanel teacherName={activeSession?.teacher_name || "Teacher"} />}
+          <div style={{ display: activeTab === "chat" ? "flex" : "none", flex: 1, minHeight: 0 }}>
+            <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+          </div>
         </div>
       </div>
     </div>
@@ -371,11 +483,12 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
 
 // ── Session card ──────────────────────────────────────────────────────────────
 
-function SessionCard({ session, onAction, actionLabel, actionStyle }: {
+function SessionCard({ session, onAction, actionLabel, actionStyle, loadingAction }: {
   session: LiveSession;
   onAction: (s: LiveSession) => void;
   actionLabel: string;
   actionStyle?: React.CSSProperties;
+  loadingAction?: boolean;
 }) {
   const statusColors: Record<string, string> = { scheduled: "var(--text-muted)", live: "var(--success)", ended: "var(--error)" };
   const statusBg: Record<string, string> = { scheduled: "rgba(107,114,128,0.08)", live: "rgba(34,197,94,0.1)", ended: "rgba(239,68,68,0.08)" };
@@ -408,7 +521,9 @@ function SessionCard({ session, onAction, actionLabel, actionStyle }: {
         )}
         {session.description && <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{session.description}</div>}
       </div>
-      <button className="btn btn--primary" style={{ flexShrink: 0, fontSize: "var(--text-sm)", ...actionStyle }} onClick={() => onAction(session)}>{actionLabel}</button>
+      <button className="btn btn--primary" style={{ flexShrink: 0, fontSize: "var(--text-sm)", ...actionStyle }} onClick={() => onAction(session)} disabled={loadingAction}>
+        {loadingAction ? <div className="auth-loading__spinner" style={{ width: 16, height: 16, borderTopColor: "#fff", borderRightColor: "rgba(255,255,255,0.2)", borderBottomColor: "rgba(255,255,255,0.2)", borderLeftColor: "rgba(255,255,255,0.2)" }} /> : actionLabel}
+      </button>
     </div>
   );
 }
@@ -417,7 +532,7 @@ function SessionCard({ session, onAction, actionLabel, actionStyle }: {
 
 export default function LiveSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isTeacher = user?.role === "TEACHER" || user?.role === "PRINCIPAL" || user?.role === "ADMIN";
 
   const [sessions, setSessions] = useState<LiveSession[]>([]);
@@ -425,6 +540,7 @@ export default function LiveSessionPage() {
   const [liveToken, setLiveToken] = useState<LiveToken | null>(null);
   const [inRoom, setInRoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState<number | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -456,9 +572,9 @@ export default function LiveSessionPage() {
   }, [isTeacher, isAdminOrPrincipal]);
 
   useEffect(() => {
-    if (sessionId && !inRoom) handleJoin(Number(sessionId));
+    if (sessionId && !inRoom && !authLoading) handleJoin(Number(sessionId));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, authLoading]);
 
   const handleJoin = useCallback(async (id: number) => {
     setError(null);
@@ -484,10 +600,11 @@ export default function LiveSessionPage() {
 
   const handleStart = useCallback(async (session: LiveSession) => {
     try {
+      setStartingId(session.id);
       const updated = await startSession(session.id);
       setSessions(prev => prev.map(s => s.id === session.id ? updated : s));
       await handleJoin(session.id);
-    } catch { setError("Failed to start session."); }
+    } catch { setError("Failed to start session."); } finally { setStartingId(null); }
   }, [handleJoin]);
 
   const handleEnd = useCallback(async (session: LiveSession) => {
@@ -605,16 +722,20 @@ export default function LiveSessionPage() {
             {sessions.map(s => {
               if (isTeacher) {
                 const label = s.status === "scheduled" ? "Go Live" : s.status === "live" ? "Rejoin" : "Ended";
+                const isStarting = startingId === s.id;
                 return (
                   <SessionCard key={s.id} session={s} actionLabel={label}
-                    actionStyle={s.status === "ended" ? { opacity: 0.4, cursor: "not-allowed" } : {}}
-                    onAction={s.status === "ended" ? () => {} : s.status === "scheduled" ? handleStart : (sess: LiveSession) => handleJoin(sess.id)} />
+                    actionStyle={s.status === "ended" || isStarting ? { opacity: 0.4, cursor: "not-allowed" } : {}}
+                    loadingAction={isStarting}
+                    onAction={s.status === "ended" || isStarting ? () => {} : s.status === "scheduled" ? handleStart : (sess: LiveSession) => handleJoin(sess.id)} />
                 );
               }
+              const isJoining = startingId === s.id;
               return (
-                <SessionCard key={s.id} session={s} actionLabel={s.status === "live" ? "Join Now" : "Scheduled"}
-                  actionStyle={s.status !== "live" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
-                  onAction={s.status === "live" ? (sess: LiveSession) => handleJoin(sess.id) : () => {}} />
+                <SessionCard key={s.id} session={s} actionLabel={isJoining ? "Joining" : s.status === "live" ? "Join Now" : "Scheduled"}
+                  loadingAction={isJoining}
+                  actionStyle={s.status !== "live" || isJoining ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+                  onAction={s.status === "live" && !isJoining ? async (sess: LiveSession) => { setStartingId(sess.id); try { await handleJoin(sess.id); } finally { setStartingId(null); } } : () => {}} />
               );
             })}
           </div>

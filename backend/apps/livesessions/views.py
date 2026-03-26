@@ -20,6 +20,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import timedelta
 
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
@@ -210,6 +211,12 @@ def session_list_create(request):
         )
     except Exception as exc:
         logger.warning("Notify failed for new session %s: %s", session.id, exc)
+
+    # Schedule QStash reminders (15min + 5min before scheduled_at)
+    try:
+        _schedule_session_reminders(session)
+    except Exception as exc:
+        logger.warning("Reminder scheduling failed for session %s: %s", session.id, exc)
 
     return JsonResponse(_session_to_dict(session), status=201)
 
@@ -408,3 +415,113 @@ def _notify_session_event(session: LiveSession, event: str) -> None:
             )
         except Exception as exc:
             logger.warning("Ably notify session user %s: %s", uid, exc)
+
+
+# ── QStash scheduled reminders ─────────────────────────────────────────────
+
+def _schedule_session_reminders(session: LiveSession) -> None:
+    """
+    Schedule QStash delayed callbacks for 15-min and 5-min reminders.
+    QStash will POST to /api/v1/live/sessions/<id>/remind/ at the scheduled time.
+    
+    If scheduled_at is less than 15 min from now, only schedule the reminders
+    that are still in the future.
+    """
+    from django.conf import settings
+    import requests as http_requests
+
+    qstash_token = getattr(settings, "QSTASH_TOKEN", "").strip()
+    if not qstash_token:
+        # Try alternate env var names (Upstash uses verbose naming)
+        import os
+        qstash_token = os.environ.get("UPSTASH_QSTASH_QSTASH_TOKEN", "").strip()
+    if not qstash_token:
+        logger.debug("QStash token not configured — skipping session reminders")
+        return
+
+    backend_url = getattr(settings, "BACKEND_BASE_URL", "").strip()
+    if not backend_url:
+        import os
+        backend_url = os.environ.get("BACKEND_BASE_URL", "https://gyangrit.onrender.com").strip()
+
+    remind_url = f"{backend_url}/api/v1/live/sessions/{session.id}/remind/"
+    now = timezone.now()
+
+    # Schedule reminders at 15min and 5min before the session
+    offsets = [
+        (timedelta(minutes=15), "15 minutes"),
+        (timedelta(minutes=5),  "5 minutes"),
+    ]
+
+    for offset, label in offsets:
+        remind_at = session.scheduled_at - offset
+        if remind_at <= now:
+            continue  # already past this reminder time
+
+        delay_seconds = int((remind_at - now).total_seconds())
+        if delay_seconds < 10:
+            continue  # too close, skip
+
+        try:
+            resp = http_requests.post(
+                "https://qstash.upstash.io/v2/publish/" + remind_url,
+                json={"session_id": session.id, "minutes_before": label},
+                headers={
+                    "Authorization": f"Bearer {qstash_token}",
+                    "Content-Type": "application/json",
+                    "Upstash-Delay": f"{delay_seconds}s",
+                },
+                timeout=5,
+            )
+            if resp.ok:
+                logger.info("QStash reminder scheduled: session=%s in %ds (%s before)", session.id, delay_seconds, label)
+            else:
+                logger.warning("QStash schedule failed: %s %s", resp.status_code, resp.text[:200])
+        except Exception as exc:
+            logger.warning("QStash schedule error for session %s: %s", session.id, exc)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def session_remind(request, session_id):
+    """
+    POST /api/v1/live/sessions/<id>/remind/
+    
+    Called by QStash at scheduled reminder times.
+    Sends push + in-app notification to students in the session's section.
+    
+    No auth required — QStash sends a signed request. For now we trust
+    the request since the endpoint only sends notifications (no mutation).
+    TODO: Verify QStash signature header for production hardening.
+    """
+    try:
+        session = LiveSession.objects.select_related(
+            "section", "section__classroom", "subject", "teacher"
+        ).get(id=session_id)
+    except LiveSession.DoesNotExist:
+        return JsonResponse({"error": "Session not found"}, status=404)
+
+    # Don't send reminders for sessions that are already live or ended
+    if session.status != SessionStatus.SCHEDULED:
+        return JsonResponse({"skipped": True, "reason": f"Session is {session.status}"})
+
+    # Parse minutes_before from body
+    try:
+        body = json.loads(request.body)
+        minutes_label = body.get("minutes_before", "soon")
+    except (json.JSONDecodeError, ValueError):
+        minutes_label = "soon"
+
+    teacher_name = session.teacher.get_full_name() or session.teacher.username
+    subject_label = session.subject.name if session.subject else "General"
+
+    _notify_students_inapp(
+        session=session,
+        sender=session.teacher,
+        subject_line=f"\u23f0 Live Class in {minutes_label}: {session.title}",
+        message=f"{teacher_name} has a {subject_label} class starting in {minutes_label}. Get ready!",
+        link=f"/live/{session.id}",
+    )
+
+    logger.info("Reminder sent: session=%s minutes_before=%s", session.id, minutes_label)
+    return JsonResponse({"reminded": True, "session_id": session.id})

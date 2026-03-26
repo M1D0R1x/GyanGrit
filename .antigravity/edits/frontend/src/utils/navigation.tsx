@@ -46,6 +46,7 @@ export const getNavGroups = (role: Role): NavGroup[] => {
             { label: 'Profile & Badges', path: '/profile', icon: <User size={18} /> },
             { label: 'Leaderboard', path: '/leaderboard', icon: <Trophy size={18} /> },
             { label: 'Notifications', path: '/notifications', icon: <Bell size={18} /> },
+            { label: 'Telemetry', path: '/analytics', icon: <BarChart3 size={18} /> },
           ],
         },
         {

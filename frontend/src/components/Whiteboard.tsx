@@ -2,80 +2,95 @@
 /**
  * Excalidraw whiteboard wrapper for live sessions.
  *
+ * All @excalidraw types are defined locally to avoid TS2307 errors when
+ * the package is not yet installed (Vercel installs on build, but tsc
+ * runs before vite bundles). The actual Excalidraw component is loaded
+ * via dynamic import() at runtime only.
+ *
  * Two modes:
- *   - Teacher (readOnly=false): can draw, erase, annotate. Changes are
- *     broadcast to students via the onBroadcast callback.
- *   - Student (readOnly=true): receives whiteboard state updates and
- *     renders them read-only.
- *
- * The parent (LiveSessionPage) is responsible for:
- *   1. Calling onBroadcast with serialized state -> sends via LiveKit data channel
- *   2. Passing incoming whiteboard state updates as the `remoteState` prop
- *
- * Throttling: teacher changes are broadcast at most every 200ms to avoid
- * flooding the data channel. Excalidraw fires onChange on every stroke point,
- * so without throttling we'd send 60+ messages per second while drawing.
- *
- * Package: @excalidraw/excalidraw@0.18.0
+ *   - Teacher (readOnly=false): can draw. Changes broadcast via onBroadcast.
+ *   - Student (readOnly=true): receives state updates, renders read-only.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// v0.18.0 type imports — uses the package exports map ("./*" -> "./dist/types/excalidraw/*.d.ts")
-import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import type { AppState, ExcalidrawImperativeAPI, ExcalidrawProps } from "@excalidraw/excalidraw/types";
+// ── Local type definitions (avoids importing from @excalidraw at compile time) ─
 
-// Serialized whiteboard state sent over data channel
-export type WhiteboardState = {
+/** Minimal ExcalidrawElement shape — only the fields we serialize over data channel */
+export interface WhiteboardElement {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  [key: string]: unknown;
+}
+
+/** Serialized whiteboard state sent over LiveKit data channel */
+export interface WhiteboardState {
   type: "whiteboard";
-  elements: ExcalidrawElement[];
+  elements: WhiteboardElement[];
   scrollX: number;
   scrollY: number;
   zoom: number;
-};
+}
 
-type Props = {
+/** Minimal AppState shape for the onChange callback */
+interface MinimalAppState {
+  scrollX: number;
+  scrollY: number;
+  zoom: { value: number };
+  [key: string]: unknown;
+}
+
+/** Excalidraw imperative API — only the methods we use */
+interface ExcalidrawAPI {
+  updateScene: (scene: { elements: WhiteboardElement[] }) => void;
+  getSceneElements: () => WhiteboardElement[];
+}
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+interface Props {
   readOnly: boolean;
   remoteState?: WhiteboardState | null;
   onBroadcast?: (state: WhiteboardState) => void;
-};
+}
 
 const BROADCAST_THROTTLE_MS = 200;
 
-export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props) {
-  const [ExcalidrawComp, setExcalidrawComp] = useState<React.ComponentType<ExcalidrawProps> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-  const lastBroadcastRef = useRef(0);
-  const pendingBroadcastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+// ── Component ────────────────────────────────────────────────────────────────
 
-  // Dynamic import of the heavy Excalidraw component
+export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [ExcalidrawComp, setExcalidrawComp] = useState<React.ComponentType<any> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const apiRef = useRef<ExcalidrawAPI | null>(null);
+  const lastBroadcastRef = useRef(0);
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dynamic import — only loads at runtime, never at compile/type-check time
   useEffect(() => {
     let cancelled = false;
     import("@excalidraw/excalidraw")
       .then((mod) => {
-        if (!cancelled) {
-          // mod.Excalidraw is a MemoExoticComponent — cast to satisfy TS
-          setExcalidrawComp(() => mod.Excalidraw as unknown as React.ComponentType<ExcalidrawProps>);
-        }
+        if (!cancelled) setExcalidrawComp(() => mod.Excalidraw);
       })
       .catch((err: unknown) => {
         console.error("[Whiteboard] Failed to load Excalidraw:", err);
-        if (!cancelled) setError("Failed to load whiteboard. Please refresh the page.");
+        if (!cancelled) setError("Failed to load whiteboard. Please refresh.");
       });
     return () => { cancelled = true; };
   }, []);
 
-  // Apply remote state updates (student view)
+  // Apply remote state (student view)
   useEffect(() => {
     if (!remoteState || !apiRef.current || !readOnly) return;
     apiRef.current.updateScene({ elements: remoteState.elements });
   }, [remoteState, readOnly]);
 
-  // Throttled broadcast of whiteboard changes (teacher)
+  // Throttled broadcast (teacher)
   const handleChange = useCallback(
-    (elements: readonly ExcalidrawElement[], appState: AppState) => {
+    (elements: readonly WhiteboardElement[], appState: MinimalAppState) => {
       if (readOnly || !onBroadcast) return;
-
       const now = Date.now();
       const broadcast = () => {
         lastBroadcastRef.current = Date.now();
@@ -87,22 +102,18 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
           zoom: appState.zoom.value,
         });
       };
-
       if (now - lastBroadcastRef.current >= BROADCAST_THROTTLE_MS) {
         broadcast();
       } else {
-        if (pendingBroadcastRef.current) clearTimeout(pendingBroadcastRef.current);
-        pendingBroadcastRef.current = setTimeout(broadcast, BROADCAST_THROTTLE_MS);
+        if (pendingRef.current) clearTimeout(pendingRef.current);
+        pendingRef.current = setTimeout(broadcast, BROADCAST_THROTTLE_MS);
       }
     },
     [readOnly, onBroadcast],
   );
 
-  // Cleanup pending broadcast on unmount
   useEffect(() => {
-    return () => {
-      if (pendingBroadcastRef.current) clearTimeout(pendingBroadcastRef.current);
-    };
+    return () => { if (pendingRef.current) clearTimeout(pendingRef.current); };
   }, []);
 
   if (error) {
@@ -118,10 +129,12 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
     );
   }
 
+  const Exc = ExcalidrawComp;
+
   return (
     <div className="whiteboard-container">
-      <ExcalidrawComp
-        excalidrawAPI={(api: ExcalidrawImperativeAPI) => { apiRef.current = api; }}
+      <Exc
+        excalidrawAPI={(api: ExcalidrawAPI) => { apiRef.current = api; }}
         onChange={handleChange}
         viewModeEnabled={readOnly}
         zenModeEnabled={false}

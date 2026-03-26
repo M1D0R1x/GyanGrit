@@ -19,8 +19,8 @@
 | 2026-03-26 | Vercel build fail — LiveSessionPage onAction type error | Wrapped handleJoin as (sess) => handleJoin(sess.id) |
 | 2026-03-26 | 302 redirect on chat/notifications API calls | Replaced all @login_required → @require_auth across all apps |
 | 2026-03-26 | Failed to fetch dynamically imported module | 3-layer fix: lazyRetry + ChunkErrorBoundary + vite:preloadError |
-| 2026-03-26 | Ably Auth() Warning: token literal | AuthContext: authCallback with `as any` |
-| 2026-03-26 | TS2769 Ably authCallback type mismatch | `as any` cast on callback + options |
+| 2026-03-26 | Ably Auth() Warning: token literal | AuthContext: authCallback with proper Ably types |
+| 2026-03-26 | TS2769 Ably authCallback type mismatch | Typed with `import type { TokenParams, ErrorInfo, TokenDetails, TokenRequest } from "ably"` |
 | 2026-03-26 | ESLint unused event param | Removed parameter entirely `() => {}` |
 | 2026-03-26 | Live session notifications not in bell panel | `_notify_students_inapp` creates Broadcast + Notification + push |
 | 2026-03-26 | Section dropdown 230 items, no school filter | School dropdown filters sections for ADMIN/PRINCIPAL |
@@ -29,15 +29,33 @@
 | 2026-03-26 | "Session has ended" raw 400 error | User-friendly messages + auto-refresh session list |
 | 2026-03-26 | Vercel Analytics ERR_BLOCKED_BY_CLIENT | NOT A BUG — ad blocker |
 | 2026-03-26 | 503 on dashboard | Render cold start — keep-alive already implemented |
+| 2026-03-26 | TS2339 full_name not on UserProfile | Changed to display_name |
+| 2026-03-26 | TS2345 allSections type mismatch | Created SectionItem type with optional institution fields |
+| 2026-03-26 | TS2307 Excalidraw type module paths | Fixed to v0.18.0 paths: `@excalidraw/excalidraw/element/types` |
+| 2026-03-26 | TS2503 Cannot find namespace Ably | Top-level `import type` from "ably" instead of namespace |
+| 2026-03-26 | ESLint setState in effect (whiteboard auto-open) | requestAnimationFrame + ref guard |
+| 2026-03-26 | Gemini 429 rate limit — generic error | Exponential backoff retry (2s/4s/8s) + user-friendly message |
+
+---
+
+## Completed Feature Requests
+
+| Date | Feature | Implementation |
+|---|---|---|
+| 2026-03-26 | Excalidraw whiteboard in live sessions | Lazy-loaded `@excalidraw/excalidraw`, synced via LiveKit data channel |
+| 2026-03-26 | Hand raise in live sessions | LiveKit data channel: `hand_raise` + `hand_ack` messages |
+| 2026-03-26 | In-room chat for live sessions | LiveKit data channel: ephemeral `chat` messages, 100-msg buffer |
+| 2026-03-26 | Screen share for all participants | `screenShare: true` in ControlBar for teacher + student |
+| 2026-03-26 | Admin chat rooms grouped by school | Already implemented — rooms grouped by `institution_name` |
+| 2026-03-26 | Notification incremental fetch | Backend `?since=` param + frontend `lastFetchRef` cursor |
+| 2026-03-26 | Gemini 429 retry logic | Exponential backoff, 3 retries, friendly rate limit message |
+| 2026-03-26 | Notification reminders (15/5 min before live) | QStash scheduled delayed POST → `/live/sessions/<id>/remind/` |
+| 2026-03-26 | ASUS ROG local server deployment guide | `docs/LOCAL_SERVER_DEPLOYMENT.md` — Docker, Nginx, SSL, DDNS |
 
 ---
 
 ## Remaining Feature Requests (post-capstone)
 
-- Admin chat rooms grouped by school
-- Whiteboard integration (Excalidraw)
-- Notification caching (incremental fetch)
-- Notification reminders (10/5/15 min before live)
-- ASUS ROG as server deployment guide
-- Custom "purpose" field for live sessions
-- Metrics collection (engagement, watch time)
+- Metrics collection (engagement, watch time) — LiveKit webhooks + analytics model
+- Offline sync for lesson content
+- QStash signature verification on remind endpoint

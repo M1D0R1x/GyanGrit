@@ -13,4 +13,5 @@ urlpatterns = [
     path("sessions/<int:session_id>/join/",            views.join_session),
     path("sessions/<int:session_id>/token/",           views.session_token),
     path("sessions/<int:session_id>/attendance/",      views.session_attendance),
+    path("sessions/<int:session_id>/remind/",           views.session_remind),
 ]

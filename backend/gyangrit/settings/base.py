@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.flashcards.apps.FlashcardsConfig",
     "apps.livesessions.apps.LiveSessionsConfig",
     "apps.ai_assistant.apps.AiAssistantConfig",
+    "apps.analytics.apps.AnalyticsConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -323,3 +324,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 VAPID_PRIVATE_KEY    = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_PUBLIC_KEY     = os.environ.get("VAPID_PUBLIC_KEY", "")
 VAPID_CLAIMS_EMAIL   = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@gyangrit.com")
+
+# ── QStash (Upstash) — scheduled delayed tasks for session reminders ─────────
+QSTASH_TOKEN     = os.environ.get("UPSTASH_QSTASH_QSTASH_TOKEN", "")
+BACKEND_BASE_URL = os.environ.get("BACKEND_BASE_URL", "https://gyangrit.onrender.com")

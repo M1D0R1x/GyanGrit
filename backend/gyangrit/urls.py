@@ -27,4 +27,5 @@ urlpatterns = [
 
     # Ably real-time token vending
     path("api/v1/realtime/",      include((realtime_urlpatterns, "realtime"))),
+    path("api/v1/analytics/", include("apps.analytics.api.v1.urls")),
 ]

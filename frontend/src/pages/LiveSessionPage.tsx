@@ -29,7 +29,7 @@ import {
 } from "@livekit/components-react";
 import { Track, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   listMySessions, createSession, startSession, endSession,
   getUpcomingSessions, joinSession, getSessionToken,
@@ -532,6 +532,8 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
 
 export default function LiveSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const isTeacher = user?.role === "TEACHER" || user?.role === "PRINCIPAL" || user?.role === "ADMIN";
 
@@ -583,6 +585,11 @@ export default function LiveSessionPage() {
       const token = await getSessionToken(id);
       setLiveToken(token);
       setInRoom(true);
+      // Append ID to URL if not already there so refreshing keeps user in room
+      const currentSegments = location.pathname.split('/').filter(Boolean);
+      if (currentSegments[currentSegments.length - 1] !== String(id)) {
+        navigate(`${location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname}/${id}`, { replace: true });
+      }
     } catch (err: unknown) {
       let msg = "Failed to join session.";
       if (err instanceof Error) {
@@ -607,14 +614,20 @@ export default function LiveSessionPage() {
     } catch { setError("Failed to start session."); } finally { setStartingId(null); }
   }, [handleJoin]);
 
+  const handleLeaveRoom = useCallback(() => {
+    setInRoom(false); setLiveToken(null);
+    const basePath = location.pathname.split('/').filter(Boolean).filter(p => p !== String(sessionId)).join('/');
+    navigate(`/${basePath}`, { replace: true });
+  }, [location.pathname, navigate, sessionId]);
+
   const handleEnd = useCallback(async (session: LiveSession) => {
     if (!confirm("End this live session?")) return;
     try {
       const updated = await endSession(session.id);
       setSessions(prev => prev.map(s => s.id === session.id ? updated : s));
-      setInRoom(false); setLiveToken(null);
+      handleLeaveRoom();
     } catch { setError("Failed to end session."); }
-  }, []);
+  }, [handleLeaveRoom]);
 
   const handleCreate = useCallback(async () => {
     if (!newTitle.trim() || !newSection) return;
@@ -633,9 +646,19 @@ export default function LiveSessionPage() {
 
   const schoolOptions = isAdminOrPrincipal
     ? [...new Map(allSections.filter(s => s.institution_id != null).map(s => [s.institution_id!, { id: s.institution_id!, name: s.institution_name ?? "" }])).values()] : [];
+  
   const uniqueSections = isAdminOrPrincipal
     ? allSections.filter(s => !selectedSchool || s.institution_id === Number(selectedSchool)).map(s => ({ id: s.id, name: s.short_label }))
     : [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
+  
+  // Sort sections by class number descending (e.g. 12, 11, 10...)
+  uniqueSections.sort((a, b) => {
+    const numA = parseInt((a.name.match(/\d+/) || ["0"])[0], 10);
+    const numB = parseInt((b.name.match(/\d+/) || ["0"])[0], 10);
+    if (numA !== numB) return numB - numA;
+    return a.name.localeCompare(b.name);
+  });
+
   const subjectOptions = isAdminOrPrincipal ? allSubjects
     : [...new Map(assignments.filter(a => a.section_id === Number(newSection)).map(a => [a.subject_id, { id: a.subject_id, name: a.subject_name }])).values()];
 
@@ -644,11 +667,11 @@ export default function LiveSessionPage() {
     const activeSession = sessions.find(s => s.status === "live");
     return (
       <LiveKitRoom token={liveToken.token} serverUrl={liveToken.livekit_url} connect={true} video={false} audio={isTeacher}
-        onDisconnected={() => { setInRoom(false); setLiveToken(null); }}
+        onDisconnected={handleLeaveRoom}
         style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#0f0f0f" }}>
         <RoomAudioRenderer />
         <InRoomView isTeacher={isTeacher} activeSession={activeSession} onEnd={handleEnd}
-          onLeave={() => { setInRoom(false); setLiveToken(null); }} userName={userName} userId={userId} />
+          onLeave={handleLeaveRoom} userName={userName} userId={userId} />
       </LiveKitRoom>
     );
   }

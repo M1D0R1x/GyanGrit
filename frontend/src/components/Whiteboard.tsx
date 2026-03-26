@@ -67,17 +67,20 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
   const lastBroadcastRef = useRef(0);
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Dynamic import — only loads at runtime, never at compile/type-check time
+  // Dynamic import — loads Excalidraw + its CSS at runtime only
   useEffect(() => {
     let cancelled = false;
-    import("@excalidraw/excalidraw")
-      .then((mod) => {
+    (async () => {
+      try {
+        // Import CSS first so the toolbar and canvas render correctly
+        await import("@excalidraw/excalidraw/index.css");
+        const mod = await import("@excalidraw/excalidraw");
         if (!cancelled) setExcalidrawComp(() => mod.Excalidraw);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         console.error("[Whiteboard] Failed to load Excalidraw:", err);
         if (!cancelled) setError("Failed to load whiteboard. Please refresh.");
-      });
+      }
+    })();
     return () => { cancelled = true; };
   }, []);
 
@@ -140,6 +143,7 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
         zenModeEnabled={false}
         gridModeEnabled={false}
         theme="dark"
+        autoFocus={true}
         UIOptions={{
           canvasActions: {
             loadScene: false,
@@ -154,7 +158,10 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
             currentItemStrokeColor: "#ffffff",
           },
         }}
-      />
+      >
+        {/* Empty fragment suppresses the default WelcomeScreen (lock icon + shapes panel) */}
+      </Exc>
     </div>
   );
 }
+

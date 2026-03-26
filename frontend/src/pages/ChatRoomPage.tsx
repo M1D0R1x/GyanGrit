@@ -14,6 +14,7 @@ import {
   getChatHistory,
   getChatThread,
   listChatRooms,
+  adminListRooms,
   pinMessage,
   saveChatMessage,
   type ChatMessage,
@@ -278,7 +279,7 @@ export default function ChatRoomPage() {
   const isStudent     = user?.role === "STUDENT";
   const canShareFiles = user?.role === "TEACHER" || user?.role === "ADMIN" || user?.role === "PRINCIPAL";
 
-  const [rooms,          setRooms]          = useState<ChatRoom[]>([]);
+  const [rooms,          setRooms]          = useState<(ChatRoom & { institution_name?: string | null })[]>([]);
   const [activeRoom,     setActiveRoom]     = useState<ChatRoom | null>(null);
   const [loadingRooms,   setLoadingRooms]   = useState(true);
   const [messages,       setMessages]       = useState<ThreadMessage[]>([]);
@@ -316,19 +317,30 @@ export default function ChatRoomPage() {
   // ── Load rooms ────────────────────────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    listChatRooms(params.get("institution_id") ?? undefined)
+    const isAdmin = user?.role === "ADMIN";
+    const loadRooms = isAdmin
+      ? adminListRooms({ institution_id: params.get("institution_id") ?? undefined })
+      : listChatRooms(params.get("institution_id") ?? undefined);
+    loadRooms
       .then((rs) => {
-        setRooms(rs);
+        // Sort alphabetically by institution_name then by room name
+        const sorted = [...rs].sort((a, b) => {
+          const instA = ("institution_name" in a ? (a as { institution_name?: string | null }).institution_name : "") ?? "";
+          const instB = ("institution_name" in b ? (b as { institution_name?: string | null }).institution_name : "") ?? "";
+          if (instA !== instB) return instA.localeCompare(instB);
+          return a.name.localeCompare(b.name);
+        });
+        setRooms(sorted);
         if (numRoomId) {
-          const found = rs.find((r) => r.id === numRoomId);
+          const found = sorted.find((r) => r.id === numRoomId);
           if (found) setActiveRoom(found);
-        } else if (rs.length === 1) {
-          setActiveRoom(rs[0]);
+        } else if (sorted.length === 1) {
+          setActiveRoom(sorted[0]);
         }
       })
       .catch(() => setError("Failed to load chat rooms."))
       .finally(() => setLoadingRooms(false));
-  }, [numRoomId, location.search]);
+  }, [numRoomId, location.search, user?.role]);
 
   // ── Load history ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -553,32 +565,82 @@ export default function ChatRoomPage() {
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
-          <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
+          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
               Rooms
             </div>
-            {(["officials", "staff", "subject"] as const).map((type) => {
-              const group = rooms.filter((r) => r.room_type === type);
-              if (!group.length) return null;
-              return (
-                <div key={type}>
-                  <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
-                    {ROOM_TYPE_LABELS[type]}
-                  </div>
-                  {group.map((r) => (
-                    <button key={r.id} onClick={() => setActiveRoom(r)} style={{
-                      width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                      borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
-                      textAlign: "left", cursor: "pointer",
+            {user?.role === "ADMIN" ? (
+              // Admin view: group by school, then by room type
+              (() => {
+                const schoolMap = new Map<string, typeof rooms>();
+                rooms.forEach((r) => {
+                  const school = ("institution_name" in r ? (r as { institution_name?: string | null }).institution_name : null) ?? "Unknown School";
+                  if (!schoolMap.has(school)) schoolMap.set(school, []);
+                  schoolMap.get(school)!.push(r);
+                });
+                const schools = [...schoolMap.entries()].sort(([a], [b]) => a.localeCompare(b));
+                return schools.map(([school, schoolRooms]) => (
+                  <div key={school}>
+                    <div style={{
+                      padding: "var(--space-3) var(--space-4) var(--space-1)",
+                      fontSize: 11, fontWeight: 800, letterSpacing: "0.02em",
+                      color: "var(--brand-primary)",
+                      borderBottom: "1px solid var(--border-subtle)",
+                      background: "rgba(59,130,246,0.04)",
+                      position: "sticky" as const, top: 0, zIndex: 1,
                     }}>
-                      <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {r.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
+                      🏫 {school}
+                    </div>
+                    {(["officials", "staff", "subject"] as const).map((type) => {
+                      const group = schoolRooms.filter((r) => r.room_type === type);
+                      if (!group.length) return null;
+                      return (
+                        <div key={type}>
+                          <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
+                            {ROOM_TYPE_LABELS[type]}
+                          </div>
+                          {group.map((r) => (
+                            <button key={r.id} onClick={() => setActiveRoom(r)} style={{
+                              width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
+                              borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
+                              textAlign: "left", cursor: "pointer",
+                            }}>
+                              <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {r.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
+              })()
+            ) : (
+              // Non-admin view: group by room type only
+              (["officials", "staff", "subject"] as const).map((type) => {
+                const group = rooms.filter((r) => r.room_type === type);
+                if (!group.length) return null;
+                return (
+                  <div key={type}>
+                    <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
+                      {ROOM_TYPE_LABELS[type]}
+                    </div>
+                    {group.map((r) => (
+                      <button key={r.id} onClick={() => setActiveRoom(r)} style={{
+                        width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
+                        borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
+                        textAlign: "left", cursor: "pointer",
+                      }}>
+                        <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {r.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 

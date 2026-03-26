@@ -380,6 +380,13 @@ function SessionCard({ session, onAction, actionLabel, actionStyle }: {
   const statusColors: Record<string, string> = { scheduled: "var(--text-muted)", live: "var(--success)", ended: "var(--error)" };
   const statusBg: Record<string, string> = { scheduled: "rgba(107,114,128,0.08)", live: "rgba(34,197,94,0.1)", ended: "rgba(239,68,68,0.08)" };
 
+  const scheduledTime = session.scheduled_at
+    ? new Date(session.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    : null;
+  const startedTime = session.started_at
+    ? new Date(session.started_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+    : null;
+
   return (
     <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -393,6 +400,12 @@ function SessionCard({ session, onAction, actionLabel, actionStyle }: {
           {session.subject_name ?? "General"} {"\u00B7"} {session.teacher_name}
           {session.attendance_count !== undefined && ` \u00B7 ${session.attendance_count} attending`}
         </div>
+        {scheduledTime && (
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+            {"\uD83D\uDCC5"} {scheduledTime}
+            {startedTime && session.status === "live" && <span style={{ color: "var(--success)" }}> {"\u2022"} Started {startedTime}</span>}
+          </div>
+        )}
         {session.description && <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{session.description}</div>}
       </div>
       <button className="btn btn--primary" style={{ flexShrink: 0, fontSize: "var(--text-sm)", ...actionStyle }} onClick={() => onAction(session)}>{actionLabel}</button>
@@ -416,6 +429,7 @@ export default function LiveSessionPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newScheduledAt, setNewScheduledAt] = useState("");
   const [newSection, setNewSection] = useState<number | "">("");
   const [newSubject, setNewSubject] = useState<number | "">("");
   const [creating, setCreating] = useState(false);
@@ -489,11 +503,16 @@ export default function LiveSessionPage() {
     if (!newTitle.trim() || !newSection) return;
     setCreating(true);
     try {
-      const s = await createSession({ title: newTitle.trim(), description: newDesc.trim(), section_id: Number(newSection), subject_id: newSubject ? Number(newSubject) : undefined });
+      const s = await createSession({
+        title: newTitle.trim(), description: newDesc.trim(),
+        section_id: Number(newSection),
+        subject_id: newSubject ? Number(newSubject) : undefined,
+        scheduled_at: newScheduledAt || undefined,
+      });
       setSessions(prev => [s, ...prev]);
-      setShowCreate(false); setNewTitle(""); setNewDesc(""); setNewSection(""); setNewSubject("");
+      setShowCreate(false); setNewTitle(""); setNewDesc(""); setNewSection(""); setNewSubject(""); setNewScheduledAt("");
     } finally { setCreating(false); }
-  }, [newTitle, newDesc, newSection, newSubject]);
+  }, [newTitle, newDesc, newSection, newSubject, newScheduledAt]);
 
   const schoolOptions = isAdminOrPrincipal
     ? [...new Map(allSections.filter(s => s.institution_id != null).map(s => [s.institution_id!, { id: s.institution_id!, name: s.institution_name ?? "" }])).values()] : [];
@@ -542,6 +561,10 @@ export default function LiveSessionPage() {
             <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--text-primary)" }}>New Live Session</div>
             <input className="form-input" placeholder="Session title *" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
             <input className="form-input" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
+            <div style={{ marginBottom: "var(--space-2)" }}>
+              <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", marginBottom: "var(--space-1)" }}>Schedule Date & Time (optional)</label>
+              <input className="form-input" type="datetime-local" value={newScheduledAt} onChange={e => setNewScheduledAt(e.target.value)} style={{ colorScheme: "dark" }} />
+            </div>
             {isAdminOrPrincipal && schoolOptions.length > 1 && (
               <select className="form-input" value={selectedSchool} onChange={e => { setSelectedSchool(Number(e.target.value) || ""); setNewSection(""); }} style={{ marginBottom: "var(--space-2)" }}>
                 <option value="">All schools - select to filter</option>

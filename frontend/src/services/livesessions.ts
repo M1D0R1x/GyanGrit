@@ -4,7 +4,7 @@ import { apiGet, apiPost } from "./api";
 export type SessionStatus = "scheduled" | "live" | "ended";
 
 export type LiveSession = {
-  id:                 number;
+  id:                 string;
   title:              string;
   status:             SessionStatus;
   section_id:         number;
@@ -44,22 +44,22 @@ export const createSession = (body: {
   description?: string; scheduled_at?: string;
 }) => apiPost<LiveSession>("/live/sessions/", body);
 
-export const startSession = (id: number) =>
+export const startSession = (id: string) =>
   apiPost<LiveSession>(`/live/sessions/${id}/start/`, {});
 
-export const endSession = (id: number) =>
+export const endSession = (id: string) =>
   apiPost<LiveSession>(`/live/sessions/${id}/end/`, {});
 
-export const getAttendance = (id: number) =>
+export const getAttendance = (id: string) =>
   apiGet<Attendee[]>(`/live/sessions/${id}/attendance/`);
 
 // Student
 export const getUpcomingSessions = () =>
   apiGet<LiveSession[]>("/live/sessions/upcoming/");
 
-export const joinSession = (id: number) =>
+export const joinSession = (id: string) =>
   apiPost<{ session: LiveSession }>(`/live/sessions/${id}/join/`, {});
 
 // Both
-export const getSessionToken = (id: number) =>
+export const getSessionToken = (id: string) =>
   apiGet<LiveToken>(`/live/sessions/${id}/token/`);

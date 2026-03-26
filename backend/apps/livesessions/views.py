@@ -72,7 +72,7 @@ def _make_livekit_token(room_name: str, identity: str, name: str,
 
 def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> dict:
     d = {
-        "id":                 session.id,
+        "id":                 session.public_id,
         "title":              session.title,
         "status":             session.status,
         "section_id":         session.section_id,
@@ -137,7 +137,7 @@ def _notify_students_inapp(session: LiveSession, sender, subject_line: str, mess
     broadcast.recipient_count = len(student_ids)
     broadcast.save(update_fields=["recipient_count"])
 
-    logger.info("In-app notifications created: session=%s students=%d", session.id, len(student_ids))
+    logger.info("In-app notifications created: session=%s students=%d", session.public_id, len(student_ids))
 
     # Also send browser push (best-effort)
     try:
@@ -146,10 +146,10 @@ def _notify_students_inapp(session: LiveSession, sender, subject_line: str, mess
             title=subject_line,
             body=message,
             url=link,
-            tag=f"live-session-{session.id}",
+            tag=f"live-session-{session.public_id}",
         )
     except Exception as exc:
-        logger.warning("Push delivery failed for session %s: %s", session.id, exc)
+        logger.warning("Push delivery failed for session %s: %s", session.public_id, exc)
 
 
 # ── Teacher endpoints ─────────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ def session_list_create(request):
         description=description,
         scheduled_at=parsed_scheduled,
     )
-    logger.info("LiveSession created: id=%s room=%s", session.id, room_name)
+    logger.info("LiveSession created: id=%s room=%s", session.public_id, room_name)
 
     # Notify students: in-app notification (bell panel) + browser push
     try:
@@ -216,16 +216,16 @@ def session_list_create(request):
             sender=user,
             subject_line=f"\U0001f4cb Live Class Scheduled: {session.title}",
             message=f"{user.get_full_name() or user.username} scheduled a live class for {section.classroom.name}-{section.name}.",
-            link=f"/live/{session.id}",
+            link=f"/live/{session.public_id}",
         )
     except Exception as exc:
-        logger.warning("Notify failed for new session %s: %s", session.id, exc)
+        logger.warning("Notify failed for new session %s: %s", session.public_id, exc)
 
     # Schedule QStash reminders (15min + 5min before scheduled_at)
     try:
         _schedule_session_reminders(session)
     except Exception as exc:
-        logger.warning("Reminder scheduling failed for session %s: %s", session.id, exc)
+        logger.warning("Reminder scheduling failed for session %s: %s", session.public_id, exc)
 
     return JsonResponse(_session_to_dict(session), status=201)
 
@@ -234,7 +234,7 @@ def session_list_create(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def session_start(request, session_id):
-    session = get_object_or_404(LiveSession, id=session_id)
+    session = get_object_or_404(LiveSession, public_id=session_id)
     if request.user.role not in ("ADMIN",) and session.teacher_id != request.user.id:
         return JsonResponse({"error": "Forbidden"}, status=403)
     if session.status != SessionStatus.SCHEDULED:
@@ -258,10 +258,10 @@ def session_start(request, session_id):
             sender=request.user,
             subject_line=f"\U0001f534 Live Class Started: {session.title}",
             message=f"{teacher_name} is now live! Join the class.",
-            link=f"/live/{session.id}",
+            link=f"/live/{session.public_id}",
         )
     except Exception as exc:
-        logger.warning("Notify failed for live session %s: %s", session.id, exc)
+        logger.warning("Notify failed for live session %s: %s", session.public_id, exc)
 
     return JsonResponse(_session_to_dict(session))
 
@@ -270,7 +270,7 @@ def session_start(request, session_id):
 @require_http_methods(["POST"])
 @csrf_exempt
 def session_end(request, session_id):
-    session = get_object_or_404(LiveSession, id=session_id)
+    session = get_object_or_404(LiveSession, public_id=session_id)
     if request.user.role not in ("ADMIN",) and session.teacher_id != request.user.id:
         return JsonResponse({"error": "Forbidden"}, status=403)
     if session.status != SessionStatus.LIVE:
@@ -291,7 +291,7 @@ def session_end(request, session_id):
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
 @require_http_methods(["GET"])
 def session_attendance(request, session_id):
-    session = get_object_or_404(LiveSession, id=session_id)
+    session = get_object_or_404(LiveSession, public_id=session_id)
     records = session.attendance.select_related("student").order_by("joined_at")
     return JsonResponse([
         {
@@ -329,7 +329,7 @@ def upcoming_sessions(request):
 @csrf_exempt
 def join_session(request, session_id):
     """Student joins session — creates attendance record."""
-    session = get_object_or_404(LiveSession, id=session_id)
+    session = get_object_or_404(LiveSession, public_id=session_id)
 
     # Verify student is in the right section
     if request.user.role == "STUDENT":
@@ -356,7 +356,7 @@ def session_token(request, session_id):
     """Return a LiveKit JWT for this session room."""
     from django.conf import settings as django_settings
 
-    session = get_object_or_404(LiveSession, id=session_id)
+    session = get_object_or_404(LiveSession, public_id=session_id)
 
     # Access check
     if request.user.role == "STUDENT":
@@ -415,7 +415,7 @@ def _notify_session_event(session: LiveSession, event: str) -> None:
             http_requests.post(
                 f"https://rest.ably.io/channels/{channel}/messages",
                 json={"name": event, "data": {
-                    "session_id":    session.id,
+                    "session_id":    session.public_id,
                     "session_title": session.title,
                     "teacher_name":  session.teacher.get_full_name() or session.teacher.username,
                 }},
@@ -453,7 +453,7 @@ def _schedule_session_reminders(session: LiveSession) -> None:
         import os
         backend_url = os.environ.get("BACKEND_BASE_URL", "https://gyangrit.onrender.com").strip()
 
-    remind_url = f"{backend_url}/api/v1/live/sessions/{session.id}/remind/"
+    remind_url = f"{backend_url}/api/v1/live/sessions/{session.public_id}/remind/"
     now = timezone.now()
 
     # Schedule reminders at 15min and 5min before the session
@@ -483,11 +483,11 @@ def _schedule_session_reminders(session: LiveSession) -> None:
                 timeout=5,
             )
             if resp.ok:
-                logger.info("QStash reminder scheduled: session=%s in %ds (%s before)", session.id, delay_seconds, label)
+                logger.info("QStash reminder scheduled: session=%s in %ds (%s before)", session.public_id, delay_seconds, label)
             else:
                 logger.warning("QStash schedule failed: %s %s", resp.status_code, resp.text[:200])
         except Exception as exc:
-            logger.warning("QStash schedule error for session %s: %s", session.id, exc)
+            logger.warning("QStash schedule error for session %s: %s", session.public_id, exc)
 
 
 @csrf_exempt
@@ -506,7 +506,7 @@ def session_remind(request, session_id):
     try:
         session = LiveSession.objects.select_related(
             "section", "section__classroom", "subject", "teacher"
-        ).get(id=session_id)
+        ).get(public_id=session_id)
     except LiveSession.DoesNotExist:
         return JsonResponse({"error": "Session not found"}, status=404)
 
@@ -529,8 +529,8 @@ def session_remind(request, session_id):
         sender=session.teacher,
         subject_line=f"\u23f0 Live Class in {minutes_label}: {session.title}",
         message=f"{teacher_name} has a {subject_label} class starting in {minutes_label}. Get ready!",
-        link=f"/live/{session.id}",
+        link=f"/live/{session.public_id}",
     )
 
-    logger.info("Reminder sent: session=%s minutes_before=%s", session.id, minutes_label)
-    return JsonResponse({"reminded": True, "session_id": session.id})
+    logger.info("Reminder sent: session=%s minutes_before=%s", session.public_id, minutes_label)
+    return JsonResponse({"reminded": True, "session_id": session.public_id})

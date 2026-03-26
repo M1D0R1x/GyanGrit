@@ -19,7 +19,13 @@ class SessionStatus(models.TextChoices):
     ENDED     = "ended",     "Ended"
 
 
+import uuid
+
+def generate_public_id():
+    return str(uuid.uuid4())[:8]
+
 class LiveSession(models.Model):
+    public_id       = models.CharField(max_length=20, default=generate_public_id, unique=True, db_index=True)
     title           = models.CharField(max_length=200)
     section         = models.ForeignKey(
         "academics.Section", on_delete=models.CASCADE, related_name="live_sessions",

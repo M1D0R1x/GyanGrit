@@ -225,7 +225,7 @@ function useRoomPermissions(isTeacher: boolean) {
 
 // ── Whiteboard Hook ──────────────────────────────────────────────────────────
 
-function useWhiteboard(sessionId?: number) {
+function useWhiteboard(sessionId?: string) {
   const room = useRoomContext();
   const [remoteState, setRemoteState] = useState<WhiteboardState | null>(() => {
     if (!sessionId) return null;
@@ -542,7 +542,7 @@ export default function LiveSessionPage() {
   const [liveToken, setLiveToken] = useState<LiveToken | null>(null);
   const [inRoom, setInRoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [startingId, setStartingId] = useState<number | null>(null);
+  const [startingId, setStartingId] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -574,11 +574,11 @@ export default function LiveSessionPage() {
   }, [isTeacher, isAdminOrPrincipal]);
 
   useEffect(() => {
-    if (sessionId && !inRoom && !authLoading) handleJoin(Number(sessionId));
+    if (sessionId && !inRoom && !authLoading) handleJoin(sessionId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, authLoading]);
 
-  const handleJoin = useCallback(async (id: number) => {
+  const handleJoin = useCallback(async (id: string) => {
     setError(null);
     try {
       if (!isTeacher) await joinSession(id);
@@ -587,7 +587,7 @@ export default function LiveSessionPage() {
       setInRoom(true);
       // Append ID to URL if not already there so refreshing keeps user in room
       const currentSegments = location.pathname.split('/').filter(Boolean);
-      if (currentSegments[currentSegments.length - 1] !== String(id)) {
+      if (currentSegments[currentSegments.length - 1] !== id) {
         navigate(`${location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname}/${id}`, { replace: true });
       }
     } catch (err: unknown) {

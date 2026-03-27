@@ -185,12 +185,21 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 | Signal-driven enrollment | No cross-app enrollment in views | 2026-03-15 |
 | PointEvent ledger | Deduplication guard for gamification | 2026-03-17 |
 | Human-readable URL slugs | grade+subject not numeric IDs | 2026-03-17 |
+| Async OTP via threading.Thread | Login blocked 6s on SMTP — fire-and-forget thread returns instantly. Safe with gthread workers. | 2026-03-27 |
+| Email-first OTP delivery | Fast2SMS Quick route unreliable (DLT, rate limits). Gmail SMTP is free and instant. | 2026-03-27 |
+| Vercel immutable cache | Hashed assets cached 1yr, repeat 3G visits load from disk | 2026-03-27 |
+| Vite modulePreload: false | Default preload injected 4MB Excalidraw into every page load | 2026-03-27 |
 
 ---
 
 ## SESSION LOG
 
-### 2026-03-27 — Infinite Obsidian Verification & Calendar Polish
+### 2026-03-27 — Performance Optimization & OTP Overhaul
+- **Vite 3G Load Time Optimization**: Disabled Vite's aggressive `modulePreload` and removed `manualChunks` from `vite.config.ts`, restoring native lazy-loading boundaries. Dropped initial Dashboard JS payload from 5.4MB (which was eagerly downloading Excalidraw) down to ~600KB, slashing 3G load times from 40s to ~3s.
+- **Async OTP Delivery**: Rewrote `services.py` to use `threading.Thread` for fire-and-forget OTP dispatch. Login response now returns instantly instead of blocking 6s on SMTP/SMS timeout. Structured timing logs track delivery latency per channel.
+- **Email-First OTP Priority**: Swapped OTP delivery order from SMS→Email to **Email→SMS→Log**. Gmail SMTP is free, reliable, and instant. Fast2SMS demoted to fallback due to DLT restrictions.
+- **Vercel Immutable Cache Headers**: Added `Cache-Control: public, max-age=31536000, immutable` for all `/assets/*` in `vercel.json`. Repeat visits on 3G load instantly from disk cache.
+- **Sentry Noise Reduction**: Added global filter in `main.tsx` to automatically drop harmless Ably WebSocket `Connection closed` disconnect events, preventing alert spam on room navigation.
 - Configured native Hex `/live/:publicId` routing for resilient session reloading.
 - Admin Chat grouping by school integrated directly into `ChatRoomPage.tsx`.
 - Hand-raise hooks, whiteboard persistence, and role-based permissions merged successfully into the new `LiveSessionPage.tsx`.

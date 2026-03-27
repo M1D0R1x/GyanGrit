@@ -428,6 +428,7 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
       <div className="live-room__header">
         <div className="live-room__title">
           {"\uD83D\uDD34"} Live {"\u2014"} {activeSession?.title ?? "Class Session"}
+          {activeSession?.id && <span style={{ marginLeft: 8, fontSize: '0.75em', opacity: 0.7, fontFamily: 'monospace', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 4 }}>#{activeSession.id}</span>}
           {!isTeacher && (
             <button className={`live-hand-btn ${myHandRaised ? "live-hand-btn--active" : ""}`}
               onClick={toggleHand} title={myHandRaised ? "Lower hand" : "Raise hand"}>
@@ -603,7 +604,7 @@ export default function LiveSessionPage() {
       const fetchFn = isTeacher ? listMySessions : getUpcomingSessions;
       fetchFn().then(setSessions).catch(() => {});
     }
-  }, [isTeacher]);
+  }, [isTeacher, location.pathname, navigate]);
 
   const handleStart = useCallback(async (session: LiveSession) => {
     try {

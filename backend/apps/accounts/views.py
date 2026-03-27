@@ -30,7 +30,7 @@ from .models import (
     DeviceSession,
     JoinCode,
 )
-from .services import send_otp
+from .services import send_otp_async
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -247,9 +247,9 @@ def login_view(request):
     OTPVerification.objects.filter(user=user).delete()
     OTPVerification.objects.create(user=user, otp_code=otp_code)
 
-    # Deliver OTP via SMS (Fast2SMS) or email depending on what is configured.
-    # In DEBUG mode: also returned in response body for dev convenience.
-    _delivered, channel = send_otp(user, otp_code)
+    # Fire-and-forget OTP delivery — runs in background thread.
+    # Login response returns instantly; OTP arrives within seconds.
+    channel = send_otp_async(user, otp_code)
 
     response_data = {
         "otp_required": True,
@@ -366,7 +366,7 @@ def resend_otp(request):
     OTPVerification.objects.filter(user=user).delete()
     OTPVerification.objects.create(user=user, otp_code=otp_code)
 
-    _delivered, channel = send_otp(user, otp_code)
+    channel = send_otp_async(user, otp_code)
 
     response_data = {
         "resent":      True,

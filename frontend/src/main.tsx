@@ -28,7 +28,8 @@ if (SENTRY_DSN && import.meta.env.PROD) {
       if (
         msg.includes("ServiceWorker") ||
         msg.includes("_vercel/insights") ||
-        msg.includes("_vercel/speed-insights")
+        msg.includes("_vercel/speed-insights") ||
+        msg.includes("Connection closed")
       ) {
         return null; // drop these
       }

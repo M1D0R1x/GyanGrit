@@ -18,6 +18,12 @@ urlpatterns = [
     path("resend-otp/",         views.resend_otp),
     path("validate-join-code/", views.validate_join_code),
 
+    # Password reset
+    path("forgot-password/",    views.forgot_password),
+    path("reset-password/",     views.reset_password),
+    path("change-password/",    views.change_password),
+
+
     # Scoped lists
     path("users/",              views.users),
     path("teachers/",           views.teachers),

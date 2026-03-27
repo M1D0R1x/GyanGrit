@@ -1233,3 +1233,180 @@ def system_stats(request):
             "notifications_sent_today":    Broadcast.objects.filter(sent_at__date=today).count(),
         },
     })
+
+
+# =========================================================
+# FORGOT PASSWORD
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def forgot_password(request):
+    """
+    POST /api/v1/accounts/forgot-password/
+    Body: { "username": "..." } OR { "email": "..." }
+
+    Generates a stateless HMAC reset token (Django's default_token_generator)
+    and emails a branded reset link to the user's registered email.
+
+    Always returns 200 — even if the user doesn't exist or has no email —
+    to prevent user enumeration attacks.
+    """
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_encode
+    from django.utils.encoding import force_bytes
+    from .services import send_password_reset_email_async
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    identifier = (body.get("username") or body.get("email") or "").strip()
+    if not identifier:
+        return JsonResponse({"error": "username or email is required"}, status=400)
+
+    # Look up user by username OR email. Always return the same response either way.
+    user = None
+    try:
+        if "@" in identifier:
+            user = User.objects.filter(email__iexact=identifier).first()
+        else:
+            user = User.objects.get(username=identifier)
+    except User.DoesNotExist:
+        pass
+
+    if user and user.email:
+        token   = default_token_generator.make_token(user)
+        uidb64  = urlsafe_base64_encode(force_bytes(user.pk))
+        frontend_url = getattr(settings, "FRONTEND_URL", "https://gyangrit.site")
+        reset_url = f"{frontend_url}/reset-password/{uidb64}/{token}"
+
+        send_password_reset_email_async(
+            user_email=user.email,
+            username=user.display_name or user.username,
+            reset_url=reset_url,
+        )
+        logger.info("Password reset email queued for user id=%s", user.id)
+    else:
+        # Log quietly — don't reveal anything to the caller
+        logger.info("forgot_password: no matching user or no email for identifier=%r", identifier)
+
+    # Always 200 — prevents user enumeration
+    return JsonResponse({
+        "message": "If an account with that username/email exists, a reset link has been sent."
+    })
+
+
+# =========================================================
+# RESET PASSWORD (token-based)
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def reset_password(request):
+    """
+    POST /api/v1/accounts/reset-password/
+    Body: { "uidb64": "...", "token": "...", "new_password": "..." }
+
+    Validates the HMAC token, sets a new password, and invalidates all
+    existing Django sessions for the user (single-device policy reset).
+    """
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_decode
+    from django.utils.encoding import force_str
+    from django.contrib.sessions.models import Session
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    uidb64       = body.get("uidb64", "").strip()
+    token        = body.get("token",  "").strip()
+    new_password = body.get("new_password", "")
+
+    if not uidb64 or not token or not new_password:
+        return JsonResponse({"error": "uidb64, token, and new_password are required"}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
+
+    # Decode uid
+    try:
+        uid  = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return JsonResponse({"error": "Invalid reset link"}, status=400)
+
+    # Validate HMAC token (checks expiry via PASSWORD_RESET_TIMEOUT)
+    if not default_token_generator.check_token(user, token):
+        return JsonResponse({"error": "Reset link is invalid or has expired"}, status=400)
+
+    # Set new password
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    # Invalidate all sessions so old sessions can't be replayed
+    DeviceSession.objects.filter(user=user).delete()
+    # Also flush Django session store for this user (belt-and-suspenders)
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user.pk):
+                session.delete()
+    except Exception:
+        pass  # Non-fatal if session backend doesn't support this
+
+    logger.info("Password reset successful for user id=%s", user.id)
+    return JsonResponse({"success": True, "message": "Password updated. Please log in with your new password."})
+
+
+# =========================================================
+# CHANGE PASSWORD (authenticated)
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def change_password(request):
+    """
+    POST /api/v1/accounts/change-password/
+    Body: { "old_password": "...", "new_password": "..." }
+
+    Requires an active session. Verifies old password before replacing it.
+    Does NOT invalidate the current session — user stays logged in.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    old_password = body.get("old_password", "")
+    new_password = body.get("new_password", "")
+
+    if not old_password or not new_password:
+        return JsonResponse({"error": "old_password and new_password are required"}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({"error": "New password must be at least 8 characters"}, status=400)
+
+    if not request.user.check_password(old_password):
+        return JsonResponse({"error": "Current password is incorrect"}, status=400)
+
+    if old_password == new_password:
+        return JsonResponse({"error": "New password must differ from the current one"}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save(update_fields=["password"])
+
+    # Keep the current session alive — update session auth hash so Django
+    # doesn't log the user out after password change (session still valid).
+    from django.contrib.auth import update_session_auth_hash
+    update_session_auth_hash(request, request.user)
+
+    logger.info("Password changed successfully for user id=%s", request.user.id)
+    return JsonResponse({"success": True, "message": "Password updated successfully."})
+

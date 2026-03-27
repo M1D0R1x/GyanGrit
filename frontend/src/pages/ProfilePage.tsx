@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { getMySummary, type MySummary } from "../services/gamification";
 import { getStudentGrades, type GradeEntry } from "../services/gradebook";
-import { apiPatch } from "../services/api";
+import { apiPatch, apiPost } from "../services/api";
 import TopBar from "../components/TopBar";
 import LogoutButton from "../components/LogoutButton";
 import BottomNav from "../components/BottomNav";
@@ -217,6 +217,152 @@ function GradesSection({ studentId }: { studentId: number }) {
         >
           {expanded ? "Show less" : `Show all ${subjectKeys.length} subjects`}
         </button>
+      )}
+    </div>
+  );
+}
+
+// ── Change Password card ───────────────────────────────────────────────────
+
+function ChangePasswordCard() {
+  const [open,        setOpen]        = useState(false);
+  const [oldPw,       setOldPw]       = useState("");
+  const [newPw,       setNewPw]       = useState("");
+  const [confirmPw,   setConfirmPw]   = useState("");
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [success,     setSuccess]     = useState(false);
+  const [showOld,     setShowOld]     = useState(false);
+  const [showNew,     setShowNew]     = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const reset = () => {
+    setOldPw(""); setNewPw(""); setConfirmPw("");
+    setError(null); setShowOld(false); setShowNew(false); setShowConfirm(false);
+  };
+
+  const handleToggle = () => {
+    if (open) reset();
+    setOpen((v) => !v);
+    setSuccess(false);
+  };
+
+  const EyeBtn = ({ show, toggle, label }: { show: boolean; toggle: () => void; label: string }) => (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={toggle}
+      style={{
+        position: "absolute", right: "0.75rem", top: "50%",
+        transform: "translateY(-50%)", background: "none",
+        border: "none", cursor: "pointer", color: "var(--text-muted)",
+        display: "flex", alignItems: "center", padding: 0,
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {show ? (
+          <>
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </>
+        ) : (
+          <>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </>
+        )}
+      </svg>
+    </button>
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (newPw.length < 8)    { setError("New password must be at least 8 characters."); return; }
+    if (newPw !== confirmPw) { setError("Passwords do not match."); return; }
+    if (newPw === oldPw)     { setError("New password must differ from current."); return; }
+    setSaving(true);
+    try {
+      await apiPost("/accounts/change-password/", { old_password: oldPw, new_password: newPw });
+      setSuccess(true);
+      setOpen(false);
+      reset();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to change password.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle = { paddingRight: "2.5rem" };
+
+  return (
+    <div className="card" style={{ marginTop: "var(--space-6)", padding: "var(--space-5)" }}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0,
+        }}
+      >
+        <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+          🔑 Change Password
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {success && !open && (
+        <div className="alert alert--success" role="alert" style={{ marginTop: "var(--space-4)" }}>
+          ✓ Password changed successfully
+        </div>
+      )}
+
+      {open && (
+        <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: "var(--space-5)" }}>
+          {error && (
+            <div className="alert alert--error" role="alert" style={{ marginBottom: "var(--space-4)" }}>
+              {error}
+            </div>
+          )}
+
+          {[
+            { id: "cp-old",     label: "Current Password", val: oldPw,     setVal: setOldPw,     show: showOld,     setShow: setShowOld,     ac: "current-password" },
+            { id: "cp-new",     label: "New Password",     val: newPw,     setVal: setNewPw,     show: showNew,     setShow: setShowNew,     ac: "new-password" },
+            { id: "cp-confirm", label: "Confirm New",      val: confirmPw, setVal: setConfirmPw, show: showConfirm, setShow: setShowConfirm, ac: "new-password" },
+          ].map(({ id, label, val, setVal, show, setShow, ac }) => (
+            <div key={id} style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
+              <label htmlFor={id} style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {label}
+              </label>
+              <div style={{ position: "relative" }}>
+                <input id={id} className="form-input"
+                  type={show ? "text" : "password"}
+                  value={val}
+                  onChange={(e) => setVal(e.target.value)}
+                  style={inputStyle} disabled={saving} autoComplete={ac} />
+                <EyeBtn show={show} toggle={() => setShow((p) => !p)} label={show ? "Hide" : "Show"} />
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
+            <button type="submit" className="btn btn--primary" style={{ flex: 1, justifyContent: "center" }}
+              disabled={saving || !oldPw || !newPw || !confirmPw}>
+              {saving ? <><span className="btn__spinner" aria-hidden="true" />Saving…</> : "Update Password"}
+            </button>
+            <button type="button" className="btn btn--secondary" style={{ flex: 1, justifyContent: "center" }}
+              onClick={handleToggle} disabled={saving}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );
@@ -514,6 +660,9 @@ export default function ProfilePage() {
             {user.role === "STUDENT" && user.id && (
               <GradesSection studentId={user.id} />
             )}
+
+            {/* ── Change Password ─────────────────────────────────── */}
+            <ChangePasswordCard />
           </>
         )}
 

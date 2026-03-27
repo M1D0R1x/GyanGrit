@@ -183,6 +183,16 @@ SESSION_COOKIE_NAME = "gyangrit_sessionid"
 CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Password Reset
+# Uses Django's built-in PasswordResetTokenGenerator (HMAC-based, stateless).
+# Token expires after PASSWORD_RESET_TIMEOUT seconds.
+# FRONTEND_URL is used to build the reset link in the email.
+# ─────────────────────────────────────────────────────────────────────────────
+
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Email — Zoho Mail SMTP via App Password
 #
 # Priority in send_otp(): Email (Zoho) → SMS (Twilio) → Log fallback

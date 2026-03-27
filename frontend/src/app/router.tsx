@@ -7,6 +7,9 @@ import LoginPage           from "../pages/LoginPage";
 import RegisterPage        from "../pages/RegisterPage";
 import VerifyOtpPage       from "../pages/VerifyOtpPage";
 import CompleteProfilePage from "../pages/CompleteProfilePage";
+import ForgotPasswordPage  from "../pages/ForgotPasswordPage";
+import ResetPasswordPage   from "../pages/ResetPasswordPage";
+
 
 // Auth pages — lazy loaded. Authenticated users land on dashboard, not login,
 // so these only load when actually needed (saves ~40KB from entry bundle on 3G).
@@ -149,6 +152,9 @@ export const router = createBrowserRouter([
   { path: "/register",         element: <RegisterPage /> },
   { path: "/verify-otp",       element: <VerifyOtpPage /> },
   { path: "/complete-profile", element: <CompleteProfilePage /> },
+  { path: "/forgot-password",  element: <ForgotPasswordPage /> },
+  { path: "/reset-password/:uidb64/:token", element: <ResetPasswordPage /> },
+
 
   // ── Shared — all authenticated roles (rank ≥ STUDENT = everyone) ─────────
   { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },

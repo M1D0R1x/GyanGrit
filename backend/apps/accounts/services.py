@@ -324,3 +324,50 @@ def send_notification_email_async(
 
     thread = threading.Thread(target=_deliver_notification, daemon=True)
     thread.start()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Password Reset Email
+# ─────────────────────────────────────────────────────────────────────────────
+
+def send_password_reset_email_async(user_email: str, username: str, reset_url: str) -> None:
+    """
+    Fire-and-forget password reset email.
+
+    Renders emails/password_reset_email.html and sends via Zoho SMTP in a
+    background thread so the forgot-password API endpoint returns instantly.
+
+    Args:
+        user_email: Recipient's email address.
+        username:   Used in the greeting inside the email.
+        reset_url:  Full URL to the frontend reset-password page with uidb64 + token.
+    """
+    if not user_email or not getattr(settings, "EMAIL_HOST", "").strip():
+        logger.warning("Skipping password reset email: missing destination or SMTP config.")
+        return
+
+    def _deliver():
+        try:
+            context = {"username": username, "reset_url": reset_url}
+            html_content = render_to_string("emails/password_reset_email.html", context)
+            text_content = (
+                f"Hi {username},\n\n"
+                f"Click the link below to reset your GyanGrit password:\n{reset_url}\n\n"
+                f"This link expires in 1 hour. If you didn't request this, ignore this email.\n\n"
+                f"— The GyanGrit Security Team"
+            )
+            send_mail(
+                subject="GyanGrit — Reset your password",
+                message=text_content,
+                html_message=html_content,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "GyanGrit <noreply@gyangrit.site>"),
+                recipient_list=[user_email],
+                fail_silently=False,
+            )
+            masked = user_email[:3] + "***" + user_email[user_email.find("@"):]
+            logger.info("Password reset email delivered to %s", masked)
+        except Exception as exc:
+            logger.error("Password reset email failed: %s", exc)
+
+    threading.Thread(target=_deliver, daemon=True).start()
+

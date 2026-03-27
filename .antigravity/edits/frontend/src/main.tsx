@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { HelmetProvider } from "react-helmet-async";
 import { RouterProvider } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -7,7 +8,6 @@ import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import "./index.css";
-import "./nav-menu-animation.css";
 
 // ── Sentry error tracking ─────────────────────────────────────────────────────
 // Only initializes in production when DSN is set.
@@ -29,7 +29,8 @@ if (SENTRY_DSN && import.meta.env.PROD) {
       if (
         msg.includes("ServiceWorker") ||
         msg.includes("_vercel/insights") ||
-        msg.includes("_vercel/speed-insights")
+        msg.includes("_vercel/speed-insights") ||
+        msg.includes("Connection closed")
       ) {
         return null; // drop these
       }
@@ -84,13 +85,15 @@ window.addEventListener("vite:preloadError", () => {
 });
 
 createRoot(document.getElementById("root")!).render(
-  <ChunkErrorBoundary>
-    <AuthProvider>
-      <RouterProvider router={router} />
-      {/* Vercel Analytics — tracks page views and web vitals in production */}
-      <Analytics />
-      {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
-      <SpeedInsights />
-    </AuthProvider>
-  </ChunkErrorBoundary>
+  <HelmetProvider>
+    <ChunkErrorBoundary>
+      <AuthProvider>
+        <RouterProvider router={router} />
+        {/* Vercel Analytics — tracks page views and web vitals in production */}
+        <Analytics />
+        {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
+        <SpeedInsights />
+      </AuthProvider>
+    </ChunkErrorBoundary>
+  </HelmetProvider>
 );

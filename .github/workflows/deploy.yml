@@ -1,0 +1,26 @@
+name: Deploy Backend to Oracle
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USERNAME }}
+          key: ${{ secrets.ORACLE_KEY }}
+          script: |
+            cd /opt/gyangrit
+            git pull origin master
+            source backend/venv/bin/activate
+            pip install -r backend/requirements/prod.txt
+            python backend/manage.py migrate
+            sudo systemctl restart gyangrit

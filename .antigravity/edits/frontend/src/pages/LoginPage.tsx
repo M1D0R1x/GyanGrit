@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { apiPost } from '../services/api';
-import { useAuth } from '../auth/AuthContext';
-import type { Role } from '../auth/authTypes';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiPost } from "../services/api";
+import { useAuth } from "../auth/AuthContext";
+import type { Role } from "../auth/authTypes";
+import { Helmet } from "react-helmet-async";
 
 type LoginApiResponse =
   | { otp_required: true; username: string; role: Role }
   | { otp_required: false; id: number; username: string; role: Role };
 
 const ROLE_PATHS: Record<Role, string> = {
-  STUDENT: "/dashboard",
-  TEACHER: "/teacher",
+  STUDENT:   "/dashboard",
+  TEACHER:   "/teacher",
   PRINCIPAL: "/principal",
-  OFFICIAL: "/official",
-  ADMIN: "/admin-panel",
+  OFFICIAL:  "/official",
+  ADMIN:     "/admin-panel",
 };
 
 // Safari blocks cross-site cookies by default (ITP). Since the API is on
@@ -24,14 +25,14 @@ function isSafari(): boolean {
   return /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua);
 }
 
-const LoginPage: React.FC = () => {
+export default function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +41,10 @@ const LoginPage: React.FC = () => {
     auth.clearKicked();
 
     try {
-      const response = await apiPost<LoginApiResponse>("/accounts/login/", { username, password });
+      const response = await apiPost<LoginApiResponse>("/accounts/login/", {
+        username,
+        password,
+      });
 
       if (response.otp_required) {
         navigate("/verify-otp", {
@@ -54,117 +58,149 @@ const LoginPage: React.FC = () => {
       navigate(ROLE_PATHS[response.role] ?? "/", { replace: true });
 
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      const message = err instanceof Error ? err.message : "Login failed. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      {/* Background Ambient Glow */}
-      <div style={{ position: 'fixed', top: '20%', left: '30%', width: '400px', height: '400px', background: 'var(--brand-primary-glow)', filter: 'blur(150px)', borderRadius: '50%', zIndex: 0 }} />
+    <div className="login-page">
+      <Helmet>
+        <title>Login | GyanGrit Student Portal</title>
+        <meta name="description" content="Sign in to your GyanGrit account to access your courses, flashcards, and live tutoring sessions." />
+      </Helmet>
+      <div className="login-card">
+        <div className="login-card__brand">
+          Gyan<span>Grit</span>
+        </div>
+        <p className="login-card__tagline">
+          Empowering rural students, one lesson at a time
+        </p>
 
-      <main className="page-enter" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '420px', padding: 'var(--space-6)' }}>
-        <div className="glass-card" style={{ padding: 'var(--space-10)', textAlign: 'center' }}>
-          {/* Branding */}
-          <header style={{ marginBottom: 'var(--space-10)' }}>
-            <h1 className="text-gradient" style={{ fontSize: 'var(--text-4xl)', marginBottom: 'var(--space-2)', letterSpacing: '-0.02em' }}>
-              GyanGrit
-            </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
-              Institutional Intelligence Layer.
-            </p>
-          </header>
+        <hr className="login-card__divider" />
 
-          {isSafari() && (
-            <div className="alert alert--warning" style={{ marginBottom: 'var(--space-6)', fontSize: '12px', textAlign: 'left' }}>
-              Safari may block login due to cross-site cookie restrictions. Please use Chrome or Edge for the best experience.
-            </div>
-          )}
+        {isSafari() && (
+          <div className="alert alert--warning" role="alert" style={{ marginBottom: "var(--space-4)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            Safari may block login due to cross-site cookie restrictions. Please use Chrome or Edge for the best experience.
+          </div>
+        )}
 
-          {auth.kickedMessage && (
-            <div className="alert alert--warning" style={{ marginBottom: 'var(--space-6)', fontSize: '12px', textAlign: 'left' }}>
-              {auth.kickedMessage}
-            </div>
-          )}
+        {auth.kickedMessage && (
+          <div className="alert alert--warning" role="alert" style={{ marginBottom: "var(--space-4)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            {auth.kickedMessage}
+          </div>
+        )}
 
-          {error && (
-            <div className="alert alert--error" style={{ marginBottom: 'var(--space-6)', fontSize: '12px', textAlign: 'left' }}>
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="alert alert--error" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-          <form onSubmit={(e) => void handleSubmit(e)} style={{ textAlign: 'left' }} noValidate>
-            <div className="form-group" style={{ marginBottom: 'var(--space-6)' }}>
-              <label htmlFor="username" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>IDENTIFIER</label>
-              <input
-                id="username"
-                className="form-input"
-                type="text"
-                placeholder="Username or Email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: 'var(--text-sm)' }}
-                autoComplete="username"
-                required
-                disabled={loading}
-              />
-            </div>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-group">
+            <label className="form-label" htmlFor="username">
+              Username
+            </label>
+            <input
+              id="username"
+              className="form-input"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              required
+              disabled={loading}
+            />
+          </div>
 
-            <div className="form-group" style={{ marginBottom: 'var(--space-2)' }}>
-              <label htmlFor="password" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>SECURITY TOKEN</label>
-              <input
-                id="password"
-                className="form-input"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: 'var(--text-sm)' }}
-                autoComplete="current-password"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            {/* Recover credentials link */}
-            <div style={{ textAlign: 'right', marginBottom: 'var(--space-6)' }}>
+          <div className="form-group">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <label className="form-label" htmlFor="password">
+                Password
+              </label>
               <button
                 type="button"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', padding: 0 }}
-                onClick={() => navigate('/forgot-password')}
+                onClick={() => navigate("/forgot-password")}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--brand-primary)", fontSize: "0.82rem",
+                  padding: 0, fontWeight: 500,
+                }}
               >
-                RECOVER CREDENTIALS →
+                Forgot password?
               </button>
             </div>
-
-            <button
-              type="submit"
-              className="btn--primary"
-              style={{ width: '100%', padding: 'var(--space-4)', fontSize: '14px', marginBottom: 'var(--space-6)' }}
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
               disabled={loading}
-            >
-              {loading ? 'AUTHENTICATING...' : 'ACCESS DOMAIN'}
-            </button>
-          </form>
+            />
+          </div>
 
-          <footer style={{ marginTop: 'var(--space-4)' }}>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Unauthorized access is strictly prohibited.
-            </p>
-            <button
-              className="btn--ghost"
-              style={{ border: 'none', background: 'none', color: 'var(--brand-primary)', fontSize: '12px', marginTop: 'var(--space-4)', fontWeight: 700 }}
-              onClick={() => navigate('/register')}
-            >
-              INITIALIZE ENROLLMENT
-            </button>
-          </footer>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn--primary btn--full btn--lg"
+            style={{ marginTop: "var(--space-2)" }}
+          >
+            {loading ? (
+              <>
+                <span className="btn__spinner" aria-hidden="true" />
+                Signing in
+              </>
+            ) : (
+              "Sign in"
+            )}
+          </button>
+        </form>
+
+        <div className="login-card__footer">
+          Don't have an account?{" "}
+          <button onClick={() => navigate("/register")}>
+            Register here
+          </button>
         </div>
-      </main>
+
+        <div className="login-card__footer" style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--border-subtle)" }}>
+          <button onClick={() => navigate("/about")}>About</button>
+          {" · "}
+          <button onClick={() => navigate("/contact")}>Contact</button>
+          {" · "}
+          <button onClick={() => navigate("/faq")}>FAQ</button>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

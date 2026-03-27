@@ -198,6 +198,38 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 
 ## SESSION LOG
 
+### 2026-03-28 — Oracle Cloud Production Migration
+
+> **Goal**: Eliminate external reverse-proxy limitations and DB latency by migrating the entire Django backend from Render (Singapore) to a dedicated Oracle Cloud VM (Mumbai), placing the API physically adjacent to the Supabase Postgres instance.
+
+#### Infrastructure Accomplishments
+
+| Component | Detail | Impact |
+|---|---|---|
+| **Compute Instance** | Provisioned Ubuntu 24.04 (Ampere A1/AMD) in AP-Mumbai | Dedicated CPU/RAM vs baseline shared tier limits. |
+| **VCN Network Config** | Configured Internet Gateway and Route Tables for `0.0.0.0/0` | Successfully resolved strict SSH/TCP "Operation Timed Out" drops. |
+| **Host iptables Bypass** | Inserted `ACCEPT` rules for 80/443 at line 5 | Bypassed Oracle's default `icmp-host-prohibited` wildcard reject layer. |
+| **Python 3.12 Env** | Leveraged native Ubuntu packages | Seamlessly integrated Django 4.2+ on the newest Ubuntu LTS. |
+| **Systemd Daemon** | Configured `gyangrit.service` for Gunicorn | 24/7 background process persistence and auto-recovery on crash/reboot. |
+| **Nginx Reverse Proxy** | Intercepts port 80/443, serves static files locally | Offloads static file delivery from Django, handles SSL termination. |
+| **Let's Encrypt (Certbot)** | Generated automated SSL for `api.gyangrit.site` | Fully encrypted HTTPS endpoints for secure Vercel frontend connectivity. |
+
+#### Latency Impact
+- **Database RTT**: Query latency dropped instantly because both Supabase and the API are now in the same regional data center.
+- **Cold Starts**: Eliminated entirely.
+
+#### Post-Migration Tooling
+- **GitHub Actions (CI/CD)**: Configured `.github/workflows/deploy.yml` with `Appleboy SSH` to automatically pull from `master`, run DB migrations, and restart the `gyangrit` systemd daemon instantly on every commit.
+- **Papertrail (Live Console)**: Installed native `rsyslog` to forward all `journalctl` logs seamlessly to the Papertrail cloud. The developer can now monitor all raw `gunicorn` inputs, `print()` statements, and Nginx errors directly from a browser without SSH access.
+
+#### Auth Flow & Public Pages (Bug Fixes & Feature Addition)
+- **API Timeout Wrapper**: Added a 15-second `AbortController` timeout to the core `api.ts` file to prevent infinite loading spinners when the backend is cold-starting or when an SMTP thread blocks the Gunicorn worker. This ensures `ForgotPasswordPage` and `LoginPage` always fail gracefully.
+- **Local Dev Session Fix**: Aligned the frontend (`localhost:5173`) and backend (`localhost:8000`) domains to both use `localhost` instead of mixing `127.0.0.1`, which resolved a persistent bug where local development login passed as a 200 OK but failed to navigate (due to rejected cross-origin session cookies).
+- **Public Marketing Pages**: Created three new public pages (`AboutPage`, `ContactPage`, `FAQPage`) featuring the premium GyanGrit dark-mode glassmorphism design system. 
+- **Router Wiring**: Configured these pages as public routes in `router.tsx` and linked them in the `LoginPage` footer for easy access.
+
+---
+
 ### 2026-03-27 — Performance Optimization & OTP Overhaul
 
 > **Goal**: Optimize GyanGrit for throttled 2G/3G networks in rural Punjab. All changes target reducing load times, API latency, and OTP delivery reliability.

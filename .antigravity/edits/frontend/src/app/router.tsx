@@ -9,7 +9,13 @@ import VerifyOtpPage       from "../pages/VerifyOtpPage";
 import CompleteProfilePage from "../pages/CompleteProfilePage";
 import ForgotPasswordPage  from "../pages/ForgotPasswordPage";
 import ResetPasswordPage   from "../pages/ResetPasswordPage";
+import AboutPage           from "../pages/AboutPage";
+import ContactPage         from "../pages/ContactPage";
+import FAQPage             from "../pages/FAQPage";
 
+
+// Auth pages — lazy loaded. Authenticated users land on dashboard, not login,
+// so these only load when actually needed (saves ~40KB from entry bundle on 3G).
 
 /**
  * Retry-aware lazy loader for code-split pages.
@@ -96,7 +102,6 @@ const UserManagementPage         = lazyRetry(() => import("../pages/UserManageme
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 const NotificationsPage    = lazyRetry(() => import("../pages/NotificationsPage"));
-const AnalyticsPage        = lazyRetry(() => import("../pages/AnalyticsPage"));
 
 // ── Competition Rooms ─────────────────────────────────────────────────────────
 const CompetitionRoomPage  = lazyRetry(() => import("../pages/CompetitionRoomPage"));
@@ -153,10 +158,15 @@ export const router = createBrowserRouter([
   { path: "/forgot-password",  element: <ForgotPasswordPage /> },
   { path: "/reset-password/:uidb64/:token", element: <ResetPasswordPage /> },
 
+  // ── Public marketing pages ──────────────────────────────────────────────
+  { path: "/about",            element: <AboutPage /> },
+  { path: "/contact",          element: <ContactPage /> },
+  { path: "/faq",              element: <FAQPage /> },
+
+
   // ── Shared — all authenticated roles (rank ≥ STUDENT = everyone) ─────────
   { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },
   { path: "/profile",       element: <Protected role="STUDENT"><ProfilePage /></Protected> },
-  { path: "/analytics",     element: <Protected role="STUDENT"><AnalyticsPage /></Protected> },
 
   // ── Student ───────────────────────────────────────────────────────────────
   { path: "/dashboard",   element: <Protected role="STUDENT"><DashboardPage /></Protected> },
@@ -248,7 +258,9 @@ export const router = createBrowserRouter([
   { path: "/teacher/live",            element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
   { path: "/teacher/live/:sessionId", element: <Protected role="TEACHER"><LiveSessionPage /></Protected> },
   { path: "/principal/live",          element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
+  { path: "/principal/live/:sessionId", element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
   { path: "/admin/live",              element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
+  { path: "/admin/live/:sessionId",   element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
 
   // ── AI Chatbot ───────────────────────────────────────────────────────────────
   { path: "/ai-tutor",                element: <Protected role="STUDENT"><AIChatPage /></Protected> },

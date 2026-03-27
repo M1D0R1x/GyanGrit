@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
+import { Helmet } from "react-helmet-async";
 
 type LoginApiResponse =
   | { otp_required: true; username: string; role: Role }
@@ -66,6 +67,10 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      <Helmet>
+        <title>Login | GyanGrit Student Portal</title>
+        <meta name="description" content="Sign in to your GyanGrit account to access your courses, flashcards, and live tutoring sessions." />
+      </Helmet>
       <div className="login-card">
         <div className="login-card__brand">
           Gyan<span>Grit</span>
@@ -186,6 +191,14 @@ export default function LoginPage() {
           <button onClick={() => navigate("/register")}>
             Register here
           </button>
+        </div>
+
+        <div className="login-card__footer" style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--border-subtle)" }}>
+          <button onClick={() => navigate("/about")}>About</button>
+          {" · "}
+          <button onClick={() => navigate("/contact")}>Contact</button>
+          {" · "}
+          <button onClick={() => navigate("/faq")}>FAQ</button>
         </div>
       </div>
     </div>

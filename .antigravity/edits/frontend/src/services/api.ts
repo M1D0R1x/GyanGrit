@@ -12,9 +12,44 @@
  *   - Added session_kicked detection: when the middleware returns 401 with
  *     error="session_kicked", fires a custom event so AuthContext can show
  *     the "logged out from another device" message.
+ *
+ * CHANGE (2026-03-28):
+ *   - Added fetchWithTimeout() wrapper using AbortController to prevent
+ *     infinite loading spinners when the server is cold-starting or SMTP
+ *     blocks a Gunicorn worker. Default timeout: 15 seconds.
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+
+// ── Timeout wrapper ─────────────────────────────────────────────────────────
+// Prevents fetch from hanging forever when the backend is cold-starting,
+// under load, or when an SMTP thread blocks the Gunicorn worker.
+
+const DEFAULT_TIMEOUT_MS = 15_000; // 15 seconds
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Request timed out — please check your connection and try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 function getCsrfToken(): string | undefined {
   const match = document.cookie.match(
@@ -62,7 +97,7 @@ async function buildErrorMessage(res: Response): Promise<string> {
 }
 
 export async function initCsrf(): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/accounts/csrf/`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}/accounts/csrf/`, {
     credentials: "include",
   });
   if (!res.ok) {
@@ -71,7 +106,7 @@ export async function initCsrf(): Promise<void> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: "GET",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -89,7 +124,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const csrfToken = getCsrfToken();
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -111,7 +146,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const csrfToken = getCsrfToken();
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: "PATCH",
     credentials: "include",
     headers: {
@@ -135,7 +170,7 @@ export async function apiDelete<T = Record<string, unknown>>(
 ): Promise<T> {
   const csrfToken = getCsrfToken();
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: "DELETE",
     credentials: "include",
     headers: {

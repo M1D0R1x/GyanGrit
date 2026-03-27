@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Private Routes Extracted from React Router & LINK_SHEET.md
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /classroom/
+Disallow: /quiz/
+Disallow: /settings/
+
+# Point search engine directly to the comprehensive public sitemap map
+Sitemap: https://gyangrit.site/sitemap.xml

@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { HelmetProvider } from "react-helmet-async";
 import { RouterProvider } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -84,13 +85,15 @@ window.addEventListener("vite:preloadError", () => {
 });
 
 createRoot(document.getElementById("root")!).render(
-  <ChunkErrorBoundary>
-    <AuthProvider>
-      <RouterProvider router={router} />
-      {/* Vercel Analytics — tracks page views and web vitals in production */}
-      <Analytics />
-      {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
-      <SpeedInsights />
-    </AuthProvider>
-  </ChunkErrorBoundary>
+  <HelmetProvider>
+    <ChunkErrorBoundary>
+      <AuthProvider>
+        <RouterProvider router={router} />
+        {/* Vercel Analytics — tracks page views and web vitals in production */}
+        <Analytics />
+        {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
+        <SpeedInsights />
+      </AuthProvider>
+    </ChunkErrorBoundary>
+  </HelmetProvider>
 );

@@ -7,18 +7,17 @@ import { getCourseProgress, type CourseProgress } from '../services/content';
 import { assessmentPath } from '../utils/slugs';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
-import { 
-  Trophy, 
-  Flame, 
-  Medal, 
-  BookOpen, 
-  Clock,
-  AlertCircle,
-  Zap,
-  Activity,
-  ArrowUpRight
-} from 'lucide-react';
 import './DashboardPage.css';
+
+// ── Icons ────────────────────────────────────────────────────────
+const SvgTrophy = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>);
+const SvgFlame = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>);
+const SvgMedal = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><polyline points="12 18 10.5 16.5 13 16 12 14.5 11 16 8.5 16.5 10.5 18"/></svg>);
+const SvgClock = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
+const SvgAlertCircle = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
+const SvgZap = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>);
+const SvgActivity = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>);
+const SvgArrowUpRight = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>);
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -190,7 +189,7 @@ const DashboardPage: React.FC = () => {
         {/* Gamification Strip */}
         <section className="gamification-strip animate-fade-up" style={{ animationDelay: '100ms' }}>
           <div className="glass-card stat-pill" onClick={() => navigate('/leaderboard')}>
-            <div className="stat-pill__icon"><Trophy size={20} color="var(--role-student)" /></div>
+            <div className="stat-pill__icon"><SvgTrophy size={20} color="var(--role-student)" /></div>
             <div className="stat-pill__info">
               <span className="stat-value">{gamification?.total_points || 0} XP</span>
               <span className="stat-label">RANK #{gamification?.class_rank || '--'}</span>
@@ -199,7 +198,7 @@ const DashboardPage: React.FC = () => {
 
           <div className="glass-card stat-pill">
             <div className="stat-pill__icon">
-              {Number(gamification?.current_streak || 0) >= 3 ? <Flame size={20} color="var(--warning)" /> : <Clock size={20} color="var(--text-muted)" />}
+              {Number(gamification?.current_streak || 0) >= 3 ? <SvgFlame size={20} color="var(--warning)" /> : <SvgClock size={20} color="var(--text-muted)" />}
             </div>
             <div className="stat-pill__info">
               <span className="stat-value">{gamification?.current_streak || 0} DAYS</span>
@@ -208,7 +207,7 @@ const DashboardPage: React.FC = () => {
           </div>
 
           <div className="glass-card stat-pill" onClick={() => navigate('/profile')}>
-            <div className="stat-pill__icon"><Medal size={20} color="var(--success)" /></div>
+            <div className="stat-pill__icon"><SvgMedal size={20} color="var(--success)" /></div>
             <div className="stat-pill__info">
               <span className="stat-value">{gamification?.badge_count || 0} BADGES</span>
               <span className="stat-label">ACHIEVEMENTS</span>
@@ -225,7 +224,7 @@ const DashboardPage: React.FC = () => {
                 <span className="pending-badge">{pendingCount} PENDING</span>
               )}
             </h2>
-            <button className="btn--ghost sm" onClick={() => navigate('/assessments')}>View All <ArrowUpRight size={14} /></button>
+            <button className="btn--ghost sm" onClick={() => navigate('/assessments')}>View All <SvgArrowUpRight size={14} /></button>
           </div>
           
           <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -235,7 +234,7 @@ const DashboardPage: React.FC = () => {
               </div>
             ) : prioritisedAssessments.length === 0 ? (
               <div className="empty-well" style={{ padding: 'var(--space-12)' }}>
-                <Zap size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
+                <SvgZap size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
                 <p style={{ fontWeight: 800, fontSize: 'var(--text-xs)' }}>NO PENDING ASSESSMENTS DETECTED</p>
               </div>
             ) : (
@@ -276,7 +275,7 @@ const DashboardPage: React.FC = () => {
               Array.from({ length: 4 }).map((_, i) => <SubjectCardSkeleton key={i} />)
             ) : subjects.length === 0 ? (
               <div className="glass-card empty-well" style={{ gridColumn: '1 / -1' }}>
-                <Activity size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
+                <SvgActivity size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
                 <p style={{ fontWeight: 800, fontSize: 'var(--text-xs)' }}>NO SUBJECT VECTORS FOUND</p>
               </div>
             ) : (
@@ -328,7 +327,7 @@ const DashboardPage: React.FC = () => {
 
         {error && (
           <div className="glass-card error-toast animate-fade-up" style={{ borderColor: 'var(--error)' }}>
-             <AlertCircle size={14} color="var(--error)" /> {error}
+             <SvgAlertCircle size={14} color="var(--error)" /> {error}
           </div>
         )}
 

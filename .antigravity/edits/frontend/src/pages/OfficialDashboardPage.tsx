@@ -4,20 +4,21 @@ import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 import { useAuth } from "../auth/AuthContext";
-import { 
-  ShieldCheck, 
-  Map, 
-  Building2, 
-  GraduationCap, 
-  BookOpen, 
-  Award,
-  ChevronRight,
-  Monitor,
-  CheckCircle2,
-  TrendingUp,
-  BarChart3
-} from 'lucide-react';
 import './OfficialDashboardPage.css';
+
+// ── Icons ────────────────────────────────────────────────────────
+const SvgShieldCheck = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>);
+const SvgMap = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>);
+const SvgBuilding2 = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>);
+const SvgGraduationCap = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>);
+const SvgBookOpen = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>);
+const SvgAward = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>);
+const SvgChevronRight = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m9 18 6-6-6-6"/></svg>);
+const SvgMonitor = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>);
+const SvgCheckCircle2 = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>);
+const SvgTrendingUp = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>);
+const SvgBarChart3 = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 3v18h18"/><rect x="7" y="13" width="4" height="4" rx="1"/><rect x="15" y="7" width="4" height="10" rx="1"/></svg>);
+
 
 type CourseAnalytics = {
   course_id: number;
@@ -131,7 +132,7 @@ const OfficialDashboardPage: React.FC = () => {
                  <p className="hero-subtitle">Aggregated data protocols from {institutions.length} educational nodes.</p>
               </div>
               <button className="btn--secondary sm" onClick={() => navigate("/official/users")}>
-                 <ShieldCheck size={14} /> MANAGE PRINCIPAL CODES
+                 <SvgShieldCheck size={14} /> MANAGE PRINCIPAL CODES
               </button>
            </div>
 
@@ -158,7 +159,7 @@ const OfficialDashboardPage: React.FC = () => {
         {/* School Filters */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '50ms' }}>
            <div className="nexus-header-text">
-              <h2><Building2 size={16} color="var(--role-official)" /> JURISDICTION NODES</h2>
+              <h2><SvgBuilding2 size={16} color="var(--role-official)" /> JURISDICTION NODES</h2>
            </div>
         </div>
 
@@ -209,7 +210,7 @@ const OfficialDashboardPage: React.FC = () => {
         {/* Global Course Analytics */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '150ms' }}>
            <div className="nexus-header-text">
-              <h2><Map size={16} color="var(--role-official)" /> DISTRICT CURRICULUM SATURATION</h2>
+              <h2><SvgMap size={16} color="var(--role-official)" /> DISTRICT CURRICULUM SATURATION</h2>
            </div>
         </div>
 
@@ -237,7 +238,7 @@ const OfficialDashboardPage: React.FC = () => {
                    <div className="rate-bar-container">
                       <div className="rate-bar-fill" style={{ width: `${course.percentage}%`, background: 'var(--role-student)' }} />
                    </div>
-                   <TrendingUp size={12} color="var(--role-official)" />
+                   <SvgTrendingUp size={12} color="var(--role-official)" />
                 </div>
              </div>
            ))}
@@ -251,7 +252,7 @@ const OfficialDashboardPage: React.FC = () => {
         {/* Global Assessment Analytics */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '200ms' }}>
            <div className="nexus-header-text">
-              <h2><BarChart3 size={16} color="var(--role-official)" /> AGGREGATED EVALUATION PERFORMANCE</h2>
+              <h2><SvgBarChart3 size={16} color="var(--role-official)" /> AGGREGATED EVALUATION PERFORMANCE</h2>
            </div>
         </div>
 

@@ -4,19 +4,19 @@ import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 import { useAuth } from "../auth/AuthContext";
-import { 
-  Building2, 
-  Users, 
-  MapPin, 
-  ShieldCheck, 
-  GraduationCap, 
-  BookOpen, 
-  Award,
-  ChevronRight,
-  TrendingUp,
-  UserCheck
-} from 'lucide-react';
 import './PrincipalDashboardPage.css';
+
+// ── Icons ────────────────────────────────────────────────────────
+const SvgBuilding2 = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>);
+const SvgUsers = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
+const SvgMapPin = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>);
+const SvgShieldCheck = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>);
+const SvgBookOpen = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>);
+const SvgAward = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>);
+const SvgChevronRight = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m9 18 6-6-6-6"/></svg>);
+const SvgTrendingUp = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>);
+const SvgUserCheck = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>);
+
 
 type ClassData = {
   class_id: number;
@@ -142,11 +142,11 @@ const PrincipalDashboardPage: React.FC = () => {
                  <span className="inst-label">AUTHORITY DOMAIN</span>
                  <h1 className="inst-name">{user?.institution || "UNIDENTIFIED INSTITUTION"}</h1>
                  <div className="inst-sub">
-                    <MapPin size={12} /> {user?.district || "Unknown"} District Proxy
+                    <SvgMapPin size={12} /> {user?.district || "Unknown"} District Proxy
                  </div>
               </div>
               <button className="btn--secondary sm" onClick={() => navigate("/principal/users")}>
-                 <ShieldCheck size={14} /> MANAGE JOIN CODES
+                 <SvgShieldCheck size={14} /> MANAGE JOIN CODES
               </button>
            </div>
 
@@ -175,7 +175,7 @@ const PrincipalDashboardPage: React.FC = () => {
         {/* Classes Nexus */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '50ms' }}>
            <div className="nexus-header-text">
-              <h2><Building2 size={16} color="var(--role-principal)" /> CLASSROOM CLUSTERS</h2>
+              <h2><SvgBuilding2 size={16} color="var(--role-principal)" /> CLASSROOM CLUSTERS</h2>
            </div>
         </div>
 
@@ -188,7 +188,7 @@ const PrincipalDashboardPage: React.FC = () => {
                     style={{ animationDelay: `${i * 30}ms` }}>
                   <div className="card-header">
                      <span className="metric-label">SECTOR {c.class_id}</span>
-                     <ChevronRight size={14} color="var(--text-dim)" />
+                     <SvgChevronRight size={14} color="var(--text-dim)" />
                   </div>
                   <div className="card-title">CLASS {c.class_name}</div>
                   
@@ -222,7 +222,7 @@ const PrincipalDashboardPage: React.FC = () => {
         {/* Course Analytics */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '100ms' }}>
            <div className="nexus-header-text">
-              <h2><BookOpen size={16} color="var(--role-principal)" /> CURRICULUM SATURATION</h2>
+              <h2><SvgBookOpen size={16} color="var(--role-principal)" /> CURRICULUM SATURATION</h2>
            </div>
         </div>
 
@@ -252,7 +252,7 @@ const PrincipalDashboardPage: React.FC = () => {
                    <div className="rate-bar-container">
                       <div className="rate-bar-fill" style={{ width: `${course.percentage}%`, background: 'var(--role-student)' }} />
                    </div>
-                   <TrendingUp size={12} color="var(--role-principal)" />
+                   <SvgTrendingUp size={12} color="var(--role-principal)" />
                 </div>
              </div>
            ))}
@@ -266,7 +266,7 @@ const PrincipalDashboardPage: React.FC = () => {
         {/* Assessment Analytics */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '150ms' }}>
            <div className="nexus-header-text">
-              <h2><Award size={16} color="var(--role-principal)" /> EVALUATION PERFORMANCE</h2>
+              <h2><SvgAward size={16} color="var(--role-principal)" /> EVALUATION PERFORMANCE</h2>
            </div>
         </div>
 
@@ -307,7 +307,7 @@ const PrincipalDashboardPage: React.FC = () => {
         {/* Teachers List */}
         <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '200ms' }}>
            <div className="nexus-header-text">
-              <h2><UserCheck size={16} color="var(--role-principal)" /> PERSONNEL REGISTRY</h2>
+              <h2><SvgUserCheck size={16} color="var(--role-principal)" /> PERSONNEL REGISTRY</h2>
            </div>
         </div>
 

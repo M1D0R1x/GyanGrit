@@ -30,14 +30,12 @@ export default function CompleteProfilePage() {
 
   const role = auth.user?.role ?? "STUDENT";
 
-  // If already complete, redirect immediately
   useEffect(() => {
     if (!auth.loading && auth.user?.profile_complete) {
       navigate(ROLE_PATHS[auth.user.role] ?? "/", { replace: true });
     }
   }, [auth.loading, auth.user, navigate]);
 
-  // Not logged in at all → login
   useEffect(() => {
     if (!auth.loading && !auth.authenticated) {
       navigate("/login", { replace: true });
@@ -48,14 +46,12 @@ export default function CompleteProfilePage() {
     setFieldErrs({});
     setGlobalErr("");
 
-    // Client-side pre-validation
     const errs: FieldErrors = {};
     if (!firstName.trim())      errs.first_name     = "First name is required.";
     if (!lastName.trim())       errs.last_name      = "Last name is required.";
     if (!email.trim())          errs.email           = "Email is required.";
     if (!mobilePrimary.trim())  errs.mobile_primary  = "Primary mobile number is required.";
 
-    // Validate mobile format client-side
     if (mobilePrimary.trim()) {
       const digits = mobilePrimary.replace(/\D/g, "");
       if (digits.length < 10) errs.mobile_primary = "Enter a valid 10-digit mobile number.";
@@ -78,7 +74,6 @@ export default function CompleteProfilePage() {
         email:          email.trim(),
         mobile_primary: mobilePrimary.trim(),
       };
-      // Only send optional fields if they have values
       if (middleName.trim())      payload.middle_name      = middleName.trim();
       if (mobileSecondary.trim()) payload.mobile_secondary = mobileSecondary.trim();
 
@@ -99,12 +94,10 @@ export default function CompleteProfilePage() {
         return;
       }
 
-      // Refresh auth context so profile_complete = true propagates everywhere
       await auth.refresh();
       navigate(ROLE_PATHS[role] ?? "/", { replace: true });
 
     } catch (err: unknown) {
-      // Try to parse field errors from response body
       const msg = err instanceof Error ? err.message : "";
       const jsonStart = msg.indexOf("{");
       if (jsonStart !== -1) {
@@ -189,7 +182,6 @@ export default function CompleteProfilePage() {
 
         <hr className="login-card__divider" />
 
-        {/* ── Name fields ─────────────────────────────────────────────────── */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -237,7 +229,7 @@ export default function CompleteProfilePage() {
           </div>
         </div>
 
-        {/* Middle name — full width, optional */}
+        {/* Middle name */}
         <div className="form-group">
           <label className="form-label" htmlFor="cp-middlename">
             Middle Name{" "}
@@ -255,7 +247,7 @@ export default function CompleteProfilePage() {
           />
         </div>
 
-        {/* ── Email ───────────────────────────────────────────────────────── */}
+        {/* Email */}
         <div className="form-group">
           <label className="form-label" htmlFor="cp-email">
             Email Address *
@@ -279,7 +271,7 @@ export default function CompleteProfilePage() {
           )}
         </div>
 
-        {/* ── Mobile numbers ──────────────────────────────────────────────── */}
+        {/* Mobile numbers */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -304,7 +296,7 @@ export default function CompleteProfilePage() {
             {fieldErrs.mobile_primary ? (
               <span className="form-error">{fieldErrs.mobile_primary}</span>
             ) : (
-              <span className="form-hint">Parent / guardian number</span>
+             <span className="form-hint">Parent / guardian number</span>
             )}
           </div>
 
@@ -371,7 +363,7 @@ export default function CompleteProfilePage() {
           ) : "Save & Continue"}
         </button>
 
-        {/* Logout escape hatch — in case they registered under wrong code */}
+        {/* Logout escape hatch */}
         <div className="login-card__footer" style={{ marginTop: "var(--space-4)" }}>
           Wrong account?{" "}
           <button

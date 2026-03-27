@@ -4,16 +4,10 @@ import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 import type { Role } from "../auth/authTypes";
-import { 
-  BookOpen, 
-  Key, 
-  Users, 
-  Megaphone,
-  Monitor,
-  ShieldCheck,
-  Terminal
-} from 'lucide-react';
-import './AdminDashboardPage.css';
+
+// pages.AdminDashboardPage
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type UserRow = {
   id:       number;
@@ -43,6 +37,8 @@ type SystemStats = {
   };
 };
 
+// ── Styling helpers ───────────────────────────────────────────────────────────
+
 const ROLE_COLOR: Record<Role, string> = {
   STUDENT:   "var(--role-student)",
   TEACHER:   "var(--role-teacher)",
@@ -50,6 +46,8 @@ const ROLE_COLOR: Record<Role, string> = {
   OFFICIAL:  "var(--role-official)",
   ADMIN:     "var(--role-admin)",
 };
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -65,7 +63,9 @@ const AdminDashboardPage: React.FC = () => {
     async function loadData() {
       try {
         const [u, s] = await Promise.all([
+          // Users list
           apiGet<UserRow[]>("/accounts/users/"),
+          // System stats — ADMIN-only endpoint
           apiGet<SystemStats>("/accounts/system-stats/")
         ]);
         if (!cancelled) {
@@ -92,11 +92,8 @@ const AdminDashboardPage: React.FC = () => {
     return (
       <div className="page-shell">
         <TopBar title="Admin Terminal" />
-        <main className="page-content has-bottom-nav">
-          <div className="skeleton-line skeleton-line--title animate-pulse-subtle" style={{ height: '40px', marginBottom: '20px' }} />
-          <div className="skeleton-stack animate-pulse-subtle">
-             <div className="skeleton-box" style={{ height: '300px' }} />
-          </div>
+        <main className="page-content has-bottom-nav" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="btn__spinner" />
         </main>
       </div>
     );
@@ -105,139 +102,152 @@ const AdminDashboardPage: React.FC = () => {
   return (
     <div className="page-shell">
       <TopBar title="Technical Oversight" />
-      <main className="page-content page-enter has-bottom-nav admin-dash-layout">
+      <main className="page-content page-enter has-bottom-nav" style={{ maxWidth: '1000px', margin: '0 auto', padding: 'var(--space-10) var(--space-6)' }}>
 
-        {/* Command Center Title */}
-        <section className="command-center animate-fade-up">
-           <h2 className="display-sm text-gradient">COMMAND CENTER</h2>
-           <p className="hero-subtitle">Neural hub for system-wide telemetry and administrative oversight.</p>
+        {/* ── Quick nav ──────────────────────────────────────────────────── */}
+        <section style={{ marginBottom: 'var(--space-8)' }}>
+           <h2 className="text-gradient" style={{ fontSize: 'var(--text-3xl)', margin: 0 }}>COMMAND CENTER</h2>
+           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px' }}>Neural hub for system-wide telemetry and administrative oversight.</p>
         </section>
 
         {/* Quick Actions */}
-        <section className="quick-nav-grid animate-fade-up" style={{ animationDelay: '50ms' }}>
-           <div className="glass-card quick-link-card" onClick={() => navigate("/admin/content")} 
-                style={{ borderBottomColor: 'var(--brand-primary)' }}>
-              <div className="ql-icon"><BookOpen size={28} color="var(--brand-primary)" /></div>
-              <div className="ql-title" style={{ color: 'var(--brand-primary)' }}>CONTENT</div>
-              <div className="ql-desc">Courses, units, and evaluation benchmarks.</div>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-10)' }}>
+           <div className="glass-card page-enter" onClick={() => navigate("/admin/content")} role="button" tabIndex={0}
+                style={{ borderBottom: '2px solid var(--brand-primary)', cursor: 'pointer', padding: 'var(--space-5)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '12px' }}>📖</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--brand-primary)', marginBottom: '6px' }}>CONTENT</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Courses, units, and evaluation benchmarks.</div>
            </div>
            
-           <div className="glass-card quick-link-card" onClick={() => navigate("/admin/join-codes")}
-                style={{ borderBottomColor: 'var(--role-principal)' }}>
-              <div className="ql-icon"><Key size={28} color="var(--role-principal)" /></div>
-              <div className="ql-title" style={{ color: 'var(--role-principal)' }}>JOIN CODES</div>
-              <div className="ql-desc">Registration cryptographic tokens and access keys.</div>
+           <div className="glass-card page-enter" onClick={() => navigate("/admin/join-codes")} role="button" tabIndex={0}
+                style={{ borderBottom: '2px solid var(--role-principal)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '50ms' }}>
+              <div style={{ fontSize: '28px', marginBottom: '12px' }}>🔑</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-principal)', marginBottom: '6px' }}>JOIN CODES</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Registration cryptographic tokens and access keys.</div>
            </div>
 
-           <div className="glass-card quick-link-card" onClick={() => navigate("/admin/users")}
-                style={{ borderBottomColor: 'var(--role-official)' }}>
-              <div className="ql-icon"><Users size={28} color="var(--role-official)" /></div>
-              <div className="ql-title" style={{ color: 'var(--role-official)' }}>USER LOGS</div>
-              <div className="ql-desc">Full spectrum profile and permission management.</div>
+           <div className="glass-card page-enter" onClick={() => navigate("/admin/users")} role="button" tabIndex={0}
+                style={{ borderBottom: '2px solid var(--role-official)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '100ms' }}>
+              <div style={{ fontSize: '28px', marginBottom: '12px' }}>👥</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-official)', marginBottom: '6px' }}>USER LOGS</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Full spectrum profile and permission management.</div>
            </div>
 
-           <div className="glass-card quick-link-card" onClick={() => navigate("/notifications")}
-                style={{ borderBottomColor: 'var(--role-admin)' }}>
-              <div className="ql-icon"><Megaphone size={28} color="var(--role-admin)" /></div>
-              <div className="ql-title" style={{ color: 'var(--role-admin)' }}>BROADCAST</div>
-              <div className="ql-desc">System-wide neural announcements and alerts.</div>
+           <div className="glass-card page-enter" onClick={() => navigate("/notifications")} role="button" tabIndex={0}
+                style={{ borderBottom: '2px solid var(--role-admin)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '150ms' }}>
+              <div style={{ fontSize: '28px', marginBottom: '12px' }}>📢</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-admin)', marginBottom: '6px' }}>BROADCAST</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>System-wide neural announcements and alerts.</div>
            </div>
         </section>
 
-        {/* System Overview Stats */}
-        <h3 className="command-title animate-fade-up" style={{ animationDelay: '100ms' }}>
-          <Monitor size={16} color="var(--role-admin)" /> SYSTEM OVERVIEW
+        {statsError && <div className="alert alert--error" style={{ marginBottom: "var(--space-6)" }}>Telemetry Sync Error</div>}
+
+        {/* ── Live system stats ──────────────────────────────────────────── */}
+        <h3 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>🖥️</span> SYSTEM OVERVIEW
         </h3>
         
-        <div className="stat-nexus-grid animate-fade-up" style={{ animationDelay: '150ms' }}>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">TOTAL NODES</span>
-              <span className="stat-tile__val">{stats?.users.total ?? 0}</span>
+        {/* User counts */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>TOTAL NODES</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.users.total ?? 0}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label" style={{ color: 'var(--role-student)' }}>STUDENTS</span>
-              <span className="stat-tile__val" style={{ color: 'var(--role-student)' }}>{stats?.users.students ?? 0}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-student)', display: 'block', marginBottom: '8px' }}>STUDENTS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-student)' }}>{stats?.users.students ?? 0}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label" style={{ color: 'var(--role-teacher)' }}>TEACHERS</span>
-              <span className="stat-tile__val" style={{ color: 'var(--role-teacher)' }}>{stats?.users.teachers ?? 0}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-teacher)', display: 'block', marginBottom: '8px' }}>TEACHERS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-teacher)' }}>{stats?.users.teachers ?? 0}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label" style={{ color: 'var(--role-principal)' }}>PRINCIPALS</span>
-              <span className="stat-tile__val" style={{ color: 'var(--role-principal)' }}>{stats?.users.principals ?? 0}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-principal)', display: 'block', marginBottom: '8px' }}>PRINCIPALS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-principal)' }}>{stats?.users.principals ?? 0}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label" style={{ color: 'var(--role-official)' }}>OFFICIALS</span>
-              <span className="stat-tile__val" style={{ color: 'var(--role-official)' }}>{stats?.users.officials ?? 0}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-official)', display: 'block', marginBottom: '8px' }}>OFFICIALS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-official)' }}>{stats?.users.officials ?? 0}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label" style={{ color: 'var(--brand-primary)' }}>SESSIONS</span>
-              <span className="stat-tile__val" style={{ color: 'var(--brand-primary)' }}>{stats?.active_sessions ?? 0}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--brand-primary)', display: 'block', marginBottom: '8px' }}>SESSIONS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--brand-primary)' }}>{stats?.active_sessions ?? 0}</span>
            </div>
         </div>
 
-        {/* Content & Activity Hub */}
-        <section className="content-activity-nexus animate-fade-up" style={{ animationDelay: '200ms' }}>
-           <div className="glass-card nexus-well">
-              <div className="well-title">CONTENT DISTRIBUTION</div>
-              <div className="well-list">
-                 <div className="well-item">
-                    <span className="item-label">Atomic Courses</span>
-                    <span className="item-val">{stats?.content.courses ?? 0}</span>
+        {/* Content + today's activity in two groups */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-10)' }}>
+           {/* Content */}
+           <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>CONTENT DISTRIBUTION</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Atomic Courses</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.courses ?? 0}</span>
                  </div>
-                 <div className="well-item">
-                    <span className="item-label">Knowledge Units</span>
-                    <span className="item-val">{stats?.content.lessons ?? 0}</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Knowledge Units</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.lessons ?? 0}</span>
                  </div>
-                 <div className="well-item">
-                    <span className="item-label">Assessments Active</span>
-                    <span className="item-val">{stats?.content.published_assessments ?? 0}</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Assessments Active</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.published_assessments ?? 0}</span>
                  </div>
               </div>
            </div>
 
-           <div className="glass-card nexus-well">
-              <div className="well-title">TELEMETRY: TODAY</div>
-              <div className="well-list">
-                 <div className="well-item">
-                    <span className="item-label"><BookOpen size={12} /> Units Completed</span>
-                    <span className="item-val" style={{ color: (stats?.activity.lessons_completed_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-dim)' }}>
+           {/* Today */}
+           <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>TELEMETRY: TODAY</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>📖</span> Units Completed</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: (stats?.activity.lessons_completed_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-primary)' }}>
                        {stats?.activity.lessons_completed_today ?? 0}
                     </span>
                  </div>
-                 <div className="well-item">
-                    <span className="item-label"><ShieldCheck size={12} /> Submissions</span>
-                    <span className="item-val" style={{ color: (stats?.activity.assessments_submitted_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-dim)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>🛡️</span> Submissions</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: (stats?.activity.assessments_submitted_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-primary)' }}>
                        {stats?.activity.assessments_submitted_today ?? 0}
                     </span>
                  </div>
-                 <div className="well-item">
-                    <span className="item-label"><Megaphone size={12} /> Broadcasts Pulse</span>
-                    <span className="item-val">{stats?.activity.notifications_sent_today ?? 0}</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>📢</span> Broadcasts Pulse</span>
+                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.activity.notifications_sent_today ?? 0}</span>
                  </div>
               </div>
            </div>
         </section>
 
-        {/* User Table Nexus */}
-        <section className="user-table-nexus animate-fade-up" style={{ animationDelay: '250ms' }}>
-           <h3 className="command-title"><Terminal size={14} color="var(--role-admin)" /> ACCESS LOGS</h3>
+        {/* ── User table ─────────────────────────────────────────────────── */}
+        <section>
+           <h3 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+             <span>💻</span> ACCESS LOGS
+           </h3>
            
-           <div className="filter-pills">
-              <button className={`filter-pill ${roleFilter === 'ALL' ? 'active' : ''}`} onClick={() => setRoleFilter('ALL')}>
+           {/* Role filter pills */}
+           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+              <button 
+                onClick={() => setRoleFilter('ALL')} 
+                style={{ padding: '6px 12px', fontSize: '10px', fontWeight: 800, borderRadius: '4px', border: '1px solid var(--border-default)', background: roleFilter === 'ALL' ? 'var(--brand-primary)' : 'transparent', color: roleFilter === 'ALL' ? '#000' : 'var(--text-muted)' }}
+              >
                  ALL ({users.length})
               </button>
               {ROLES.map(r => (
-                <button key={r} onClick={() => setRoleFilter(r)}
-                        className={`filter-pill ${roleFilter === r ? 'active' : ''}`}
-                        style={{ color: roleFilter === r ? '#fff' : ROLE_COLOR[r] }}>
+                <button 
+                  key={r} 
+                  onClick={() => setRoleFilter(r)}
+                  style={{ padding: '6px 12px', fontSize: '10px', fontWeight: 800, borderRadius: '4px', border: `1px solid ${ROLE_COLOR[r]}44`, background: roleFilter === r ? ROLE_COLOR[r] : 'transparent', color: roleFilter === r ? '#000' : ROLE_COLOR[r] }}
+                >
                    {r} ({countByRole(r)})
                 </button>
               ))}
            </div>
 
-           <div className="glass-card admin-grid-card">
-              <table className="admin-table">
+           <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="data-table">
                  <thead>
                     <tr>
                        <th>NODAL ID</th>
@@ -248,10 +258,10 @@ const AdminDashboardPage: React.FC = () => {
                  <tbody>
                     {filteredUsers.map((u) => (
                       <tr key={u.id}>
-                         <td className="id-cell">#{(u.id).toString().padStart(4, '0')}</td>
-                         <td className="user-cell">{u.username}</td>
+                         <td style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>#{(u.id).toString().padStart(4, '0')}</td>
+                         <td style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{u.username}</td>
                          <td>
-                            <div className="role-tag" style={{ color: ROLE_COLOR[u.role], background: `${ROLE_COLOR[u.role]}11`, border: `1px solid ${ROLE_COLOR[u.role]}33` }}>
+                            <div style={{ display: 'inline-block', fontSize: '9px', fontWeight: 800, padding: '4px 8px', borderRadius: '4px', color: ROLE_COLOR[u.role], background: `${ROLE_COLOR[u.role]}11`, border: `1px solid ${ROLE_COLOR[u.role]}33` }}>
                                {u.role}
                             </div>
                          </td>
@@ -259,7 +269,7 @@ const AdminDashboardPage: React.FC = () => {
                     ))}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)', fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em' }}>
                            DATA VOID: No nodes detected for filter protocol.
                         </td>
                       </tr>

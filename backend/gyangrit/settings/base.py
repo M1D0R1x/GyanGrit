@@ -190,7 +190,7 @@ CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
 # ─────────────────────────────────────────────────────────────────────────────
 
 PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://gyangrit.site")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Email — Zoho Mail SMTP via App Password

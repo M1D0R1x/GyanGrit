@@ -16,31 +16,30 @@ import {
   type CreateEntryPayload,
 } from "../services/gradebook";
 import { apiGet } from "../services/api";
-import { 
-  GraduationCap, 
-  BookOpen, 
-  Plus, 
-  List, 
-  Trash2, 
-  ChevronDown, 
-  ChevronUp, 
-  ChevronLeft,
-  Database,
-  BarChart3,
-  Award,
-  Filter,
-  CheckCircle2,
-  X
-} from 'lucide-react';
-import './GradebookPage.css';
+
+// pages.GradebookPage
+/**
+ * Teacher/Principal gradebook for a specific classroom.
+ * Route: /teacher/classes/:classId/gradebook
+ *
+ * Features:
+ * - View all grade entries for the class, grouped by student
+ * - Filter by term, subject, category
+ * - Inline "Add mark" form per student row
+ * - Edit / delete existing entries
+ */
 
 type SubjectOption = { id: number; name: string };
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 
 const pctColor = (pct: number) => {
   if (pct >= 70) return "var(--role-student)";
   if (pct >= 40) return "var(--warning)";
   return "var(--error)";
 };
+
+// ── Add/Edit mark modal ────────────────────────────────────────────────────
 
 const EntryForm: React.FC<{
   studentId:   number;
@@ -89,78 +88,89 @@ const EntryForm: React.FC<{
     }
   };
 
-  const calculatedPct = marks && totalMarks ? Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100) : null;
+  const calculatedPct = marks && totalMarks && !isNaN(parseFloat(marks)) && parseFloat(totalMarks) > 0 ? Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100) : null;
 
   return (
-    <div className="obsidian-modal-overlay animate-fade-in" onClick={onClose}>
-      <div className="glass-card obsidian-modal animate-scale-up" onClick={e => e.stopPropagation()}>
-        <div className="modal-header-nexus">
-           <div className="inst-label">MARK PROTOCOL: {studentName}</div>
-           <h2 className="modal-title">{existing ? "EDIT EVALUATION" : "ADD EVALUATION"}</h2>
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={onClose}>
+      <div className="glass-card page-enter" style={{ width: '100%', maxWidth: '480px', padding: 'var(--space-8)' }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+           <div>
+              <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--brand-primary)', letterSpacing: '0.1em', marginBottom: '4px' }}>MARK PROTOCOL: {studentName}</div>
+              <h2 style={{ fontSize: '20px', color: 'var(--text-primary)', margin: 0 }}>{existing ? "EDIT EVALUATION" : "ADD EVALUATION"}</h2>
+           </div>
+           <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer' }} onClick={onClose}>✕</button>
         </div>
 
         {error && <div className="alert alert--error" style={{ marginBottom: '20px' }}>{error}</div>}
 
-        <div className="joincode-form-grid" style={{ gridTemplateColumns: '1fr' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+           {/* Subject */}
            {!existing && (
-             <div className="obsidian-form-group">
-                <label className="obsidian-label">SUBJECT NODE *</label>
-                <select className="obsidian-select" value={subjectId} onChange={e => setSubjectId(Number(e.target.value))}>
+             <div>
+                <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>SUBJECT NODE *</label>
+                <select className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px' }} value={subjectId} onChange={e => setSubjectId(Number(e.target.value))}>
                    <option value="">Select subject...</option>
                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
              </div>
            )}
 
-           <div className="obsidian-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+           {/* Term + Category row */}
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                 <label className="obsidian-label">TERM</label>
-                 <select className="obsidian-select" value={term} onChange={e => setTerm(e.target.value as any)}>
+                 <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>TERM</label>
+                 <select className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px' }} value={term} onChange={e => setTerm(e.target.value as any)}>
                     {choices.terms.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                  </select>
               </div>
               <div>
-                 <label className="obsidian-label">CATEGORY</label>
-                 <select className="obsidian-select" value={category} onChange={e => setCategory(e.target.value as any)}>
+                 <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>CATEGORY</label>
+                 <select className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px' }} value={category} onChange={e => setCategory(e.target.value as any)}>
                     {choices.categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                  </select>
               </div>
            </div>
 
-           <div className="obsidian-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+           {/* Marks row */}
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                 <label className="obsidian-label">OBTAINED MARKS *</label>
-                 <input className="obsidian-input" type="number" step="0.5" value={marks} onChange={e => setMarks(e.target.value)} />
+                 <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>OBTAINED MARKS *</label>
+                 <input className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px' }} type="number" step="0.5" value={marks} onChange={e => setMarks(e.target.value)} />
               </div>
               <div>
-                 <label className="obsidian-label">TOTAL MARKS *</label>
-                 <input className="obsidian-input" type="number" step="0.5" value={totalMarks} onChange={e => setTotalMarks(e.target.value)} />
+                 <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>TOTAL MARKS *</label>
+                 <input className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px' }} type="number" step="0.5" value={totalMarks} onChange={e => setTotalMarks(e.target.value)} />
               </div>
            </div>
 
-           {calculatedPct !== null && !isNaN(calculatedPct) && calculatedPct >= 0 && (
+           {/* Live percentage preview */}
+           {calculatedPct !== null && (
              <div className="glass-card" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-elevated)' }}>
-                <span className="inst-label" style={{ margin: 0 }}>TELEMETRY SCORE</span>
-                <span className="score-pct" style={{ color: pctColor(calculatedPct), fontSize: '24px' }}>{calculatedPct}%</span>
+                <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)' }}>TELEMETRY SCORE</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '24px', color: pctColor(calculatedPct) }}>{calculatedPct}%</span>
              </div>
            )}
 
-           <div className="obsidian-form-group">
-              <label className="obsidian-label">NOTES (REMARKS)</label>
-              <textarea className="obsidian-textarea" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Entry notes..." />
+           {/* Notes */}
+           <div>
+              <label style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.08em' }}>NOTES (REMARKS)</label>
+              <textarea className="form-input" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--glass-border)', fontSize: '14px', resize: 'vertical' }} rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Entry notes..." />
            </div>
         </div>
 
-        <div className="mgmt-actions" style={{ gap: '12px', marginTop: 'var(--space-8)' }}>
-           <button className="btn--primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={saving}>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
+           <button className="btn--primary" style={{ flex: 1, padding: '16px', fontSize: '12px', letterSpacing: '0.1em' }} onClick={handleSubmit} disabled={saving}>
               {saving ? "SYNCING..." : (existing ? "SAVE EVAL" : "ADD EVAL")}
            </button>
-           <button className="btn--secondary" onClick={onClose} disabled={saving}>CANCEL</button>
+           <button className="btn--ghost" style={{ padding: '16px', fontSize: '12px', letterSpacing: '0.1em' }} onClick={onClose} disabled={saving}>CANCEL</button>
         </div>
       </div>
     </div>
   );
 };
+
+// ── Student grade row ─────────────────────────────────────────────────────
 
 const StudentRow: React.FC<{
   student: ClassGradeStudent;
@@ -180,7 +190,7 @@ const StudentRow: React.FC<{
     : null;
 
   const handleDelete = async (entry: GradeEntry) => {
-    if (!confirm(`NULLIFY mark entry for ${entry.subject}?`)) return;
+    if (!window.confirm(`NULLIFY mark entry for ${entry.subject}?`)) return;
     setDeleting(entry.id);
     try {
       await deleteGradeEntry(entry.id);
@@ -189,86 +199,91 @@ const StudentRow: React.FC<{
   };
 
   return (
-    <div className={`glass-card gradebook-student-card ${expanded ? 'expanded' : ''} animate-fade-up`}>
-      <header className="student-row-nexus" onClick={() => setExpanded(!expanded)}>
-         <div className="student-identity-nexus">
-            <div className="user-avatar-init">{student.student.slice(0, 2).toUpperCase()}</div>
-            <div className="student-name-block">
-               <span className="student-name">{student.student}</span>
-               <span className="student-handle">@{student.username}</span>
+    <div className="glass-card page-enter" style={{ padding: 0, marginBottom: 'var(--space-4)', overflow: 'hidden' }}>
+      {/* Student header row */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', cursor: 'pointer', background: expanded ? 'var(--bg-elevated)' : 'transparent', transition: 'background 0.2s' }} onClick={() => setExpanded(!expanded)}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Avatar */}
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 900, color: 'var(--text-secondary)' }}>
+               {student.student.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+               <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>{student.student}</div>
+               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>@{student.username}</div>
             </div>
          </div>
 
-         <div className="student-stat-group">
-            <div className="inst-metrics">
-               <div className="inst-stat">
-                  <span className="inst-val">{student.entries.length}</span>
-                  <span className="inst-lbl">EVALS</span>
-               </div>
+         {/* Stats */}
+         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <div style={{ textAlign: 'center' }}>
+               <span style={{ display: 'block', fontSize: '18px', fontWeight: 900, color: 'var(--text-primary)' }}>{student.entries.length}</span>
+               <span style={{ display: 'block', fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)' }}>EVALS</span>
             </div>
             {avgPct !== null && (
-               <div className="inst-metrics">
-                  <div className="inst-stat">
-                     <span className="inst-val" style={{ color: pctColor(avgPct) }}>{avgPct}%</span>
-                     <span className="inst-lbl">AVG</span>
-                  </div>
+               <div style={{ textAlign: 'center' }}>
+                  <span style={{ display: 'block', fontSize: '18px', fontWeight: 900, color: pctColor(avgPct) }}>{avgPct}%</span>
+                  <span style={{ display: 'block', fontSize: '9px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)' }}>AVG</span>
                </div>
             )}
-            <button className="btn--primary sm" onClick={e => { e.stopPropagation(); setShowForm(true); }}>
-               <Plus size={14} /> EVAL
+            <button className="btn--primary" style={{ padding: '8px 16px', fontSize: '10px', letterSpacing: '0.1em' }} onClick={e => { e.stopPropagation(); setShowForm(true); }}>
+               ➕ EVAL
             </button>
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            <span style={{ color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>
          </div>
       </header>
 
+      {/* Entry list */}
       {expanded && (
-        <section className="grade-entry-list animate-fade-in">
+        <section style={{ padding: '24px', background: 'var(--bg-surface)', borderTop: '1px solid var(--border-subtle)' }}>
            {student.entries.length === 0 ? (
-             <div className="empty-state sm">
-                <Database size={24} color="var(--text-dim)" />
-                <p>No evaluation telemetry recorded for this node.</p>
+             <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                <span style={{ fontSize: '32px', display: 'block', marginBottom: '16px', filter: 'grayscale(1) opacity(0.5)' }}>🗄️</span>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No evaluation telemetry recorded for this node.</p>
              </div>
            ) : (
-             <table className="student-table">
-                <thead>
-                   <tr>
-                      <th>CURRICULUM NODE</th>
-                      <th>TERM / CLASS</th>
-                      <th>SCORE</th>
-                      <th>SATURATION</th>
-                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                   </tr>
-                </thead>
-                <tbody>
-                   {student.entries.map((entry) => (
-                     <tr key={entry.id}>
-                        <td style={{ fontWeight: 800 }}>{entry.subject}</td>
-                        <td style={{ fontSize: '12px' }}>
-                           <span className="role-tag" style={{ background: 'var(--bg-elevated)', color: 'var(--text-dim)' }}>
-                              {entry.term.replace("_", " ").toUpperCase()}
-                           </span>
-                           <span className="role-tag" style={{ marginLeft: '4px' }}>
-                              {entry.category.replace("_", " ").toUpperCase()}
-                           </span>
-                        </td>
-                        <td className="score-cell">{entry.marks} <span className="stat-lbl">/ {entry.total_marks}</span></td>
-                        <td><span className="score-pct" style={{ color: pctColor(entry.percentage) }}>{entry.percentage}%</span></td>
-                        <td style={{ textAlign: 'right' }}>
-                           <div className="score-btn-nexus" style={{ justifyContent: 'flex-end' }}>
-                              <button className="btn--ghost sm" onClick={() => setEditEntry(entry)}>EDIT</button>
-                              <button className="btn--ghost sm" style={{ color: 'var(--error)' }} onClick={() => handleDelete(entry)} disabled={deleting === entry.id}>
-                                 {deleting === entry.id ? "NULLING..." : "TRASH"}
-                              </button>
-                           </div>
-                        </td>
+             <div className="glass-card" style={{ padding: 0, overflow: 'hidden', border: 'none', background: 'var(--bg-elevated)' }}>
+               <table className="data-table">
+                  <thead>
+                     <tr>
+                        <th>CURRICULUM NODE</th>
+                        <th>TERM / CLASS</th>
+                        <th>SCORE</th>
+                        <th>SATURATION</th>
+                        <th style={{ textAlign: 'right' }}>ACTIONS</th>
                      </tr>
-                   ))}
-                </tbody>
-             </table>
+                  </thead>
+                  <tbody>
+                     {student.entries.map((entry) => (
+                       <tr key={entry.id}>
+                          <td style={{ fontWeight: 800 }}>{entry.subject}</td>
+                          <td>
+                             <span style={{ fontSize: '10px', fontWeight: 800, padding: '4px 8px', borderRadius: '4px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', marginRight: '6px' }}>
+                                {entry.term.replace("_", " ").toUpperCase()}
+                             </span>
+                             <span style={{ fontSize: '10px', fontWeight: 800, padding: '4px 8px', borderRadius: '4px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
+                                {entry.category.replace("_", " ").toUpperCase()}
+                             </span>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '14px' }}>{entry.marks} <span style={{ color: 'var(--text-muted)' }}>/ {entry.total_marks}</span></td>
+                          <td><span style={{ fontWeight: 800, color: pctColor(entry.percentage) }}>{entry.percentage}%</span></td>
+                          <td style={{ textAlign: 'right' }}>
+                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button className="btn--ghost" style={{ padding: '6px 12px', fontSize: '10px', letterSpacing: '0.1em' }} onClick={() => setEditEntry(entry)}>EDIT</button>
+                                <button className="btn--ghost" style={{ padding: '6px 12px', fontSize: '10px', letterSpacing: '0.1em', color: 'var(--error)' }} onClick={() => handleDelete(entry)} disabled={deleting === entry.id}>
+                                   {deleting === entry.id ? "NULLING..." : "TRASH"}
+                                </button>
+                             </div>
+                          </td>
+                       </tr>
+                     ))}
+                  </tbody>
+               </table>
+             </div>
            )}
         </section>
       )}
 
+      {/* Add mark modal */}
       {showForm && (
         <EntryForm
           studentId={student.student_id}
@@ -280,6 +295,7 @@ const StudentRow: React.FC<{
         />
       )}
 
+      {/* Edit mark modal */}
       {editEntry && (
         <EntryForm
           studentId={student.student_id}
@@ -295,6 +311,8 @@ const StudentRow: React.FC<{
   );
 };
 
+// ── Page ───────────────────────────────────────────────────────────────────
+
 const GradebookPage: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate    = useNavigate();
@@ -305,6 +323,7 @@ const GradebookPage: React.FC = () => {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
 
+  // Filters
   const [filterTerm,    setFilterTerm]    = useState<GradeTerm | "">("");
   const [filterSubject, setFilterSubject] = useState<number | "">("");
 
@@ -332,6 +351,7 @@ const GradebookPage: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Optimistic state mutations — no full reload needed
   const handleEntryAdded = (studentId: number, entry: GradeEntry) => {
     setData(prev => {
       if (!prev) return prev;
@@ -368,8 +388,8 @@ const GradebookPage: React.FC = () => {
     return (
       <div className="page-shell">
         <TopBar title="Grid Terminal" />
-        <main className="page-content">
-          <div className="skeleton-box" style={{ height: '500px' }} />
+        <main className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="btn__spinner" />
         </main>
       </div>
     );
@@ -378,66 +398,67 @@ const GradebookPage: React.FC = () => {
   return (
     <div className="page-shell">
       <TopBar title="Analytical Gradebook" />
-      <main className="page-content page-enter gradebook-layout">
+      <main className="page-content page-enter" style={{ maxWidth: '1000px', margin: '0 auto', padding: 'var(--space-10) var(--space-6)' }}>
 
-        <section className="class-nav-nexus animate-fade-up">
-           <button className="btn--ghost sm" onClick={() => navigate(-1)}>
-              <ChevronLeft size={16} /> BACK TO Breakdown
+        {/* Header */}
+        <section style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: 'var(--space-8)' }}>
+           <button className="btn--ghost" style={{ padding: '12px 20px', fontSize: '12px', letterSpacing: '0.1em' }} onClick={() => navigate(-1)}>
+              ◀ BACK
            </button>
-           <div className="inst-info" style={{ flex: 1, textAlign: 'center' }}>
-              <span className="inst-label">MATRIX OVERVIEW</span>
-              <h2 className="inst-name" style={{ fontSize: '20px' }}>CLASS {data?.class_name} EVALUATION HUB</h2>
+           <div style={{ flex: 1, textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--brand-primary)', display: 'block', marginBottom: '4px' }}>MATRIX OVERVIEW</span>
+              <h2 style={{ fontSize: '24px', margin: 0, color: 'var(--text-primary)' }}>CLASS {data?.class_name} EVALUATION HUB</h2>
            </div>
-           <div style={{ width: '120px' }} /> {/* Spacer */}
+           <div style={{ width: '100px' }} /> {/* Spacer */}
         </section>
 
         {error && <div className="alert alert--error animate-fade-up">{error}</div>}
 
         {/* Global Matrix Stats */}
-        <div className="stat-nexus-grid animate-fade-up" style={{ animationDelay: '50ms' }}>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">STUDENT NODES</span>
-              <span className="stat-tile__val">{data?.students.length}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+           <div className="glass-card" style={{ padding: 'var(--space-5)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>STUDENT NODES</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>{data?.students.length}</span>
            </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">TOTAL EVAL MARKS</span>
-              <span className="stat-tile__val">{totalEntries}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-5)', textAlign: 'center' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>TOTAL EVAL MARKS</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>{totalEntries}</span>
            </div>
-           <div className="glass-card stat-tile" style={{ borderColor: 'var(--brand-primary)' }}>
-              <span className="stat-tile__label">MATRIX SCOPE</span>
-              <span className="stat-tile__val" style={{ color: 'var(--brand-primary)' }}>{filterTerm || "ALL TERMS"}</span>
+           <div className="glass-card" style={{ padding: 'var(--space-5)', textAlign: 'center', borderBottom: '2px solid var(--brand-primary)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>MATRIX SCOPE</span>
+              <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--brand-primary)' }}>{filterTerm || "ALL TERMS"}</span>
            </div>
         </div>
 
-        {/* Matrix Filters */}
-        <section className="gradebook-filters animate-fade-up" style={{ animationDelay: '100ms' }}>
-           <div className="obsidian-form-group" style={{ marginBottom: 0, flex: 1 }}>
-              <select className="obsidian-select" value={filterTerm} onChange={e => setFilterTerm(e.target.value as any)}>
+        {/* Filters */}
+        <section className="glass-card" style={{ display: 'flex', gap: '16px', marginBottom: 'var(--space-8)', padding: 'var(--space-4)', background: 'var(--bg-elevated)' }}>
+           <div style={{ flex: 1 }}>
+              <select className="form-input" style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }} value={filterTerm} onChange={e => setFilterTerm(e.target.value as any)}>
                  <option value="">ALL EVALUATION TERMS</option>
                  {choices?.terms.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
            </div>
-           <div className="obsidian-form-group" style={{ marginBottom: 0, flex: 1 }}>
-              <select className="obsidian-select" value={filterSubject} onChange={e => setFilterSubject(e.target.value ? Number(e.target.value) : "")}>
+           <div style={{ flex: 1 }}>
+              <select className="form-input" style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }} value={filterSubject} onChange={e => setFilterSubject(e.target.value ? Number(e.target.value) : "")}>
                  <option value="">ALL CURRICULUM SUBJECTS</option>
                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
            </div>
            {(filterTerm || filterSubject) && (
-             <button className="btn--ghost sm" onClick={() => { setFilterTerm(""); setFilterSubject(""); }}>CLEAR FILTERS</button>
+             <button className="btn--ghost" style={{ padding: '0 24px', fontSize: '12px', letterSpacing: '0.1em', color: 'var(--warning)' }} onClick={() => { setFilterTerm(""); setFilterSubject(""); }}>CLEAR FILTERS</button>
            )}
         </section>
 
         {/* Matrix Registry */}
         {!data || data.students.length === 0 ? (
-          <div className="empty-state animate-fade-up">
-             <BarChart3 size={48} color="var(--text-dim)" />
-             <h3 className="empty-state__title">MATRIX VOID</h3>
-             <p className="empty-state__message">No student data detected in this jurisdictional segment.</p>
+          <div style={{ textAlign: 'center', padding: '64px 0', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
+             <span style={{ fontSize: '48px', display: 'block', marginBottom: '24px', filter: 'grayscale(1) opacity(0.3)' }}>📊</span>
+             <h3 style={{ fontSize: '20px', color: 'var(--text-primary)' }}>MATRIX VOID</h3>
+             <p style={{ color: 'var(--text-muted)' }}>No student data detected in this jurisdictional segment.</p>
           </div>
         ) : (
-          <div className="grade-registry-stack">
-             {data.students.map((student, i) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+             {data.students.map((student) => (
                choices && (
                  <StudentRow
                    key={student.student_id}

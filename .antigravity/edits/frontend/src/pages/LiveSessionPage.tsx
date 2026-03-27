@@ -1,3 +1,21 @@
+// pages.LiveSessionPage
+/**
+ * Live class session page — teacher hosts, students join.
+ *
+ * Features:
+ *   - Video conferencing via LiveKit
+ *   - Hand raise via LiveKit data channel
+ *   - In-room ephemeral chat via LiveKit data channel
+ *   - Screen sharing for teacher + students
+ *   - Excalidraw whiteboard (teacher draws, students see read-only)
+ *   - Attendance tracking
+ *
+ * Data channel protocol:
+ *   { type: "hand_raise", raised, sender_name, sender_id }
+ *   { type: "chat", message, sender_name, sender_id, timestamp }
+ *   { type: "hand_ack", target_id }
+ *   { type: "whiteboard", elements, scrollX, scrollY, zoom }
+ */
 import "@livekit/components-styles";
 import {
   LiveKitRoom,
@@ -22,22 +40,23 @@ import { useAuth } from "../auth/AuthContext";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
 import type { WhiteboardState } from "../components/Whiteboard";
-import { 
-  Hand, 
-  MessageSquare, 
-  Monitor, 
-  X, 
-  Clock, 
-  Users, 
-  Plus,
-  Radio,
-  ShieldAlert,
-  Settings
-} from 'lucide-react';
 import './LiveSessionPage.css';
 
 // Lazy-load the heavy Excalidraw whiteboard (~1.5MB)
 const Whiteboard = lazy(() => import("../components/Whiteboard"));
+
+// ── Icons ──────────────────────────────────────────
+const SvgHand = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>);
+const SvgMessageSquare = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>);
+const SvgMonitor = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>);
+const SvgX = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
+const SvgClock = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
+const SvgUsers = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
+const SvgPlus = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>);
+const SvgRadio = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48 0a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>);
+const SvgShieldAlert = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
+const SvgSettings = ({ size=24, color="currentColor", ...props }: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>);
+
 
 // ── Types for data channel messages ──────────────────────────────────────────
 
@@ -77,6 +96,7 @@ type InRoomChat = {
   timestamp: number;
 };
 
+// Section type from /academics/sections/ — includes institution info for ADMIN/PRINCIPAL
 type SectionItem = {
   id: number;
   short_label: string;
@@ -269,7 +289,7 @@ function ChatPanel({ messages, onSend, userId }: {
 
   return (
     <div className="live-chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div className="live-chat-panel__header"><MessageSquare size={14} /> Live Dialogue</div>
+      <div className="live-chat-panel__header"><SvgMessageSquare size={14} /> Live Dialogue</div>
       <div className="live-chat-panel__messages" ref={listRef} style={{ flex: 1, overflowY: "auto" }}>
         {messages.length === 0 ? (
           <div className="live-chat-panel__empty">Channel quiet. Awaiting transmission.</div>
@@ -307,7 +327,7 @@ function HandRaisePanel({ raisedHands, onAcknowledge }: {
   if (raisedHands.size === 0) return null;
   return (
     <div className="live-hands-panel">
-      <div className="live-hands-panel__header"><Hand size={14} /> Raised Notifications ({raisedHands.size})</div>
+      <div className="live-hands-panel__header"><SvgHand size={14} /> Raised Notifications ({raisedHands.size})</div>
       <div className="live-hands-list">
         {[...raisedHands.entries()].map(([id, name]) => (
           <div key={id} className="live-hands-item glass-card sm">
@@ -332,7 +352,7 @@ function ParticipantsPanel({ teacherName }: { teacherName: string }) {
 
   return (
     <div className="live-chat-panel" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div className="live-chat-panel__header"><Users size={14} /> Participants ({participants.length})</div>
+      <div className="live-chat-panel__header"><SvgUsers size={14} /> Participants ({participants.length})</div>
       <div className="live-chat-panel__messages" style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-3)" }}>
         {sorted.map(p => (
           <div key={p.identity} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
@@ -380,7 +400,7 @@ function InRoomControls({
           {isTeacher && (
             <div style={{ position: "relative", marginLeft: 'var(--space-3)' }}>
               <button className="tool-btn" onClick={() => setShowSettings(v => !v)} title="Room Settings">
-                <Settings size={18} />
+                <SvgSettings size={18} />
               </button>
               {showSettings && (
                 <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
@@ -403,7 +423,7 @@ function InRoomControls({
             onClick={onToggleWhiteboard}
             title="Whiteboard"
           >
-            <Monitor size={18} />
+            <SvgMonitor size={18} />
             <span>{isTeacher ? "WHITEBOARD" : (whiteboardOpen ? "HIDE BOARD" : "VIEW BOARD")}</span>
           </button>
           
@@ -412,7 +432,7 @@ function InRoomControls({
             onClick={() => onToggleTab("participants")}
             title="Participants"
           >
-            <Users size={18} />
+            <SvgUsers size={18} />
           </button>
 
           <button 
@@ -420,7 +440,7 @@ function InRoomControls({
             onClick={() => onToggleTab("chat")}
             title="Chat"
           >
-            <MessageSquare size={18} />
+            <SvgMessageSquare size={18} />
           </button>
        </div>
     </div>
@@ -476,7 +496,7 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
               className={`hand-btn ${myHandRaised ? 'hand-btn--active' : ''}`}
               onClick={toggleHand}
             >
-              <Hand size={16} />
+              <SvgHand size={16} />
               {myHandRaised ? "HAND RAISED" : "RAISE HAND"}
             </button>
           )}
@@ -555,9 +575,9 @@ const SessionCard: React.FC<{
         </div>
         <h3 className="session-title">{session.title}</h3>
         <div className="session-meta">
-           {session.scheduled_at && <div className="meta-item"><Clock size={12} /> {new Date(session.scheduled_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>}
-           <div className="meta-item"><Users size={12} /> {session.teacher_name}</div>
-           {session.attendance_count !== undefined && <div className="meta-item"><Plus size={12} /> {session.attendance_count} JOINED</div>}
+           {session.scheduled_at && <div className="meta-item"><SvgClock size={12} /> {new Date(session.scheduled_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>}
+           <div className="meta-item"><SvgUsers size={12} /> {session.teacher_name}</div>
+           {session.attendance_count !== undefined && <div className="meta-item"><SvgPlus size={12} /> {session.attendance_count} JOINED</div>}
         </div>
       </div>
       <button 
@@ -600,11 +620,11 @@ const LiveSessionPage: React.FC = () => {
   const [newSubject, setNewSubject] = useState<number | "">("");
   const [creating, setCreating] = useState(false);
 
-  // Management data
+  // Load teacher create form dependencies
   const [assignments, setAssignments] = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
   const [allSections, setAllSections] = useState<SectionItem[]>([]);
   const [allSubjects, setAllSubjects] = useState<{ id: number; name: string }[]>([]);
-  const [selectedSchool] = useState<number | "">("");
+  const [selectedSchool, setSelectedSchool] = useState<number | "">("");
 
   useEffect(() => {
     const fetchFn = isTeacher ? listMySessions : getUpcomingSessions;
@@ -692,6 +712,9 @@ const LiveSessionPage: React.FC = () => {
     } finally { setCreating(false); }
   }, [newTitle, newDesc, newSection, newSubject, newScheduledAt]);
 
+  const schoolOptions = isAdminOrPrincipal
+    ? [...new Map(allSections.filter(s => s.institution_id != null).map(s => [s.institution_id!, { id: s.institution_id!, name: s.institution_name ?? "" }])).values()] : [];
+
   const uniqueSections = isAdminOrPrincipal
     ? allSections.filter(s => !selectedSchool || s.institution_id === Number(selectedSchool)).map(s => ({ id: s.id, name: s.short_label }))
     : [...new Map(assignments.map(a => [a.section_id, { id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}` }])).values()];
@@ -704,7 +727,7 @@ const LiveSessionPage: React.FC = () => {
     return a.name.localeCompare(b.name);
   });
 
-  // View Calculation
+  // In-room view
   if (inRoom && liveToken) {
     const activeSession = sessions.find(s => s.status === "live") || sessions.find(s => s.id === sessionId);
     return (
@@ -729,6 +752,7 @@ const LiveSessionPage: React.FC = () => {
     );
   }
 
+  // Session list view
   return (
     <div className="page-shell">
       <TopBar title="Live Portal" />
@@ -737,7 +761,7 @@ const LiveSessionPage: React.FC = () => {
         {/* Editorial Header */}
         <header className="editorial-header animate-fade-up">
            <div className="role-tag role-tag--teacher" style={{ marginBottom: 'var(--space-4)' }}>
-             <Radio size={14} /> LIVE SPECTRUM
+             <SvgRadio size={14} /> LIVE SPECTRUM
            </div>
            <h1 className="text-gradient md-display">
              Synchronous<br/>Intelligence.
@@ -751,7 +775,7 @@ const LiveSessionPage: React.FC = () => {
         {isTeacher && (
           <section className="action-row animate-fade-up" style={{ animationDelay: '100ms' }}>
              <button className="btn--primary" onClick={() => setShowCreate(!showCreate)}>
-               <Plus size={18} /> {showCreate ? "CANCEL PROVISIONING" : "PROVISION NEW ARENA"}
+               <SvgPlus size={18} /> {showCreate ? "CANCEL PROVISIONING" : "PROVISION NEW ARENA"}
              </button>
           </section>
         )}
@@ -778,6 +802,12 @@ const LiveSessionPage: React.FC = () => {
                </div>
                <div className="obsidian-form-group">
                   <label className="obsidian-label">COHORT SECTION *</label>
+                  {isAdminOrPrincipal && schoolOptions.length > 1 && (
+                    <select className="obsidian-select" value={selectedSchool} onChange={e => { setSelectedSchool(Number(e.target.value) || ""); setNewSection(""); }} style={{ marginBottom: "var(--space-2)" }}>
+                      <option value="">All schools - select to filter</option>
+                      {schoolOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  )}
                   <select className="obsidian-select" value={newSection} onChange={e => setNewSection(Number(e.target.value))}>
                     <option value="">Select section...</option>
                     {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -811,7 +841,7 @@ const LiveSessionPage: React.FC = () => {
               [1,2].map(_ => <div key={_} className="glass-card skeleton" style={{ height: '100px', marginBottom: 'var(--space-4)' }} />)
             ) : sessions.length === 0 ? (
               <div className="glass-card empty-well">
-                 <Radio size={40} style={{ opacity: 0.2, marginBottom: '20px' }} />
+                 <SvgRadio size={40} style={{ opacity: 0.2, marginBottom: '20px' }} />
                  <p style={{ fontWeight: 800, fontSize: '10px' }}>NO ACTIVE TRANSMISSIONS DETECTED</p>
                  <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Awaiting synchronization commands.</span>
               </div>
@@ -847,8 +877,8 @@ const LiveSessionPage: React.FC = () => {
 
         {error && (
           <div className="glass-card error-dock animate-fade-up">
-             <ShieldAlert size={16} /> {error}
-             <button onClick={() => setError(null)}><X size={14} /></button>
+             <SvgShieldAlert size={16} /> {error}
+             <button onClick={() => setError(null)}><SvgX size={14} /></button>
           </div>
         )}
 

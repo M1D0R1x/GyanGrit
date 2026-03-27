@@ -10,6 +10,7 @@ import logging
 import requests
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 from apps.academics.models import ClassRoom, Section, TeachingAssignment
 
@@ -55,12 +56,13 @@ def assign_teacher_to_classes(teacher, subject, institution):
 # ─────────────────────────────────────────────────────────────────────────────
 # OTP delivery  —  async, email-first
 #
-# Priority:  SMS (Twilio) → Email → Log fallback
+# Priority:  Email → SMS (Twilio) → Log fallback
 # Delivery:  fire-and-forget via threading.Thread (safe with gthread workers)
 #
-# Why Twilio primary?
-#   - Fast2SMS Quick route is unreliable (DLT restrictions)
-#   - Email fallback provided for unverified phone numbers or Twilio failures.
+# Why Email primary?
+#   - Twilio SMS is reliable but expensive.
+#   - Gmail/Zoho SMTP is free and reliable.
+#   - Twilio is retained as a fallback.
 #
 # Why async?
 #   - SMTP can block 3-5s, Fast2SMS up to 4s (timeout)
@@ -128,15 +130,20 @@ def _send_otp_email(email: str, otp_code: str, username: str) -> bool:
     if not email or not getattr(settings, "EMAIL_HOST", "").strip():
         return False
     try:
+        context = {"username": username, "otp_code": otp_code}
+        html_content = render_to_string("emails/otp_email.html", context)
+        text_content = (
+            f"Hello {username},\n\n"
+            f"Your GyanGrit login OTP is: {otp_code}\n\n"
+            f"This code expires in 10 minutes.\n"
+            f"Do not share this code with anyone.\n\n"
+            f"— GyanGrit Team"
+        )
+
         send_mail(
-            subject="GyanGrit — Your Login OTP",
-            message=(
-                f"Hello {username},\n\n"
-                f"Your GyanGrit login OTP is: {otp_code}\n\n"
-                f"This code expires in 10 minutes.\n"
-                f"Do not share this code with anyone.\n\n"
-                f"— GyanGrit Team"
-            ),
+            subject="GyanGrit — Verify your secure login",
+            message=text_content,
+            html_message=html_content,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@gyangrit.com"),
             recipient_list=[email],
             fail_silently=True,
@@ -195,21 +202,21 @@ def _send_sms_twilio(mobile: str, otp_code: str) -> bool:
 
 def _deliver_otp_background(username: str, email: str, mobile: str, otp_code: str) -> None:
     """
-    Background thread: try Twilio SMS first, then Email, then log.
+    Background thread: try Email first, then Twilio SMS, then log.
     This runs AFTER the HTTP response has already been sent to the user.
     """
     t0 = time.monotonic()
 
-    # 1 — Twilio SMS (primary)
-    if mobile and _send_sms_twilio(mobile, otp_code):
-        elapsed = round(time.monotonic() - t0, 2)
-        logger.info("OTP[%s] delivered via SMS (Twilio) in %ss", username, elapsed)
-        return
-
-    # 2 — Email (secondary)
+    # 1 — Email (primary - free & reliable via Zoho)
     if email and _send_otp_email(email, otp_code, username):
         elapsed = round(time.monotonic() - t0, 2)
         logger.info("OTP[%s] delivered via EMAIL in %ss", username, elapsed)
+        return
+
+    # 2 — Twilio SMS (fallback - expensive)
+    if mobile and _send_sms_twilio(mobile, otp_code):
+        elapsed = round(time.monotonic() - t0, 2)
+        logger.info("OTP[%s] delivered via SMS (Twilio) in %ss", username, elapsed)
         return
 
     # Legacy: Fast2SMS (Commented out per request)
@@ -241,10 +248,10 @@ def send_otp_async(user, otp_code: str) -> str:
     mobile = getattr(user, "mobile_primary", "").strip()
 
     # Determine the intended channel for the frontend UI hint
-    if mobile and getattr(settings, "TWILIO_ACCOUNT_SID", "").strip():
-        channel = "sms"
-    elif email and getattr(settings, "EMAIL_HOST", "").strip():
+    if email and getattr(settings, "EMAIL_HOST", "").strip():
         channel = "email"
+    elif mobile and getattr(settings, "TWILIO_ACCOUNT_SID", "").strip():
+        channel = "sms"
     else:
         channel = "log"
 
@@ -258,3 +265,62 @@ def send_otp_async(user, otp_code: str) -> str:
 
     logger.info("OTP[%s] delivery dispatched (channel=%s)", user.username, channel)
     return channel
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Universal Notification Email
+# ─────────────────────────────────────────────────────────────────────────────
+
+def send_notification_email_async(
+    user_email: str, 
+    subject: str, 
+    title: str, 
+    message: str, 
+    greeting: str = "", 
+    action_text: str = None, 
+    action_url: str = None
+) -> None:
+    """
+    Fire-and-forget general notification email using the universal template.
+    
+    Example Usage:
+        send_notification_email_async(
+            "student@example.com", 
+            "Assessment Recorded", 
+            "Your score is ready!", 
+            "You scored 95% on the Math quiz.", 
+            greeting="Veera", 
+            action_text="View Results", 
+            action_url="https://gyangrit.site/dashboard"
+        )
+    """
+    if not user_email or not getattr(settings, "EMAIL_HOST", "").strip():
+        logger.warning("Skipping notification email: Missing destination or Zoho setup.")
+        return
+
+    def _deliver_notification():
+        try:
+            context = {
+                "title": title,
+                "message": message,
+                "greeting": greeting,
+                "action_text": action_text,
+                "action_url": action_url,
+            }
+            html_content = render_to_string("emails/notification_email.html", context)
+            
+            send_mail(
+                subject=f"GyanGrit — {subject}",
+                message=message,  # Text fallback
+                html_message=html_content,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@gyangrit.site"),
+                recipient_list=[user_email],
+                fail_silently=True,
+            )
+            masked = user_email[:3] + "***" + user_email[user_email.find("@"):]
+            logger.info("Notification email '%s' delivered to %s", subject, masked)
+        except Exception as exc:
+            logger.error("Failed to send notification email '%s': %s", subject, exc)
+
+    thread = threading.Thread(target=_deliver_notification, daemon=True)
+    thread.start()

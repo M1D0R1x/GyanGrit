@@ -217,9 +217,8 @@ CLOUDFLARE_R2_BUCKET_NAME       = os.getenv("CLOUDFLARE_R2_BUCKET_NAME",       "
 CLOUDFLARE_R2_PUBLIC_URL        = os.getenv("CLOUDFLARE_R2_PUBLIC_URL",        "")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fast2SMS — OTP SMS delivery for Indian mobile numbers
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Fast2SMS — Quick SMS route for instant OTP delivery (no DLT template needed)
+# Docs: https://www.fast2sms.com/dev/bulkV2 (route=q)
 FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────────────────────────

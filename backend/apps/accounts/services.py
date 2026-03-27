@@ -58,10 +58,12 @@ def assign_teacher_to_classes(teacher, subject, institution):
 
 def _send_sms_fast2sms(mobile: str, otp_code: str) -> bool:
     """
-    Send OTP via Fast2SMS OTP route.
+    Send OTP via Fast2SMS Quick SMS route (route=q).
     Env var: FAST2SMS_API_KEY
-    Sign up: https://www.fast2sms.com/
-    Free trial: ₹50 on signup (~330 OTPs). Production: ~₹0.15/SMS.
+    Docs: https://www.fast2sms.com/dev/bulkV2
+
+    Uses the Quick SMS API which delivers instantly without DLT
+    template approval. Approved by Fast2SMS support for this account.
 
     Returns True on success, False on any failure (never raises).
     """
@@ -77,21 +79,31 @@ def _send_sms_fast2sms(mobile: str, otp_code: str) -> bool:
         logger.warning("send_otp: invalid mobile after strip: %s chars", len(digits))
         return False
 
+    message = (
+        f"Your GyanGrit verification code is: {otp_code}. "
+        f"It expires in 10 minutes. Do not share this code with anyone."
+    )
+
     try:
-        resp = requests.post(
+        resp = requests.get(
             "https://www.fast2sms.com/dev/bulkV2",
-            headers={"authorization": api_key, "Content-Type": "application/json"},
-            json={"route": "otp", "variables_values": otp_code, "numbers": digits},
-            timeout=4,  # reduced from 8s — fail fast, fall back to email
+            params={
+                "authorization": api_key,
+                "route": "q",
+                "message": message,
+                "numbers": digits,
+                "flash": "0",
+            },
+            timeout=6,
         )
         data = resp.json()
         if data.get("return") is True:
-            logger.info("OTP SMS sent to *%s", digits[-4:])
+            logger.info("OTP Quick SMS sent to *%s", digits[-4:])
             return True
-        logger.error("Fast2SMS error response: %s", data)
+        logger.error("Fast2SMS Quick SMS error: %s", data)
         return False
     except requests.RequestException as exc:
-        logger.error("Fast2SMS request failed: %s", exc)
+        logger.error("Fast2SMS Quick SMS request failed: %s", exc)
         return False
 
 

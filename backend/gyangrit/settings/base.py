@@ -183,30 +183,30 @@ SESSION_COOKIE_NAME = "gyangrit_sessionid"
 CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Email — Gmail SMTP via App Password
+# Email — Zoho Mail SMTP via App Password
 #
-# Priority in send_otp(): SMS (Fast2SMS) → Email → Log fallback
-# Email is the fallback when a user has no mobile_primary set or SMS fails.
+# Priority in send_otp(): Email (Zoho) → SMS (Twilio) → Log fallback
+# Email is the primary OTP channel (free & reliable via Zoho).
 #
 # Required env vars (set in Render dashboard + local .env):
-#   EMAIL_HOST_USER     = veerababusaviti21@gmail.com
-#   EMAIL_HOST_PASSWORD = <16-char Gmail App Password>
-#
-# Gmail App Password setup:
-#   Google Account → Security → 2-Step Verification → App passwords
-#   Generate password for "Mail" + "Other (GyanGrit)"
+#   EMAIL_HOST          = smtp.zoho.in
+#   EMAIL_PORT          = 587
+#   EMAIL_USE_TLS       = True
+#   EMAIL_HOST_USER     = noreply@gyangrit.site
+#   EMAIL_HOST_PASSWORD = <16-char Zoho App Password>
+#   DEFAULT_FROM_EMAIL  = GyanGrit <noreply@gyangrit.site>
 #
 # dev.py overrides EMAIL_BACKEND to console so no real emails are sent locally.
 # ─────────────────────────────────────────────────────────────────────────────
 
 EMAIL_BACKEND       = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST          = "smtp.gmail.com"
-EMAIL_PORT          = 587
-EMAIL_USE_TLS       = True
+EMAIL_HOST          = os.getenv("EMAIL_HOST", "smtp.zoho.in")
+EMAIL_PORT          = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS       = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
 EMAIL_USE_SSL       = False   # TLS and SSL are mutually exclusive — always use TLS on 587
 EMAIL_HOST_USER     = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")   # Gmail App Password, NOT Gmail password
-DEFAULT_FROM_EMAIL  = os.getenv("EMAIL_HOST_USER", "noreply@gyangrit.com")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL  = os.getenv("DEFAULT_FROM_EMAIL", "GyanGrit <noreply@gyangrit.site>")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cloudflare R2 media storage

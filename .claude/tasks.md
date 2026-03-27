@@ -215,9 +215,14 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 
 | Change | File Changed | Before | After | Impact |
 |---|---|---|---|---|
-| Twilio Integration | `backend/apps/accounts/services.py` | Fast2SMS was primary (unreliable) | Twilio is primary, Email is fallback | Reliable global SMS delivery |
+| Twilio Integration | `backend/apps/accounts/services.py` | Fast2SMS was primary (unreliable) | Twilio is SMS fallback, Email is primary | Reliable global SMS delivery |
 | Async OTP Delivery | `backend/apps/accounts/services.py` | `send_otp()` blocks HTTP response 3-6s (SMTP/SMS timeout) | `send_otp_async()` fires `threading.Thread`, returns instantly | Login response: 3-6s → <100ms |
 | Email-First Priority | `backend/apps/accounts/services.py` | Priority: Twilio SMS → Email → Log | Priority: **Zoho Email → Twilio SMS → Log** | Zoho SMTP free & reliable; Twilio fallback retains high-delivery guarantee |
+| **🐛 EMAIL_HOST Bug** | `backend/gyangrit/settings/base.py` | `EMAIL_HOST = "smtp.gmail.com"` **hardcoded** — ignored env var | `EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.zoho.in")` | **Root cause of email delivery failure.** Zoho password was silently rejected by Gmail SMTP |
+| Zoho Mail Infrastructure | DNS (Vercel) + Zoho Admin | Personal Gmail for OTP | Professional `noreply@gyangrit.site` via Zoho Forever Free | $0/yr professional email with SPF/DKIM/MX |
+| HTML Email Templates | `backend/templates/emails/` | Plain text OTP emails | Branded HTML templates (`otp_email.html`, `notification_email.html`) | Professional emails with GyanGrit logo, styling |
+| fail_silently=False | `backend/apps/accounts/services.py` | `fail_silently=True` swallowed SMTP errors | `fail_silently=False` — errors logged | SMTP failures now visible in Render logs |
+| DEFAULT_FROM_EMAIL Fix | `backend/gyangrit/settings/base.py` | Read from `EMAIL_HOST_USER` env var | Read from dedicated `DEFAULT_FROM_EMAIL` env var | Correctly shows "GyanGrit \<noreply@gyangrit.site\>" |
 | Views Wired to Async | `backend/apps/accounts/views.py` | `login_view` + `resend_otp` called sync `send_otp()` | Both now call `send_otp_async()` | Non-blocking login for all users |
 | Structured Timing Logs | `backend/apps/accounts/services.py` | Basic success/fail logging | `OTP[username] delivered via EMAIL in 1.2s` format | Full audit trail with delivery latency per channel |
 | SMS Timeout Reduced | `backend/apps/accounts/services.py` | Fast2SMS timeout: 6s | Timeout: 4s (fail fast on 3G) | Faster fallback to email when SMS fails |

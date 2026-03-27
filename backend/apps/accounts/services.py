@@ -124,7 +124,7 @@ def _send_sms_fast2sms(mobile: str, otp_code: str) -> bool:
 
 def _send_otp_email(email: str, otp_code: str, username: str) -> bool:
     """
-    Send OTP via email (Gmail SMTP).
+    Send OTP via email (Zoho SMTP).
     Returns True on success, False on any failure (never raises).
     """
     if not email or not getattr(settings, "EMAIL_HOST", "").strip():
@@ -144,9 +144,9 @@ def _send_otp_email(email: str, otp_code: str, username: str) -> bool:
             subject="GyanGrit — Verify your secure login",
             message=text_content,
             html_message=html_content,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@gyangrit.com"),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "GyanGrit <noreply@gyangrit.site>"),
             recipient_list=[email],
-            fail_silently=True,
+            fail_silently=False,
         )
         masked = email[:3] + "***" + email[email.find("@"):]
         logger.info("OTP email delivered to %s", masked)

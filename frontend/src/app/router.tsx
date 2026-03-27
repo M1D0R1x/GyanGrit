@@ -10,6 +10,9 @@ import CompleteProfilePage from "../pages/CompleteProfilePage";
 import ForgotPasswordPage  from "../pages/ForgotPasswordPage";
 import ResetPasswordPage   from "../pages/ResetPasswordPage";
 
+import AboutPage           from "../pages/AboutPage";
+import ContactPage         from "../pages/ContactPage";
+import FAQPage             from "../pages/FAQPage";
 
 // Auth pages — lazy loaded. Authenticated users land on dashboard, not login,
 // so these only load when actually needed (saves ~40KB from entry bundle on 3G).
@@ -148,6 +151,9 @@ export const router = createBrowserRouter([
   { path: "/", element: <RoleBasedRedirect /> },
 
   // ── Public ───────────────────────────────────────────────────────────────
+  { path: "/about",            element: <AboutPage /> },
+  { path: "/contact",          element: <ContactPage /> },
+  { path: "/faq",              element: <FAQPage /> },
   { path: "/login",            element: <LoginPage /> },
   { path: "/register",         element: <RegisterPage /> },
   { path: "/verify-otp",       element: <VerifyOtpPage /> },

@@ -9,6 +9,7 @@ import VerifyOtpPage       from "../pages/VerifyOtpPage";
 import CompleteProfilePage from "../pages/CompleteProfilePage";
 import ForgotPasswordPage  from "../pages/ForgotPasswordPage";
 import ResetPasswordPage   from "../pages/ResetPasswordPage";
+
 import AboutPage           from "../pages/AboutPage";
 import ContactPage         from "../pages/ContactPage";
 import FAQPage             from "../pages/FAQPage";
@@ -151,6 +152,9 @@ export const router = createBrowserRouter([
   { path: "/", element: <RoleBasedRedirect /> },
 
   // ── Public ───────────────────────────────────────────────────────────────
+  { path: "/about",            element: <AboutPage /> },
+  { path: "/contact",          element: <ContactPage /> },
+  { path: "/faq",              element: <FAQPage /> },
   { path: "/login",            element: <LoginPage /> },
   { path: "/register",         element: <RegisterPage /> },
   { path: "/verify-otp",       element: <VerifyOtpPage /> },

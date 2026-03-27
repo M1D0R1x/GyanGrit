@@ -51,6 +51,10 @@ import NotFoundPage     from "../pages/errors/NotFoundPage";
 import ForbiddenPage    from "../pages/errors/ForbiddenPage";
 import ServerErrorPage  from "../pages/errors/ServerErrorPage";
 import NetworkErrorPage from "../pages/errors/NetworkErrorPage";
+import LoginPage from "../pages/LoginPage.tsx";
+import RegisterPage from "../pages/RegisterPage.tsx";
+import VerifyOtpPage from "../pages/VerifyOtpPage.tsx";
+import CompleteProfilePage from "../pages/CompleteProfilePage.tsx";
 
 // ── Student ──────────────────────────────────────────────────────────────────
 const DashboardPage      = lazyRetry(() => import("../pages/DashboardPage"));

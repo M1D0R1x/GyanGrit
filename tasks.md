@@ -4,12 +4,12 @@
 
 ---
 
-## CURRENT STATE (2026-03-26 — end of session)
+## CURRENT STATE (2026-03-28 — end of session)
 
 **Live URLs:**
 - Frontend: https://gyangrit.site
-- Backend:  https://gyangrit.onrender.com
-- Admin:    https://gyangrit.onrender.com/admin/
+- Backend:  https://api.gyangrit.site
+- Admin:    https://api.gyangrit.site/admin/
 
 **Stack:** Django 4.2 · React 18 + Vite + TypeScript · PostgreSQL (Supabase) · Ably · LiveKit · Gemini · Cloudflare R2 · gunicorn + gevent · Upstash Redis · Sentry
 
@@ -128,9 +128,9 @@ None. All resolved.
 
 ## WHAT TO DO NEXT
 
-### P0 — Grand Production Merge (Next Immediate Step)
-- Merge the fully verified "Infinite Obsidian" staging files from `.antigravity/edits/frontend/src/` directly into the live `frontend/src/` folder.
-- Run `npm run build` and ensure the production artifacts are stable.
+### P0 — Authentication UI Bugs (Next Immediate Step)
+- **Login Bug**: Debug the `LoginPage.tsx` state management. The API returns a `200 OK` on valid credentials, but the UI is stuck in an infinite loading state instead of navigating to `/dashboard`.
+- **Forgot Password Bug**: The "Forgot Password" button triggers an infinite loading state without API failures.
 
 ### P1 — Authentication & Identity Expansion
 - **Password Recovery System:** Implement "Forgot Password" and "Reset Password" user flows on the frontend (`LoginPage.tsx`) and link them with the Django backend mechanisms.
@@ -227,6 +227,9 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 - **Local Dev Session Fix**: Aligned the frontend (`localhost:5173`) and backend (`localhost:8000`) domains to both use `localhost` instead of mixing `127.0.0.1`, which resolved a persistent bug where local development login passed as a 200 OK but failed to navigate (due to rejected cross-origin session cookies).
 - **Public Marketing Pages**: Created three new public pages (`AboutPage`, `ContactPage`, `FAQPage`) featuring the premium GyanGrit dark-mode glassmorphism design system. 
 - **Router Wiring**: Configured these pages as public routes in `router.tsx` and linked them in the `LoginPage` footer for easy access.
+- **Vercel CSS Bundler Fix**: Resolved a deployment crash by explicitly copying `PublicPages.css` from the `.antigravity/edits` proxy to `frontend/src/` to ensure Vite could natively bundle the styles.
+- **Vercel DNS & SEO Verification**: Wired `VITE_API_URL` correctly to `https://api.gyangrit.site/api/v1` in Vercel. Successfully verified the primary `gyangrit.site` domain in Google Search Console via DNS TXT records. 
+- **Sitemap Architecture**: Built and deployed `sitemap.xml` with XSL human-readable styling, submitting it to Google. Blocked all private authenticated routes via `robots.txt` for rigorous crawler compliance.
 
 ---
 

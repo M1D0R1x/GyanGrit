@@ -86,15 +86,17 @@ CORS_ALLOWED_ORIGINS=https://gyan-grit.vercel.app
 DEBUG=False
 
 # Copy all other env vars from Render...
-EMAIL_HOST_USER=veerababusaviti2103@gmail.com
-EMAIL_HOST_PASSWORD=<gmail-app-password>
+EMAIL_HOST_USER=noreply@gyangrit.site
+EMAIL_HOST_PASSWORD=<zoho-app-password>
+TWILIO_ACCOUNT_SID=<your-sid>
+TWILIO_AUTH_TOKEN=<your-token>
+TWILIO_PHONE_NUMBER=<your-number>
 CLOUDFLARE_R2_ACCOUNT_ID=<your-id>
 CLOUDFLARE_R2_ACCESS_KEY_ID=<your-key>
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=<your-secret>
 CLOUDFLARE_R2_BUCKET_NAME=gyangrit-media
 CLOUDFLARE_R2_PUBLIC_URL=<your-url>
 ABLY_API_KEY=<your-key>
-FAST2SMS_API_KEY=<your-key>
 GEMINI_API_KEY=<your-key>
 LIVEKIT_URL=<your-url>
 LIVEKIT_API_KEY=<your-key>

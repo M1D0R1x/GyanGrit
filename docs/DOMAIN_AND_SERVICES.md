@@ -104,12 +104,12 @@ CORS_ALLOWED_ORIGINS=https://gyangrit.site,https://www.gyangrit.site
 | **Google Workspace** | $84/yr | 1 user | Overkill for a capstone project. |
 | **Forward-only** | $0 | N/A | Set up email forwarding in Namecheap to your Gmail. No send capability. |
 
-**My recommendation:** Start with Zoho Mail free tier. You get `admin@gyangrit.site` for $0. If you need to look more polished for the capstone demo, upgrade to Namecheap Private Email ($11.88/yr).
+**Current Setup:** We use the **Zoho Mail Forever Free** tier. It provides professional boxes like `noreply@gyangrit.site` and `support@gyangrit.site` for $0/yr.
 
-### Zoho Mail Setup (Free)
-1. Go to https://www.zoho.com/mail/zohomail-pricing.html → Free Plan
-2. Sign up with `gyangrit.site`
-3. Add MX records in Namecheap DNS:
+### Zoho Mail Architecture
+- **DNS Host:** Vercel (where `gyangrit.site` nameservers point)
+- **Django Integration:** Uses a 16-character App Password generated from the `noreply` account to bypass 2FA and send emails via `smtp.zoho.in`.
+- **Records Configured:** MX (10, 20, 50), SPF (TXT), DKIM (TXT), and Zoho Verification (TXT).
 ```
 Type    Host    Value                       Priority    TTL
 MX      @       mx.zoho.in                 10          Automatic

@@ -22,9 +22,11 @@ Result: handles 50 simultaneous users on free 512MB instance.
 | CORS_ALLOWED_ORIGINS | https://gyan-grit.vercel.app |
 | DEBUG | False |
 | DJANGO_SETTINGS_MODULE | gyangrit.settings.prod |
-| FAST2SMS_API_KEY | <key> |
-| EMAIL_HOST_USER | veerababusaviti21@gmail.com |
-| EMAIL_HOST_PASSWORD | <app password> |
+| TWILIO_ACCOUNT_SID | <sid> |
+| TWILIO_AUTH_TOKEN | <token> |
+| TWILIO_PHONE_NUMBER | <number> |
+| EMAIL_HOST_USER | noreply@gyangrit.site |
+| EMAIL_HOST_PASSWORD | <zoho app password> |
 | ABLY_API_KEY | <key> |
 | CLOUDFLARE_R2_ACCESS_KEY_ID | <key> |
 | CLOUDFLARE_R2_SECRET_ACCESS_KEY | <key> |

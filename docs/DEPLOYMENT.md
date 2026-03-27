@@ -38,10 +38,12 @@ CORS_ALLOWED_ORIGINS=https://gyan-grit.vercel.app
 DEBUG=False
 DJANGO_SETTINGS_MODULE=gyangrit.settings.prod
 
-# OTP
-FAST2SMS_API_KEY=
-EMAIL_HOST_USER=veerababusaviti21@gmail.com
-EMAIL_HOST_PASSWORD=<gmail app password>
+# OTP & Email
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+EMAIL_HOST_USER=noreply@gyangrit.site
+EMAIL_HOST_PASSWORD=<zoho app password>
 
 # Real-time
 ABLY_API_KEY=

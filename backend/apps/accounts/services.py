@@ -25,32 +25,27 @@ def assign_teacher_to_classes(teacher, subject, institution):
     """
     Creates TeachingAssignment records for a teacher across all
     sections of grades 6-10 in the given institution.
-
-    Called from:
-    - accounts/views.py register() when a TEACHER registers via join code
-    - accounts/admin.py UserAdmin.save_model() when admin creates a teacher
     """
     classrooms = ClassRoom.objects.filter(
         institution=institution,
         name__in=["6", "7", "8", "9", "10"],
     )
-    created_count = 0
-    for classroom in classrooms:
-        for section in Section.objects.filter(classroom=classroom):
-            _, created = TeachingAssignment.objects.get_or_create(
-                teacher=teacher,
-                subject=subject,
-                section=section,
-            )
-            if created:
-                created_count += 1
+    sections = Section.objects.filter(classroom__in=classrooms)
+    
+    # Use ignore_conflicts=True to silently skip any that already exist
+    assignments = [
+        TeachingAssignment(teacher=teacher, subject=subject, section=s)
+        for s in sections
+    ]
+    if assignments:
+        TeachingAssignment.objects.bulk_create(assignments, ignore_conflicts=True)
 
     logger.info(
-        "assign_teacher_to_classes: teacher id=%s assigned to %d new sections "
+        "assign_teacher_to_classes: teacher id=%s assigned to %d sections "
         "for subject '%s' in institution '%s'.",
-        teacher.id, created_count, subject.name, institution.name,
+        teacher.id, len(assignments), subject.name, institution.name,
     )
-    return created_count
+    return len(assignments)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

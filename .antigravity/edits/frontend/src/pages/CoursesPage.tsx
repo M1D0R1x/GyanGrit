@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { apiGet } from '../services/api';
-import TopBar from '../components/TopBar';
-import BottomNav from '../components/BottomNav';
+// pages.CoursesPage
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { apiGet } from "../services/api";
+import { courseDetailPath } from "../utils/slugs";
+import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 type Course = {
   id: number;
@@ -13,90 +15,170 @@ type Course = {
   subject__id: number;
 };
 
-const CoursesPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await apiGet<Course[]>('/courses/');
-        setCourses(data);
-      } catch (err) {
-        console.error("Courses load failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  if (loading) return (
-    <div className="page-shell">
-      <TopBar />
-      <main className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="btn__spinner" style={{ width: 40, height: 40 }} />
-      </main>
+function CourseSkeleton() {
+  return (
+    <div className="glass-card" style={{ minHeight: 120 }}>
+      <div className="skeleton-box" style={{ width: 60, height: 12, borderRadius: 4, marginBottom: "var(--space-3)" }} />
+      <div className="skeleton-box" style={{ width: "80%", height: 18, borderRadius: 4, marginBottom: "var(--space-3)" }} />
+      <div className="skeleton-box" style={{ width: "100%", height: 12, borderRadius: 4 }} />
     </div>
   );
+}
+
+export default function CoursesPage() {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const navigate              = useNavigate();
+  const [searchParams]        = useSearchParams();
+
+  const subjectIdParam = searchParams.get("subject_id");
+  const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
+
+  useEffect(() => {
+    apiGet<Course[]>("/courses/")
+      .then(setCourses)
+      .catch(() => setError("Failed to load courses."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = subjectId
+    ? courses.filter((c) => c.subject__id === subjectId)
+    : courses;
+
+  const subjectName = subjectId
+    ? courses.find((c) => c.subject__id === subjectId)?.subject__name ?? null
+    : null;
 
   return (
     <div className="page-shell">
-      <TopBar title="My Subjects" />
+      <TopBar title={subjectName ? `${subjectName} Courses` : "Courses"} />
       <main className="page-content page-enter has-bottom-nav">
-        {/* Editorial Header */}
-        <section className="editorial-header animate-fade-up">
-          <button 
-            className="btn--ghost" 
-            style={{ marginBottom: 'var(--space-6)', padding: 0, fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}
-            onClick={() => navigate('/dashboard')}
-          >
-            ← Back to Overview
-          </button>
-          <h1 className="text-gradient" style={{ fontSize: 'clamp(32px, 8vw, 48px)', lineHeight: 1.1, marginBottom: 'var(--space-2)' }}>
-            Your Library<br/>
-            of Knowledge.
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-base)', maxWidth: '400px' }}>
-            Choose a subject to dive deeper into its lessons and track your mastery.
-          </p>
-        </section>
 
-        {/* Courses Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-8)' }}>
-          {courses.map((c) => (
-            <div 
-              key={c.id} 
-              className="glass-card" 
-              style={{ cursor: 'pointer', padding: 'var(--space-10)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-              onClick={() => navigate(`/courses/${c.grade}/${c.subject__name.toLowerCase()}`)}
+        {subjectName && (
+          <button
+            className="btn--ghost"
+            style={{ marginBottom: "var(--space-6)", display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "12px", fontWeight: 800, letterSpacing: "0.05em" }}
+            onClick={() => navigate("/dashboard")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            BACK TO DASHBOARD
+          </button>
+        )}
+
+        {/* Hero */}
+        <header className="page-hero animate-fade-up" style={{ marginBottom: "var(--space-6)" }}>
+          <div className="role-tag role-tag--student" style={{ marginBottom: "var(--space-4)" }}>
+            🎓 COURSES
+          </div>
+          <h1 className="text-gradient md-display">
+            {subjectName ? subjectName : "Knowledge\nVault."}
+          </h1>
+          <p className="hero-subtitle">
+            {subjectName
+              ? "Select a course to start learning"
+              : "All your enrolled courses — curated for your curriculum."}
+          </p>
+        </header>
+
+        {/* Section header */}
+        <div className="section-header animate-fade-up" style={{ marginBottom: "var(--space-4)" }}>
+          <h2 className="section-title">
+            {subjectName ? subjectName : "Your Courses"}
+          </h2>
+          {subjectName && (
+            <button
+              className="btn--ghost"
+              onClick={() => navigate("/courses")}
+              style={{ fontSize: "var(--text-sm)" }}
             >
-              <div style={{ fontSize: '32px' }}>
-                {c.subject__name.toLowerCase().includes('english') ? '📖' : 
-                 c.subject__name.toLowerCase().includes('math') ? '📐' : 
-                 c.subject__name.toLowerCase().includes('science') ? '🧬' : '📓'}
-              </div>
-              <div>
-                <h3 style={{ fontSize: 'var(--text-2xl)', fontWeight: 800 }}>{c.subject__name}</h3>
-                <div className="role-tag role-tag--student" style={{ marginTop: 'var(--space-2)', fontSize: '9px' }}>
-                  Grade {c.grade}
+              View all
+            </button>
+          )}
+        </div>
+
+        {error && <div className="alert alert--error animate-fade-up">{error}</div>}
+
+        {loading ? (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "var(--space-4)",
+          }}>
+            {Array.from({ length: 6 }).map((_, i) => <CourseSkeleton key={i} />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>🎓</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO COURSES AVAILABLE</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Courses will appear here once they are assigned to your class.</span>
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "var(--space-4)",
+          }}>
+            {filtered.map((course, i) => (
+              <div
+                key={course.id}
+                className="glass-card animate-fade-up"
+                style={{ animationDelay: `${i * 50}ms`, cursor: "pointer" }}
+                onClick={() => navigate(courseDetailPath(course.grade, course.subject__name))}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) =>
+                  e.key === "Enter" &&
+                  navigate(courseDetailPath(course.grade, course.subject__name))
+                }
+              >
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "var(--space-3)",
+                }}>
+                  <span className="role-tag role-tag--student" style={{ fontSize: 9 }}>CLASS {course.grade}</span>
+                  {!subjectName && course.subject__name && (
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.03em" }}>
+                      {course.subject__name}
+                    </span>
+                  )}
+                </div>
+                <div style={{
+                  fontFamily:    "var(--font-display)",
+                  fontWeight:    800,
+                  fontSize:      "var(--text-base)",
+                  color:         "var(--text-primary)",
+                  letterSpacing: "-0.02em",
+                  marginBottom:  "var(--space-2)",
+                }}>{course.title}</div>
+                {course.description && (
+                  <p style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "var(--space-3)" }}>
+                    {course.description.length > 100
+                      ? course.description.slice(0, 100) + "…"
+                      : course.description}
+                  </p>
+                )}
+                <div style={{
+                  marginTop:     "auto",
+                  fontSize:      "10px",
+                  fontWeight:    800,
+                  letterSpacing: "0.08em",
+                  color:         "var(--role-student)",
+                }}>
+                  VIEW LESSONS →
                 </div>
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                Mastery and core learning materials for your current curriculum.
-              </p>
-              <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-4)' }}>
-                 <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-primary)' }}>CONTINUE LEARNING</div>
-                 <div style={{ color: 'var(--brand-primary)' }}>→</div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
       <BottomNav />
     </div>
   );
-};
-
-export default CoursesPage;
+}

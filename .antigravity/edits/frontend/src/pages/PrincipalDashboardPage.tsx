@@ -1,22 +1,9 @@
-import React, { useEffect, useState } from "react";
+ // pages.PrincipalDashboardPage
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 import { useAuth } from "../auth/AuthContext";
-import './PrincipalDashboardPage.css';
-
-// ── Icons ────────────────────────────────────────────────────────
-const SvgBuilding2 = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>);
-const SvgUsers = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
-const SvgMapPin = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>);
-const SvgShieldCheck = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>);
-const SvgBookOpen = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>);
-const SvgAward = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>);
-const SvgChevronRight = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m9 18 6-6-6-6"/></svg>);
-const SvgTrendingUp = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>);
-const SvgUserCheck = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>);
-
 
 type ClassData = {
   class_id: number;
@@ -60,7 +47,28 @@ const CLASS_PAGE          = 6;
 const COURSE_PREVIEW      = 6;
 const ASSESSMENT_PREVIEW  = 5;
 
-const PrincipalDashboardPage: React.FC = () => {
+function GridSkeleton({ count = 6, height = 130 }: { count?: number; height?: number }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--space-4)" }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="skeleton-box" style={{ height, borderRadius: "var(--radius-lg)" }} />
+      ))}
+    </div>
+  );
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="section-header animate-fade-up" style={{ marginTop: "var(--space-8)", marginBottom: "var(--space-4)" }}>
+      <div>
+        <h2 className="section-title">{title}</h2>
+        {subtitle && <p className="section-subtitle">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function PrincipalDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -68,265 +76,307 @@ const PrincipalDashboardPage: React.FC = () => {
   const [teachers, setTeachers]       = useState<TeacherData[]>([]);
   const [courses, setCourses]         = useState<CourseAnalytics[]>([]);
   const [assessments, setAssessments] = useState<AssessmentAnalytics[]>([]);
-  
   const [visibleClasses, setVisibleClasses]        = useState(CLASS_PAGE);
   const [showAllCourses, setShowAllCourses]         = useState(false);
   const [showAllAssessments, setShowAllAssessments] = useState(false);
-  
-  const [loading, setLoading] = useState(true);
+  const [loadingClasses, setLoadingClasses]         = useState(true);
+  const [loadingTeachers, setLoadingTeachers]       = useState(true);
+  const [loadingCourses, setLoadingCourses]         = useState(true);
+  const [loadingAssessments, setLoadingAssessments] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const results = await Promise.allSettled([
-          apiGet<ClassData[]>("/teacher/analytics/classes/"),
-          apiGet<TeacherData[]>("/accounts/teachers/"),
-          apiGet<CourseAnalytics[]>("/teacher/analytics/courses/"),
-          apiGet<AssessmentAnalytics[]>("/teacher/analytics/assessments/"),
-        ]);
-        
-        if (!cancelled) {
-          const [c, t, co, a] = results;
-          if (c.status === "fulfilled") setClasses(c.value ?? []);
-          if (t.status === "fulfilled") setTeachers(t.value ?? []);
-          if (co.status === "fulfilled") setCourses(co.value ?? []);
-          if (a.status === "fulfilled") setAssessments(a.value ?? []);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("SIGNAL LOST: Administrative analytics unreachable.");
-          setLoading(false);
-        }
+    Promise.allSettled([
+      apiGet<ClassData[]>("/teacher/analytics/classes/"),
+      apiGet<TeacherData[]>("/accounts/teachers/"),
+      apiGet<CourseAnalytics[]>("/teacher/analytics/courses/"),
+      apiGet<AssessmentAnalytics[]>("/teacher/analytics/assessments/"),
+    ]).then(([classRes, teacherRes, courseRes, assessmentRes]) => {
+      if (classRes.status === "fulfilled")      setClasses(classRes.value ?? []);
+      if (teacherRes.status === "fulfilled")    setTeachers(teacherRes.value ?? []);
+      if (courseRes.status === "fulfilled")     setCourses(courseRes.value ?? []);
+      if (assessmentRes.status === "fulfilled") setAssessments(assessmentRes.value ?? []);
+      if (
+        classRes.status === "rejected" &&
+        teacherRes.status === "rejected" &&
+        courseRes.status === "rejected" &&
+        assessmentRes.status === "rejected"
+      ) {
+        setError("Failed to load dashboard data. Please refresh.");
       }
-    }
-    loadData();
-    return () => { cancelled = true; };
+    }).finally(() => {
+      setLoadingClasses(false);
+      setLoadingTeachers(false);
+      setLoadingCourses(false);
+      setLoadingAssessments(false);
+    });
   }, []);
 
   const totalStudents = classes.reduce((s, c) => s + c.total_students, 0);
-  const avgPassRate = classes.length
+  const avgPassRate   = classes.length
     ? Math.round(classes.reduce((s, c) => s + c.pass_rate, 0) / classes.length)
     : 0;
 
-  const shownClasses = classes.slice(0, visibleClasses);
-  const hasMoreClasses = visibleClasses < classes.length;
-  const shownCourses = showAllCourses ? courses : courses.slice(0, COURSE_PREVIEW);
+  const shownClasses     = classes.slice(0, visibleClasses);
+  const hasMoreClasses   = visibleClasses < classes.length;
+  const shownCourses     = showAllCourses     ? courses     : courses.slice(0, COURSE_PREVIEW);
   const shownAssessments = showAllAssessments ? assessments : assessments.slice(0, ASSESSMENT_PREVIEW);
-
-  if (loading) {
-    return (
-      <div className="page-shell">
-        <TopBar title="Administrative Terminal" />
-        <main className="page-content has-bottom-nav">
-          <div className="skeleton-stack animate-pulse-subtle">
-             <div className="skeleton-box" style={{ height: '180px', marginBottom: '30px' }} />
-             <div className="skeleton-box" style={{ height: '400px' }} />
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="page-shell">
-      <TopBar title="Executive Interface" />
-      <main className="page-content page-enter has-bottom-nav principal-dash-layout">
+      <TopBar title="Principal" />
+      <main className="page-content page-enter">
 
-        {/* Institution Banner */}
-        <section className="institution-nexus glass-card animate-fade-up">
-           <div className="inst-header">
-              <div className="inst-info">
-                 <span className="inst-label">AUTHORITY DOMAIN</span>
-                 <h1 className="inst-name">{user?.institution || "UNIDENTIFIED INSTITUTION"}</h1>
-                 <div className="inst-sub">
-                    <SvgMapPin size={12} /> {user?.district || "Unknown"} District Proxy
-                 </div>
+        {/* Institution banner */}
+        {user?.institution && (
+          <div className="glass-card animate-fade-up" style={{
+            marginBottom: "var(--space-6)",
+            border: "1px solid rgba(245,158,11,0.2)",
+            background: "linear-gradient(135deg, rgba(245,158,11,0.06) 0%, var(--glass-bg) 60%)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-4)" }}>
+              <div>
+                <div className="role-tag role-tag--principal" style={{ marginBottom: "var(--space-2)" }}>🏫 YOUR INSTITUTION</div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em" }}>
+                  {user.institution}
+                </h2>
+                {user.district && (
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>{user.district} District</p>
+                )}
               </div>
-              <button className="btn--secondary sm" onClick={() => navigate("/principal/users")}>
-                 <SvgShieldCheck size={14} /> MANAGE JOIN CODES
-              </button>
-           </div>
+              {!loadingClasses && (
+                <div style={{ display: "flex", gap: "var(--space-6)", flexWrap: "wrap" }}>
+                  {[
+                    { value: classes.length,    label: "Classes",  color: "var(--text-primary)" },
+                    { value: totalStudents,     label: "Students", color: "var(--role-student)" },
+                    { value: `${avgPassRate}%`, label: "Avg Pass", color: avgPassRate >= 70 ? "var(--role-student)" : "var(--warning)" },
+                    { value: teachers.length,   label: "Teachers", color: "var(--role-teacher)" },
+                  ].map(({ value, label, color }, idx, arr) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 800, color, letterSpacing: "-0.03em" }}>{value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-muted)" }}>{label.toUpperCase()}</div>
+                      </div>
+                      {idx < arr.length - 1 && (
+                        <div style={{ width: 1, height: 40, background: "var(--glass-border)" }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-           <div className="inst-metrics">
-              <div className="inst-stat">
-                 <span className="inst-val">{classes.length}</span>
-                 <span className="inst-lbl">CLASSES</span>
-              </div>
-              <div className="inst-stat">
-                 <span className="inst-val" style={{ color: 'var(--role-student)' }}>{totalStudents}</span>
-                 <span className="inst-lbl">STUDENTS</span>
-              </div>
-              <div className="inst-stat">
-                 <span className="inst-val" style={{ color: avgPassRate >= 70 ? 'var(--role-student)' : 'var(--warning)' }}>{avgPassRate}%</span>
-                 <span className="inst-lbl">AVG PASS</span>
-              </div>
-              <div className="inst-stat">
-                 <span className="inst-val" style={{ color: 'var(--role-teacher)' }}>{teachers.length}</span>
-                 <span className="inst-lbl">TEACHERS</span>
-              </div>
-           </div>
-        </section>
-
-        {error && <div className="alert alert--error">{error}</div>}
-
-        {/* Classes Nexus */}
-        <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '50ms' }}>
-           <div className="nexus-header-text">
-              <h2><SvgBuilding2 size={16} color="var(--role-principal)" /> CLASSROOM CLUSTERS</h2>
-           </div>
+        {/* Quick Actions */}
+        <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-8)", flexWrap: "wrap" }}>
+          <button className="btn--secondary" onClick={() => navigate("/principal/users")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Manage Join Codes
+          </button>
         </div>
 
-        <div className="nexus-grid">
-           {shownClasses.map((c, i) => {
-             const passColor = c.pass_rate >= 70 ? "var(--role-student)" : c.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
-             return (
-               <div key={c.class_id} className="glass-card principal-card clickable animate-fade-up"
+        {error && <div className="alert alert--error animate-fade-up">{error}</div>}
+
+        {/* ── Classes ──────────────────────────────────────────── */}
+        <SectionHeader title="Classes" subtitle="Click any class to view student breakdown" />
+
+        {loadingClasses ? (
+          <GridSkeleton count={6} height={130} />
+        ) : classes.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>🏫</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO CLASSES YET</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Classes will appear once they are set up.</span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+              {shownClasses.map((c, i) => {
+                const passColor = c.pass_rate >= 70 ? "var(--role-student)"
+                  : c.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
+                return (
+                  <div
+                    key={c.class_id}
+                    className="glass-card animate-fade-up"
+                    style={{ animationDelay: `${i * 40}ms`, cursor: "pointer" }}
                     onClick={() => navigate(`/principal/classes/${c.class_id}`)}
-                    style={{ animationDelay: `${i * 30}ms` }}>
-                  <div className="card-header">
-                     <span className="metric-label">SECTOR {c.class_id}</span>
-                     <SvgChevronRight size={14} color="var(--text-dim)" />
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(`/principal/classes/${c.class_id}`)}
+                  >
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>CLASS</div>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", fontWeight: 800, color: "var(--text-primary)", marginBottom: "var(--space-4)", letterSpacing: "-0.03em" }}>
+                      {c.class_name}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                      <span>{c.total_students} students</span>
+                      <span style={{ fontWeight: 800, color: passColor }}>{c.pass_rate}% pass</span>
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${c.pass_rate}%`, background: passColor, borderRadius: 99, transition: "width 0.6s" }} />
+                    </div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-3)" }}>
+                      {c.total_attempts} assessment attempts
+                    </div>
                   </div>
-                  <div className="card-title">CLASS {c.class_name}</div>
-                  
-                  <div className="metric-stats" style={{ margin: 'var(--space-4) 0' }}>
-                     <div className="stat-unit">
-                        <span className="stat-val">{c.total_students}</span>
-                        <span className="stat-lbl">NODES</span>
-                     </div>
-                     <div className="stat-unit" style={{ textAlign: 'right' }}>
-                        <span className="stat-val" style={{ color: passColor }}>{c.pass_rate}%</span>
-                        <span className="stat-lbl">VALIDATION</span>
-                     </div>
-                  </div>
-
-                  <div className="pass-rate-nexus">
-                     <div className="rate-bar-container">
-                        <div className="rate-bar-fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
-                     </div>
-                  </div>
-                  <span className="stat-lbl" style={{ marginTop: 'var(--space-2)' }}>{c.total_attempts} Attempts registered</span>
-               </div>
-             );
-           })}
-        </div>
-        {hasMoreClasses && (
-          <button className="btn--ghost sm full" onClick={() => setVisibleClasses(v => v + CLASS_PAGE)} style={{ marginTop: 'var(--space-4)' }}>
-             EXPAND CLASS CLUSTERS ({classes.length - visibleClasses} remaining)
-          </button>
+                );
+              })}
+            </div>
+            {hasMoreClasses && (
+              <button className="btn--secondary" onClick={() => setVisibleClasses((v) => v + CLASS_PAGE)} style={{ marginBottom: "var(--space-4)" }}>
+                Load more ({classes.length - visibleClasses} remaining)
+              </button>
+            )}
+          </>
         )}
 
-        {/* Course Analytics */}
-        <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '100ms' }}>
-           <div className="nexus-header-text">
-              <h2><SvgBookOpen size={16} color="var(--role-principal)" /> CURRICULUM SATURATION</h2>
-           </div>
-        </div>
+        {/* ── Course Completion ────────────────────────────────── */}
+        <SectionHeader
+          title="Course Completion"
+          subtitle={`${courses.length} courses across your school${courses.length > COURSE_PREVIEW ? ` — showing ${COURSE_PREVIEW}` : ""}`}
+        />
 
-        <div className="nexus-grid">
-           {shownCourses.map((course, i) => (
-             <div key={course.course_id} className="glass-card principal-card clickable animate-fade-up"
+        {loadingCourses ? (
+          <GridSkeleton count={6} height={110} />
+        ) : courses.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>📚</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO COURSE DATA YET</p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+              {shownCourses.map((course, i) => (
+                <div
+                  key={course.course_id}
+                  className="glass-card animate-fade-up"
+                  style={{ animationDelay: `${i * 30}ms`, cursor: "pointer" }}
                   onClick={() => navigate(`/principal/courses/${course.course_id}/lessons`)}
-                  style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="card-header">
-                   <span className="role-tag role-tag--student">GRADE {course.grade}</span>
-                   <span className="stat-lbl">{course.subject}</span>
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(`/principal/courses/${course.course_id}/lessons`)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
+                    <span className="role-tag role-tag--student" style={{ fontSize: 9 }}>CLASS {course.grade}</span>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{course.subject}</span>
+                  </div>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)", marginBottom: "var(--space-3)", letterSpacing: "-0.01em" }}>
+                    {course.title}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                    <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
+                    <span style={{ fontWeight: 800, color: course.percentage >= 70 ? "var(--role-student)" : "var(--role-teacher)" }}>{course.percentage}%</span>
+                  </div>
+                  <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${course.percentage}%`, background: course.percentage >= 70 ? "var(--role-student)" : "var(--role-teacher)", borderRadius: 99, transition: "width 0.6s" }} />
+                  </div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--role-principal)", marginTop: "var(--space-2)", fontWeight: 600 }}>Manage lessons →</div>
                 </div>
-                <div className="card-title" style={{ fontSize: '15px' }}>{course.title}</div>
-                
-                <div className="metric-stats" style={{ margin: 'var(--space-4) 0' }}>
-                   <div className="stat-unit">
-                      <span className="stat-val">{course.completed_lessons} / {course.total_lessons}</span>
-                      <span className="stat-lbl">UNITS SYNCED</span>
-                   </div>
-                   <div className="stat-unit" style={{ textAlign: 'right' }}>
-                      <span className="stat-val" style={{ color: 'var(--role-student)' }}>{course.percentage}%</span>
-                      <span className="stat-lbl">COMPLETION</span>
-                   </div>
-                </div>
-
-                <div className="pass-rate-nexus">
-                   <div className="rate-bar-container">
-                      <div className="rate-bar-fill" style={{ width: `${course.percentage}%`, background: 'var(--role-student)' }} />
-                   </div>
-                   <SvgTrendingUp size={12} color="var(--role-principal)" />
-                </div>
-             </div>
-           ))}
-        </div>
-        {courses.length > COURSE_PREVIEW && (
-          <button className="btn--ghost sm full" onClick={() => setShowAllCourses(v => !v)} style={{ marginTop: 'var(--space-4)' }}>
-             {showAllCourses ? "COLLAPSE CURRICULUM" : `EXPAND FULL CURRICULUM (${courses.length})`}
-          </button>
+              ))}
+            </div>
+            {courses.length > COURSE_PREVIEW && (
+              <button className="btn--secondary" onClick={() => setShowAllCourses((v) => !v)} style={{ marginBottom: "var(--space-4)" }}>
+                {showAllCourses ? "Show less" : `Show all ${courses.length} courses`}
+              </button>
+            )}
+          </>
         )}
 
-        {/* Assessment Analytics */}
-        <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '150ms' }}>
-           <div className="nexus-header-text">
-              <h2><SvgAward size={16} color="var(--role-principal)" /> EVALUATION PERFORMANCE</h2>
-           </div>
-        </div>
+        {/* ── Assessment Analytics ─────────────────────────────── */}
+        <SectionHeader
+          title="Assessment Performance"
+          subtitle={`${assessments.length} assessments${assessments.length > ASSESSMENT_PREVIEW ? ` — showing top ${ASSESSMENT_PREVIEW}` : ""}`}
+        />
 
-        <div className="nexus-grid">
-           {shownAssessments.map((a, i) => (
-             <div key={a.assessment_id} className="glass-card principal-card animate-fade-up"
-                  style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="card-header">
-                   <span className="stat-lbl">{a.subject || a.course}</span>
-                   <span className="role-tag" style={{ background: 'var(--role-student)11', color: 'var(--role-student)' }}>PEAK {a.pass_rate}%</span>
+        {loadingAssessments ? (
+          <GridSkeleton count={5} height={140} />
+        ) : assessments.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>📋</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO ASSESSMENT DATA YET</p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+              {shownAssessments.map((a, i) => {
+                const passColor = a.pass_rate >= 70 ? "var(--role-student)"
+                  : a.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
+                return (
+                  <div key={a.assessment_id} className="glass-card animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                      {(a.subject ?? a.course).toUpperCase()}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)", marginBottom: "var(--space-4)", letterSpacing: "-0.01em" }}>
+                      {a.title}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                      {[
+                        { label: "Attempts",  value: a.total_attempts },
+                        { label: "Students",  value: a.unique_students },
+                        { label: "Pass Rate", value: `${a.pass_rate}%` },
+                      ].map(({ label, value }) => (
+                        <div key={label} style={{ textAlign: "center" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-base)", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>{value}</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-muted)" }}>{label.toUpperCase()}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${a.pass_rate}%`, background: passColor, borderRadius: 99, transition: "width 0.6s" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {assessments.length > ASSESSMENT_PREVIEW && (
+              <button className="btn--secondary" onClick={() => setShowAllAssessments((v) => !v)} style={{ marginBottom: "var(--space-4)" }}>
+                {showAllAssessments ? "Show less" : `Show all ${assessments.length} assessments`}
+              </button>
+            )}
+          </>
+        )}
+
+        {/* ── Teachers ─────────────────────────────────────────── */}
+        <SectionHeader title="Teachers" subtitle="All teachers assigned to your institution" />
+
+        {loadingTeachers ? (
+          <GridSkeleton count={4} height={80} />
+        ) : teachers.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>👩‍🏫</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO TEACHERS YET</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "var(--space-3)" }}>
+            {teachers.map((t, i) => (
+              <div key={t.id} className="glass-card animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%",
+                    background: "rgba(16,185,129,0.1)",
+                    border: "1px solid rgba(16,185,129,0.3)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "var(--font-display)", fontSize: "var(--text-xs)",
+                    fontWeight: 800, color: "var(--role-teacher)", flexShrink: 0,
+                  }}>
+                    {t.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{t.username}</div>
+                    <div className="role-tag role-tag--teacher" style={{ fontSize: 9, marginTop: 4 }}>TEACHER</div>
+                  </div>
                 </div>
-                <div className="card-title" style={{ fontSize: '15px' }}>{a.title}</div>
-
-                <div className="assessment-nexus" style={{ margin: 'var(--space-4) 0' }}>
-                   <div className="a-stat">
-                      <div className="a-val">{a.total_attempts}</div>
-                      <div className="a-lbl">ATTEMPTS</div>
-                   </div>
-                   <div className="a-stat">
-                      <div className="a-val">{a.unique_students}</div>
-                      <div className="a-lbl">NODES</div>
-                   </div>
-                   <div className="a-stat">
-                      <div className="a-val" style={{ color: 'var(--role-student)' }}>{a.pass_rate}%</div>
-                      <div className="a-lbl">PASS</div>
-                   </div>
-                </div>
-
-                <div className="pass-rate-nexus">
-                   <div className="rate-bar-container">
-                      <div className="rate-bar-fill" style={{ width: `${a.pass_rate}%`, background: a.pass_rate >= 70 ? 'var(--role-student)' : 'var(--warning)' }} />
-                   </div>
-                </div>
-             </div>
-           ))}
-        </div>
-
-        {/* Teachers List */}
-        <div className="section-nexus-header animate-fade-up" style={{ animationDelay: '200ms' }}>
-           <div className="nexus-header-text">
-              <h2><SvgUserCheck size={16} color="var(--role-principal)" /> PERSONNEL REGISTRY</h2>
-           </div>
-        </div>
-
-        <div className="teacher-grid">
-           {teachers.map((t, i) => (
-             <div key={t.id} className="glass-card teacher-card animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="teacher-avatar">{t.username.slice(0, 2).toUpperCase()}</div>
-                <div className="teacher-info">
-                   <span className="teacher-name">{t.username}</span>
-                   <span className="teacher-role">INSTRUCTOR</span>
-                </div>
-             </div>
-           ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
       </main>
-      <BottomNav />
     </div>
   );
-};
-
-export default PrincipalDashboardPage;
+}

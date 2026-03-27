@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getLessonDetail, type LessonDetail } from "../services/content";
 import { apiPatch } from "../services/api";
@@ -6,29 +6,12 @@ import { extractYouTubeId, extractVimeoId } from "../services/media";
 import { saveLessonOffline, isLessonSavedOffline, removeOfflineLesson, type OfflineLesson } from "../services/offline";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
-import { 
-  ChevronLeft, 
-  Download, 
-  Play, 
-  CheckCircle2, 
-  FileText, 
-  Video, 
-  BookOpen, 
-  CloudOff,
-  Clock,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  User,
-  ShieldAlert
-} from 'lucide-react';
-import './LessonPage.css';
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 
 function renderMarkdown(raw: string): string {
   if (!raw) return "";
-  const lines = raw.split("\n");
+  const lines   = raw.split("\n");
   const out: string[] = [];
   let listType: "ul" | "ol" | null = null;
 
@@ -72,7 +55,7 @@ function renderMarkdown(raw: string): string {
       }
       out.push(`<li>${inline(line.replace(/^\d+\. /, ""))}</li>`);
     } else if (line.trim() === "") {
-      // blank line skip
+      // blank line — skip
     } else {
       out.push(`<p>${inline(line)}</p>`);
     }
@@ -84,114 +67,87 @@ function renderMarkdown(raw: string): string {
 
 // ── Video embed ───────────────────────────────────────────────────────────────
 
-function VideoEmbed({
-  url,
-  thumbnail,
-  duration,
-}: {
-  url: string;
-  thumbnail?: string | null;
-  duration?: string;
+function VideoEmbed({ url, thumbnail, duration }: {
+  url: string; thumbnail?: string | null; duration?: string;
 }) {
   const [playing, setPlaying] = useState(false);
   const ytId    = extractYouTubeId(url);
   const vimeoId = extractVimeoId(url);
 
-  const isDirectVideo =
-    !ytId &&
-    !vimeoId &&
-    (url.includes(".mp4") ||
-      url.includes(".webm") ||
-      url.includes(".mov") ||
-      url.includes("r2.dev") ||
-      url.includes("r2.cloudflarestorage.com"));
+  const isDirectVideo = !ytId && !vimeoId &&
+    (url.includes(".mp4") || url.includes(".webm") || url.includes(".mov") ||
+     url.includes("r2.dev") || url.includes("r2.cloudflarestorage.com"));
 
   if (isDirectVideo) {
     return (
-      <div className="lesson-video-card glass-card animate-fade-up">
-        <video
-          controls
-          controlsList="nodownload"
-          preload="metadata"
-          poster={thumbnail ?? undefined}
-          className="lesson-video-player"
-        >
-          <source
-            src={url}
-            type={url.includes(".webm") ? "video/webm" : "video/mp4"}
-          />
-          Sync Failed: Hardware interface unsupported.
+      <div style={{ position: "relative", width: "100%", borderRadius: "var(--radius-lg)", overflow: "hidden", marginBottom: "var(--space-6)", background: "#000", boxShadow: "0 16px 48px rgba(0,0,0,0.4)" }}>
+        <video controls controlsList="nodownload" preload="metadata" poster={thumbnail ?? undefined} style={{ width: "100%", display: "block", maxHeight: "70vh" }}>
+          <source src={url} type={url.includes(".webm") ? "video/webm" : "video/mp4"} />
+          Your browser does not support video playback.
         </video>
-
-        <a href={url} download className="lesson-download-btn">
-          <Download size={14} /> DOWNLOAD
+        <a href={url} download className="btn--secondary" style={{ position: "absolute", top: "var(--space-3)", right: "var(--space-3)", padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", background: "rgba(13,17,23,0.8)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "var(--space-1)", borderRadius: "var(--radius-sm)", textDecoration: "none" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          Download
         </a>
-
-        {duration && <span className="lesson-duration-tag">{duration}</span>}
-      </div>
-    );
-  }
-
-  // YouTube / Vimeo embed
-  if (ytId || vimeoId) {
-    const embedSrc = ytId
-      ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
-      : `https://player.vimeo.com/video/${vimeoId}?autoplay=1`;
-
-    const thumbSrc =
-      thumbnail || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : "");
-
-    return (
-      <div className="lesson-video-card glass-card animate-fade-up">
-        {playing ? (
-          <iframe
-            src={embedSrc}
-            title="Lesson transmission"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="lesson-video-iframe"
-          />
-        ) : (
-          <button
-            className="lesson-video-placeholder"
-            onClick={() => setPlaying(true)}
-          >
-            {thumbSrc && <img src={thumbSrc} alt="Thumbnail" className="lesson-video-poster" />}
-            <div className="lesson-video-overlay" />
-            <div className="lesson-play-btn">
-               <Play size={24} fill="white" />
-            </div>
-            {duration && <span className="lesson-duration-tag">{duration}</span>}
-          </button>
+        {duration && (
+          <span style={{ position: "absolute", bottom: "var(--space-3)", right: "var(--space-3)", background: "rgba(0,0,0,0.75)", color: "white", fontSize: "var(--text-xs)", fontWeight: 600, padding: "2px 8px", borderRadius: "var(--radius-full)", fontFamily: "var(--font-display)" }}>
+            {duration}
+          </span>
         )}
       </div>
     );
   }
 
-  // Fallback
+  if (!ytId && !vimeoId) {
+    return (
+      <div className="glass-card" style={{ marginBottom: "var(--space-6)" }}>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="btn--primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+          Watch Video
+        </a>
+      </div>
+    );
+  }
+
+  const embedSrc = ytId
+    ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
+    : `https://player.vimeo.com/video/${vimeoId}?autoplay=1`;
+
+  const thumbSrc = thumbnail || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : "");
+
   return (
-    <div className="glass-card animate-fade-up lesson-link-card">
-       <Video size={32} style={{ opacity: 0.3 }} />
-       <p>EXTERNAL BROADCAST DETECTED</p>
-       <a href={url} target="_blank" rel="noopener noreferrer" className="btn--primary">
-         LAUNCH EXTERNAL SYNC <ExternalLink size={14} />
-       </a>
+    <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: "var(--radius-lg)", overflow: "hidden", marginBottom: "var(--space-6)", background: "#000", boxShadow: "0 16px 48px rgba(0,0,0,0.4)" }}>
+      {playing ? (
+        <iframe src={embedSrc} title="Lesson video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }} />
+      ) : (
+        <button aria-label="Play video" onClick={() => setPlaying(true)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+          {thumbSrc && <img src={thumbSrc} alt="Video thumbnail" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "var(--space-3)" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+            </div>
+            {duration && (
+              <span style={{ color: "white", fontSize: "var(--text-sm)", fontFamily: "var(--font-display)", fontWeight: 600, background: "rgba(0,0,0,0.6)", padding: "var(--space-1) var(--space-3)", borderRadius: "var(--radius-full)" }}>
+                {duration}
+              </span>
+            )}
+          </div>
+        </button>
+      )}
     </div>
   );
 }
 
-// ── Save Offline Component ───────────────────────────────────────────────────
+// ── Save Offline button ──────────────────────────────────────────────────────
 
 function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [saving, setSaving]   = useState(false);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    isLessonSavedOffline(lesson.id).then((v) => {
-      setSaved(v);
-      setChecked(true);
-    });
+    isLessonSavedOffline(lesson.id).then((v) => { setSaved(v); setChecked(true); });
   }, [lesson.id]);
 
   if (!checked) return null;
@@ -204,97 +160,85 @@ function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
         setSaved(false);
       } else {
         const offlineData: OfflineLesson = {
-          id: lesson.id,
-          courseId: lesson.course?.id ?? 0,
-          title: lesson.title,
-          content: lesson.content ?? "",
-          pdfUrl: lesson.pdf_url ?? "",
-          order: 0,
-          savedAt: new Date().toISOString(),
+          id: lesson.id, courseId: lesson.course?.id ?? 0,
+          title: lesson.title, content: lesson.content ?? "",
+          pdfUrl: lesson.pdf_url ?? "", order: 0, savedAt: new Date().toISOString(),
         };
         await saveLessonOffline(offlineData);
         setSaved(true);
       }
-    } catch { /* fail silently */ }
+    } catch { /* silently fail */ }
     finally { setSaving(false); }
   };
 
   return (
-    <div className={`offline-nexus glass-card ${saved ? 'offline-nexus--active' : ''}`}>
-       <div className="offline-nexus__info">
-          <div className="offline-icon">
-            {saved ? <CheckCircle2 size={18} /> : <CloudOff size={18} />}
-          </div>
-          <div className="offline-text">
-             <span className="offline-status">{saved ? "OFFLINE VECTOR SYNCHED" : "OFFLINE AVAILABILITY"}</span>
-             <p className="offline-message">{saved ? "Unit accessible during signal blackout." : "Synchronize this unit to local cache."}</p>
-          </div>
-       </div>
-       <button 
-         className={saved ? "btn--ghost sm" : "btn--primary sm"}
-         onClick={handleToggle}
-         disabled={saving}
-       >
-         {saving ? "SYNCING..." : saved ? "DE-SYNCHRONIZE" : "SYNC OFFLINE"}
-       </button>
+    <div className="glass-card animate-fade-up" style={{ marginTop: "var(--space-6)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", border: `1px solid ${saved ? "rgba(61,214,140,0.25)" : "var(--glass-border)"}`, background: saved ? "rgba(61,214,140,0.05)" : "var(--glass-bg)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+        <span style={{ fontSize: 20 }}>{saved ? "✅" : "📥"}</span>
+        <div>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)" }}>{saved ? "Saved for offline" : "Save for offline"}</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{saved ? "Available without internet" : "Read this lesson anytime"}</div>
+        </div>
+      </div>
+      <button className={saved ? "btn--ghost" : "btn--secondary"} onClick={handleToggle} disabled={saving} style={{ fontSize: "var(--text-xs)", padding: "var(--space-2) var(--space-3)" }}>
+        {saving ? "Saving…" : saved ? "Remove" : "Save"}
+      </button>
     </div>
   );
 }
 
-// ── PDF Viewer Component ─────────────────────────────────────────────────────
+// ── PDF viewer ────────────────────────────────────────────────────────────────
 
 function PdfViewer({ url }: { url: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="pdf-nexus animate-fade-up">
-       <div className={`pdf-nexus__header glass-card ${expanded ? 'expanded' : ''}`}>
-          <div className="pdf-nexus__identity">
-             <div className="pdf-icon">
-                <FileText size={18} />
-             </div>
-             <div className="pdf-text">
-                <span className="pdf-label">DOCUMENTATION DATA</span>
-                <p className="pdf-title">LESSON_SUPPLEMENT.PDF</p>
-             </div>
+    <div style={{ marginBottom: "var(--space-6)" }}>
+      <div className="glass-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: expanded ? "var(--radius-lg) var(--radius-lg) 0 0" : "var(--radius-lg)", borderBottom: expanded ? "none" : undefined }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <div style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", background: "rgba(248,81,73,0.12)", border: "1px solid rgba(248,81,73,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
           </div>
-          <div className="pdf-nexus__actions">
-             <a href={url} target="_blank" rel="noopener noreferrer" className="btn--ghost sm">OPEN</a>
-             <button className="btn--primary sm" onClick={() => setExpanded(!expanded)}>
-                {expanded ? <EyeOff size={14} /> : <Eye size={14} />} {expanded ? "HIDE" : "PREVIEW"}
-             </button>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>Lesson PDF</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Study material</div>
           </div>
-       </div>
+        </div>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn--secondary" style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", textDecoration: "none", borderRadius: "var(--radius-sm)" }}>Open</a>
+          <button className="btn--ghost" style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)" }} onClick={() => setExpanded(!expanded)}>
+            {expanded ? "Hide" : "Preview"}
+          </button>
+        </div>
+      </div>
 
-       {expanded && (
-         <div className="pdf-preview-container animate-fade-in">
-            <iframe src={url} title="PDF Transmission" className="pdf-iframe" />
-         </div>
-       )}
+      {expanded && (
+        <iframe src={url} title="Lesson PDF" style={{ width: "100%", height: 600, border: "1px solid var(--glass-border)", borderTop: "none", borderRadius: "0 0 var(--radius-lg) var(--radius-lg)", background: "white" }} />
+      )}
     </div>
   );
 }
 
-// ── Main Page ───────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
-const LessonPage: React.FC = () => {
+export default function LessonPage() {
   const { lessonId } = useParams();
-  const navigate = useNavigate();
+  const navigate     = useNavigate();
 
-  const [lesson, setLesson] = useState<LessonDetail | null>(null);
+  const [lesson, setLesson]   = useState<LessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
-  const [marked, setMarked] = useState(false);
+  const [marked, setMarked]   = useState(false);
 
   useEffect(() => {
     if (!lessonId) return;
     getLessonDetail(Number(lessonId))
-      .then((data) => {
-        setLesson(data);
-        setMarked(data.completed);
-      })
-      .catch(() => setError("SIGNAL INTERFERENCE: Unit unreachable."))
+      .then((data) => { setLesson(data); setMarked(data.completed); })
+      .catch(() => setError("Could not load this lesson."))
       .finally(() => setLoading(false));
   }, [lessonId]);
 
@@ -306,7 +250,7 @@ const LessonPage: React.FC = () => {
       setMarked(true);
       setLesson((prev) => (prev ? { ...prev, completed: true } : null));
     } catch {
-      setError("TRANSMISSION ERROR: Progress sync failed.");
+      setError("Could not mark as complete. Please try again.");
     } finally {
       setMarking(false);
     }
@@ -316,12 +260,12 @@ const LessonPage: React.FC = () => {
     return (
       <div className="page-shell">
         <TopBar />
-        <main className="page-content has-bottom-nav">
-          <div className="lesson-skeleton animate-pulse-subtle">
-             <div className="skeleton-line title" />
-             <div className="skeleton-box video" />
-             <div className="skeleton-line" />
-             <div className="skeleton-line" />
+        <main className="page-content page-content--narrow">
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", paddingTop: "var(--space-8)" }}>
+            <div className="skeleton-box" style={{ height: 32, width: "60%", borderRadius: "var(--radius-sm)" }} />
+            <div className="skeleton-box" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />
+            <div className="skeleton-box" style={{ height: 20, width: "90%", borderRadius: "var(--radius-sm)" }} />
+            <div className="skeleton-box" style={{ height: 20, width: "80%", borderRadius: "var(--radius-sm)" }} />
           </div>
         </main>
       </div>
@@ -332,45 +276,47 @@ const LessonPage: React.FC = () => {
     return (
       <div className="page-shell">
         <TopBar />
-        <main className="page-content">
-          <div className="glass-card error-dock">
-             <ShieldAlert size={16} /> {error || "DATA VOID: Unit not found."}
-          </div>
-          <button className="btn--ghost sm" onClick={() => navigate(-1)} style={{ marginTop: 'var(--space-6)' }}>
-            <ChevronLeft size={14} /> BACK TO ARCHIVE
-          </button>
+        <main className="page-content page-content--narrow">
+          <div className="alert alert--error">{error ?? "Lesson not found."}</div>
+          <button className="btn--ghost" onClick={() => navigate(-1)} style={{ marginTop: "var(--space-4)" }}>← Go back</button>
         </main>
       </div>
     );
   }
 
-  const hasVideo = !!(lesson.video_url || lesson.hls_manifest_url);
-  const hasPdf = !!lesson.pdf_url;
-  const hasContent = !!lesson.content?.trim();
+  const hasVideo   = !!(lesson.video_url || lesson.hls_manifest_url);
+  const hasPdf     = !!lesson.pdf_url;
+  const hasContent = !!(lesson.content?.trim());
 
   return (
     <div className="page-shell">
-      <TopBar title="Knowledge Unit" />
-      
-      <main className="page-content page-enter has-bottom-nav lesson-layout">
-        <button className="nav-back-btn" onClick={() => navigate(-1)}>
-          <ChevronLeft size={16} /> BACK
+      <TopBar />
+      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+
+        <button className="btn--ghost animate-fade-up" onClick={() => navigate(-1)} style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-2)", color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+          Back
         </button>
 
-        {/* Content Header */}
-        <header className="lesson-header animate-fade-up">
-           <div className="lesson-header__meta">
-              <div className="role-tag role-tag--teacher">LECTURE UNIT</div>
-              {marked && <div className="status-badge mastery"><CheckCircle2 size={12} /> MASTERY ACQUIRED</div>}
-           </div>
-           <h1 className="text-gradient display-md">{lesson.title}</h1>
-           <div className="lesson-header__stats">
-              <div className="stat-pill"><BookOpen size={12} /> {lesson.course?.title || "ARCHIVE"}</div>
-              <div className="stat-pill"><Clock size={12} /> {lesson.video_duration || "READING"}</div>
-           </div>
-        </header>
+        {/* Title + badges */}
+        <div className="animate-fade-up" style={{ marginBottom: "var(--space-6)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
+            {marked && (
+              <span className="role-tag role-tag--student" style={{ fontSize: 9 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><polyline points="20 6 9 17 4 12" /></svg>
+                COMPLETED
+              </span>
+            )}
+            {hasVideo   && <span className="role-tag role-tag--teacher" style={{ fontSize: 9 }}>VIDEO</span>}
+            {hasPdf     && <span className="role-tag role-tag--principal" style={{ fontSize: 9 }}>PDF</span>}
+            {hasContent && <span className="role-tag" style={{ fontSize: 9 }}>READING</span>}
+          </div>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.2 }}>
+            {lesson.title}
+          </h1>
+        </div>
 
-        {/* Media Zone */}
+        {/* Video */}
         {hasVideo && (
           <VideoEmbed
             url={(lesson.video_url ?? lesson.hls_manifest_url)!}
@@ -379,73 +325,69 @@ const LessonPage: React.FC = () => {
           />
         )}
 
+        {/* PDF */}
         {hasPdf && <PdfViewer url={lesson.pdf_url!} />}
 
-        {/* Textual Transmission */}
+        {/* Markdown content */}
         {hasContent && (
-          <section className="lesson-markdown-body page-enter" style={{ animationDelay: '100ms' }}>
-             <div dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }} />
-          </section>
+          <div className="lesson-markdown animate-fade-up" dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }} />
         )}
 
-        {/* Empty Well */}
+        {/* Empty state */}
         {!hasVideo && !hasPdf && !hasContent && (
-          <div className="glass-card empty-well">
-             <ShieldAlert size={40} style={{ opacity: 0.2, marginBottom: '20px' }} />
-             <p style={{ fontWeight: 800, fontSize: '10px' }}>UNIT DEVOID OF DATA</p>
-             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Transmission scheduled for future epoch.</span>
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>🚧</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>CONTENT COMING SOON</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>This lesson has not been filled in yet.</span>
           </div>
         )}
 
-        {/* Teacher Annotations */}
+        {/* Teacher notes */}
         {lesson.notes && lesson.notes.length > 0 && (
-          <section className="teacher-notes-section animate-fade-up">
-             <div className="section-divider">
-                <span>INSTRUCTOR ANNOTATIONS</span>
-             </div>
-             {lesson.notes.map(note => (
-               <div key={note.id} className="note-card glass-card">
-                  <div className="note-card__header">
-                     <User size={12} /> {note.author__username.toUpperCase()}
-                  </div>
-                  <p className="note-content">{note.content}</p>
-               </div>
-             ))}
-          </section>
+          <div className="animate-fade-up" style={{ marginTop: "var(--space-8)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-4)", paddingBottom: "var(--space-3)", borderBottom: "1px solid var(--glass-border)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--role-teacher)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+              <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--role-teacher)" }}>Teacher Notes</span>
+            </div>
+            {lesson.notes.map((note) => (
+              <div key={note.id} style={{ padding: "var(--space-4)", background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)", borderLeft: "3px solid var(--role-teacher)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-3)" }}>
+                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", whiteSpace: "pre-wrap" }}>{note.content}</p>
+                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>— {note.author__username}</div>
+              </div>
+            ))}
+          </div>
         )}
 
-        {/* Synchronization Nexus (Save Offline) */}
+        {/* Save for Offline */}
         {(lesson.content || lesson.pdf_url) && <SaveOfflineButton lesson={lesson} />}
 
-        {/* Culmination Nexus (Mark Complete) */}
-        <footer className="culmination-nexus animate-fade-up">
-           <div className="glass-card culmination-card">
-              {marked ? (
-                <div className="culmination-success">
-                   <div className="success-icon animate-bounce-subtle">✨</div>
-                   <h3>UNIT CONCLUDED.</h3>
-                   <p>Intelligence integrated into central cortex. Proceed to next nodal point.</p>
-                   <button className="btn--ghost sm" onClick={() => navigate(-1)}>RETURN TO DASHBOARD</button>
-                </div>
-              ) : (
-                <div className="culmination-pending">
-                   <p>Conclude sequence to synchronize progress with central ledger?</p>
-                   <button 
-                     className="btn--primary lg" 
-                     onClick={handleMarkComplete}
-                     disabled={marking}
-                   >
-                     {marking ? "SYNCHRONIZING..." : "CONCLUDE UNIT SEQUENCE"}
-                   </button>
-                </div>
-              )}
-           </div>
-        </footer>
-
+        {/* Mark complete CTA */}
+        <div className="glass-card animate-fade-up" style={{ marginTop: "var(--space-10)", textAlign: "center", border: `1px solid ${marked ? "rgba(61,214,140,0.25)" : "var(--glass-border)"}`, background: marked ? "rgba(61,214,140,0.05)" : "var(--glass-bg)", transition: "all 0.3s" }}>
+          {marked ? (
+            <div>
+              <div style={{ fontSize: 40, marginBottom: "var(--space-3)" }}>🎉</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--role-student)", marginBottom: "var(--space-2)", letterSpacing: "-0.02em" }}>
+                Lesson complete!
+              </div>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>Well done. Keep going!</p>
+              <button className="btn--secondary" onClick={() => navigate(-1)}>← Back to lessons</button>
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+                Finished reading? Mark this lesson as complete to track your progress.
+              </p>
+              <button className="btn--primary" onClick={handleMarkComplete} disabled={marking} style={{ letterSpacing: "0.05em" }}>
+                {marking ? "Saving…" : <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  MARK AS COMPLETE
+                </>}
+              </button>
+            </div>
+          )}
+        </div>
       </main>
       <BottomNav />
     </div>
   );
-};
-
-export default LessonPage;
+}

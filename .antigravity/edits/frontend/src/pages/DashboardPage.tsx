@@ -1,23 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
-import { apiGet } from '../services/api';
-import { getMySummary, type MySummary } from '../services/gamification';
-import { getCourseProgress, type CourseProgress } from '../services/content';
-import { assessmentPath } from '../utils/slugs';
-import TopBar from '../components/TopBar';
-import BottomNav from '../components/BottomNav';
-import './DashboardPage.css';
-
-// ── Icons ────────────────────────────────────────────────────────
-const SvgTrophy = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>);
-const SvgFlame = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>);
-const SvgMedal = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><polyline points="12 18 10.5 16.5 13 16 12 14.5 11 16 8.5 16.5 10.5 18"/></svg>);
-const SvgClock = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
-const SvgAlertCircle = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
-const SvgZap = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>);
-const SvgActivity = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>);
-const SvgArrowUpRight = ({ size=24, color="currentColor", ...props}: any) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>);
+// pages.DashboardPage
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiGet } from "../services/api";
+import { getMySummary, type MySummary } from "../services/gamification";
+import { type AssessmentWithStatus } from "../services/assessments";
+import { getCourseProgress } from "../services/content";
+import { assessmentPath } from "../utils/slugs";
+import TopBar from "../components/TopBar";
+import BottomNav from "../components/BottomNav";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,84 +20,265 @@ type StudentSubject = {
   course_id:         number | null;
 };
 
-type AssessmentWithStatus = {
-  id: number;
-  title: string;
-  grade: number;
-  subject: string;
-  total_marks: number;
-  best_score: number | null;
-  attempt_count: number;
-  passed: boolean;
-};
-
+// Map of courseId → resumeLessonId (null means no progress yet)
 type ResumeMap = Record<number, number | null>;
 
-// ── Components ──────────────────────────────────────────────────────────────
+// ── Skeletons ──────────────────────────────────────────────────────────────
 
-const CircularScore: React.FC<{ pct: number; size?: number }> = ({ pct, size = 48 }) => {
-  const r = (size - 6) / 2;
-  const circ = 2 * Math.PI * r;
-  const filled = circ * pct;
-  const color = pct >= 0.8 ? 'var(--role-student)' : pct >= 0.5 ? 'var(--warning)' : 'var(--error)';
-
+function SubjectCardSkeleton() {
   return (
-    <div className="circular-score" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size/2} cy={size/2} r={r} className="circular-score__bg" strokeWidth={4} />
-        <circle 
-          cx={size/2} cy={size/2} r={r} 
-          className="circular-score__fill" 
-          stroke={color}
-          strokeWidth={4}
-          strokeDasharray={`${filled} ${circ - filled}`}
-          strokeDashoffset={circ / 4}
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="circular-score__text" style={{ color }}>{Math.round(pct * 100)}</span>
+    <div className="glass-card" style={{ minHeight: 140 }}>
+      <div className="skeleton-box" style={{ width: 60, height: 10, borderRadius: 4, marginBottom: "var(--space-3)" }} />
+      <div className="skeleton-box" style={{ width: "75%", height: 18, borderRadius: 4, marginBottom: "var(--space-4)" }} />
+      <div className="skeleton-box" style={{ width: "100%", height: 4, borderRadius: 99, marginBottom: "var(--space-2)" }} />
+      <div className="skeleton-box" style={{ width: 50, height: 12, borderRadius: 4 }} />
     </div>
   );
-};
+}
 
-const SubjectCardSkeleton = () => (
-  <div className="glass-card skeleton-card">
-    <div className="skeleton skeleton--overline" />
-    <div className="skeleton skeleton--title" />
-    <div className="skeleton skeleton--progress" />
-    <div className="skeleton skeleton--button" />
-  </div>
-);
-
-const AssessmentRowSkeleton = () => (
-  <div className="assessment-row-skeleton">
-    <div className="skeleton skeleton--circle" />
-    <div className="skeleton-info">
-      <div className="skeleton skeleton--line-md" />
-      <div className="skeleton skeleton--line-sm" />
+function AssessmentRowSkeleton() {
+  return (
+    <div style={{
+      display:      "flex",
+      alignItems:   "center",
+      gap:          "var(--space-4)",
+      padding:      "var(--space-3) var(--space-4)",
+      borderBottom: "1px solid var(--glass-border)",
+    }}>
+      <div className="skeleton-box" style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div className="skeleton-box" style={{ height: 13, width: "65%", borderRadius: 4, marginBottom: 6 }} />
+        <div className="skeleton-box" style={{ height: 10, width: "40%", borderRadius: 4 }} />
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
-const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+// ── Subject card ───────────────────────────────────────────────────────────
+
+function SubjectCard({
+  subject,
+  resumeLessonId,
+}: {
+  subject: StudentSubject;
+  resumeLessonId: number | null | undefined;
+}) {
+  const navigate = useNavigate();
+  const progressColor =
+    subject.progress >= 80 ? "var(--role-student)" :
+    subject.progress >= 40 ? "var(--warning)" :
+    "var(--role-teacher)";
+
+  // resumeLessonId === undefined  → progress not yet loaded (or no course)
+  // resumeLessonId === null       → course exists but no progress yet → "Start"
+  // resumeLessonId === number     → navigate directly to that lesson → "Continue"
+  const hasCourse  = subject.course_id != null;
+  const hasResume  = typeof resumeLessonId === "number";
+  const showButton = hasCourse && subject.total_lessons > 0;
+
+  function handleContinue(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (hasResume) {
+      navigate(`/lessons/${resumeLessonId}`);
+    } else {
+      navigate(`/courses?subject_id=${subject.id}`);
+    }
+  }
+
+  const buttonLabel =
+    hasResume         ? "Continue" :
+    subject.progress === 0 ? "Start" :
+    "Resume";
+
+  return (
+    <div
+      className="glass-card animate-fade-up"
+      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/courses?subject_id=${subject.id}`)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && navigate(`/courses?subject_id=${subject.id}`)}
+      aria-label={`${subject.name} — ${subject.progress}% complete`}
+    >
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>SUBJECT</div>
+      <div style={{
+        fontFamily:    "var(--font-display)",
+        fontWeight:    800,
+        fontSize:      "var(--text-base)",
+        color:         "var(--text-primary)",
+        letterSpacing: "-0.02em",
+        marginBottom:  "var(--space-2)",
+      }}>{subject.name}</div>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "var(--space-2) 0" }}>
+        {subject.completed_lessons} of {subject.total_lessons} lessons completed
+      </p>
+      {/* Progress track */}
+      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: "var(--space-3)" }}>
+        <div style={{
+          height:     "100%",
+          width:      `${subject.progress}%`,
+          background: progressColor,
+          borderRadius: 99,
+          transition:   "width 0.6s ease",
+        }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: "var(--text-sm)", fontWeight: 800, color: progressColor, fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>
+          {subject.progress}%
+        </span>
+        {showButton && (
+          <button
+            className="btn--primary"
+            style={{
+              padding:    "var(--space-1) var(--space-3)",
+              fontSize:   "var(--text-xs)",
+              fontWeight: 800,
+              gap:        "var(--space-1)",
+              lineHeight: 1.4,
+              letterSpacing: "0.04em",
+            }}
+            onClick={handleContinue}
+            aria-label={`${buttonLabel} ${subject.name}`}
+          >
+            {buttonLabel.toUpperCase()}
+            <svg
+              width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Assessment row ─────────────────────────────────────────────────────────
+
+function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number }) {
+  const navigate    = useNavigate();
+  const isAttempted = (a.attempt_count ?? 0) > 0;
+
+  const pct    = (a.best_score != null && a.total_marks > 0) ? a.best_score / a.total_marks : 0;
+  const size   = 40;
+  const r      = (size - 6) / 2;
+  const circ   = 2 * Math.PI * r;
+  const filled = circ * pct;
+  const ringColor = pct >= 0.6 ? "var(--role-student)" : pct >= 0.4 ? "var(--warning)" : "var(--error)";
+
+  return (
+    <button
+      className="animate-fade-up"
+      style={{
+        display:        "flex",
+        alignItems:     "center",
+        gap:            "var(--space-4)",
+        padding:        "var(--space-3) var(--space-4)",
+        width:          "100%",
+        background:     "none",
+        border:         "none",
+        borderBottom:   "1px solid var(--glass-border)",
+        cursor:         "pointer",
+        textAlign:      "left",
+        transition:     "background 0.12s",
+        animationDelay: `${index * 40}ms`,
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+      onClick={() => navigate(assessmentPath(a.grade, a.subject, a.id))}
+    >
+      {isAttempted && a.best_score !== null ? (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={ringColor} strokeWidth={5}
+            strokeDasharray={`${filled} ${circ - filled}`}
+            strokeDashoffset={circ / 4}
+            strokeLinecap="round" />
+          <text x={size/2} y={size/2 + 1} textAnchor="middle" dominantBaseline="middle"
+            fill={ringColor}
+            style={{ fontSize: size * 0.22, fontWeight: 800, fontFamily: "var(--font-display)" }}>
+            {Math.round(pct * 100)}
+          </text>
+        </svg>
+      ) : (
+        <div style={{
+          width: size, height: size,
+          borderRadius: "var(--radius-md)",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid var(--glass-border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, color: "var(--text-muted)",
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+      )}
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          letterSpacing: "0.01em",
+        }}>
+          {a.title}
+        </div>
+        <div style={{ display: "flex", gap: "var(--space-3)", marginTop: 2, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            {a.subject} · Class {a.grade}
+          </span>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            {a.total_marks} marks
+          </span>
+        </div>
+      </div>
+
+      <div style={{ flexShrink: 0, textAlign: "right" }}>
+        {a.passed ? (
+          <span className="role-tag role-tag--student" style={{ fontSize: 9 }}>PASSED</span>
+        ) : isAttempted ? (
+          <span className="role-tag role-tag--teacher" style={{ fontSize: 9 }}>
+            {a.attempt_count} ATTEMPT{a.attempt_count !== 1 ? "S" : ""}
+          </span>
+        ) : (
+          <span className="role-tag" style={{ fontSize: 9 }}>NEW</span>
+        )}
+      </div>
+
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ flexShrink: 0 }}>
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
   const navigate = useNavigate();
 
-  const [subjects, setSubjects] = useState<StudentSubject[]>([]);
-  const [assessments, setAssessments] = useState<AssessmentWithStatus[]>([]);
-  const [gamification, setGamification] = useState<MySummary | null>(null);
-  const [resumeMap, setResumeMap] = useState<ResumeMap>({});
-  
-  const [loadingSubj, setLoadingSubj] = useState(true);
+  const [subjects,      setSubjects]      = useState<StudentSubject[]>([]);
+  const [assessments,   setAssessments]   = useState<AssessmentWithStatus[]>([]);
+  const [gamification,  setGamification]  = useState<MySummary | null>(null);
+  const [resumeMap,     setResumeMap]     = useState<ResumeMap>({});
+  const [loadingSubj,   setLoadingSubj]   = useState(true);
   const [loadingAssess, setLoadingAssess] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [assessError,   setAssessError]   = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
 
+  // ── Phase 1: subjects, assessments, gamification ──────────────────────
   useEffect(() => {
     let cancelled = false;
 
-    async function loadInitial() {
+    async function load() {
       try {
-        const [subjRes, gamRes, assessRes] = await Promise.allSettled([
+        const [subjectsData, gData, assessData] = await Promise.allSettled([
           apiGet<StudentSubject[]>("/academics/subjects/"),
           getMySummary(),
           apiGet<AssessmentWithStatus[]>("/assessments/my/"),
@@ -115,14 +286,16 @@ const DashboardPage: React.FC = () => {
 
         if (cancelled) return;
 
-        if (subjRes.status === 'fulfilled') setSubjects(subjRes.value);
-        else setError("Failed to initialize subjects.");
+        if (subjectsData.status === "fulfilled") setSubjects(subjectsData.value ?? []);
+        else setError("Failed to load dashboard. Please refresh.");
 
-        if (gamRes.status === 'fulfilled') setGamification(gamRes.value);
-        if (assessRes.status === 'fulfilled') setAssessments(assessRes.value);
+        if (gData.status === "fulfilled") setGamification(gData.value);
 
-      } catch (err) {
-        setError("Network encryption failure.");
+        if (assessData.status === "fulfilled") {
+          setAssessments(assessData.value ?? []);
+        } else {
+          setAssessError(true);
+        }
       } finally {
         if (!cancelled) {
           setLoadingSubj(false);
@@ -131,203 +304,248 @@ const DashboardPage: React.FC = () => {
       }
     }
 
-    loadInitial();
+    void load();
     return () => { cancelled = true; };
   }, []);
 
+  // ── Phase 2: fetch resume_lesson_id for each subject that has a course ──
+  // Fires after subjects load. N parallel requests, one per subject with a course_id.
+  // Cheap: each call is a single DB lookup (LessonProgress aggregate).
   useEffect(() => {
     if (subjects.length === 0) return;
-    const coursedSubjs = subjects.filter(s => s.course_id != null);
-    if (coursedSubjs.length === 0) return;
+
+    const coursedSubjects = subjects.filter((s) => s.course_id != null);
+    if (coursedSubjects.length === 0) return;
 
     let cancelled = false;
+
     async function loadResume() {
       const results = await Promise.allSettled(
-        coursedSubjs.map(s => getCourseProgress(s.course_id!))
+        coursedSubjects.map((s) => getCourseProgress(s.course_id!))
       );
+
       if (cancelled) return;
 
       const map: ResumeMap = {};
-      results.forEach((res, idx) => {
-        const cid = coursedSubjs[idx].course_id!;
-        if (res.status === 'fulfilled') {
-          map[cid] = (res.value as CourseProgress).resume_lesson_id;
+      results.forEach((result, idx) => {
+        const courseId = coursedSubjects[idx].course_id!;
+        if (result.status === "fulfilled") {
+          map[courseId] = result.value.resume_lesson_id;
         }
+        // On failure: courseId absent from map → SubjectCard shows no button
       });
+
       setResumeMap(map);
     }
-    loadResume();
+
+    void loadResume();
     return () => { cancelled = true; };
   }, [subjects]);
 
   const prioritisedAssessments = [
-    ...assessments.filter(a => !a.passed),
-    ...assessments.filter(a => a.passed)
+    ...assessments.filter((a) => !a.passed),
+    ...assessments.filter((a) => a.passed),
   ].slice(0, 4);
 
-  const pendingCount = assessments.filter(a => !a.passed).length;
+  const pendingCount = assessments.filter((a) => !a.passed).length;
 
   return (
     <div className="page-shell">
       <TopBar title="Dashboard" />
-      
       <main className="page-content page-enter has-bottom-nav">
-        {/* Editorial Welcome */}
-        <header className="dashboard-hero animate-fade-up">
-          <div className="role-tag role-tag--student" style={{ marginBottom: 'var(--space-4)' }}>
-            ✨ Scholar Identity
-          </div>
-          <h1 className="text-gradient md-display">
-            Welcome back,<br/>
-            {user?.first_name || 'Scholar'}.
-          </h1>
-          <p className="hero-subtitle">
-            Neural link established. You are currently tracking <strong>{subjects.length}</strong> subject vectors.
-          </p>
-        </header>
 
-        {/* Gamification Strip */}
-        <section className="gamification-strip animate-fade-up" style={{ animationDelay: '100ms' }}>
-          <div className="glass-card stat-pill" onClick={() => navigate('/leaderboard')}>
-            <div className="stat-pill__icon"><SvgTrophy size={20} color="var(--role-student)" /></div>
-            <div className="stat-pill__info">
-              <span className="stat-value">{gamification?.total_points || 0} XP</span>
-              <span className="stat-label">RANK #{gamification?.class_rank || '--'}</span>
+        {/* ── Gamification strip ──────────────────────────────────────── */}
+        {gamification && (
+          <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-6)", flexWrap: "wrap" }}>
+            {/* Points card */}
+            <div
+              className="glass-card animate-fade-up"
+              style={{
+                flex: "1 1 140px", display: "flex", alignItems: "center",
+                gap: "var(--space-3)", padding: "var(--space-4)",
+                border: "1px solid rgba(61,214,140,0.2)",
+                background: "rgba(61,214,140,0.04)",
+                cursor: "pointer",
+              }}
+              onClick={() => navigate("/leaderboard")}
+              role="button" tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && navigate("/leaderboard")}
+            >
+              <div style={{ fontSize: 28 }}>⭐</div>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--role-student)", lineHeight: 1, letterSpacing: "-0.03em" }}>
+                  {gamification.total_points}
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                  Points · #{gamification.class_rank ?? "—"} in class
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="glass-card stat-pill">
-            <div className="stat-pill__icon">
-              {Number(gamification?.current_streak || 0) >= 3 ? <SvgFlame size={20} color="var(--warning)" /> : <SvgClock size={20} color="var(--text-muted)" />}
+            {/* Streak card */}
+            <div className="glass-card animate-fade-up" style={{
+              flex: "1 1 140px", display: "flex", alignItems: "center",
+              gap: "var(--space-3)", padding: "var(--space-4)",
+              border: `1px solid ${gamification.current_streak >= 3 ? "rgba(245,158,11,0.2)" : "var(--glass-border)"}`,
+              background: gamification.current_streak >= 3 ? "rgba(245,158,11,0.05)" : "var(--glass-bg)",
+            }}>
+              <div style={{ fontSize: 28 }}>
+                {gamification.current_streak >= 7 ? "⚡" : gamification.current_streak >= 3 ? "🔥" : "📅"}
+              </div>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: gamification.current_streak >= 3 ? "var(--warning)" : "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.03em" }}>
+                  {gamification.current_streak}
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>Day streak</div>
+              </div>
             </div>
-            <div className="stat-pill__info">
-              <span className="stat-value">{gamification?.current_streak || 0} DAYS</span>
-              <span className="stat-label">ACTIVE STREAK</span>
-            </div>
-          </div>
 
-          <div className="glass-card stat-pill" onClick={() => navigate('/profile')}>
-            <div className="stat-pill__icon"><SvgMedal size={20} color="var(--success)" /></div>
-            <div className="stat-pill__info">
-              <span className="stat-value">{gamification?.badge_count || 0} BADGES</span>
-              <span className="stat-label">ACHIEVEMENTS</span>
-            </div>
+            {/* Badges card */}
+            {gamification.badge_count > 0 && (
+              <div
+                className="glass-card animate-fade-up"
+                style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-4)", cursor: "pointer" }}
+                onClick={() => navigate("/profile")}
+                role="button" tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && navigate("/profile")}
+              >
+                <div style={{ fontSize: 24 }}>🏅</div>
+                <div>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--warning)", lineHeight: 1, letterSpacing: "-0.03em" }}>
+                    {gamification.badge_count}
+                  </div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                    Badge{gamification.badge_count !== 1 ? "s" : ""}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </section>
+        )}
 
-        {/* Assessments Section */}
-        <section className="dashboard-section animate-fade-up" style={{ animationDelay: '200ms' }}>
-          <div className="section-header">
+        {/* ── Leaderboard shortcut ────────────────────────────────────── */}
+        <button
+          className="glass-card animate-fade-up"
+          style={{
+            width:          "100%",
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "space-between",
+            padding:        "var(--space-4) var(--space-5)",
+            cursor:         "pointer",
+            marginBottom:   "var(--space-6)",
+            border:         "1px solid var(--glass-border)",
+          }}
+          onClick={() => navigate("/leaderboard")}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "12px", fontWeight: 800, letterSpacing: "0.05em", color: "var(--text-primary)" }}>
+            🏆 VIEW CLASS LEADERBOARD
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
+        {/* ── Assessments section ─────────────────────────────────────── */}
+        <div className="section-header animate-fade-up" style={{ marginBottom: "var(--space-4)" }}>
+          <div>
             <h2 className="section-title">
-              Validation Matrix
+              Assessments
               {pendingCount > 0 && !loadingAssess && (
-                <span className="pending-badge">{pendingCount} PENDING</span>
+                <span className="role-tag" style={{ marginLeft: "var(--space-2)", fontSize: 9, verticalAlign: "middle", background: "rgba(239,68,68,0.12)", color: "var(--error)" }}>
+                  {pendingCount} PENDING
+                </span>
               )}
             </h2>
-            <button className="btn--ghost sm" onClick={() => navigate('/assessments')}>View All <SvgArrowUpRight size={14} /></button>
+            <p className="section-subtitle">Your tests — attempt them to earn points</p>
           </div>
-          
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {loadingAssess ? (
-              <div className="assessment-stack-skeleton">
-                {[1,2,3].map(i => <AssessmentRowSkeleton key={i} />)}
-              </div>
-            ) : prioritisedAssessments.length === 0 ? (
-              <div className="empty-well" style={{ padding: 'var(--space-12)' }}>
-                <SvgZap size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
-                <p style={{ fontWeight: 800, fontSize: 'var(--text-xs)' }}>NO PENDING ASSESSMENTS DETECTED</p>
-              </div>
-            ) : (
-              <div className="assessment-stack">
-                {prioritisedAssessments.map((a, i) => (
-                  <div 
-                    key={a.id} 
-                    className="assessment-row animate-fade-up"
-                    style={{ animationDelay: `${i * 50}ms` }}
-                    onClick={() => navigate(assessmentPath(a.grade, a.subject, a.id))}
-                  >
-                    <CircularScore pct={(a.best_score || 0) / (a.total_marks || 1)} size={44} />
-                    <div className="assessment-row__content">
-                      <div className="assessment-row__subject">{a.subject.toUpperCase()}</div>
-                      <div className="assessment-row__title">{a.title}</div>
-                    </div>
-                    <div className="assessment-row__status">
-                       {a.passed ? 
-                         <span className="status-tag status-tag--pass">VALIDATED</span> : 
-                         <span className="status-tag status-tag--pending">INCOMPLETE</span>
-                       }
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <button className="btn--ghost" style={{ fontSize: "var(--text-sm)" }} onClick={() => navigate("/assessments")}>
+            View all →
+          </button>
+        </div>
+
+        {assessError ? (
+          <div className="alert alert--error animate-fade-up" style={{ marginBottom: "var(--space-4)" }}>
+            Failed to load assessments.
+            <button className="btn--ghost" style={{ marginLeft: "var(--space-3)", fontSize: "var(--text-xs)" }} onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </div>
+        ) : loadingAssess ? (
+          <div className="glass-card" style={{ padding: 0, overflow: "hidden", marginBottom: "var(--space-8)" }}>
+            {Array.from({ length: 3 }).map((_, i) => <AssessmentRowSkeleton key={i} />)}
+          </div>
+        ) : prioritisedAssessments.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up" style={{ marginBottom: "var(--space-8)" }}>
+            <span style={{ fontSize: 36, display: "block", marginBottom: "var(--space-3)", opacity: 0.3 }}>📋</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO ASSESSMENTS YET</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Tests will appear here once your teacher publishes them.</span>
+            <button className="btn--primary" onClick={() => navigate("/assessments")} style={{ marginTop: "var(--space-4)" }}>
+              Browse all assessments
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="glass-card animate-fade-up" style={{ padding: 0, overflow: "hidden", marginBottom: "var(--space-3)" }}>
+              {prioritisedAssessments.map((a, i) => (
+                <AssessmentRow key={a.id} a={a} index={i} />
+              ))}
+            </div>
+            {assessments.length > 4 && (
+              <button
+                className="glass-card animate-fade-up"
+                style={{
+                  width: "100%", display: "flex", alignItems: "center",
+                  justifyContent: "space-between", padding: "var(--space-4) var(--space-5)",
+                  cursor: "pointer", marginBottom: "var(--space-8)", border: "1px solid var(--glass-border)",
+                }}
+                onClick={() => navigate("/assessments")}
+              >
+                <span style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.05em" }}>VIEW ALL {assessments.length} ASSESSMENTS</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
             )}
-          </div>
-        </section>
+          </>
+        )}
 
-        {/* Subjects Grid */}
-        <section className="dashboard-section animate-fade-up" style={{ animationDelay: '300ms' }}>
-          <div className="section-header">
-            <h2 className="section-title">Curriculum Grid</h2>
+        {/* ── Subject cards ────────────────────────────────────────────── */}
+        <div className="section-header animate-fade-up" style={{ marginBottom: "var(--space-4)" }}>
+          <div>
+            <h2 className="section-title">Your Subjects</h2>
+            <p className="section-subtitle">Track progress across all enrolled subjects</p>
           </div>
+        </div>
 
-          <div className="subject-grid">
-            {loadingSubj ? (
-              Array.from({ length: 4 }).map((_, i) => <SubjectCardSkeleton key={i} />)
-            ) : subjects.length === 0 ? (
-              <div className="glass-card empty-well" style={{ gridColumn: '1 / -1' }}>
-                <SvgActivity size={40} style={{ opacity: 0.2, marginBottom: 'var(--space-4)' }} />
-                <p style={{ fontWeight: 800, fontSize: 'var(--text-xs)' }}>NO SUBJECT VECTORS FOUND</p>
+        {error && <div className="alert alert--error animate-fade-up" role="alert">{error}</div>}
+
+        {loadingSubj ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
+            {Array.from({ length: 6 }).map((_, i) => <SubjectCardSkeleton key={i} />)}
+          </div>
+        ) : subjects.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>📚</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO SUBJECTS YET</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Your subjects will appear here once your teacher assigns them.</span>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
+            {subjects.map((subject, i) => (
+              <div key={subject.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <SubjectCard
+                  subject={subject}
+                  resumeLessonId={
+                    subject.course_id != null
+                      ? resumeMap[subject.course_id]
+                      : undefined
+                  }
+                />
               </div>
-            ) : (
-              subjects.map((s, i) => {
-                const resumeId = resumeMap[s.course_id || -1];
-                const isStarted = s.progress > 0;
-                
-                return (
-                  <div 
-                    key={s.id} 
-                    className="glass-card subject-card animate-fade-up"
-                    style={{ animationDelay: `${i * 100}ms` }}
-                    onClick={() => navigate(`/courses?subject_id=${s.id}`)}
-                  >
-                    <div className="subject-card__overline">{s.completed_lessons}/{s.total_lessons} NODES COMPLETED</div>
-                    <h3 className="subject-card__title">{s.name}</h3>
-                    
-                    <div className="subject-card__progress-container">
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-bar__fill" 
-                          style={{ width: `${s.progress}%`, background: 'var(--role-student)' }} 
-                        />
-                      </div>
-                      <span className="progress-percent">{s.progress}%</span>
-                    </div>
-
-                    <div className="subject-card__actions">
-                      {s.course_id && s.total_lessons > 0 && (
-                        <button 
-                          className="btn--primary sm" 
-                          style={{ width: '100%' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (typeof resumeId === 'number') navigate(`/lessons/${resumeId}`);
-                            else navigate(`/courses?subject_id=${s.id}`);
-                          }}
-                        >
-                          {typeof resumeId === 'number' ? 'CONTINUE SEQUENCE' : (isStarted ? 'RESUME SYNC' : 'INITIATE SYNC')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        {error && (
-          <div className="glass-card error-toast animate-fade-up" style={{ borderColor: 'var(--error)' }}>
-             <SvgAlertCircle size={14} color="var(--error)" /> {error}
+            ))}
           </div>
         )}
 
@@ -335,6 +553,4 @@ const DashboardPage: React.FC = () => {
       <BottomNav />
     </div>
   );
-};
-
-export default DashboardPage;
+}

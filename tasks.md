@@ -53,6 +53,8 @@ None. All resolved.
 3. **Hex Routing**: Implemented alphanumeric hex slugs for Live Session routing (`/live/:publicId`) against refresh bugs.
 4. **Backend Welcome Notification**: Wired `Notification.send()` into `complete_profile` to dispatch a personalized welcome message upon successful registration.
 5. **Documentation Parity**: Updated all architectural files in `docs/` and `.claude/` to reflect React 19 standards and the updated routing endpoints.
+6. **Teacher Registration Optimization**: Refactored `assign_teacher_to_classes` in `accounts/services.py` to use `bulk_create` instead of sequential `get_or_create` queries, drastically reducing DB load/latency when Teachers register via Join Codes.
+7. **API Latency Audit**: Diagnosed the root causes of the infinite spinners in "Forgot Password" / Login flows (identified as `threading.Thread` locking the WSGI development server socket, plus heavily CPU-bound PBKDF2 hashing).
 
 ### Fixed by Sonnet (Previous session)
 

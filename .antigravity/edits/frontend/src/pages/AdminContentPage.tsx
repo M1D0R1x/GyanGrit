@@ -1,25 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { getCourses, createCourse, type CourseItem } from "../services/content";
 import { apiGet } from "../services/api";
-import { 
-  Plus, 
-  BookOpen, 
-  Award, 
-  ChevronRight, 
-  Filter, 
-  BarChart3, 
-  Database,
-  Search,
-  BookMarked,
-  X
-} from 'lucide-react';
-import './AdminContentPage.css';
 
 type GroupedCourses = Record<string, CourseItem[]>;
 
-const AdminContentPage: React.FC = () => {
+export default function AdminContentPage() {
   const navigate = useNavigate();
 
   const [courses, setCourses]   = useState<CourseItem[]>([]);
@@ -38,30 +25,20 @@ const AdminContentPage: React.FC = () => {
   const [createError, setCreateError]     = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const [c, s] = await Promise.all([
-          getCourses(),
-          apiGet<{ id: number; name: string }[]>("/academics/subjects/"),
-        ]);
-        if (!cancelled) {
-          setCourses(c ?? []);
-          setSubjects(s ?? []);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("TELEMETRY ERROR: Curriculum database unreachable.");
-          setLoading(false);
-        }
-      }
-    }
-    loadData();
-    return () => { cancelled = true; };
+    Promise.all([
+      getCourses(),
+      apiGet<{ id: number; name: string }[]>("/academics/subjects/"),
+    ])
+      .then(([coursesData, subjectsData]) => {
+        setCourses(coursesData);
+        setSubjects(subjectsData);
+      })
+      .catch(() => setError("Failed to load data."))
+      .finally(() => setLoading(false));
   }, []);
 
   const grades = [...new Set(courses.map((c) => c.grade))].sort((a, b) => a - b);
+
   const filtered = selectedGrade ? courses.filter((c) => c.grade === selectedGrade) : courses;
 
   const grouped: GroupedCourses = filtered.reduce((acc, course) => {
@@ -73,7 +50,7 @@ const AdminContentPage: React.FC = () => {
 
   const handleCreateCourse = async () => {
     if (!newSubjectId || !newGrade || !newTitle.trim()) {
-      setCreateError("Subject, grade, and title are required for nodal creation.");
+      setCreateError("Subject, grade, and title are required.");
       return;
     }
     setCreating(true);
@@ -88,183 +65,190 @@ const AdminContentPage: React.FC = () => {
       });
       setCourses((prev) => [...prev, created]);
       setShowNewCourse(false);
-      setNewSubjectId("");
-      setNewGrade("");
-      setNewTitle("");
-      setNewDesc("");
+      setNewSubjectId(""); setNewGrade(""); setNewTitle(""); setNewDesc("");
     } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : "Protocol Error: Failed to instantiate curriculum node.");
+      setCreateError(err instanceof Error ? err.message : "Failed to create course.");
     } finally {
       setCreating(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="page-shell">
-        <TopBar title="Content Terminal" />
-        <main className="page-content">
-          <div className="skeleton-stack animate-pulse-subtle">
-             <div className="skeleton-box" style={{ height: '60px', marginBottom: '20px' }} />
-             <div className="skeleton-box" style={{ height: '400px' }} />
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="page-shell">
-      <TopBar title="Curriculum Oversight" />
-      <main className="page-content page-enter content-mgmt-layout">
+      <TopBar title="Content" />
+      <main className="page-content page-enter">
 
-        {/* Header Nexus */}
-        <section className="content-header animate-fade-up">
-           <div className="inst-info">
-              <span className="inst-label">CENTRAL CURRICULUM MANAGEMENT</span>
-              <h1 className="inst-name">ACADEMIC REPOSITORY</h1>
-              <p className="hero-subtitle">Unified architecture for all state-wide educational content.</p>
-           </div>
-           <button className="btn--primary" onClick={() => setShowNewCourse(true)}>
-              <Plus size={16} /> INSTANTIATE NEW COURSE
-           </button>
-        </section>
-
-        {error && <div className="alert alert--error">{error}</div>}
-
-        {/* Global Filter Stats */}
-        <div className="stat-nexus-grid animate-fade-up" style={{ animationDelay: '50ms' }}>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">CORE COURSES</span>
-              <span className="stat-tile__val">{courses.length}</span>
-           </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">GRADE SPAN</span>
-              <span className="stat-tile__val">{grades.length}</span>
-           </div>
-           <div className="glass-card stat-tile">
-              <span className="stat-tile__label">SUBJECTS</span>
-              <span className="stat-tile__val">{new Set(courses.map((c) => c.subject__name)).size}</span>
-           </div>
-           <div className="glass-card stat-tile" style={{ borderColor: 'var(--brand-primary)' }}>
-              <span className="stat-tile__label">ACTIVE FILTER</span>
-              <span className="stat-tile__val" style={{ color: 'var(--brand-primary)' }}>{filtered.length}</span>
-           </div>
+        {/* Header */}
+        <div className="section-header animate-fade-up" style={{ marginBottom: "var(--space-6)" }}>
+          <div>
+            <h2 className="section-title">Curriculum Management</h2>
+            <p className="section-subtitle">Shared curriculum — edits here apply to all students across Punjab</p>
+          </div>
+          <button className="btn--primary" onClick={() => setShowNewCourse(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            New Course
+          </button>
         </div>
 
-        {/* Grade Navigation */}
-        <div className="filter-pills animate-fade-up" style={{ animationDelay: '100ms' }}>
-           <button className={`filter-pill ${selectedGrade === null ? 'active' : ''}`} onClick={() => setSelectedGrade(null)}>
-              ALL PROTOCOLS
-           </button>
-           {grades.map(grade => (
-             <button key={grade} className={`filter-pill ${selectedGrade === grade ? 'active' : ''}`} onClick={() => setSelectedGrade(grade)}>
+        {error && <div className="alert alert--error animate-fade-up">{error}</div>}
+
+        {/* Grade filter pills */}
+        {!loading && grades.length > 0 && (
+          <div className="animate-fade-up" style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-6)" }}>
+            <button
+              className="role-tag"
+              style={{ cursor: "pointer", border: `1px solid ${selectedGrade === null ? "rgba(61,214,140,0.4)" : "var(--glass-border)"}`, background: selectedGrade === null ? "rgba(61,214,140,0.1)" : "transparent", color: selectedGrade === null ? "var(--role-student)" : "var(--text-muted)", padding: "4px 14px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}
+              onClick={() => setSelectedGrade(null)}
+            >
+              ALL GRADES
+            </button>
+            {grades.map((grade) => (
+              <button
+                key={grade}
+                className="role-tag"
+                style={{ cursor: "pointer", border: `1px solid ${selectedGrade === grade ? "rgba(61,214,140,0.4)" : "var(--glass-border)"}`, background: selectedGrade === grade ? "rgba(61,214,140,0.1)" : "transparent", color: selectedGrade === grade ? "var(--role-student)" : "var(--text-muted)", padding: "4px 14px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}
+                onClick={() => setSelectedGrade(grade)}
+              >
                 CLASS {grade}
-             </button>
-           ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Curriculum Grid */}
-        {filtered.length === 0 ? (
-          <div className="empty-state animate-fade-up">
-             <Database size={48} color="var(--text-dim)" />
-             <h3 className="empty-state__title">REPOSITORY VOID</h3>
-             <p className="empty-state__message">No curriculum nodes matching the current filter protocol.</p>
+        {/* Stats row */}
+        {!loading && (
+          <div className="animate-fade-up" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-8)" }}>
+            {[
+              { label: "Total Courses",   value: courses.length },
+              { label: "Grades Covered",  value: grades.length },
+              { label: "Subjects",        value: new Set(courses.map((c) => c.subject__name)).size },
+              { label: "Shown",           value: filtered.length },
+            ].map(({ label, value }) => (
+              <div key={label} className="glass-card" style={{ textAlign: "center", padding: "var(--space-4)" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--text-primary)", letterSpacing: "-0.03em" }}>{value}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-muted)", marginTop: 4 }}>{label.toUpperCase()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Course grid */}
+        {loading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="skeleton-box" style={{ height: 140, borderRadius: "var(--radius-lg)" }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="glass-card empty-well animate-fade-up">
+            <span style={{ fontSize: 40, display: "block", marginBottom: "var(--space-4)", opacity: 0.3 }}>📚</span>
+            <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO COURSES YET</p>
+            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+              Run <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4 }}>python manage.py seed_content</code> to populate sample curriculum, or create a course manually.
+            </span>
           </div>
         ) : (
-          <div className="subject-group-stack">
-             {Object.entries(grouped)
-              .sort(([a],[b]) => a.localeCompare(b))
-              .map(([subject, subjectCourses], idx) => (
-                <section key={subject} className="subject-group animate-fade-up" style={{ animationDelay: `${idx * 100}ms` }}>
-                   <div className="subject-title-nexus">
-                      <BookMarked size={14} color="var(--text-dim)" />
-                      <h3>{subject}</h3>
-                   </div>
-
-                   <div className="course-mgmt-grid">
-                      {subjectCourses.sort((a,b) => a.grade - b.grade).map((course, i) => (
-                        <div key={course.id} className="glass-card course-mgmt-card animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
-                           <div className="course-info-tag">
-                              <span className="role-tag role-tag--student">GRADE {course.grade}</span>
-                              {course.is_core && <span className="stat-lbl" style={{ color: 'var(--role-student)' }}>CORE NODE</span>}
-                           </div>
-
-                           <div className="mgmt-title">{course.title}</div>
-                           <p className="mgmt-desc">
-                              {course.description 
-                                ? (course.description.length > 90 ? course.description.slice(0, 90) + "..." : course.description)
-                                : "No architectural description provided for this node."}
-                           </p>
-
-                           <div className="mgmt-actions">
-                              <button className="btn--ghost sm" onClick={() => navigate(`/admin/content/courses/${course.id}/lessons`)}>
-                                 <BookOpen size={12} /> UNITS
-                              </button>
-                              <button className="btn--ghost sm" style={{ color: 'var(--warning)' }} onClick={() => navigate(`/admin/content/courses/${course.id}/assessments`)}>
-                                 <Award size={12} /> EVAL
-                              </button>
-                           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
+            {Object.entries(grouped)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([subjectName, subjectCourses]) => (
+                <div key={subjectName}>
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 9, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "var(--space-4)" }}>
+                    {subjectName}
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
+                    {subjectCourses.sort((a, b) => a.grade - b.grade).map((course, i) => (
+                      <div key={course.id} className="glass-card animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                          <span className="role-tag role-tag--student" style={{ fontSize: 9 }}>CLASS {course.grade}</span>
+                          {course.is_core && <span style={{ fontSize: 9, fontWeight: 800, color: "var(--role-student)", letterSpacing: "0.04em" }}>CORE</span>}
                         </div>
-                      ))}
-                   </div>
-                </section>
+
+                        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)", marginBottom: "var(--space-2)", letterSpacing: "-0.01em" }}>
+                          {course.title}
+                        </div>
+
+                        {course.description && (
+                          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
+                            {course.description.length > 80 ? course.description.slice(0, 80) + "…" : course.description}
+                          </p>
+                        )}
+
+                        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                          <button
+                            className="btn--ghost"
+                            style={{ fontSize: "var(--text-xs)", padding: "var(--space-1) var(--space-3)", color: "var(--role-teacher)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: "var(--radius-sm)" }}
+                            onClick={() => navigate(`/admin/content/courses/${course.id}/lessons`)}
+                          >
+                            Lessons →
+                          </button>
+                          <button
+                            className="btn--ghost"
+                            style={{ fontSize: "var(--text-xs)", padding: "var(--space-1) var(--space-3)", color: "var(--warning)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: "var(--radius-sm)" }}
+                            onClick={() => navigate(`/admin/content/courses/${course.id}/assessments`)}
+                          >
+                            Assessment →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
           </div>
         )}
 
-        {/* Modal: New Course */}
+        {/* New Course modal */}
         {showNewCourse && (
-          <div className="obsidian-modal-overlay animate-fade-in" onClick={() => setShowNewCourse(false)}>
-             <div className="glass-card obsidian-modal animate-scale-up" onClick={e => e.stopPropagation()}>
-                <div className="modal-header-nexus">
-                   <div className="inst-label">CURRICULUM ARCHITECT</div>
-                   <h2 className="modal-title">INSTANTIATE NODE</h2>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "var(--space-4)", backdropFilter: "blur(8px)" }}>
+            <div className="glass-card animate-fade-up" style={{ width: "100%", maxWidth: 480, boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-5)" }}>
+                <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>New Course</h2>
+                <button className="btn--ghost" onClick={() => { setShowNewCourse(false); setCreateError(null); }}>✕</button>
+              </div>
+
+              {createError && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>{createError}</div>}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                <div>
+                  <label className="form-label">Subject *</label>
+                  <select className="obsidian-input" value={newSubjectId} onChange={(e) => setNewSubjectId(Number(e.target.value))}>
+                    <option value="">Select subject…</option>
+                    {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
                 </div>
 
-                {createError && <div className="alert alert--error" style={{ marginBottom: '20px' }}>{createError}</div>}
-
-                <div className="obsidian-form-group">
-                   <label className="obsidian-label">SUBJECT PROTOCOL *</label>
-                   <select className="obsidian-select" value={newSubjectId} onChange={e => setNewSubjectId(Number(e.target.value))}>
-                      <option value="">Select subject...</option>
-                      {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                   </select>
+                <div>
+                  <label className="form-label">Grade *</label>
+                  <select className="obsidian-input" value={newGrade} onChange={(e) => setNewGrade(Number(e.target.value))}>
+                    <option value="">Select grade…</option>
+                    {[6, 7, 8, 9, 10].map((g) => <option key={g} value={g}>Class {g}</option>)}
+                  </select>
                 </div>
 
-                <div className="obsidian-form-group">
-                   <label className="obsidian-label">GRADE SPAN *</label>
-                   <select className="obsidian-select" value={newGrade} onChange={e => setNewGrade(Number(e.target.value))}>
-                      <option value="">Select grade...</option>
-                      {[6,7,8,9,10].map(g => <option key={g} value={g}>Class {g}</option>)}
-                   </select>
+                <div>
+                  <label className="form-label">Title *</label>
+                  <input className="obsidian-input" type="text" placeholder="e.g. Mathematics — Class 8" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
                 </div>
 
-                <div className="obsidian-form-group">
-                   <label className="obsidian-label">NODE TITLE *</label>
-                   <input className="obsidian-input" type="text" placeholder="e.g. Advanced Bio-Sciences" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+                <div>
+                  <label className="form-label">Description</label>
+                  <textarea className="obsidian-input" rows={3} placeholder="Optional description" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} style={{ resize: "vertical" }} />
                 </div>
 
-                <div className="obsidian-form-group">
-                   <label className="obsidian-label">ARCHITECTURAL DATA</label>
-                   <textarea className="obsidian-textarea" rows={3} placeholder="Describe the curriculum node purpose..." value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+                <div style={{ display: "flex", gap: "var(--space-3)" }}>
+                  <button className="btn--primary" disabled={creating} onClick={() => void handleCreateCourse()} style={{ letterSpacing: "0.05em" }}>
+                    {creating ? "Creating…" : "CREATE COURSE"}
+                  </button>
+                  <button className="btn--secondary" onClick={() => { setShowNewCourse(false); setCreateError(null); }} disabled={creating}>
+                    Cancel
+                  </button>
                 </div>
-
-                <div className="mgmt-actions" style={{ gap: '12px', marginTop: 'var(--space-8)' }}>
-                   <button className="btn--primary" style={{ flex: 1 }} disabled={creating} onClick={handleCreateCourse}>
-                      {creating ? "INSTANTIATING..." : "CREATE NODE"}
-                   </button>
-                   <button className="btn--secondary" onClick={() => setShowNewCourse(false)} disabled={creating}>
-                      CANCEL
-                   </button>
-                </div>
-             </div>
+              </div>
+            </div>
           </div>
         )}
-
       </main>
     </div>
   );
-};
-
-export default AdminContentPage;
+}

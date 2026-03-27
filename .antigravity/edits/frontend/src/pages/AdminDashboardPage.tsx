@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from "react";
+// pages.AdminDashboardPage
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 import type { Role } from "../auth/authTypes";
-
-// pages.AdminDashboardPage
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,242 +45,366 @@ const ROLE_COLOR: Record<Role, string> = {
   ADMIN:     "var(--role-admin)",
 };
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StatTile({
+  label, value, sub, accent, loading,
+}: {
+  label:   string;
+  value:   number | string;
+  sub?:    string;
+  accent?: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="glass-card" style={{ padding: "var(--space-4)" }}>
+      {loading ? (
+        <>
+          <div className="skeleton-box" style={{ width: 70, height: 10, borderRadius: 4, marginBottom: "var(--space-2)" }} />
+          <div className="skeleton-box" style={{ width: "60%", height: 28, borderRadius: 4 }} />
+        </>
+      ) : (
+        <>
+          <div style={{
+            fontSize:      10,
+            color:         "var(--text-muted)",
+            fontWeight:    700,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            marginBottom:  "var(--space-2)",
+          }}>
+            {label}
+          </div>
+          <div style={{
+            fontFamily: "var(--font-display)",
+            fontSize:   "var(--text-3xl)",
+            fontWeight: 800,
+            color:      accent ?? "var(--text-primary)",
+            lineHeight: 1,
+            letterSpacing: "-0.03em",
+          }}>
+            {value}
+          </div>
+          {sub && (
+            <div style={{
+              fontSize:   "var(--text-xs)",
+              color:      "var(--text-muted)",
+              marginTop:  "var(--space-1)",
+            }}>
+              {sub}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function QuickLink({
+  icon, title, description, onClick, accent,
+}: {
+  icon:        string;
+  title:       string;
+  description: string;
+  onClick:     () => void;
+  accent?:     string;
+}) {
+  return (
+    <div
+      className="glass-card animate-fade-up"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      style={{ borderColor: accent ? `${accent}33` : undefined, cursor: "pointer" }}
+    >
+      <div style={{ fontSize: 28, marginBottom: "var(--space-3)" }}>{icon}</div>
+      <div style={{
+        fontFamily:    "var(--font-display)",
+        fontWeight:    800,
+        fontSize:      "var(--text-base)",
+        color:         accent ?? "var(--text-primary)",
+        marginBottom:  "var(--space-1)",
+        letterSpacing: "-0.02em",
+      }}>
+        {title}
+      </div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+        {description}
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize:      10,
+      fontWeight:    800,
+      color:         "var(--text-muted)",
+      textTransform: "uppercase",
+      letterSpacing: "0.1em",
+      marginBottom:  "var(--space-3)",
+      marginTop:     "var(--space-8)",
+    }}>
+      {children}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const AdminDashboardPage: React.FC = () => {
+export default function AdminDashboardPage() {
   const navigate = useNavigate();
 
   const [users, setUsers]       = useState<UserRow[]>([]);
   const [stats, setStats]       = useState<SystemStats | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [statsError, setStatsError] = useState(false);
-  const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [statsError, setStatsError]     = useState(false);
+  const [roleFilter, setRoleFilter]     = useState<Role | "ALL">("ALL");
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const [u, s] = await Promise.all([
-          // Users list
-          apiGet<UserRow[]>("/accounts/users/"),
-          // System stats — ADMIN-only endpoint
-          apiGet<SystemStats>("/accounts/system-stats/")
-        ]);
-        if (!cancelled) {
-          setUsers(u ?? []);
-          setStats(s);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setStatsError(true);
-          setLoading(false);
-        }
-      }
-    }
-    loadData();
-    return () => { cancelled = true; };
+    // Users list
+    apiGet<UserRow[]>("/accounts/users/")
+      .then(setUsers)
+      .catch(() => {/* silently — table shows empty */})
+      .finally(() => setLoadingUsers(false));
+
+    // System stats — ADMIN-only endpoint
+    apiGet<SystemStats>("/accounts/system-stats/")
+      .then(setStats)
+      .catch(() => setStatsError(true))
+      .finally(() => setLoadingStats(false));
   }, []);
 
-  const ROLES: Role[] = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
   const countByRole = (role: Role) => users.filter((u) => u.role === role).length;
-  const filteredUsers = roleFilter === "ALL" ? users : users.filter((u) => u.role === roleFilter);
+  const filteredUsers = roleFilter === "ALL"
+    ? users
+    : users.filter((u) => u.role === roleFilter);
 
-  if (loading) {
-    return (
-      <div className="page-shell">
-        <TopBar title="Admin Terminal" />
-        <main className="page-content has-bottom-nav" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div className="btn__spinner" />
-        </main>
-      </div>
-    );
-  }
+  const ROLES: Role[] = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
 
   return (
     <div className="page-shell">
-      <TopBar title="Technical Oversight" />
-      <main className="page-content page-enter has-bottom-nav" style={{ maxWidth: '1000px', margin: '0 auto', padding: 'var(--space-10) var(--space-6)' }}>
+      <TopBar title="Admin" />
+      <main className="page-content page-enter">
+
+        {/* Hero */}
+        <header className="page-hero animate-fade-up" style={{ marginBottom: "var(--space-6)" }}>
+          <div className="role-tag role-tag--admin" style={{ marginBottom: "var(--space-4)" }}>
+            🛡️ SYSTEM ADMIN
+          </div>
+          <h1 className="text-gradient md-display">Command<br/>Center.</h1>
+          <p className="hero-subtitle">GyanGrit platform management & control panel.</p>
+        </header>
 
         {/* ── Quick nav ──────────────────────────────────────────────────── */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-           <h2 className="text-gradient" style={{ fontSize: 'var(--text-3xl)', margin: 0 }}>COMMAND CENTER</h2>
-           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px' }}>Neural hub for system-wide telemetry and administrative oversight.</p>
-        </section>
-
-        {/* Quick Actions */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-10)' }}>
-           <div className="glass-card page-enter" onClick={() => navigate("/admin/content")} role="button" tabIndex={0}
-                style={{ borderBottom: '2px solid var(--brand-primary)', cursor: 'pointer', padding: 'var(--space-5)' }}>
-              <div style={{ fontSize: '28px', marginBottom: '12px' }}>📖</div>
-              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--brand-primary)', marginBottom: '6px' }}>CONTENT</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Courses, units, and evaluation benchmarks.</div>
-           </div>
-           
-           <div className="glass-card page-enter" onClick={() => navigate("/admin/join-codes")} role="button" tabIndex={0}
-                style={{ borderBottom: '2px solid var(--role-principal)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '50ms' }}>
-              <div style={{ fontSize: '28px', marginBottom: '12px' }}>🔑</div>
-              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-principal)', marginBottom: '6px' }}>JOIN CODES</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Registration cryptographic tokens and access keys.</div>
-           </div>
-
-           <div className="glass-card page-enter" onClick={() => navigate("/admin/users")} role="button" tabIndex={0}
-                style={{ borderBottom: '2px solid var(--role-official)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '100ms' }}>
-              <div style={{ fontSize: '28px', marginBottom: '12px' }}>👥</div>
-              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-official)', marginBottom: '6px' }}>USER LOGS</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Full spectrum profile and permission management.</div>
-           </div>
-
-           <div className="glass-card page-enter" onClick={() => navigate("/notifications")} role="button" tabIndex={0}
-                style={{ borderBottom: '2px solid var(--role-admin)', cursor: 'pointer', padding: 'var(--space-5)', animationDelay: '150ms' }}>
-              <div style={{ fontSize: '28px', marginBottom: '12px' }}>📢</div>
-              <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-admin)', marginBottom: '6px' }}>BROADCAST</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>System-wide neural announcements and alerts.</div>
-           </div>
-        </section>
-
-        {statsError && <div className="alert alert--error" style={{ marginBottom: "var(--space-6)" }}>Telemetry Sync Error</div>}
-
-        {/* ── Live system stats ──────────────────────────────────────────── */}
-        <h3 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>🖥️</span> SYSTEM OVERVIEW
-        </h3>
-        
-        {/* User counts */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>TOTAL NODES</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.users.total ?? 0}</span>
-           </div>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-student)', display: 'block', marginBottom: '8px' }}>STUDENTS</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-student)' }}>{stats?.users.students ?? 0}</span>
-           </div>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-teacher)', display: 'block', marginBottom: '8px' }}>TEACHERS</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-teacher)' }}>{stats?.users.teachers ?? 0}</span>
-           </div>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-principal)', display: 'block', marginBottom: '8px' }}>PRINCIPALS</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-principal)' }}>{stats?.users.principals ?? 0}</span>
-           </div>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--role-official)', display: 'block', marginBottom: '8px' }}>OFFICIALS</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--role-official)' }}>{stats?.users.officials ?? 0}</span>
-           </div>
-           <div className="glass-card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--brand-primary)', display: 'block', marginBottom: '8px' }}>SESSIONS</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--brand-primary)' }}>{stats?.active_sessions ?? 0}</span>
-           </div>
+        <div style={{
+          display:             "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap:                 "var(--space-4)",
+          marginBottom:        "var(--space-8)",
+        }}>
+          <QuickLink
+            icon="📚" title="Content"
+            description="Manage courses, lessons, and assessments"
+            accent="var(--role-teacher)"
+            onClick={() => navigate("/admin/content")}
+          />
+          <QuickLink
+            icon="🔑" title="Join Codes"
+            description="Generate and manage registration codes"
+            accent="var(--role-principal)"
+            onClick={() => navigate("/admin/join-codes")}
+          />
+          <QuickLink
+            icon="👥" title="Users"
+            description="View and manage all users in the system"
+            accent="var(--role-official)"
+            onClick={() => navigate("/admin/users")}
+          />
+          <QuickLink
+            icon="🔔" title="Broadcast"
+            description="Send system-wide announcements"
+            accent="var(--role-admin)"
+            onClick={() => navigate("/notifications")}
+          />
         </div>
 
-        {/* Content + today's activity in two groups */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-6)', marginBottom: 'var(--space-10)' }}>
-           {/* Content */}
-           <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>CONTENT DISTRIBUTION</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Atomic Courses</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.courses ?? 0}</span>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Knowledge Units</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.lessons ?? 0}</span>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Assessments Active</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.content.published_assessments ?? 0}</span>
-                 </div>
-              </div>
-           </div>
+        {/* ── Live system stats ──────────────────────────────────────────── */}
+        <SectionLabel>System Overview</SectionLabel>
 
-           {/* Today */}
-           <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>TELEMETRY: TODAY</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>📖</span> Units Completed</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: (stats?.activity.lessons_completed_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-primary)' }}>
-                       {stats?.activity.lessons_completed_today ?? 0}
-                    </span>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>🛡️</span> Submissions</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: (stats?.activity.assessments_submitted_today ?? 0) > 0 ? 'var(--role-student)' : 'var(--text-primary)' }}>
-                       {stats?.activity.assessments_submitted_today ?? 0}
-                    </span>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}><span>📢</span> Broadcasts Pulse</span>
-                    <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>{stats?.activity.notifications_sent_today ?? 0}</span>
-                 </div>
+        {statsError ? (
+          <div className="alert alert--error animate-fade-up" style={{ marginBottom: "var(--space-6)" }}>
+            Could not load system stats.
+          </div>
+        ) : (
+          <>
+            {/* User counts */}
+            <div style={{
+              display:             "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+              gap:                 "var(--space-3)",
+              marginBottom:        "var(--space-4)",
+            }}>
+              <StatTile loading={loadingStats} label="Total Users"      value={stats?.users.total ?? 0} />
+              <StatTile loading={loadingStats} label="Students"         value={stats?.users.students ?? 0}   accent="var(--role-student)" />
+              <StatTile loading={loadingStats} label="Teachers"         value={stats?.users.teachers ?? 0}   accent="var(--role-teacher)" />
+              <StatTile loading={loadingStats} label="Principals"       value={stats?.users.principals ?? 0} accent="var(--role-principal)" />
+              <StatTile loading={loadingStats} label="Officials"        value={stats?.users.officials ?? 0}  accent="var(--role-official)" />
+              <StatTile loading={loadingStats} label="Active Sessions"  value={stats?.active_sessions ?? 0}  sub="logged-in devices" accent="var(--role-student)" />
+            </div>
+
+            {/* Content + today's activity in two groups */}
+            <div style={{
+              display:             "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap:                 "var(--space-4)",
+              marginBottom:        "var(--space-8)",
+            }}>
+              {/* Content */}
+              <div className="glass-card animate-fade-up" style={{ padding: "var(--space-5)" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "var(--space-4)" }}>
+                  CONTENT
+                </div>
+                {loadingStats ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="skeleton-box" style={{ marginBottom: "var(--space-3)", height: 16, borderRadius: 4 }} />
+                  ))
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                    {[
+                      { label: "Courses",     value: stats?.content.courses ?? 0 },
+                      { label: "Lessons",     value: stats?.content.lessons ?? 0,               sub: "published" },
+                      { label: "Assessments", value: stats?.content.published_assessments ?? 0, sub: "published" },
+                    ].map(({ label, value, sub }) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                          {label}{sub ? <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> ({sub})</span> : ""}
+                        </span>
+                        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-           </div>
-        </section>
+
+              {/* Today */}
+              <div className="glass-card animate-fade-up" style={{ padding: "var(--space-5)" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "var(--space-4)" }}>
+                  TODAY'S ACTIVITY
+                </div>
+                {loadingStats ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="skeleton-box" style={{ marginBottom: "var(--space-3)", height: 16, borderRadius: 4 }} />
+                  ))
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                    {[
+                      { icon: "📖", label: "Lessons completed",    value: stats?.activity.lessons_completed_today ?? 0 },
+                      { icon: "📋", label: "Assessments submitted", value: stats?.activity.assessments_submitted_today ?? 0 },
+                      { icon: "🔔", label: "Broadcasts sent",       value: stats?.activity.notifications_sent_today ?? 0 },
+                    ].map(({ icon, label, value }) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                          {icon} {label}
+                        </span>
+                        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: value > 0 ? "var(--role-student)" : "var(--text-muted)", letterSpacing: "-0.02em" }}>
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* ── User table ─────────────────────────────────────────────────── */}
-        <section>
-           <h3 style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-             <span>💻</span> ACCESS LOGS
-           </h3>
-           
-           {/* Role filter pills */}
-           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
-              <button 
-                onClick={() => setRoleFilter('ALL')} 
-                style={{ padding: '6px 12px', fontSize: '10px', fontWeight: 800, borderRadius: '4px', border: '1px solid var(--border-default)', background: roleFilter === 'ALL' ? 'var(--brand-primary)' : 'transparent', color: roleFilter === 'ALL' ? '#000' : 'var(--text-muted)' }}
-              >
-                 ALL ({users.length})
-              </button>
-              {ROLES.map(r => (
-                <button 
-                  key={r} 
-                  onClick={() => setRoleFilter(r)}
-                  style={{ padding: '6px 12px', fontSize: '10px', fontWeight: 800, borderRadius: '4px', border: `1px solid ${ROLE_COLOR[r]}44`, background: roleFilter === r ? ROLE_COLOR[r] : 'transparent', color: roleFilter === r ? '#000' : ROLE_COLOR[r] }}
-                >
-                   {r} ({countByRole(r)})
-                </button>
-              ))}
-           </div>
+        <SectionLabel>All Users</SectionLabel>
 
-           <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table className="data-table">
-                 <thead>
-                    <tr>
-                       <th>NODAL ID</th>
-                       <th>IDENTIFIER</th>
-                       <th>PROTOCOL ROLE</th>
-                    </tr>
-                 </thead>
-                 <tbody>
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id}>
-                         <td style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>#{(u.id).toString().padStart(4, '0')}</td>
-                         <td style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{u.username}</td>
-                         <td>
-                            <div style={{ display: 'inline-block', fontSize: '9px', fontWeight: 800, padding: '4px 8px', borderRadius: '4px', color: ROLE_COLOR[u.role], background: `${ROLE_COLOR[u.role]}11`, border: `1px solid ${ROLE_COLOR[u.role]}33` }}>
-                               {u.role}
-                            </div>
-                         </td>
-                      </tr>
-                    ))}
-                    {filteredUsers.length === 0 && (
-                      <tr>
-                        <td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)', fontSize: '12px', fontWeight: 800, letterSpacing: '0.1em' }}>
-                           DATA VOID: No nodes detected for filter protocol.
-                        </td>
-                      </tr>
-                    )}
-                 </tbody>
-              </table>
-           </div>
-        </section>
+        {/* Role filter pills */}
+        {!loadingUsers && (
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
+            {(["ALL", ...ROLES] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRoleFilter(r)}
+                style={{
+                  padding:      "2px 12px",
+                  borderRadius: "var(--radius-full)",
+                  border:       `1px solid ${roleFilter === r ? (r !== "ALL" ? ROLE_COLOR[r as Role] : "var(--role-student)") : "var(--glass-border)"}`,
+                  background:   roleFilter === r ? (r !== "ALL" ? `${ROLE_COLOR[r as Role]}15` : "rgba(61,214,140,0.1)") : "transparent",
+                  color:        roleFilter === r
+                    ? (r === "ALL" ? "var(--role-student)" : ROLE_COLOR[r as Role])
+                    : r === "ALL" ? "var(--text-muted)" : ROLE_COLOR[r as Role],
+                  fontSize:     "var(--text-xs)",
+                  fontWeight:   700,
+                  cursor:       "pointer",
+                  transition:   "all 0.15s",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {r === "ALL"
+                  ? `ALL (${users.length})`
+                  : `${r} (${countByRole(r as Role)})`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="glass-card animate-fade-up" style={{ padding: 0, overflow: "hidden" }}>
+          {loadingUsers ? (
+            <div style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="skeleton-box" style={{ height: 44, borderRadius: "var(--radius-sm)" }} />
+              ))}
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="empty-well" style={{ padding: "var(--space-8)" }}>
+              <span style={{ fontSize: 32, display: "block", marginBottom: "var(--space-3)", opacity: 0.3 }}>👥</span>
+              <p style={{ fontWeight: 800, fontSize: "10px", letterSpacing: "0.1em" }}>NO USERS FOUND</p>
+              <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                {roleFilter !== "ALL"
+                  ? `No ${roleFilter} users in the system.`
+                  : "No users yet."}
+              </span>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td style={{ color: "var(--text-muted)", fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", letterSpacing: "-0.01em" }}>
+                      #{u.id}
+                    </td>
+                    <td style={{ fontWeight: 500, color: "var(--text-primary)" }}>
+                      {u.username}
+                    </td>
+                    <td>
+                      <span className="role-tag" style={{ color: ROLE_COLOR[u.role], borderColor: `${ROLE_COLOR[u.role]}40`, background: `${ROLE_COLOR[u.role]}10`, fontSize: 9 }}>
+                        {u.role}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
       </main>
-      <BottomNav />
     </div>
   );
-};
-
-export default AdminDashboardPage;
+}

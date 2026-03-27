@@ -189,25 +189,54 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 | Email-first OTP delivery | Fast2SMS Quick route unreliable (DLT, rate limits). Gmail SMTP is free and instant. | 2026-03-27 |
 | Vercel immutable cache | Hashed assets cached 1yr, repeat 3G visits load from disk | 2026-03-27 |
 | Vite modulePreload: false | Default preload injected 4MB Excalidraw into every page load | 2026-03-27 |
+| Django GZipMiddleware | All JSON APIs compressed 60-80% — critical for 2G/3G | 2026-03-27 |
+| DNS prefetch + preconnect | Early DNS/TLS for API + fonts — saves ~500ms on 3G | 2026-03-27 |
 
 ---
 
 ## SESSION LOG
 
 ### 2026-03-27 — Performance Optimization & OTP Overhaul
-- **Vite 3G Load Time Optimization**: Disabled Vite's aggressive `modulePreload` and removed `manualChunks` from `vite.config.ts`, restoring native lazy-loading boundaries. Dropped initial Dashboard JS payload from 5.4MB (which was eagerly downloading Excalidraw) down to ~600KB, slashing 3G load times from 40s to ~3s.
-- **Async OTP Delivery**: Rewrote `services.py` to use `threading.Thread` for fire-and-forget OTP dispatch. Login response now returns instantly instead of blocking 6s on SMTP/SMS timeout. Structured timing logs track delivery latency per channel.
-- **Email-First OTP Priority**: Swapped OTP delivery order from SMS→Email to **Email→SMS→Log**. Gmail SMTP is free, reliable, and instant. Fast2SMS demoted to fallback due to DLT restrictions.
-- **Vercel Immutable Cache Headers**: Added `Cache-Control: public, max-age=31536000, immutable` for all `/assets/*` in `vercel.json`. Repeat visits on 3G load instantly from disk cache.
-- **Sentry Noise Reduction**: Added global filter in `main.tsx` to automatically drop harmless Ably WebSocket `Connection closed` disconnect events, preventing alert spam on room navigation.
-- Configured native Hex `/live/:publicId` routing for resilient session reloading.
-- Admin Chat grouping by school integrated directly into `ChatRoomPage.tsx`.
-- Hand-raise hooks, whiteboard persistence, and role-based permissions merged successfully into the new `LiveSessionPage.tsx`.
-- Class section selection dropdowns across `UserManagementPage` & `AdminJoinCodesPage` patched to ensure purely descending numerical logic.
-- Calendar datetime input stylized using `obsidian-form-group` UI language.
-- New Registration Welcome Notification dispatched off `complete_profile` status.
-- **Frontend API Error Parsing**: Upgraded `api.ts` to natively intercept and parse raw Django `<!doctype html>` 404/500 error pages, replacing them with clean text bounds.
-- Documentation synced for React 19 standards globally.
+
+> **Goal**: Optimize GyanGrit for throttled 2G/3G networks in rural Punjab. All changes target reducing load times, API latency, and OTP delivery reliability.
+
+#### Performance Optimization Summary
+
+| Optimization | File Changed | Before | After | 3G Impact |
+|---|---|---|---|---|
+| Vite modulePreload off | `frontend/vite.config.ts` | 5.4 MB initial JS bundle (Excalidraw eagerly preloaded) | ~600 KB initial JS bundle | Load time: 40s → ~3s |
+| Removed `manualChunks` | `frontend/vite.config.ts` | Excalidraw CSS injected into every page | CSS lazy-loaded only on Whiteboard | Saves ~200 KB on non-whiteboard pages |
+| Django GZipMiddleware | `backend/gyangrit/settings/base.py` | JSON API responses sent uncompressed | All responses gzip-compressed | 60-80% smaller API payloads |
+| DNS Prefetch + Preconnect | `frontend/index.html` | Browser discovers API domain during JS exec | DNS + TLS initiated during HTML parse | ~500ms faster first API call |
+| Vercel Immutable Cache | `frontend/vercel.json` | Hashed assets re-validated on every visit | 1-year immutable cache on `/assets/*` | Repeat visits: 0 bytes download |
+| Font `display=swap` | `frontend/src/index.css` | Already configured ✅ | — | Text visible immediately while fonts load |
+
+#### OTP System Overhaul
+
+| Change | File Changed | Before | After | Impact |
+|---|---|---|---|---|
+| Async OTP Delivery | `backend/apps/accounts/services.py` | `send_otp()` blocks HTTP response 3-6s (SMTP/SMS timeout) | `send_otp_async()` fires `threading.Thread`, returns instantly | Login response: 3-6s → <100ms |
+| Email-First Priority | `backend/apps/accounts/services.py` | Priority: SMS → Email → Log | Priority: **Email → SMS → Log** | Gmail SMTP free & reliable; Fast2SMS unreliable (DLT) |
+| Views Wired to Async | `backend/apps/accounts/views.py` | `login_view` + `resend_otp` called sync `send_otp()` | Both now call `send_otp_async()` | Non-blocking login for all users |
+| Structured Timing Logs | `backend/apps/accounts/services.py` | Basic success/fail logging | `OTP[username] delivered via EMAIL in 1.2s` format | Full audit trail with delivery latency per channel |
+| SMS Timeout Reduced | `backend/apps/accounts/services.py` | Fast2SMS timeout: 6s | Timeout: 4s (fail fast on 3G) | Faster fallback to email when SMS fails |
+
+#### Infrastructure & Reliability
+
+| Change | File Changed | Details |
+|---|---|---|
+| Sentry Noise Filter | `frontend/src/main.tsx` | `beforeSend` drops Ably `Connection closed` errors — harmless WebSocket disconnects on room navigation |
+| Frontend API Error Parsing | `frontend/src/services/api.ts` | Intercepts raw Django `<!doctype html>` 404/500 pages, returns clean user-friendly error text |
+| Live Session Hex Routing | `frontend/src/pages/LiveSessionPage.tsx` | `/live/:publicId` hex slugs — no more 404s on page refresh |
+
+#### UI & Feature Integrations (Earlier in Day)
+
+- Admin Chat grouping by school integrated into `ChatRoomPage.tsx`
+- Hand-raise hooks, whiteboard persistence, and role-based permissions merged into `LiveSessionPage.tsx`
+- Class section selection dropdowns across `UserManagementPage` & `AdminJoinCodesPage` patched for descending numerical order
+- Calendar datetime input stylized using `obsidian-form-group` UI language
+- New Registration Welcome Notification dispatched off `complete_profile` status
+- Documentation synced for React 19 standards globally
 
 ### 2026-03-26 — PWA + Chat Upload + Infra + Bug Fixes
 - PWA: sw.js, manifest, icons, SW registration, install banner

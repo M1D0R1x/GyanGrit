@@ -54,6 +54,8 @@ AUTH_USER_MODEL = "accounts.User"
 MIDDLEWARE = [
     # CorsMiddleware MUST be first so CORS headers are added before any response
     "corsheaders.middleware.CorsMiddleware",
+    # GZipMiddleware compresses responses > 200 bytes. Critical for 3G/2G networks.
+    "django.middleware.gzip.GZipMiddleware",
     "django.middleware.security.SecurityMiddleware",
     # WhiteNoise: serves static files in production without a separate web server.
     # Must be right after SecurityMiddleware and before all others.

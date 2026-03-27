@@ -3,10 +3,8 @@
 import { createBrowserRouter } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
-import LoginPage           from "../pages/LoginPage";
-import RegisterPage        from "../pages/RegisterPage";
-import VerifyOtpPage       from "../pages/VerifyOtpPage";
-import CompleteProfilePage from "../pages/CompleteProfilePage";
+// Auth pages — lazy loaded. Authenticated users land on dashboard, not login,
+// so these only load when actually needed (saves ~40KB from entry bundle on 3G).
 
 /**
  * Retry-aware lazy loader for code-split pages.

@@ -224,6 +224,13 @@ CLOUDFLARE_R2_PUBLIC_URL        = os.getenv("CLOUDFLARE_R2_PUBLIC_URL",        "
 FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Twilio — Primary SMS OTP route
+# ─────────────────────────────────────────────────────────────────────────────
+TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Ably (real-time channels — post-capstone: competition rooms, chat rooms)
 # ─────────────────────────────────────────────────────────────────────────────
 

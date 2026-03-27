@@ -215,6 +215,7 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 
 | Change | File Changed | Before | After | Impact |
 |---|---|---|---|---|
+| Twilio Integration | `backend/apps/accounts/services.py` | Fast2SMS was primary (unreliable) | Twilio is primary, Email is fallback | Reliable global SMS delivery |
 | Async OTP Delivery | `backend/apps/accounts/services.py` | `send_otp()` blocks HTTP response 3-6s (SMTP/SMS timeout) | `send_otp_async()` fires `threading.Thread`, returns instantly | Login response: 3-6s → <100ms |
 | Email-First Priority | `backend/apps/accounts/services.py` | Priority: SMS → Email → Log | Priority: **Email → SMS → Log** | Gmail SMTP free & reliable; Fast2SMS unreliable (DLT) |
 | Views Wired to Async | `backend/apps/accounts/views.py` | `login_view` + `resend_otp` called sync `send_otp()` | Both now call `send_otp_async()` | Non-blocking login for all users |

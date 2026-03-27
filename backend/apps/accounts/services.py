@@ -55,13 +55,12 @@ def assign_teacher_to_classes(teacher, subject, institution):
 # ─────────────────────────────────────────────────────────────────────────────
 # OTP delivery  —  async, email-first
 #
-# Priority:  Email → SMS (Fast2SMS) → Log fallback
+# Priority:  SMS (Twilio) → Email → Log fallback
 # Delivery:  fire-and-forget via threading.Thread (safe with gthread workers)
 #
-# Why email-first?
-#   - Fast2SMS Quick route is unreliable (DLT restrictions, rate limits)
-#   - Gmail SMTP is free, instant, and always available
-#   - All staff roles (TEACHER/PRINCIPAL/OFFICIAL) have email on file
+# Why Twilio primary?
+#   - Fast2SMS Quick route is unreliable (DLT restrictions)
+#   - Email fallback provided for unverified phone numbers or Twilio failures.
 #
 # Why async?
 #   - SMTP can block 3-5s, Fast2SMS up to 4s (timeout)
@@ -72,6 +71,8 @@ def assign_teacher_to_classes(teacher, subject, institution):
 
 import threading
 import time
+
+from twilio.rest import Client
 
 
 def _send_sms_fast2sms(mobile: str, otp_code: str) -> bool:
@@ -148,24 +149,74 @@ def _send_otp_email(email: str, otp_code: str, username: str) -> bool:
         return False
 
 
+def _send_sms_twilio(mobile: str, otp_code: str) -> bool:
+    """
+    Send OTP via Twilio SMS.
+    Returns True on success, False on any failure.
+    """
+    account_sid = getattr(settings, "TWILIO_ACCOUNT_SID", "").strip()
+    auth_token = getattr(settings, "TWILIO_AUTH_TOKEN", "").strip()
+    twilio_number = getattr(settings, "TWILIO_PHONE_NUMBER", "").strip()
+    
+    if not account_sid or not auth_token or not twilio_number:
+        logger.warning("Twilio credentials missing in settings.")
+        return False
+
+    # Normalise to E.164 format for India (+91)
+    digits = "".join(c for c in mobile if c.isdigit())
+    if len(digits) == 10:
+        digits = "91" + digits
+    elif digits.startswith("91") and len(digits) == 12:
+        pass
+    else:
+        logger.warning("send_otp: invalid mobile after strip: %s chars", len(digits))
+        return False
+
+    to_number = "+" + digits
+
+    message_body = (
+        f"Your GyanGrit verification code is: {otp_code}. "
+        f"It expires in 10 minutes. Do not share this code with anyone."
+    )
+
+    try:
+        client = Client(account_sid, auth_token)
+        message = client.messages.create(
+            body=message_body,
+            from_=twilio_number,
+            to=to_number
+        )
+        logger.info("OTP SMS delivered via Twilio to *%s (SID: %s)", digits[-4:], message.sid)
+        return True
+    except Exception as exc:
+        logger.error("Twilio request failed: %s", exc)
+        return False
+
+
 def _deliver_otp_background(username: str, email: str, mobile: str, otp_code: str) -> None:
     """
-    Background thread: try email first, then SMS, then log.
+    Background thread: try Twilio SMS first, then Email, then log.
     This runs AFTER the HTTP response has already been sent to the user.
     """
     t0 = time.monotonic()
 
-    # 1 — Email (primary)
+    # 1 — Twilio SMS (primary)
+    if mobile and _send_sms_twilio(mobile, otp_code):
+        elapsed = round(time.monotonic() - t0, 2)
+        logger.info("OTP[%s] delivered via SMS (Twilio) in %ss", username, elapsed)
+        return
+
+    # 2 — Email (secondary)
     if email and _send_otp_email(email, otp_code, username):
         elapsed = round(time.monotonic() - t0, 2)
         logger.info("OTP[%s] delivered via EMAIL in %ss", username, elapsed)
         return
 
-    # 2 — SMS (fallback)
-    if mobile and _send_sms_fast2sms(mobile, otp_code):
-        elapsed = round(time.monotonic() - t0, 2)
-        logger.info("OTP[%s] delivered via SMS in %ss", username, elapsed)
-        return
+    # Legacy: Fast2SMS (Commented out per request)
+    # if mobile and _send_sms_fast2sms(mobile, otp_code):
+    #     elapsed = round(time.monotonic() - t0, 2)
+    #     logger.info("OTP[%s] delivered via SMS (Fast2SMS) in %ss", username, elapsed)
+    #     return
 
     # 3 — Log fallback (nothing worked)
     elapsed = round(time.monotonic() - t0, 2)
@@ -190,10 +241,10 @@ def send_otp_async(user, otp_code: str) -> str:
     mobile = getattr(user, "mobile_primary", "").strip()
 
     # Determine the intended channel for the frontend UI hint
-    if email and getattr(settings, "EMAIL_HOST", "").strip():
-        channel = "email"
-    elif mobile and getattr(settings, "FAST2SMS_API_KEY", "").strip():
+    if mobile and getattr(settings, "TWILIO_ACCOUNT_SID", "").strip():
         channel = "sms"
+    elif email and getattr(settings, "EMAIL_HOST", "").strip():
+        channel = "email"
     else:
         channel = "log"
 

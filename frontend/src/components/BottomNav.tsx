@@ -1,4 +1,4 @@
-// components.BottomNav
+// components.BottomNav — Chalk & Sunlight v3
 import { useLocation, useNavigate } from "react-router-dom";
 
 function HomeIcon({ active }: { active: boolean }) {
@@ -23,7 +23,7 @@ function CoursesIcon({ active }: { active: boolean }) {
   );
 }
 
-function AssessmentIcon({ active }: { active: boolean }) {
+function TestsIcon({ active }: { active: boolean }) {
   return (
     <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}
@@ -64,36 +64,11 @@ export default function BottomNav() {
     prefixes.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p + "?"));
 
   const tabs = [
-    {
-      label:  "Home",
-      to:     "/dashboard",
-      active: isActive(["/dashboard"]),
-      icon:   (a: boolean) => <HomeIcon active={a} />,
-    },
-    {
-      label:  "Courses",
-      to:     "/courses",
-      active: isActive(["/courses", "/lessons", "/learning"]),
-      icon:   (a: boolean) => <CoursesIcon active={a} />,
-    },
-    {
-      label:  "Tests",
-      to:     "/assessments",
-      active: isActive(["/assessments", "/assessment-result"]),
-      icon:   (a: boolean) => <AssessmentIcon active={a} />,
-    },
-    {
-      label:  "Chat",
-      to:     "/chat",
-      active: isActive(["/chat"]),
-      icon:   (a: boolean) => <ChatIcon active={a} />,
-    },
-    {
-      label:  "Profile",
-      to:     "/profile",
-      active: isActive(["/profile"]),
-      icon:   (a: boolean) => <ProfileIcon active={a} />,
-    },
+    { label: "Home",    to: "/dashboard",   active: isActive(["/dashboard"]),                              icon: (a: boolean) => <HomeIcon    active={a} /> },
+    { label: "Courses", to: "/courses",     active: isActive(["/courses", "/lessons", "/learning"]),       icon: (a: boolean) => <CoursesIcon active={a} /> },
+    { label: "Tests",   to: "/assessments", active: isActive(["/assessments", "/assessment-result"]),      icon: (a: boolean) => <TestsIcon   active={a} /> },
+    { label: "Chat",    to: "/chat",        active: isActive(["/chat"]),                                   icon: (a: boolean) => <ChatIcon    active={a} /> },
+    { label: "Profile", to: "/profile",     active: isActive(["/profile"]),                                icon: (a: boolean) => <ProfileIcon active={a} /> },
   ];
 
   return (
@@ -106,7 +81,6 @@ export default function BottomNav() {
           aria-label={tab.label}
           aria-current={tab.active ? "page" : undefined}
         >
-          <span className="bottom-nav__dot" aria-hidden="true" />
           {tab.icon(tab.active)}
           <span className="bottom-nav__label">{tab.label}</span>
         </button>

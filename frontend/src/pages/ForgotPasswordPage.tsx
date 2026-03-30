@@ -50,10 +50,10 @@ export default function ForgotPasswordPage() {
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <p style={{ margin: 0, fontWeight: 600, color: "var(--text-primary)" }}>
+              <p style={{ margin: 0, fontWeight: 600, color: "var(--ink-primary)" }}>
                 Check your email
               </p>
-              <p style={{ margin: "var(--space-2) 0 0", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+              <p style={{ margin: "var(--space-2) 0 0", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
                 If an account with that username or email exists, we've sent a reset link. Check your inbox (and spam folder).
               </p>
             </div>
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <>
-            <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-5)", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--ink-secondary)", marginBottom: "var(--space-5)", fontSize: "0.9rem" }}>
               Enter your username or email address and we'll send a password reset link.
             </p>
 

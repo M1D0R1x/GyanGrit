@@ -165,8 +165,7 @@ function VideoEmbed({ url, thumbnail, duration }: {
             alignItems: "center", justifyContent: "center", gap: "var(--space-3)" }}>
             <div style={{
               width: 64, height: 64, borderRadius: "50%",
-              background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)",
-              border: "2px solid rgba(255,255,255,0.4)",
+              background: "rgba(255,255,255,0.9)", border: "2px solid var(--saffron)",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
@@ -201,8 +200,8 @@ function PdfViewer({ url }: { url: string }) {
         padding: "var(--space-4) var(--space-5)",
         background: "var(--bg-elevated)",
         borderRadius: expanded ? "var(--radius-lg) var(--radius-lg) 0 0" : "var(--radius-lg)",
-        border: "1px solid var(--border-subtle)",
-        borderBottom: expanded ? "none" : "1px solid var(--border-subtle)",
+        border: "1px solid var(--border-light)",
+        borderBottom: expanded ? "none" : "1px solid var(--border-light)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
           <div style={{
@@ -217,10 +216,10 @@ function PdfViewer({ url }: { url: string }) {
             </svg>
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
               Lesson PDF
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Study material</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Study material</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
@@ -239,7 +238,7 @@ function PdfViewer({ url }: { url: string }) {
       {expanded && (
         <iframe src={url} title="Lesson PDF" style={{
           width: "100%", height: 600,
-          border: "1px solid var(--border-subtle)", borderTop: "none",
+          border: "1px solid var(--border-light)", borderTop: "none",
           borderRadius: "0 0 var(--radius-lg) var(--radius-lg)", background: "white",
         }} />
       )}
@@ -316,7 +315,7 @@ export default function SectionLessonPage() {
             <span style={{
               fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
               background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)",
-              color: "var(--brand-primary)", textTransform: "uppercase", letterSpacing: "0.06em",
+              color: "var(--saffron)", textTransform: "uppercase", letterSpacing: "0.06em",
             }}>
               Teacher Added
             </span>
@@ -326,12 +325,12 @@ export default function SectionLessonPage() {
           </div>
           <h1 style={{
             fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)",
-            fontWeight: 800, color: "var(--text-primary)",
+            fontWeight: 800, color: "var(--ink-primary)",
             letterSpacing: "-0.03em", lineHeight: 1.2,
           }}>
             {lesson.title}
           </h1>
-          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-2)" }}>
             {lesson.subject_name} · Class {lesson.grade}
           </p>
         </div>

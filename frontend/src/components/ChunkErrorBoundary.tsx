@@ -71,26 +71,29 @@ export class ChunkErrorBoundary extends Component<Props, State> {
             justifyContent: "center",
             padding: "2rem",
             textAlign: "center",
-            fontFamily: "system-ui, sans-serif",
+            fontFamily: "'Nunito', 'Plus Jakarta Sans', sans-serif",
+            background: "#FDF8F0",
+            color: "#1A1208",
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               App Updated
             </h2>
-            <p style={{ fontSize: 14, color: "#666", marginBottom: 24, maxWidth: 400 }}>
+            <p style={{ fontSize: 14, color: "#9B8E7E", marginBottom: 24, maxWidth: 400, lineHeight: 1.6 }}>
               A new version of GyanGrit was deployed. Please refresh the page to load the latest version.
             </p>
             <button
               onClick={() => window.location.reload()}
               style={{
                 padding: "10px 24px",
-                background: "#3b82f6",
+                background: "#F59E0B",
                 color: "#fff",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: 9999,
                 fontSize: 14,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
               Refresh Now

@@ -264,7 +264,7 @@ export default function AdminAssessmentBuilderPage() {
               <input id="a-pass" className="form-input" type="number" min={1}
                 value={aPassMarks} onChange={(e) => setAPassMarks(Number(e.target.value))} />
               {assessment && (
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                   Total marks (auto): {assessment.total_marks}
                 </div>
               )}
@@ -273,22 +273,22 @@ export default function AdminAssessmentBuilderPage() {
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "var(--space-4)", background: "var(--bg-elevated)",
-              borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)",
               marginBottom: "var(--space-6)",
             }}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                   Publish assessment
                 </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                   Students can attempt it once published
                 </div>
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                 <input type="checkbox" checked={aPublished}
                   onChange={(e) => setAPublished(e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: "var(--brand-primary)", cursor: "pointer" }} />
-                <span style={{ fontSize: "var(--text-sm)", color: aPublished ? "var(--success)" : "var(--text-muted)" }}>
+                  style={{ width: 18, height: 18, accentColor: "var(--saffron)", cursor: "pointer" }} />
+                <span style={{ fontSize: "var(--text-sm)", color: aPublished ? "var(--success)" : "var(--ink-muted)" }}>
                   {aPublished ? "Published" : "Draft"}
                 </span>
               </label>
@@ -342,14 +342,14 @@ export default function AdminAssessmentBuilderPage() {
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
                             <span style={{
-                              background: "var(--brand-primary)", color: "#fff",
+                              background: "var(--saffron)", color: "#fff",
                               borderRadius: "var(--radius-full)", width: 22, height: 22,
                               display: "inline-flex", alignItems: "center", justifyContent: "center",
                               fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0,
                             }}>
                               {q.order}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                            <span style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                               {q.text}
                             </span>
                             <span className="badge badge--info" style={{ fontSize: 10, marginLeft: "auto", flexShrink: 0 }}>
@@ -364,7 +364,7 @@ export default function AdminAssessmentBuilderPage() {
                                 </span>
                                 <span style={{
                                   fontSize: "var(--text-sm)",
-                                  color: opt.is_correct ? "var(--success)" : "var(--text-secondary)",
+                                  color: opt.is_correct ? "var(--success)" : "var(--ink-secondary)",
                                   fontWeight: opt.is_correct ? 600 : 400,
                                 }}>
                                   {opt.text}
@@ -390,7 +390,7 @@ export default function AdminAssessmentBuilderPage() {
                   <div className="card">
                     <h3 style={{
                       fontFamily: "var(--font-display)", fontWeight: 700,
-                      fontSize: "var(--text-base)", color: "var(--text-primary)",
+                      fontSize: "var(--text-base)", color: "var(--ink-primary)",
                       marginBottom: "var(--space-5)",
                     }}>
                       New Question
@@ -418,7 +418,7 @@ export default function AdminAssessmentBuilderPage() {
                     <div className="form-group">
                       <label className="form-label">
                         Options
-                        <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
+                        <span style={{ color: "var(--ink-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
                           — select exactly one correct answer
                         </span>
                       </label>
@@ -439,7 +439,7 @@ export default function AdminAssessmentBuilderPage() {
                           </div>
                         ))}
                       </div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-2)" }}>
                         Click the radio button to mark the correct answer
                       </div>
                     </div>

@@ -31,31 +31,31 @@ function FlipCard({ card, onRate }: { card: Flashcard; onRate: (quality: number)
         {/* Front */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "var(--bg-elevated)", border: "2px solid var(--border-default)",
+          background: "var(--bg-elevated)", border: "2px solid var(--border-medium)",
           borderRadius: "var(--radius-xl)", padding: "var(--space-6)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           opacity: flipped ? 0 : 1, transition: "opacity 0.2s",
           textAlign: "center",
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "var(--space-3)" }}>Question</div>
-          <p style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.5 }}>{card.front}</p>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-muted)", marginBottom: "var(--space-3)" }}>Question</div>
+          <p style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--ink-primary)", lineHeight: 1.5 }}>{card.front}</p>
           {card.hint && !flipped && (
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", marginTop: "var(--space-3)" }}>💡 {card.hint}</p>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", marginTop: "var(--space-3)" }}>💡 {card.hint}</p>
           )}
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-4)" }}>Tap to reveal answer</p>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-4)" }}>Tap to reveal answer</p>
         </div>
 
         {/* Back */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "var(--bg-elevated)", border: "2px solid var(--brand-primary)",
+          background: "var(--bg-elevated)", border: "2px solid var(--saffron)",
           borderRadius: "var(--radius-xl)", padding: "var(--space-6)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           opacity: flipped ? 1 : 0, transition: "opacity 0.2s",
           textAlign: "center",
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--brand-primary)", marginBottom: "var(--space-3)" }}>Answer</div>
-          <p style={{ fontSize: "var(--text-base)", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{card.back}</p>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--saffron)", marginBottom: "var(--space-3)" }}>Answer</div>
+          <p style={{ fontSize: "var(--text-base)", fontWeight: 600, color: "var(--ink-primary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{card.back}</p>
         </div>
       </div>
 
@@ -91,20 +91,20 @@ function SessionComplete({ stats, deckTitle, onRestart, onBack }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, padding: "var(--space-8)", textAlign: "center" }}>
       <div style={{ fontSize: 64, marginBottom: "var(--space-4)" }}>{pct >= 75 ? "🎉" : pct >= 50 ? "💪" : "📚"}</div>
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--text-primary)", marginBottom: "var(--space-2)" }}>Session Complete!</h2>
-      <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--space-6)" }}>{deckTitle}</p>
+      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--ink-primary)", marginBottom: "var(--space-2)" }}>Session Complete!</h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--space-6)" }}>{deckTitle}</p>
       <div style={{ display: "flex", gap: "var(--space-6)", marginBottom: "var(--space-6)" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--success)" }}>{stats.correct}</div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Correct</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Correct</div>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--text-primary)" }}>{stats.total}</div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Total</div>
+          <div style={{ fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--ink-primary)" }}>{stats.total}</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Total</div>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--brand-primary)" }}>{pct}%</div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Score</div>
+          <div style={{ fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--saffron)" }}>{pct}%</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Score</div>
         </div>
       </div>
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
@@ -187,7 +187,7 @@ export default function FlashcardsStudyPage() {
       <TopBar title="Flashcards" />
       <main style={{ padding: "var(--space-4)", paddingBottom: 80 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--text-primary)" }}>Study</h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>Study</h2>
         </div>
 
         {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }} onClick={() => setError(null)}>{error}</div>}
@@ -205,13 +205,13 @@ export default function FlashcardsStudyPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {decks.map(deck => (
-              <div key={deck.id} style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={deck.id} style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>{deck.title}</div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                  <div style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{deck.title}</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
                     {deck.subject_name} · {deck.card_count} cards
                     {deck.due_count !== undefined && deck.due_count > 0 && (
-                      <span style={{ marginLeft: "var(--space-2)", background: "var(--brand-primary)", color: "#fff", padding: "1px 6px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 700 }}>
+                      <span style={{ marginLeft: "var(--space-2)", background: "var(--saffron)", color: "#fff", padding: "1px 6px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 700 }}>
                         {deck.due_count} due
                       </span>
                     )}
@@ -248,11 +248,11 @@ export default function FlashcardsStudyPage() {
   return (
     <div className="page-shell" style={{ display: "flex", flexDirection: "column" }}>
       <TopBar title={session.deck_title} />
-      <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
+      <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0, background: "var(--bg-surface)" }}>
         <div style={{ flex: 1, height: 6, background: "var(--bg-elevated)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-primary)", borderRadius: "var(--radius-full)", transition: "width 0.3s" }} />
+          <div style={{ height: "100%", width: `${progress}%`, background: "var(--saffron)", borderRadius: "var(--radius-full)", transition: "width 0.3s" }} />
         </div>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", flexShrink: 0 }}>{cardIndex + 1} / {session.cards.length}</span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", flexShrink: 0 }}>{cardIndex + 1} / {session.cards.length}</span>
         <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", flexShrink: 0 }} onClick={() => setSession(null)}>Exit</button>
       </div>
       <main style={{ flex: 1, display: "flex", flexDirection: "column", padding: "var(--space-6) var(--space-4)", paddingBottom: 80, overflowY: "auto" }}>

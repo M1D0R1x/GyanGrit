@@ -87,7 +87,7 @@ export default function LearningPathPage() {
               fontFamily: "var(--font-display)",
               fontSize: "var(--text-3xl)",
               fontWeight: 800,
-              color: "var(--text-primary)",
+              color: "var(--ink-primary)",
               letterSpacing: "-0.03em",
               marginBottom: "var(--space-3)",
             }}>
@@ -97,7 +97,7 @@ export default function LearningPathPage() {
             {path.description && (
               <p style={{
                 fontSize: "var(--text-base)",
-                color: "var(--text-secondary)",
+                color: "var(--ink-secondary)",
                 marginBottom: "var(--space-6)",
                 lineHeight: 1.7,
               }}>
@@ -113,7 +113,7 @@ export default function LearningPathPage() {
                   justifyContent: "space-between",
                   marginBottom: "var(--space-2)",
                 }}>
-                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>
                     {progress.completed_courses} of {progress.total_courses} courses completed
                   </span>
                   <span style={{
@@ -121,7 +121,7 @@ export default function LearningPathPage() {
                     fontWeight: 800,
                     color: progress.percentage === 100
                       ? "var(--success)"
-                      : "var(--brand-primary)",
+                      : "var(--saffron)",
                   }}>
                     {progress.percentage}%
                   </span>
@@ -133,7 +133,7 @@ export default function LearningPathPage() {
                       width: `${progress.percentage}%`,
                       background: progress.percentage === 100
                         ? "var(--success)"
-                        : "var(--brand-primary)",
+                        : "var(--saffron)",
                     }}
                   />
                 </div>
@@ -158,7 +158,7 @@ export default function LearningPathPage() {
               </h3>
               <span style={{
                 fontSize: "var(--text-xs)",
-                color: "var(--text-muted)",
+                color: "var(--ink-muted)",
               }}>
                 {path.courses.length} course{path.courses.length !== 1 ? "s" : ""}
               </span>
@@ -181,15 +181,15 @@ export default function LearningPathPage() {
                       width: 36,
                       height: 36,
                       borderRadius: "var(--radius-sm)",
-                      background: "var(--brand-primary-glow)",
-                      border: "1px solid var(--brand-primary)",
+                      background: "var(--saffron-glow)",
+                      border: "1px solid var(--saffron)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontFamily: "var(--font-display)",
                       fontWeight: 800,
                       fontSize: "var(--text-sm)",
-                      color: "var(--brand-primary)",
+                      color: "var(--saffron)",
                       flexShrink: 0,
                     }}>
                       {c.order}
@@ -199,7 +199,7 @@ export default function LearningPathPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         fontWeight: 600,
-                        color: "var(--text-primary)",
+                        color: "var(--ink-primary)",
                         fontSize: "var(--text-sm)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -208,7 +208,7 @@ export default function LearningPathPage() {
                         {c.title}
                       </div>
                       {c.subject && (
-                        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
                         {c.subject} · Class {c.grade}
                        </div>
                         )}
@@ -216,7 +216,7 @@ export default function LearningPathPage() {
 
                     {/* Arrow */}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"
+                      stroke="var(--ink-muted)" strokeWidth="2" strokeLinecap="round"
                       strokeLinejoin="round" style={{ flexShrink: 0 }}>
                       <polyline points="9 18 15 12 9 6" />
                     </svg>

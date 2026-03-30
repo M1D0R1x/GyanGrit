@@ -22,7 +22,7 @@ function MsgBubble({ msg }: { msg: AIMessage }) {
   return (
     <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: "var(--space-3)" }}>
       {!isUser && (
-        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--brand-primary), #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: "var(--space-2)", alignSelf: "flex-end" }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--saffron), #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: "var(--space-2)", alignSelf: "flex-end" }}>
           🤖
         </div>
       )}
@@ -31,14 +31,14 @@ function MsgBubble({ msg }: { msg: AIMessage }) {
         borderRadius: isUser
           ? "var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)"
           : "var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)",
-        background: isUser ? "var(--brand-primary)" : "var(--bg-elevated)",
-        color:      isUser ? "#fff" : "var(--text-primary)",
-        border:     isUser ? "none" : "1px solid var(--border-subtle)",
+        background: isUser ? "var(--saffron)" : "var(--bg-elevated)",
+        color:      isUser ? "#fff" : "var(--ink-primary)",
+        border:     isUser ? "none" : "1px solid var(--border-medium)",
       }}>
         <p style={{ fontSize: "var(--text-sm)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {msg.content}
         </p>
-        <span style={{ fontSize: 10, color: isUser ? "rgba(255,255,255,0.6)" : "var(--text-muted)", display: "block", textAlign: "right", marginTop: "var(--space-1)" }}>
+        <span style={{ fontSize: 10, color: isUser ? "rgba(255,255,255,0.6)" : "var(--ink-muted)", display: "block", textAlign: "right", marginTop: "var(--space-1)" }}>
           {new Date(msg.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
@@ -50,10 +50,10 @@ function MsgBubble({ msg }: { msg: AIMessage }) {
 function ThinkingBubble() {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--brand-primary), #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🤖</div>
-      <div style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)", border: "1px solid var(--border-subtle)", display: "flex", gap: 4, alignItems: "center" }}>
+      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--saffron), #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🤖</div>
+      <div style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)", border: "1px solid var(--border-medium)", display: "flex", gap: 4, alignItems: "center" }}>
         {[0, 150, 300].map(d => (
-          <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", animation: `pulse 1.2s ease-in-out ${d}ms infinite` }} />
+          <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--ink-muted)", animation: `pulse 1.2s ease-in-out ${d}ms infinite` }} />
         ))}
       </div>
     </div>
@@ -162,8 +162,8 @@ export default function AIChatPage() {
 
         {/* ── Conversation sidebar ── */}
         {showSidebar && (
-          <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", background: "var(--bg-surface)" }}>
-            <div style={{ padding: "var(--space-3)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+          <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid var(--border-light)", display: "flex", flexDirection: "column", background: "var(--bg-surface)" }}>
+            <div style={{ padding: "var(--space-3)", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
               <button className="btn btn--primary" style={{ width: "100%", fontSize: "var(--text-xs)" }} onClick={startNewConversation}>
                 + New Chat
               </button>
@@ -173,13 +173,13 @@ export default function AIChatPage() {
                 <div key={c.id} onClick={() => openConversation(c.id)}
                   style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-md)", cursor: "pointer", background: activeConv?.id === c.id ? "rgba(59,130,246,0.08)" : "none", marginBottom: 2, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {c.subject_name}
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{c.message_count} messages</div>
+                    <div style={{ fontSize: 10, color: "var(--ink-muted)" }}>{c.message_count} messages</div>
                   </div>
                   <button onClick={e => { e.stopPropagation(); handleDelete(c.id); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 12, padding: 2, flexShrink: 0 }}>
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 12, padding: 2, flexShrink: 0 }}>
                     ✕
                   </button>
                 </div>
@@ -194,10 +194,10 @@ export default function AIChatPage() {
             /* Welcome screen */
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "var(--space-8)", textAlign: "center" }}>
               <div style={{ fontSize: 56, marginBottom: "var(--space-4)" }}>🤖</div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--text-primary)", marginBottom: "var(--space-2)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--ink-primary)", marginBottom: "var(--space-2)" }}>
                 GyanGrit AI Tutor
               </h2>
-              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", maxWidth: 360, marginBottom: "var(--space-6)", lineHeight: 1.6 }}>
+              <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", maxWidth: 360, marginBottom: "var(--space-6)", lineHeight: 1.6 }}>
                 Ask any question about your subjects. Get instant, curriculum-aligned answers in English, Hindi, or Punjabi.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "100%", maxWidth: 340 }}>
@@ -213,10 +213,10 @@ export default function AIChatPage() {
               </div>
               {/* Suggested questions */}
               <div style={{ marginTop: "var(--space-8)", display: "flex", flexDirection: "column", gap: "var(--space-2)", width: "100%", maxWidth: 360 }}>
-                <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600 }}>Try asking:</p>
+                <p style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600 }}>Try asking:</p>
                 {["Explain photosynthesis simply", "What is Newton's second law?", "ਪੰਜਾਬੀ ਵਿੱਚ ਦੱਸੋ — ਲੋਕਤੰਤਰ ਕੀ ਹੈ?", "Maths mein percentage kaise nikaltey hain?"].map(q => (
                   <button key={q} onClick={() => { startNewConversation(); setTimeout(() => setInput(q), 100); }}
-                    style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--text-secondary)", textAlign: "left" }}>
+                    style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--ink-secondary)", textAlign: "left" }}>
                     {q}
                   </button>
                 ))}
@@ -225,12 +225,12 @@ export default function AIChatPage() {
           ) : (
             <>
               {/* Header */}
-              <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+              <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                  <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                     {activeConv.subject_name || "General"} Tutor
                   </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Powered by Gemini · Curriculum-aligned</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Powered by Gemini · Curriculum-aligned</div>
                 </div>
                 <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)" }} onClick={() => setActiveConv(null)}>← Back</button>
               </div>
@@ -238,7 +238,7 @@ export default function AIChatPage() {
               {/* Messages */}
               <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)" }}>
                 {activeConv.messages.length === 0 && (
-                  <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "var(--text-sm)", marginTop: "var(--space-8)" }}>
+                  <div style={{ textAlign: "center", color: "var(--ink-muted)", fontSize: "var(--text-sm)", marginTop: "var(--space-8)" }}>
                     Ask your first question below 👇
                   </div>
                 )}
@@ -256,7 +256,7 @@ export default function AIChatPage() {
               </div>
 
               {/* Input */}
-              <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-subtle)", background: "var(--bg-surface)", display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+              <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
                 <input ref={inputRef} className="form-input" type="text"
                   placeholder="Ask anything about your subjects… (English, Hindi, or Punjabi)"
                   value={input} onChange={e => setInput(e.target.value)}

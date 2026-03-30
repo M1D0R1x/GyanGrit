@@ -36,14 +36,14 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
 };
 
 const ROOM_TYPE_COLORS: Record<string, string> = {
-  subject:   "var(--brand-primary)",
+  subject:   "var(--saffron)",
   staff:     "var(--warning)",
   officials: "var(--role-official, #8b5cf6)",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function RoomTypeBadge({ type }: { type: string }) {
-  const color = ROOM_TYPE_COLORS[type] ?? "var(--text-muted)";
+  const color = ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)";
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: "1px 8px",
@@ -66,10 +66,10 @@ function SenderLabel({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
     moderator: "var(--role-admin,     #ef4444)",
     student:   "var(--role-student,   #3b82f6)",
   };
-  const color = roleColors[msg.role_label] ?? "var(--text-muted)";
+  const color = roleColors[msg.role_label] ?? "var(--ink-muted)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)", paddingLeft: 2 }}>
-      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--ink-secondary)" }}>
         {msg.sender_name}
       </span>
       <span style={{
@@ -152,23 +152,23 @@ function MessageBubble({ msg, isMe, canPin, canReply, replyCount, onPin, onReply
         <div style={{
           padding: "var(--space-3) var(--space-4)",
           borderRadius: isMe ? "var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)" : "var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)",
-          background: isMe ? "var(--brand-primary)" : "var(--bg-elevated)",
-          color: isMe ? "#fff" : "var(--text-primary)",
-          border: isMe ? "none" : "1px solid var(--border-subtle)",
+          background: isMe ? "var(--saffron)" : "var(--bg-elevated)",
+          color: isMe ? "#fff" : "var(--ink-primary)",
+          border: isMe ? "none" : "1px solid var(--border-medium)",
           position: "relative" as const, maxWidth: "100%",
         }}>
           {msg.is_pinned && <span style={{ position: "absolute", top: -8, right: -6, fontSize: 12 }}>📌</span>}
           {msg.content && <p style={{ fontSize: "var(--text-sm)", lineHeight: 1.55, margin: 0, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{msg.content}</p>}
           <AttachmentPreview msg={msg} />
-          <span style={{ display: "block", fontSize: 10, marginTop: msg.content ? "var(--space-1)" : "var(--space-2)", color: isMe ? "rgba(255,255,255,0.6)" : "var(--text-muted)", textAlign: "right" }}>{time}</span>
+          <span style={{ display: "block", fontSize: 10, marginTop: msg.content ? "var(--space-1)" : "var(--space-2)", color: isMe ? "rgba(255,255,255,0.6)" : "var(--ink-muted)", textAlign: "right" }}>{time}</span>
         </div>
         {hovered && (
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
             {canReply && !isReply && (
-              <button onClick={() => onReplyClick(msg)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>↩ Reply</button>
+              <button onClick={() => onReplyClick(msg)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)", display: "flex", alignItems: "center", gap: 3 }}>↩ Reply</button>
             )}
             {canPin && (
-              <button onClick={() => onPin(msg.id)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--text-muted)" }}>
+              <button onClick={() => onPin(msg.id)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)" }}>
                 {msg.is_pinned ? "📌 Unpin" : "📌 Pin"}
               </button>
             )}
@@ -176,7 +176,7 @@ function MessageBubble({ msg, isMe, canPin, canReply, replyCount, onPin, onReply
         )}
       </div>
       {!isReply && replyCount > 0 && (
-        <button onClick={() => onReplyClick(msg)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--brand-primary)", fontWeight: 600, padding: "var(--space-1) 0", alignSelf: isMe ? "flex-end" : "flex-start" }}>
+        <button onClick={() => onReplyClick(msg)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600, padding: "var(--space-1) 0", alignSelf: isMe ? "flex-end" : "flex-start" }}>
           {replyCount} {replyCount === 1 ? "reply" : "replies"} →
         </button>
       )}
@@ -206,22 +206,22 @@ function ThreadPanel({ parentMsg, replies, onClose, onSendReply, myId, canPin, c
   };
 
   return (
-    <div style={{ width: 320, flexShrink: 0, borderLeft: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", background: "var(--bg-surface)", height: "100%" }}>
-      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>Thread</span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18, lineHeight: 1 }}>×</button>
+    <div style={{ width: 320, flexShrink: 0, borderLeft: "1px solid var(--border-light)", display: "flex", flexDirection: "column", background: "var(--bg-surface)", height: "100%" }}>
+      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>Thread</span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
-      <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+      <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-elevated)" }}>
         <MessageBubble msg={parentMsg} isMe={parentMsg.sender_id === myId} canPin={false} canReply={false} replyCount={0} onPin={() => {}} onReplyClick={() => {}} />
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)" }}>
         {replies.length === 0
-          ? <p style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)", fontStyle: "italic" }}>No replies yet.</p>
+          ? <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-xs)", fontStyle: "italic" }}>No replies yet.</p>
           : replies.map((r) => <MessageBubble key={r.id} msg={r} isMe={r.sender_id === myId} canPin={canPin} canReply={false} replyCount={0} onPin={onPin} onReplyClick={() => {}} isReply />)}
         <div ref={bottomRef} />
       </div>
       {canReply && (
-        <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-subtle)", display: "flex", gap: "var(--space-2)" }}>
+        <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-light)", display: "flex", gap: "var(--space-2)" }}>
           <input className="form-input" placeholder="Reply..." value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), void handleSend())}
             disabled={sending} style={{ flex: 1, fontSize: "var(--text-sm)" }} />
@@ -249,7 +249,7 @@ function NotificationToast({ toast, onDismiss, onOpen }: { toast: PushToast; onD
   return (
     <div style={{
       position: "fixed", bottom: "var(--space-6)", right: "var(--space-4)", zIndex: 999,
-      background: "var(--bg-elevated)", border: "1px solid var(--border-default)",
+      background: "var(--bg-elevated)", border: "1px solid var(--border-medium)",
       borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
       boxShadow: "var(--shadow-lg)", maxWidth: 320,
       display: "flex", gap: "var(--space-3)", alignItems: "flex-start",
@@ -257,12 +257,12 @@ function NotificationToast({ toast, onDismiss, onOpen }: { toast: PushToast; onD
     }}>
       <div style={{ fontSize: 20, flexShrink: 0 }}>💬</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--text-primary)", marginBottom: 2 }}>{toast.room_name}</div>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", fontWeight: 600 }}>{toast.sender_name}</div>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{toast.preview}</div>
+        <div style={{ fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--ink-primary)", marginBottom: 2 }}>{toast.room_name}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)", fontWeight: 600 }}>{toast.sender_name}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{toast.preview}</div>
       </div>
       <button onClick={() => { onOpen(toast.room_id); onDismiss(toast.id); }}
-        style={{ background: "var(--brand-primary)", border: "none", borderRadius: "var(--radius-sm)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}>
+        style={{ background: "var(--saffron)", border: "none", borderRadius: "var(--radius-sm)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}>
         Open
       </button>
     </div>
@@ -565,8 +565,8 @@ export default function ChatRoomPage() {
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
-          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border-light)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
               Rooms
             </div>
             {user?.role === "ADMIN" ? (
@@ -584,8 +584,8 @@ export default function ChatRoomPage() {
                     <div style={{
                       padding: "var(--space-3) var(--space-4) var(--space-1)",
                       fontSize: 11, fontWeight: 800, letterSpacing: "0.02em",
-                      color: "var(--brand-primary)",
-                      borderBottom: "1px solid var(--border-subtle)",
+                      color: "var(--saffron)",
+                      borderBottom: "1px solid var(--border-light)",
                       background: "rgba(59,130,246,0.04)",
                       position: "sticky" as const, top: 0, zIndex: 1,
                     }}>
@@ -596,16 +596,16 @@ export default function ChatRoomPage() {
                       if (!group.length) return null;
                       return (
                         <div key={type}>
-                          <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
+                          <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
                             {ROOM_TYPE_LABELS[type]}
                           </div>
                           {group.map((r) => (
                             <button key={r.id} onClick={() => setActiveRoom(r)} style={{
                               width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                              borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
+                              borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
                               textAlign: "left", cursor: "pointer",
                             }}>
-                              <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {r.name}
                               </span>
                             </button>
@@ -623,16 +623,16 @@ export default function ChatRoomPage() {
                 if (!group.length) return null;
                 return (
                   <div key={type}>
-                    <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--text-muted)" }}>
+                    <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
                       {ROOM_TYPE_LABELS[type]}
                     </div>
                     {group.map((r) => (
                       <button key={r.id} onClick={() => setActiveRoom(r)} style={{
                         width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                        borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--brand-primary)"}` : "3px solid transparent",
+                        borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
                         textAlign: "left", cursor: "pointer",
                       }}>
-                        <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--text-primary)" : "var(--text-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {r.name}
                         </span>
                       </button>
@@ -659,7 +659,7 @@ export default function ChatRoomPage() {
               ) : (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 48, marginBottom: "var(--space-4)" }}>💬</div>
-                  <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>Select a room to start chatting.</p>
+                  <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Select a room to start chatting.</p>
                 </div>
               )}
             </div>
@@ -668,7 +668,7 @@ export default function ChatRoomPage() {
               <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
                 {/* Room header */}
-                <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
+                <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 2 }}>
                       <RoomTypeBadge type={activeRoom.room_type} />
@@ -679,7 +679,7 @@ export default function ChatRoomPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {activeRoom.name}
                     </div>
                   </div>
@@ -696,7 +696,7 @@ export default function ChatRoomPage() {
 
                 {/* Student reply-only notice */}
                 {isStudent && activeRoom.room_type === "subject" && (
-                  <div style={{ padding: "var(--space-2) var(--space-4)", background: "rgba(59,130,246,0.06)", borderBottom: "1px solid var(--border-subtle)", fontSize: "var(--text-xs)", color: "var(--brand-primary)", flexShrink: 0 }}>
+                  <div style={{ padding: "var(--space-2) var(--space-4)", background: "rgba(59,130,246,0.06)", borderBottom: "1px solid var(--border-light)", fontSize: "var(--text-xs)", color: "var(--saffron)", flexShrink: 0 }}>
                     💬 You can reply to messages. Only teachers can start new threads.
                   </div>
                 )}
@@ -712,7 +712,7 @@ export default function ChatRoomPage() {
                   ) : messages.length === 0 ? (
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: "var(--space-16)", opacity: 0.5 }}>
                       <div style={{ fontSize: 36, marginBottom: "var(--space-3)" }}>👋</div>
-                      <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
+                      <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>
                         {canPostTopLevel ? "Start the conversation." : "Waiting for a teacher to post."}
                       </p>
                     </div>
@@ -728,9 +728,9 @@ export default function ChatRoomPage() {
 
                 {/* Input bar */}
                 {(canPostTopLevel || canReply) && (
-                  <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-subtle)", background: "var(--bg-surface)", flexShrink: 0 }}>
+                  <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-light)", background: "var(--bg-surface)", flexShrink: 0 }}>
                     {!canPostTopLevel && canReply && (
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)" }}>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginBottom: "var(--space-2)" }}>
                         Tap "Reply" on a message to respond in a thread.
                       </div>
                     )}

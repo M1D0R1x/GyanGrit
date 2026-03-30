@@ -69,10 +69,10 @@ export default function TeacherStudentDetailPage() {
               <div style={{
                 width: 52, height: 52, borderRadius: "50%",
                 background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
+                border: "1px solid var(--border-medium)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontFamily: "var(--font-display)", fontWeight: 800,
-                fontSize: "var(--text-lg)", color: "var(--text-secondary)", flexShrink: 0,
+                fontSize: "var(--text-lg)", color: "var(--ink-secondary)", flexShrink: 0,
               }}>
                 {data.username.slice(0, 2).toUpperCase()}
               </div>
@@ -81,12 +81,12 @@ export default function TeacherStudentDetailPage() {
                   fontFamily: "var(--font-display)",
                   fontSize: "var(--text-2xl)",
                   fontWeight: 800,
-                  color: "var(--text-primary)",
+                  color: "var(--ink-primary)",
                   letterSpacing: "-0.03em",
                 }}>
                   {data.username}
                 </h1>
-                <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
                   {data.attempts.length} assessment{data.attempts.length !== 1 ? "s" : ""} completed
                 </p>
               </div>
@@ -117,7 +117,7 @@ export default function TeacherStudentDetailPage() {
                         <div className="card__title" style={{ marginBottom: "var(--space-2)" }}>
                           {a.assessment_title}
                         </div>
-                        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                           {new Date(a.submitted_at).toLocaleDateString("en-IN", {
                             day: "numeric", month: "short", year: "numeric",
                             hour: "2-digit", minute: "2-digit",
@@ -134,7 +134,7 @@ export default function TeacherStudentDetailPage() {
                           }}>
                             {a.score}
                           </div>
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>pts</div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>pts</div>
                         </div>
                         <span className={`badge ${a.passed ? "badge--success" : "badge--error"}`}>
                           {a.passed ? "PASS" : "FAIL"}

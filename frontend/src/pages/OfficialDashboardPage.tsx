@@ -49,7 +49,7 @@ function StatCard({ label, value, accent }: {
   return (
     <div className="card">
       <div className="card__label">{label}</div>
-      <div className="card__value" style={{ color: accent ?? "var(--text-primary)" }}>
+      <div className="card__value" style={{ color: accent ?? "var(--ink-primary)" }}>
         {value}
       </div>
     </div>
@@ -164,12 +164,12 @@ export default function OfficialDashboardPage() {
                 fontFamily: "var(--font-display)",
                 fontSize: "var(--text-2xl)",
                 fontWeight: 800,
-                color: "var(--text-primary)",
+                color: "var(--ink-primary)",
                 letterSpacing: "-0.03em",
               }}>
                 {user?.district ?? "All Districts"}
               </h2>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                 Data is automatically scoped to your district
               </p>
             </div>
@@ -178,7 +178,7 @@ export default function OfficialDashboardPage() {
               <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
                 {[
                   { value: institutions.length, label: "Schools",  color: "var(--role-official)" },
-                  { value: totalStudents,        label: "Students", color: "var(--text-primary)" },
+                  { value: totalStudents,        label: "Students", color: "var(--ink-primary)" },
                   { value: `${avgPassRate}%`,    label: "Avg Pass", color: avgPassRate >= 70 ? "var(--success)" : "var(--warning)" },
                 ].map(({ value, label, color }, idx, arr) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
@@ -186,10 +186,10 @@ export default function OfficialDashboardPage() {
                       <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 800, color }}>
                         {value}
                       </div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{label}</div>
                     </div>
                     {idx < arr.length - 1 && (
-                      <div style={{ width: 1, height: 40, background: "var(--border-subtle)" }} />
+                      <div style={{ width: 1, height: 40, background: "var(--border-light)" }} />
                     )}
                   </div>
                 ))}
@@ -231,7 +231,7 @@ export default function OfficialDashboardPage() {
             <StatCard label="Total Students" value={totalStudents}   accent="var(--role-student)" />
             <StatCard label="Avg Pass Rate"  value={`${avgPassRate}%`}
               accent={avgPassRate >= 70 ? "var(--success)" : "var(--warning)"} />
-            <StatCard label="Active Courses" value={courses.length}  accent="var(--brand-primary)" />
+            <StatCard label="Active Courses" value={courses.length}  accent="var(--saffron)" />
           </div>
         )}
 
@@ -251,9 +251,9 @@ export default function OfficialDashboardPage() {
                 className="badge"
                 style={{
                   cursor: "pointer",
-                  border: "1px solid var(--border-default)",
+                  border: "1px solid var(--border-medium)",
                   background: selectedInstitution === inst ? "rgba(139,92,246,0.12)" : "transparent",
-                  color: selectedInstitution === inst ? "var(--role-official)" : "var(--text-muted)",
+                  color: selectedInstitution === inst ? "var(--role-official)" : "var(--ink-muted)",
                   padding: "var(--space-1) var(--space-3)",
                 }}
                 onClick={() => setSelectedInstitution(inst)}
@@ -288,7 +288,7 @@ export default function OfficialDashboardPage() {
                 <div key={c.class_id} className="card page-enter" style={{ animationDelay: `${i * 40}ms` }}>
                   <div style={{
                     fontSize: "var(--text-xs)",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-muted)",
                     marginBottom: "var(--space-2)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -300,7 +300,7 @@ export default function OfficialDashboardPage() {
                     fontFamily: "var(--font-display)",
                     fontSize: "var(--text-lg)",
                     fontWeight: 700,
-                    color: "var(--text-primary)",
+                    color: "var(--ink-primary)",
                     marginBottom: "var(--space-4)",
                   }}>
                     Class {c.class_name}
@@ -309,7 +309,7 @@ export default function OfficialDashboardPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     fontSize: "var(--text-xs)",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-muted)",
                     marginBottom: "var(--space-2)",
                   }}>
                     <span>{c.total_students} students</span>
@@ -356,7 +356,7 @@ export default function OfficialDashboardPage() {
                   }}>
                     <span className="badge badge--info">Class {course.grade}</span>
                     {course.subject && (
-                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{course.subject}</span>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{course.subject}</span>
                     )}
                   </div>
                   <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>
@@ -366,13 +366,13 @@ export default function OfficialDashboardPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     fontSize: "var(--text-xs)",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-muted)",
                     marginBottom: "var(--space-2)",
                   }}>
                     <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
                     <span style={{
                       fontWeight: 700,
-                      color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                      color: course.percentage >= 70 ? "var(--success)" : "var(--saffron)",
                     }}>
                       {course.percentage}%
                     </span>
@@ -382,7 +382,7 @@ export default function OfficialDashboardPage() {
                       className="progress-bar__fill"
                       style={{
                         width: `${course.percentage}%`,
-                        background: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                        background: course.percentage >= 70 ? "var(--success)" : "var(--saffron)",
                       }}
                     />
                   </div>
@@ -447,11 +447,11 @@ export default function OfficialDashboardPage() {
                             fontFamily: "var(--font-display)",
                             fontWeight: 700,
                             fontSize: "var(--text-lg)",
-                            color: "var(--text-primary)",
+                            color: "var(--ink-primary)",
                           }}>
                             {value}
                           </div>
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{label}</div>
                         </div>
                       ))}
                     </div>
@@ -459,7 +459,7 @@ export default function OfficialDashboardPage() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: "var(--text-xs)",
-                      color: "var(--text-muted)",
+                      color: "var(--ink-muted)",
                       marginBottom: "var(--space-1)",
                     }}>
                       <span>{a.pass_count} passed · {a.fail_count} failed</span>

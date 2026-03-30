@@ -25,7 +25,7 @@ function ScorePill({ score, total, passed }: { score: number; total: number; pas
 
 function SkeletonRow() {
   return (
-    <div style={{ display: "flex", gap: "var(--space-4)", padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: "var(--space-4)", padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", alignItems: "center" }}>
       <div className="skeleton" style={{ width: 52, height: 52, borderRadius: "var(--radius-md)", flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
         <div className="skeleton skeleton-line skeleton-line--medium" />
@@ -112,7 +112,7 @@ export default function AssessmentHistoryPage() {
                 <div className="stats-row__label">Passed</div>
               </div>
               <div className="stats-row__item">
-                <div className="stats-row__value" style={{ color: "var(--brand-primary)" }}>{avgScore}%</div>
+                <div className="stats-row__value" style={{ color: "var(--saffron)" }}>{avgScore}%</div>
                 <div className="stats-row__label">Avg Score</div>
               </div>
             </div>

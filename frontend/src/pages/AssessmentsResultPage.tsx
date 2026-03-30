@@ -113,15 +113,15 @@ export default function AssessmentResultPage() {
             ].map(({ label, value }, idx, arr) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-8)" }}>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary)" }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--ink-primary)" }}>
                     {value}
                   </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {label}
                   </div>
                 </div>
                 {idx < arr.length - 1 && (
-                  <div style={{ width: 1, height: 36, background: "var(--border-subtle)" }} />
+                  <div style={{ width: 1, height: 36, background: "var(--border-light)" }} />
                 )}
               </div>
             ))}
@@ -144,7 +144,7 @@ export default function AssessmentResultPage() {
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--role-student)" }}>
                 +{pointsEarned} points earned
               </div>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                 {summary ? `Total: ${summary.total_points} pts` : "Keep going to earn more!"}
               </div>
             </div>

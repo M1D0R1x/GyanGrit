@@ -247,7 +247,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
     >
       <div style={{
         background:    "var(--bg-elevated)",
-        border:        "1px solid var(--border-default)",
+        border:        "1px solid var(--border-medium)",
         borderRadius:  "var(--radius-lg)",
         width:         "min(580px, 100%)",
         maxHeight:     "calc(90vh - 2rem)",
@@ -264,7 +264,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
           alignItems:    "flex-start",
           gap:           "var(--space-4)",
           padding:       "var(--space-5) var(--space-6)",
-          borderBottom:  "1px solid var(--border-subtle)",
+          borderBottom:  "1px solid var(--border-light)",
           background:    "var(--bg-surface)",
           flexShrink:    0,
         }}>
@@ -293,7 +293,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                 fontFamily:    "var(--font-display)",
                 fontWeight:    800,
                 fontSize:      "var(--text-lg)",
-                color:         "var(--text-primary)",
+                color:         "var(--ink-primary)",
                 margin:        0,
                 lineHeight:    1.3,
                 letterSpacing: "-0.02em",
@@ -307,10 +307,10 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               gap:       "var(--space-2)",
               marginTop: "var(--space-2)",
               fontSize:  "var(--text-xs)",
-              color:     "var(--text-muted)",
+              color:     "var(--ink-muted)",
             }}>
               {n.sender && n.sender !== "System" && (
-                <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+                <span style={{ fontWeight: 600, color: "var(--ink-secondary)" }}>
                   {n.sender}
                 </span>
               )}
@@ -327,7 +327,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               background:   "none",
               border:       "none",
               cursor:       "pointer",
-              color:        "var(--text-muted)",
+              color:        "var(--ink-muted)",
               fontSize:     20,
               lineHeight:   1,
               padding:      "var(--space-1)",
@@ -335,8 +335,8 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               borderRadius: "var(--radius-sm)",
               transition:   "color 0.1s",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink-primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-muted)")}
           >
             ✕
           </button>
@@ -359,7 +359,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               dangerouslySetInnerHTML={{ __html: renderedBody }}
             />
           ) : (
-            <p style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "var(--text-sm)" }}>
+            <p style={{ color: "var(--ink-muted)", fontStyle: "italic", fontSize: "var(--text-sm)" }}>
               No message body.
             </p>
           )}
@@ -372,7 +372,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               gap:          "var(--space-4)",
               padding:      "var(--space-4)",
               background:   "var(--bg-surface)",
-              border:       "1px solid var(--border-subtle)",
+              border:       "1px solid var(--border-light)",
               borderRadius: "var(--radius-md)",
             }}>
               <div style={{ fontSize: 28, flexShrink: 0 }}>
@@ -382,14 +382,14 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                 <div style={{
                   fontWeight:   600,
                   fontSize:     "var(--text-sm)",
-                  color:        "var(--text-primary)",
+                  color:        "var(--ink-primary)",
                   overflow:     "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace:   "nowrap",
                 }}>
                   {n.attachment_name}
                 </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
                   {isImage(n.attachment_name) ? "Image" : "Document"}
                 </div>
               </div>
@@ -408,10 +408,10 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                   style={{
                     padding:        "var(--space-2) var(--space-3)",
                     background:     "var(--bg-elevated)",
-                    border:         "1px solid var(--border-default)",
+                    border:         "1px solid var(--border-medium)",
                     borderRadius:   "var(--radius-sm)",
                     fontSize:       "var(--text-xs)",
-                    color:          "var(--text-secondary)",
+                    color:          "var(--ink-secondary)",
                     cursor:         "pointer",
                     textDecoration: "none",
                     fontWeight:     600,
@@ -429,7 +429,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                   download={n.attachment_name}
                   style={{
                     padding:        "var(--space-2) var(--space-3)",
-                    background:     "var(--brand-primary)",
+                    background:     "var(--saffron)",
                     border:         "none",
                     borderRadius:   "var(--radius-sm)",
                     fontSize:       "var(--text-xs)",
@@ -450,7 +450,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
             <div style={{
               padding:      "var(--space-4)",
               background:   "var(--bg-surface)",
-              border:       "1px solid var(--border-subtle)",
+              border:       "1px solid var(--border-light)",
               borderRadius: "var(--radius-md)",
               display:      "flex",
               alignItems:   "center",
@@ -459,7 +459,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize:      "var(--text-xs)",
-                  color:         "var(--text-muted)",
+                  color:         "var(--ink-muted)",
                   fontWeight:    600,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
@@ -469,7 +469,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                 </div>
                 <div style={{
                   fontSize:     "var(--text-xs)",
-                  color:        "var(--text-secondary)",
+                  color:        "var(--ink-secondary)",
                   overflow:     "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace:   "nowrap",
@@ -482,10 +482,10 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                 style={{
                   padding:      "var(--space-2) var(--space-4)",
                   background:   "none",
-                  border:       "1px solid var(--border-default)",
+                  border:       "1px solid var(--border-medium)",
                   borderRadius: "var(--radius-sm)",
                   fontSize:     "var(--text-xs)",
-                  color:        "var(--brand-primary)",
+                  color:        "var(--saffron)",
                   cursor:       "pointer",
                   fontWeight:   600,
                   whiteSpace:   "nowrap",
@@ -501,7 +501,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
         {/* ── Footer ───────────────────────────────────────────────────── */}
         <div style={{
           padding:        "var(--space-4) var(--space-6)",
-          borderTop:      "1px solid var(--border-subtle)",
+          borderTop:      "1px solid var(--border-light)",
           background:     "var(--bg-surface)",
           flexShrink:     0,
           display:        "flex",

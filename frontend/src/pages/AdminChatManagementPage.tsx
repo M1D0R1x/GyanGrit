@@ -13,7 +13,7 @@ type Institution = { id: number; name: string };
 type AdminRoom   = ChatRoom & { message_count: number; institution_name: string | null };
 
 const ROOM_TYPE_COLORS: Record<string, string> = {
-  subject:   "var(--brand-primary)",
+  subject:   "var(--saffron)",
   staff:     "var(--warning)",
   officials: "var(--role-official, #8b5cf6)",
 };
@@ -94,15 +94,15 @@ export default function AdminChatManagementPage() {
       <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
 
         {/* ── Room list panel ── */}
-        <div style={{ width: selectedRoom ? 320 : "100%", flexShrink: 0, borderRight: selectedRoom ? "1px solid var(--border-subtle)" : "none", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
+        <div style={{ width: selectedRoom ? 320 : "100%", flexShrink: 0, borderRight: selectedRoom ? "1px solid var(--border-light)" : "none", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
 
-          <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+          <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
             <button className="back-btn" onClick={() => navigate(-1)} style={{ marginBottom: "var(--space-3)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               Back
             </button>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary)", marginBottom: "var(--space-4)" }}>
-              Chat Rooms <span style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", fontWeight: 500 }}>({rooms.length})</span>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--ink-primary)", marginBottom: "var(--space-4)" }}>
+              Chat Rooms <span style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", fontWeight: 500 }}>({rooms.length})</span>
             </h2>
 
             {/* Filters */}
@@ -136,27 +136,27 @@ export default function AdminChatManagementPage() {
             <div style={{ overflowY: "auto", flex: 1, padding: "var(--space-2)" }}>
               {Object.entries(grouped).sort().map(([instName, instRooms]) => (
                 <div key={instName}>
-                  <div style={{ padding: "var(--space-2) var(--space-3) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
+                  <div style={{ padding: "var(--space-2) var(--space-3) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-muted)" }}>
                     {instName}
                   </div>
                   {instRooms.map((r) => {
-                    const color = ROOM_TYPE_COLORS[r.room_type] ?? "var(--text-muted)";
+                    const color = ROOM_TYPE_COLORS[r.room_type] ?? "var(--ink-muted)";
                     const isSelected = selectedRoom?.id === r.id;
                     return (
                       <button key={r.id} onClick={() => openRoom(r)} style={{
                         width: "100%", padding: "var(--space-3) var(--space-3)", background: isSelected ? "rgba(59,130,246,0.08)" : "none", border: "none",
-                        borderLeft: isSelected ? `3px solid var(--brand-primary)` : "3px solid transparent",
+                        borderLeft: isSelected ? `3px solid var(--saffron)` : "3px solid transparent",
                         textAlign: "left", cursor: "pointer", borderRadius: "var(--radius-sm)", marginBottom: 2,
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {r.name}
                             </div>
                             <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 2 }}>
                               <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase" }}>{ROOM_TYPE_LABELS[r.room_type]}</span>
-                              <span style={{ fontSize: 9, color: "var(--text-muted)" }}>{r.member_count ?? 0} members</span>
-                              {(r.message_count ?? 0) > 0 && <span style={{ fontSize: 9, color: "var(--text-muted)" }}>{r.message_count} msgs</span>}
+                              <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.member_count ?? 0} members</span>
+                              {(r.message_count ?? 0) > 0 && <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.message_count} msgs</span>}
                             </div>
                           </div>
                           {!r.is_active && <span style={{ fontSize: 9, color: "var(--error)", fontWeight: 700 }}>CLOSED</span>}
@@ -173,10 +173,10 @@ export default function AdminChatManagementPage() {
         {/* ── Message viewer panel ── */}
         {selectedRoom && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>{selectedRoom.name}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{selectedRoom.member_count} members · {selectedRoom.message_count} messages</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{selectedRoom.name}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{selectedRoom.member_count} members · {selectedRoom.message_count} messages</div>
               </div>
               <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)" }} onClick={() => setSelectedRoom(null)}>✕</button>
             </div>
@@ -197,25 +197,25 @@ export default function AdminChatManagementPage() {
                   const color = roleColors[msg.sender_role] ?? "#6b7280";
                   const time = new Date(msg.sent_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
                   return (
-                    <div key={msg.id} style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: msg.is_pinned ? "1px solid rgba(245,158,11,0.3)" : "1px solid var(--border-subtle)" }}>
+                    <div key={msg.id} style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: msg.is_pinned ? "1px solid rgba(245,158,11,0.3)" : "1px solid var(--border-light)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                           <RoleDot role={msg.sender_role} />
-                          <span style={{ fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--text-primary)" }}>{msg.sender_name}</span>
+                          <span style={{ fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--ink-primary)" }}>{msg.sender_name}</span>
                           <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase" }}>{msg.role_label}</span>
                           {msg.is_pinned && <span style={{ fontSize: 10 }}>📌</span>}
-                          {msg.parent_id && <span style={{ fontSize: 9, color: "var(--text-muted)" }}>↩ reply</span>}
+                          {msg.parent_id && <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>↩ reply</span>}
                         </div>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{time}</span>
+                        <span style={{ fontSize: 10, color: "var(--ink-muted)" }}>{time}</span>
                       </div>
-                      {msg.content && <p style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", margin: 0, lineHeight: 1.5 }}>{msg.content}</p>}
+                      {msg.content && <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-primary)", margin: 0, lineHeight: 1.5 }}>{msg.content}</p>}
                       {msg.attachment_url && (
-                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", marginTop: "var(--space-1)", display: "block" }}>
+                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", marginTop: "var(--space-1)", display: "block" }}>
                           📎 {msg.attachment_name ?? "Attachment"}
                         </a>
                       )}
                       {(msg.reply_count ?? 0) > 0 && (
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                        <div style={{ fontSize: 10, color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                           {msg.reply_count} {msg.reply_count === 1 ? "reply" : "replies"}
                         </div>
                       )}

@@ -41,11 +41,11 @@ function CardRow({ card, deckId, onSaved, onDeleted }: {
   };
 
   if (!editing) return (
-    <div style={{ display: "flex", gap: "var(--space-3)", padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: "1px solid var(--border-subtle)" }}>
+    <div style={{ display: "flex", gap: "var(--space-3)", padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: "1px solid var(--border-light)" }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{card.front}</div>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{card.back}</div>
-        {card.hint && <div style={{ fontSize: 10, color: "var(--brand-primary)", marginTop: 2 }}>💡 {card.hint}</div>}
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--ink-primary)" }}>{card.front}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>{card.back}</div>
+        {card.hint && <div style={{ fontSize: 10, color: "var(--saffron)", marginTop: 2 }}>💡 {card.hint}</div>}
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
         <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", padding: "var(--space-1) var(--space-3)" }} onClick={() => setEditing(true)}>Edit</button>
@@ -55,7 +55,7 @@ function CardRow({ card, deckId, onSaved, onDeleted }: {
   );
 
   return (
-    <div style={{ padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: "1px solid var(--brand-primary)" }}>
+    <div style={{ padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: "1px solid var(--saffron)" }}>
       <input className="form-input" value={front} onChange={e => setFront(e.target.value)} placeholder="Front (question)" style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }} />
       <input className="form-input" value={back}  onChange={e => setBack(e.target.value)}  placeholder="Back (answer)"    style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }} />
       <input className="form-input" value={hint}  onChange={e => setHint(e.target.value)}  placeholder="Hint (optional)"  style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }} />
@@ -170,16 +170,16 @@ export default function FlashcardDecksPage() {
       <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
 
         {/* ── Left: deck list ── */}
-        <div style={{ width: activeDeck ? 280 : "100%", flexShrink: 0, borderRight: activeDeck ? "1px solid var(--border-subtle)" : "none", overflowY: "auto", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+        <div style={{ width: activeDeck ? 280 : "100%", flexShrink: 0, borderRight: activeDeck ? "1px solid var(--border-light)" : "none", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
               <button className="back-btn" onClick={() => navigate(`${prefix}`)}>← Back</button>
               <button className="btn btn--primary" style={{ fontSize: "var(--text-xs)" }} onClick={() => setShowNewDeck(v => !v)}>+ New Deck</button>
             </div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary)" }}>My Decks</h2>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}>My Decks</h2>
 
             {showNewDeck && (
-              <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)" }}>
+              <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-medium)" }}>
                 <input className="form-input" placeholder="Deck title *" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }} />
                 <input className="form-input" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }} />
                 <select className="form-input" value={newSubjectId} onChange={e => setNewSubjectId(Number(e.target.value))} style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)" }}>
@@ -216,13 +216,13 @@ export default function FlashcardDecksPage() {
             <div style={{ padding: "var(--space-3)", overflowY: "auto" }}>
               {decks.map(deck => (
                 <div key={deck.id} onClick={() => openDeck(deck.id)}
-                  style={{ padding: "var(--space-3)", background: activeDeck?.id === deck.id ? "rgba(59,130,246,0.08)" : "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", cursor: "pointer", border: activeDeck?.id === deck.id ? "1px solid var(--brand-primary)" : "1px solid var(--border-subtle)", transition: "all 0.15s" }}>
+                  style={{ padding: "var(--space-3)", background: activeDeck?.id === deck.id ? "rgba(59,130,246,0.08)" : "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", cursor: "pointer", border: activeDeck?.id === deck.id ? "1px solid var(--saffron)" : "1px solid var(--border-light)", transition: "all 0.15s" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{deck.title}</div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{deck.subject_name} · {deck.card_count} cards</div>
+                      <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{deck.title}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>{deck.subject_name} · {deck.card_count} cards</div>
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: "var(--radius-full)", background: deck.is_published ? "rgba(16,185,129,0.1)" : "rgba(107,114,128,0.1)", color: deck.is_published ? "var(--success)" : "var(--text-muted)", flexShrink: 0, marginLeft: "var(--space-2)" }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: "var(--radius-full)", background: deck.is_published ? "rgba(16,185,129,0.1)" : "rgba(107,114,128,0.1)", color: deck.is_published ? "var(--success)" : "var(--ink-muted)", flexShrink: 0, marginLeft: "var(--space-2)" }}>
                       {deck.is_published ? "LIVE" : "DRAFT"}
                     </span>
                   </div>
@@ -235,10 +235,10 @@ export default function FlashcardDecksPage() {
         {/* ── Right: deck editor ── */}
         {activeDeck && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-            <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>{activeDeck.title}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{activeDeck.subject_name} · {activeDeck.cards.length} cards</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{activeDeck.title}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{activeDeck.subject_name} · {activeDeck.cards.length} cards</div>
               </div>
               <div style={{ display: "flex", gap: "var(--space-2)" }}>
                 <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)" }} onClick={() => setShowAddCard(v => !v)}>+ Add Card</button>
@@ -251,8 +251,8 @@ export default function FlashcardDecksPage() {
 
             <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)" }}>
               {showAddCard && (
-                <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--brand-primary)", marginBottom: "var(--space-4)" }}>
-                  <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--text-primary)" }}>New Card</div>
+                <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--saffron)", marginBottom: "var(--space-4)" }}>
+                  <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--ink-primary)" }}>New Card</div>
                   <input className="form-input" placeholder="Front — question or term *" value={newFront} onChange={e => setNewFront(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
                   <textarea className="form-input" placeholder="Back — answer or definition *" value={newBack} onChange={e => setNewBack(e.target.value)} style={{ marginBottom: "var(--space-2)", resize: "none", minHeight: 72 }} />
                   <input className="form-input" placeholder="Hint (optional)" value={newHint} onChange={e => setNewHint(e.target.value)} style={{ marginBottom: "var(--space-3)" }} />

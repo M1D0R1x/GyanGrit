@@ -104,9 +104,9 @@ export default function CourseAssessmentsPage() {
                       gap: "var(--space-4)",
                       marginTop: "var(--space-3)",
                       fontSize: "var(--text-xs)",
-                      color: "var(--text-muted)",
+                      color: "var(--ink-muted)",
                     }}>
-                      <span>Total: <strong style={{ color: "var(--text-secondary)" }}>{a.total_marks}</strong> marks</span>
+                      <span>Total: <strong style={{ color: "var(--ink-secondary)" }}>{a.total_marks}</strong> marks</span>
                       <span>Pass: <strong style={{ color: "var(--success)" }}>{a.pass_marks}</strong> marks</span>
                     </div>
                   </div>

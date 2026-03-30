@@ -158,7 +158,7 @@ function SubmitScreen({
         <div>
           <h2 className="assessment-submit-screen__title">Ready to submit?</h2>
           <p className="assessment-submit-screen__sub">
-            You answered <strong style={{ color: "var(--text-primary)" }}>{answered} of {total}</strong> questions.
+            You answered <strong style={{ color: "var(--ink-primary)" }}>{answered} of {total}</strong> questions.
           </p>
         </div>
 
@@ -376,7 +376,7 @@ export default function AssessmentTakePage() {
         <div className={`assessment-timer assessment-timer--${timerClass}`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ color: isCritical ? "var(--error)" : isWarning ? "var(--warning)" : "var(--text-muted)" }}>
+            style={{ color: isCritical ? "var(--error)" : isWarning ? "var(--warning)" : "var(--ink-muted)" }}>
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>

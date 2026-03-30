@@ -17,7 +17,7 @@ function LessonProgress({ completed, total }: { completed: number; total: number
     pct >= 70 ? "var(--success)" :
     pct >= 30 ? "var(--warning)" :
     total > 0 ? "var(--error)" :
-    "var(--text-muted)";
+    "var(--ink-muted)";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 120 }}>
@@ -107,7 +107,7 @@ export default function TeacherClassDetailPage() {
             marginBottom: "var(--space-6)",
           }}>
             {[
-              { label: "Students",   value: totalStudents,  color: "var(--text-primary)" },
+              { label: "Students",   value: totalStudents,  color: "var(--ink-primary)" },
               { label: "Active",     value: activeStudents, color: "var(--success)" },
               { label: "Avg Progress", value: `${avgProgress}%`,
                 color: avgProgress >= 70 ? "var(--success)" : avgProgress >= 30 ? "var(--warning)" : "var(--error)" },
@@ -116,7 +116,7 @@ export default function TeacherClassDetailPage() {
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-2xl)", color }}>
                   {value}
                 </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                   {label}
                 </div>
               </div>
@@ -174,20 +174,20 @@ export default function TeacherClassDetailPage() {
                         <div style={{
                           width: 28, height: 28, borderRadius: "50%",
                           background: "var(--bg-elevated)",
-                          border: "1px solid var(--border-subtle)",
+                          border: "1px solid var(--border-light)",
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: "var(--text-xs)", fontWeight: 700,
                           fontFamily: "var(--font-display)",
-                          color: "var(--text-secondary)", flexShrink: 0,
+                          color: "var(--ink-secondary)", flexShrink: 0,
                         }}>
                           {(s.display_name || s.username).slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "var(--text-sm)" }}>
+                          <div style={{ fontWeight: 500, color: "var(--ink-primary)", fontSize: "var(--text-sm)" }}>
                             {s.display_name || s.username}
                           </div>
                           {s.display_name && s.display_name !== s.username && (
-                            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                               @{s.username}
                             </div>
                           )}
@@ -195,10 +195,10 @@ export default function TeacherClassDetailPage() {
                       </div>
                     </td>
 
-                    <td style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
+                    <td style={{ color: "var(--ink-secondary)", fontSize: "var(--text-sm)" }}>
                       {s.completed_lessons}
                       {s.total_lessons > 0 && (
-                        <span style={{ color: "var(--text-muted)" }}> / {s.total_lessons}</span>
+                        <span style={{ color: "var(--ink-muted)" }}> / {s.total_lessons}</span>
                       )}
                     </td>
 
@@ -207,7 +207,7 @@ export default function TeacherClassDetailPage() {
                     </td>
 
                     <td>
-                      <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)" }}>
                         View history →
                       </span>
                     </td>

@@ -192,7 +192,7 @@ function EntryForm({
             justifyContent: "space-between",
             alignItems: "center",
           }}>
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>Score</span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>Score</span>
             <span style={{
               fontFamily: "var(--font-display)",
               fontWeight: 800,
@@ -268,7 +268,7 @@ function StudentRow({
 
   return (
     <div style={{
-      border: "1px solid var(--border-subtle)",
+      border: "1px solid var(--border-light)",
       borderRadius: "var(--radius-lg)",
       overflow: "hidden",
       marginBottom: "var(--space-3)",
@@ -290,20 +290,20 @@ function StudentRow({
         <div style={{
           width: 32, height: 32, borderRadius: "50%",
           background: "var(--bg-surface)",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--border-light)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "var(--font-display)", fontWeight: 800,
-          fontSize: "var(--text-xs)", color: "var(--text-secondary)",
+          fontSize: "var(--text-xs)", color: "var(--ink-secondary)",
           flexShrink: 0,
         }}>
           {student.student.slice(0, 2).toUpperCase()}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
             {student.student}
           </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
             @{student.username}
           </div>
         </div>
@@ -311,17 +311,17 @@ function StudentRow({
         {/* Stats */}
         <div style={{ display: "flex", gap: "var(--space-5)", alignItems: "center", flexShrink: 0 }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}>
               {student.entries.length}
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>marks</div>
+            <div style={{ fontSize: 10, color: "var(--ink-muted)" }}>marks</div>
           </div>
           {avgPct !== null && (
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: pctColor(avgPct) }}>
                 {avgPct}%
               </div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)" }}>avg</div>
+              <div style={{ fontSize: 10, color: "var(--ink-muted)" }}>avg</div>
             </div>
           )}
           <button
@@ -333,7 +333,7 @@ function StudentRow({
           </button>
           <svg
             width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="var(--text-muted)" strokeWidth="2"
+            stroke="var(--ink-muted)" strokeWidth="2"
             strokeLinecap="round" strokeLinejoin="round"
             style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
           >
@@ -346,7 +346,7 @@ function StudentRow({
       {expanded && (
         <div style={{ padding: "var(--space-4) var(--space-5)", background: "var(--bg-surface)" }}>
           {student.entries.length === 0 ? (
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", textAlign: "center", padding: "var(--space-4) 0" }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", textAlign: "center", padding: "var(--space-4) 0" }}>
               No marks entered yet.
             </p>
           ) : (
@@ -365,10 +365,10 @@ function StudentRow({
                 {student.entries.map((entry) => (
                   <tr key={entry.id}>
                     <td style={{ fontWeight: 500, fontSize: "var(--text-sm)" }}>{entry.subject}</td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {entry.term.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {entry.category.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </td>
                     <td style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)" }}>

@@ -41,7 +41,7 @@ import {
 // ── Constants & helpers ────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
-  info:         "var(--brand-primary)",
+  info:         "var(--saffron)",
   success:      "var(--success)",
   warning:      "var(--warning)",
   error:        "var(--error)",
@@ -145,7 +145,7 @@ function FilterBar({
       </select>
       <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flex: "1 1 260px", minWidth: 200 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-          <label style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600 }}>
+          <label style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600 }}>
             From
           </label>
           <input
@@ -155,9 +155,9 @@ function FilterBar({
             onChange={(e) => set("sent_after", e.target.value)}
           />
         </div>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", paddingTop: 18 }}>—</span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", paddingTop: 18 }}>—</span>
         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-          <label style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600 }}>
+          <label style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600 }}>
             To
           </label>
           <input
@@ -173,10 +173,10 @@ function FilterBar({
           onClick={onUnreadToggle}
           style={{
             padding:      "0 var(--space-4)",
-            background:   unreadOnly ? "var(--brand-primary)" : "var(--bg-elevated)",
-            border:       "1px solid var(--border-default)",
+            background:   unreadOnly ? "var(--saffron)" : "var(--bg-elevated)",
+            border:       "1px solid var(--border-medium)",
             borderRadius: "var(--radius-sm)",
-            color:        unreadOnly ? "#fff" : "var(--text-secondary)",
+            color:        unreadOnly ? "#fff" : "var(--ink-secondary)",
             fontSize:     "var(--text-xs)",
             fontWeight:   600,
             cursor:       "pointer",
@@ -189,7 +189,7 @@ function FilterBar({
       {(filters.q || filters.type || filters.sent_after || filters.sent_before) && (
         <button
           onClick={() => onChange({ q: "", type: "", sent_after: "", sent_before: "" })}
-          style={{ padding: "0 var(--space-3)", background: "none", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-muted)", fontSize: "var(--text-xs)", cursor: "pointer", whiteSpace: "nowrap" }}
+          style={{ padding: "0 var(--space-3)", background: "none", border: "1px solid var(--border-light)", borderRadius: "var(--radius-sm)", color: "var(--ink-muted)", fontSize: "var(--text-xs)", cursor: "pointer", whiteSpace: "nowrap" }}
         >
           Clear filters
         </button>
@@ -207,7 +207,7 @@ function InboxRow({
   n:       AppNotification;
   onClick: (n: AppNotification) => void;
 }) {
-  const color = TYPE_COLORS[n.type] ?? "var(--brand-primary)";
+  const color = TYPE_COLORS[n.type] ?? "var(--saffron)";
   const icon  = TYPE_ICONS[n.type]  ?? "ℹ";
   return (
     <div
@@ -220,14 +220,14 @@ function InboxRow({
         gap:          "var(--space-4)",
         padding:      "var(--space-4) var(--space-5)",
         background:   n.is_read ? "var(--bg-elevated)" : "var(--bg-surface)",
-        border:       "1px solid var(--border-subtle)",
+        border:       "1px solid var(--border-light)",
         borderLeft:   `3px solid ${n.is_read ? "transparent" : color}`,
         borderRadius: "var(--radius-md)",
         cursor:       "pointer",
         transition:   "background 0.1s",
         animation:    "fadeInUp 0.15s ease both",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-overlay)")}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = n.is_read ? "var(--bg-elevated)" : "var(--bg-surface)")}
     >
       {/* Type icon */}
@@ -247,7 +247,7 @@ function InboxRow({
           <div style={{
             fontWeight:   n.is_read ? 500 : 700,
             fontSize:     "var(--text-sm)",
-            color:        "var(--text-primary)",
+            color:        "var(--ink-primary)",
             overflow:     "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {n.subject}
@@ -256,29 +256,29 @@ function InboxRow({
             {!n.is_read && (
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />
             )}
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               {relativeDate(n.created_at)}
             </span>
           </div>
         </div>
         {n.message && (
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {n.message.replace(/[#*_`[\]()>]/g, "").slice(0, 160)}
           </div>
         )}
         <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)", alignItems: "center" }}>
           {n.sender && n.sender !== "System" && (
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 500 }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 500 }}>
               From: {n.sender}
             </span>
           )}
           {n.attachment_name && (
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)" }}>
               {getFileIcon(n.attachment_name)} {n.attachment_name}
             </span>
           )}
           {(n.link || n.attachment_url) && (
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", opacity: 0.8 }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", opacity: 0.8 }}>
               Read more →
             </span>
           )}
@@ -291,7 +291,7 @@ function InboxRow({
 // ── Sent card ─────────────────────────────────────────────────────────────
 
 function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => void }) {
-  const color = TYPE_COLORS[b.notification_type] ?? "var(--brand-primary)";
+  const color = TYPE_COLORS[b.notification_type] ?? "var(--saffron)";
   return (
     <div
       className="card card--clickable"
@@ -306,27 +306,27 @@ function SentCard({ b, onClick }: { b: Broadcast; onClick: (b: Broadcast) => voi
             <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {NOTIFICATION_TYPE_LABELS[b.notification_type] ?? b.notification_type}
             </span>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>·</span>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{b.audience_label}</span>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>·</span>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{b.audience_label}</span>
           </div>
-          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "var(--space-1)" }}>
+          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "var(--space-1)" }}>
             {b.subject}
           </div>
           {b.message && (
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
               {b.message.replace(/[#*_`[\]()>]/g, "").slice(0, 120)}
             </div>
           )}
           {b.attachment_name && (
             <div style={{ display: "flex", gap: "var(--space-1)", alignItems: "center", marginTop: "var(--space-2)" }}>
               <span style={{ fontSize: 12 }}>{getFileIcon(b.attachment_name)}</span>
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}>{b.attachment_name}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)" }}>{b.attachment_name}</span>
             </div>
           )}
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{relativeDate(b.sent_at)}</div>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: "var(--space-1)" }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{relativeDate(b.sent_at)}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-secondary)", marginTop: "var(--space-1)" }}>
             {b.recipient_count} recipient{b.recipient_count !== 1 ? "s" : ""}
           </div>
         </div>
@@ -356,10 +356,10 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "5vh", overflowY: "auto" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: "min(560px, calc(100vw - 2rem))", maxHeight: "85vh", overflow: "auto", padding: "var(--space-6)", animation: "fadeInUp 0.15s ease both", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
+      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-lg)", width: "min(560px, calc(100vw - 2rem))", maxHeight: "85vh", overflow: "auto", padding: "var(--space-6)", animation: "fadeInUp 0.15s ease both", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-6)" }}>
-          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-lg)", color: "var(--text-primary)", margin: 0 }}>Broadcast Detail</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
+          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-lg)", color: "var(--ink-primary)", margin: 0 }}>Broadcast Detail</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 18 }}>✕</button>
         </div>
 
         {loading ? (
@@ -367,35 +367,35 @@ function BroadcastDetailModal({ broadcast_id, onClose }: { broadcast_id: number;
             {Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 20, borderRadius: 4 }} />)}
           </div>
         ) : !detail ? (
-          <p style={{ color: "var(--text-muted)" }}>Could not load details.</p>
+          <p style={{ color: "var(--ink-muted)" }}>Could not load details.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-            <div><div className="card__label">Subject</div><div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{detail.subject}</div></div>
-            {detail.message && <div><div className="card__label">Message</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{detail.message}</div></div>}
+            <div><div className="card__label">Subject</div><div style={{ fontWeight: 600, color: "var(--ink-primary)" }}>{detail.subject}</div></div>
+            {detail.message && <div><div className="card__label">Message</div><div style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{detail.message}</div></div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-              <div><div className="card__label">Audience</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{detail.audience_label}</div></div>
-              <div><div className="card__label">Sent</div><div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{new Date(detail.sent_at).toLocaleString("en-IN")}</div></div>
+              <div><div className="card__label">Audience</div><div style={{ fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>{detail.audience_label}</div></div>
+              <div><div className="card__label">Sent</div><div style={{ fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>{new Date(detail.sent_at).toLocaleString("en-IN")}</div></div>
             </div>
             {detail.attachment_name && (
               <div>
                 <div className="card__label">Attachment</div>
                 <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)", alignItems: "center" }}>
                   <span style={{ fontSize: 20 }}>{getFileIcon(detail.attachment_name)}</span>
-                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>{detail.attachment_name}</span>
-                  <a href={getViewUrl(detail.attachment_url, detail.attachment_name)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--brand-primary)", fontWeight: 600, textDecoration: "none" }}>View</a>
-                  <a href={detail.attachment_url} download={detail.attachment_name} style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textDecoration: "none" }}>Download</a>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-primary)", flex: 1 }}>{detail.attachment_name}</span>
+                  <a href={getViewUrl(detail.attachment_url, detail.attachment_name)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600, textDecoration: "none" }}>View</a>
+                  <a href={detail.attachment_url} download={detail.attachment_name} style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", textDecoration: "none" }}>Download</a>
                 </div>
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-surface)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-surface)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)" }}>
               {[
-                { label: "Sent to", value: detail.recipient_count, color: "var(--text-primary)" },
+                { label: "Sent to", value: detail.recipient_count, color: "var(--ink-primary)" },
                 { label: "Read",    value: detail.read_count,      color: "var(--success)"      },
                 { label: "Unread",  value: detail.unread_count,    color: "var(--warning)"      },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ textAlign: "center" }}>
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color }}>{value}</div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -454,23 +454,23 @@ function FileUploader({ value, onChange, onError }: {
   };
 
   if (value) return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)" }}>
       <span style={{ fontSize: 22 }}>{getFileIcon(value.name)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value.name}</div>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--ink-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value.name}</div>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--success)", marginTop: 2 }}>✓ Uploaded</div>
       </div>
-      <button type="button" onClick={() => { abortRef.current?.abort(); onChange(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18 }}>✕</button>
+      <button type="button" onClick={() => { abortRef.current?.abort(); onChange(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 18 }}>✕</button>
     </div>
   );
 
   if (progress !== null) return (
-    <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginBottom: "var(--space-2)" }}>Uploading… {progress}%</div>
-      <div style={{ height: 4, background: "var(--border-subtle)", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-primary)", transition: "width 0.1s", borderRadius: 2 }} />
+    <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)" }}>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)", marginBottom: "var(--space-2)" }}>Uploading… {progress}%</div>
+      <div style={{ height: 4, background: "var(--border-light)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: "var(--saffron)", transition: "width 0.1s", borderRadius: 2 }} />
       </div>
-      <button type="button" onClick={() => { abortRef.current?.abort(); setProgress(null); }} style={{ marginTop: "var(--space-2)", background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--text-muted)", cursor: "pointer" }}>Cancel</button>
+      <button type="button" onClick={() => { abortRef.current?.abort(); setProgress(null); }} style={{ marginTop: "var(--space-2)", background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--ink-muted)", cursor: "pointer" }}>Cancel</button>
     </div>
   );
 
@@ -480,15 +480,15 @@ function FileUploader({ value, onChange, onError }: {
       onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) startUpload(f); }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
-      style={{ padding: "var(--space-5)", background: dragging ? "rgba(59,130,246,0.06)" : "var(--bg-elevated)", border: `2px dashed ${dragging ? "var(--brand-primary)" : "var(--border-default)"}`, borderRadius: "var(--radius-md)", textAlign: "center", cursor: "pointer", transition: "all 0.15s" }}
+      style={{ padding: "var(--space-5)", background: dragging ? "rgba(59,130,246,0.06)" : "var(--bg-elevated)", border: `2px dashed ${dragging ? "var(--saffron)" : "var(--border-medium)"}`, borderRadius: "var(--radius-md)", textAlign: "center", cursor: "pointer", transition: "all 0.15s" }}
       role="button" tabIndex={0} aria-label="Attach a file"
       onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
     >
       <div style={{ fontSize: 24, marginBottom: "var(--space-2)" }}>📎</div>
-      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: dragging ? "var(--brand-primary)" : "var(--text-secondary)" }}>
+      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: dragging ? "var(--saffron)" : "var(--ink-secondary)" }}>
         {dragging ? "Drop file here" : "Click or drag to attach a file"}
       </div>
-      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>PDF, Word, Excel, or image · Max 10 MB</div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>PDF, Word, Excel, or image · Max 10 MB</div>
       <input ref={inputRef} type="file" accept={NOTIFICATION_ALLOWED_EXTENSIONS} onChange={(e) => { const f = e.target.files?.[0]; if (f) startUpload(f); e.target.value = ""; }} style={{ display: "none" }} aria-hidden="true" />
     </div>
   );
@@ -658,7 +658,7 @@ export default function NotificationsPage() {
       <main className="page-content page-enter">
 
         {/* Tab bar */}
-        <div style={{ display: "flex", marginBottom: "var(--space-6)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+        <div style={{ display: "flex", marginBottom: "var(--space-6)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -666,9 +666,9 @@ export default function NotificationsPage() {
               style={{
                 flex:       1,
                 padding:    "var(--space-3)",
-                background: activeTab === t.key ? "var(--brand-primary)" : "var(--bg-elevated)",
+                background: activeTab === t.key ? "var(--saffron)" : "var(--bg-elevated)",
                 border:     "none",
-                color:      activeTab === t.key ? "#fff" : "var(--text-muted)",
+                color:      activeTab === t.key ? "#fff" : "var(--ink-muted)",
                 fontSize:   "var(--text-sm)",
                 fontWeight: activeTab === t.key ? 700 : 400,
                 cursor:     "pointer",
@@ -692,7 +692,7 @@ export default function NotificationsPage() {
         {activeTab === "inbox" && (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", margin: 0 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)", margin: 0 }}>
                 {inboxTotal > 0 ? `${inboxTotal} notification${inboxTotal !== 1 ? "s" : ""}` : "Notifications"}
                 {inboxUnread > 0 && (
                   <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", background: "#ef4444", color: "#fff", padding: "1px 7px", borderRadius: 999, fontWeight: 700 }}>
@@ -703,7 +703,7 @@ export default function NotificationsPage() {
               {inboxUnread > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  style={{ background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--brand-primary)", cursor: "pointer", fontWeight: 600 }}
+                  style={{ background: "none", border: "none", fontSize: "var(--text-xs)", color: "var(--saffron)", cursor: "pointer", fontWeight: 600 }}
                 >
                   Mark all read
                 </button>
@@ -747,7 +747,7 @@ export default function NotificationsPage() {
             {inboxPages > 1 && (
               <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-8)", alignItems: "center" }}>
                 <button className="btn btn--secondary" disabled={inboxPage <= 1} onClick={() => setInboxPage((p) => p - 1)}>← Previous</button>
-                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{inboxPage} / {inboxPages}</span>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>{inboxPage} / {inboxPages}</span>
                 <button className="btn btn--secondary" disabled={inboxPage >= inboxPages} onClick={() => setInboxPage((p) => p + 1)}>Next →</button>
               </div>
             )}
@@ -769,7 +769,7 @@ export default function NotificationsPage() {
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-2)" }}>
                   <label className="form-label" style={{ margin: 0 }}>Message</label>
-                  <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Markdown: **bold**, _italic_, - lists</span>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Markdown: **bold**, _italic_, - lists</span>
                 </div>
                 <textarea className="form-input" rows={5} placeholder={"Write your message…\n\n**Bold**, _italic_, and - bullet lists are supported."} value={form.message ?? ""} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} style={{ resize: "vertical", fontFamily: "monospace", fontSize: "var(--text-sm)" }} />
               </div>
@@ -813,7 +813,7 @@ export default function NotificationsPage() {
               <div>
                 <label className="form-label">Link (optional)</label>
                 <input className="form-input" type="text" placeholder="Internal: /assessments/12  or  External: https://example.com" value={form.link ?? ""} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>Must start with / (internal) or https://</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>Must start with / (internal) or https://</div>
               </div>
 
               <div>
@@ -846,7 +846,7 @@ export default function NotificationsPage() {
               </div>
             ) : (
               <>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
                   {sentTotal} message{sentTotal !== 1 ? "s" : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
@@ -855,7 +855,7 @@ export default function NotificationsPage() {
                 {sentPages > 1 && (
                   <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-3)", marginTop: "var(--space-8)", alignItems: "center" }}>
                     <button className="btn btn--secondary" disabled={sentPage <= 1} onClick={() => setSentPage((p) => p - 1)}>← Previous</button>
-                    <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{sentPage} / {sentPages}</span>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>{sentPage} / {sentPages}</span>
                     <button className="btn btn--secondary" disabled={sentPage >= sentPages} onClick={() => setSentPage((p) => p + 1)}>Next →</button>
                   </div>
                 )}

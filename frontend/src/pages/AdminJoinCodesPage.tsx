@@ -68,9 +68,9 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
   return (
     <button onClick={onClick} style={{
       padding: "2px 12px", borderRadius: "var(--radius-full)",
-      border: "1px solid var(--border-default)",
-      background: active ? "var(--brand-primary-glow)" : "transparent",
-      color: active ? "var(--brand-primary)" : "var(--text-muted)",
+      border: "1px solid var(--border-medium)",
+      background: active ? "var(--saffron-glow)" : "transparent",
+      color: active ? "var(--saffron)" : "var(--ink-muted)",
       fontSize: "var(--text-xs)", fontWeight: 600, cursor: "pointer",
       transition: "all var(--transition-fast)",
     }}>
@@ -104,23 +104,23 @@ function EmailModal({ code, onClose, onSent }: { code: JoinCode; onClose: () => 
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-4)", backdropFilter: "blur(4px)" }}
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-4)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.6)", animation: "fadeInUp 0.2s ease both" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-lg)", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.6)", animation: "fadeInUp 0.2s ease both" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border-light)" }}>
           <div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>Email Join Code</div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-              <span style={{ fontFamily: "monospace", color: "var(--brand-primary)" }}>{code.code.slice(0, 8)}…</span>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>Email Join Code</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
+              <span style={{ fontFamily: "monospace", color: "var(--saffron)" }}>{code.code.slice(0, 8)}…</span>
               {" · "}{code.role}{code.institution ? ` · ${code.institution}` : ""}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20, lineHeight: 1, padding: "4px 6px" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 20, lineHeight: 1, padding: "4px 6px" }}>×</button>
         </div>
         <div style={{ padding: 20 }}>
           {preview ? (
             <>
-              <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 12, fontFamily: "monospace", fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", maxHeight: 280, overflowY: "auto", marginBottom: 16 }}>{preview}</div>
+              <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", padding: 12, fontFamily: "monospace", fontSize: 12, color: "var(--ink-secondary)", whiteSpace: "pre-wrap", maxHeight: 280, overflowY: "auto", marginBottom: 16 }}>{preview}</div>
               <div className="alert alert--info" style={{ marginBottom: 12 }}><strong>Dev mode:</strong> Email not sent. Configure Django email settings for production.</div>
               <button className="btn btn--secondary" onClick={onClose} style={{ width: "100%" }}>Close</button>
             </>
@@ -156,10 +156,10 @@ function BulkResultPanel({ codes, onDownload, onDismiss }: { codes: JoinCode[]; 
     <div className="card" style={{ marginBottom: "var(--space-6)", border: "1px solid var(--success-glow, #10b98133)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
         <div>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>
             ✓ {codes.length} codes generated
           </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
             {codes[0]?.role} · {codes[0]?.institution ?? codes[0]?.district ?? "—"}
             {codes[0]?.section ? ` · ${codes[0].section}` : ""}
           </div>
@@ -173,7 +173,7 @@ function BulkResultPanel({ codes, onDownload, onDismiss }: { codes: JoinCode[]; 
         </div>
       </div>
 
-      <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+      <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
         <table className="data-table" style={{ fontSize: "var(--text-xs)" }}>
           <thead>
             <tr><th>#</th><th>Code</th><th>Role</th><th>For</th><th>Expires</th></tr>
@@ -181,17 +181,17 @@ function BulkResultPanel({ codes, onDownload, onDismiss }: { codes: JoinCode[]; 
           <tbody>
             {codes.map((c, i) => (
               <tr key={c.id}>
-                <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
+                <td style={{ color: "var(--ink-muted)" }}>{i + 1}</td>
                 <td>
-                  <code style={{ fontFamily: "monospace", background: "var(--bg-elevated)", padding: "1px 5px", borderRadius: 3, color: "var(--brand-primary)", letterSpacing: "0.05em" }}>
+                  <code style={{ fontFamily: "monospace", background: "var(--bg-elevated)", padding: "1px 5px", borderRadius: 3, color: "var(--saffron)", letterSpacing: "0.05em" }}>
                     {c.code}
                   </code>
                 </td>
                 <td><span className={`badge ${roleColor(c.role)}`}>{c.role}</span></td>
-                <td style={{ color: "var(--text-secondary)" }}>
+                <td style={{ color: "var(--ink-secondary)" }}>
                   {c.institution ?? c.district ?? "—"}{c.section ? ` · ${c.section}` : ""}
                 </td>
-                <td style={{ color: "var(--text-muted)" }}>
+                <td style={{ color: "var(--ink-muted)" }}>
                   {new Date(c.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                 </td>
               </tr>
@@ -383,7 +383,7 @@ export default function AdminJoinCodesPage() {
 
       {needsSection && institutionId && (
         <div className="form-group">
-          <label className="form-label">Section {formMode === "bulk" && <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(one code per student)</span>}</label>
+          <label className="form-label">Section {formMode === "bulk" && <span style={{ color: "var(--ink-muted)", fontSize: "var(--text-xs)" }}>(one code per student)</span>}</label>
           {sectionsLoading ? (
             <div className="skeleton" style={{ height: 42, borderRadius: "var(--radius-md)" }} />
           ) : sections.length > 0 ? (
@@ -477,13 +477,13 @@ export default function AdminJoinCodesPage() {
         {showForm && (
           <div className="card" style={{ marginBottom: "var(--space-6)" }}>
             {/* Mode tabs */}
-            <div style={{ display: "flex", gap: 0, marginBottom: "var(--space-5)", borderBottom: "1px solid var(--border-subtle)" }}>
+            <div style={{ display: "flex", gap: 0, marginBottom: "var(--space-5)", borderBottom: "1px solid var(--border-light)" }}>
               {(["single", "bulk"] as FormMode[]).map((m) => (
                 <button key={m} onClick={() => setFormMode(m)} style={{
                   padding: "var(--space-2) var(--space-5)",
                   background: "none", border: "none",
-                  borderBottom: formMode === m ? "2px solid var(--brand-primary)" : "2px solid transparent",
-                  color: formMode === m ? "var(--brand-primary)" : "var(--text-muted)",
+                  borderBottom: formMode === m ? "2px solid var(--saffron)" : "2px solid transparent",
+                  color: formMode === m ? "var(--saffron)" : "var(--ink-muted)",
                   fontFamily: "var(--font-body)", fontSize: "var(--text-sm)", fontWeight: 600,
                   cursor: "pointer", transition: "all 0.15s", marginBottom: -1,
                 }}>
@@ -518,10 +518,10 @@ export default function AdminJoinCodesPage() {
 
         {/* Filters */}
         <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-5)", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Role:</span>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Role:</span>
           {ROLE_FILTERS.map((r) => <FilterPill key={r} label={r} active={filterRole === r} onClick={() => setFilterRole(r)} />)}
-          <div style={{ width: 1, height: 16, background: "var(--border-subtle)" }} />
-          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Status:</span>
+          <div style={{ width: 1, height: 16, background: "var(--border-light)" }} />
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Status:</span>
           {VALID_FILTERS.map((f) => <FilterPill key={f} label={f} active={filterValid === f} onClick={() => setFilterValid(f)} />)}
         </div>
 
@@ -546,26 +546,26 @@ export default function AdminJoinCodesPage() {
                 {filtered.map((code) => (
                   <tr key={code.id}>
                     <td>
-                      <code style={{ fontFamily: "monospace", fontSize: "var(--text-xs)", background: "var(--bg-elevated)", padding: "2px 6px", borderRadius: "var(--radius-sm)", letterSpacing: "0.05em", color: "var(--text-primary)" }}>
+                      <code style={{ fontFamily: "monospace", fontSize: "var(--text-xs)", background: "var(--bg-elevated)", padding: "2px 6px", borderRadius: "var(--radius-sm)", letterSpacing: "0.05em", color: "var(--ink-primary)" }}>
                         {code.code.slice(0, 8)}…
                       </code>
                     </td>
                     <td><span className={`badge ${roleColor(code.role)}`}>{code.role}</span></td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)" }}>
                       {code.institution ?? code.district ?? "—"}
                       {code.subject ? ` · ${code.subject}` : ""}
                       {code.section ? ` · ${code.section}` : ""}
                     </td>
                     <td><span className={`badge ${code.is_valid ? "badge--success" : "badge--error"}`}>{code.is_valid ? "Active" : "Used"}</span></td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {new Date(code.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{code.created_by ?? "—"}</td>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{code.created_by ?? "—"}</td>
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
                         {code.is_valid && (
                           <>
-                            <button className="btn btn--ghost" style={{ padding: "2px 8px", fontSize: "var(--text-xs)", color: "var(--brand-primary)" }}
+                            <button className="btn btn--ghost" style={{ padding: "2px 8px", fontSize: "var(--text-xs)", color: "var(--saffron)" }}
                               onClick={() => setEmailCode(code)} title="Send by email">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             </button>

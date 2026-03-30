@@ -139,14 +139,14 @@ export default function AssessmentPage() {
             fontFamily: "var(--font-display)",
             fontSize: "var(--text-xl)",
             fontWeight: 800,
-            color: "var(--text-primary)",
+            color: "var(--ink-primary)",
             letterSpacing: "-0.02em",
             marginBottom: "var(--space-2)",
           }}>
             {assessment.title}
           </h1>
           {assessment.description && (
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
               {assessment.description}
             </p>
           )}
@@ -168,13 +168,13 @@ export default function AssessmentPage() {
                   fontFamily: "var(--font-display)",
                   fontSize: "var(--text-2xl)",
                   fontWeight: 800,
-                  color: "var(--text-primary)",
+                  color: "var(--ink-primary)",
                 }}>
                   {value}
                 </div>
                 <div style={{
                   fontSize: "var(--text-xs)",
-                  color: "var(--text-muted)",
+                  color: "var(--ink-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}>
@@ -204,7 +204,7 @@ export default function AssessmentPage() {
               fontFamily: "var(--font-display)",
               fontSize: "var(--text-base)",
               fontWeight: 700,
-              color: "var(--text-primary)",
+              color: "var(--ink-primary)",
               marginBottom: "var(--space-4)",
             }}>
               Instructions
@@ -221,14 +221,14 @@ export default function AssessmentPage() {
                 <div key={i} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
                   <div style={{
                     width: 24, height: 24, borderRadius: "50%",
-                    background: "var(--brand-primary-glow)", color: "var(--brand-primary)",
+                    background: "var(--saffron-glow)", color: "var(--saffron)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0,
                     fontFamily: "var(--font-display)",
                   }}>
                     {i + 1}
                   </div>
-                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)", lineHeight: 1.6 }}>
                     {rule}
                   </span>
                 </div>
@@ -272,7 +272,7 @@ export default function AssessmentPage() {
                 fontFamily: "var(--font-display)",
                 fontSize: "var(--text-base)",
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink-primary)",
               }}>
                 Your Attempts
               </h3>
@@ -296,11 +296,11 @@ export default function AssessmentPage() {
                       <span className={`badge ${attempt.passed ? "badge--success" : "badge--error"}`}>
                         {attempt.passed ? "Passed" : "Failed"}
                       </span>
-                      <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>
                         {attempt.score} / {assessment.total_marks} marks
                       </span>
                     </div>
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {timeAgo(attempt.submitted_at)}
                     </span>
                   </div>

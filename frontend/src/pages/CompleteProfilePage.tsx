@@ -142,7 +142,7 @@ export default function CompleteProfilePage() {
           fontFamily: "var(--font-display)",
           fontSize: "var(--text-xl)",
           fontWeight: 700,
-          color: "var(--text-primary)",
+          color: "var(--ink-primary)",
           textAlign: "center",
           marginBottom: "var(--space-2)",
         }}>
@@ -151,7 +151,7 @@ export default function CompleteProfilePage() {
 
         <p style={{
           fontSize: "var(--text-sm)",
-          color: "var(--text-muted)",
+          color: "var(--ink-muted)",
           textAlign: "center",
           marginBottom: "var(--space-6)",
           lineHeight: 1.5,
@@ -170,10 +170,10 @@ export default function CompleteProfilePage() {
             padding: "4px 14px",
             borderRadius: "var(--radius-full)",
             background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
+            border: "1px solid var(--border-medium)",
             fontSize: "var(--text-xs)",
             fontWeight: 700,
-            color: "var(--text-secondary)",
+            color: "var(--ink-secondary)",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
           }}>
@@ -241,7 +241,7 @@ export default function CompleteProfilePage() {
         <div className="form-group">
           <label className="form-label" htmlFor="cp-middlename">
             Middle Name{" "}
-            <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(optional)</span>
+            <span style={{ color: "var(--ink-muted)", fontSize: "var(--text-xs)" }}>(optional)</span>
           </label>
           <input
             id="cp-middlename"
@@ -312,7 +312,7 @@ export default function CompleteProfilePage() {
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label" htmlFor="cp-mobile2">
               Mobile 2{" "}
-              <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>(opt.)</span>
+              <span style={{ color: "var(--ink-muted)", fontSize: "var(--text-xs)" }}>(opt.)</span>
             </label>
             <input
               id="cp-mobile2"
@@ -336,7 +336,7 @@ export default function CompleteProfilePage() {
         {/* Privacy note */}
         <div style={{
           background: "var(--bg-elevated)",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--border-light)",
           borderRadius: "var(--radius-md)",
           padding: "var(--space-3) var(--space-4)",
           marginTop: "var(--space-4)",
@@ -348,7 +348,7 @@ export default function CompleteProfilePage() {
           <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
           <p style={{
             fontSize: "var(--text-xs)",
-            color: "var(--text-muted)",
+            color: "var(--ink-muted)",
             lineHeight: 1.5,
             margin: 0,
           }}>
@@ -379,7 +379,7 @@ export default function CompleteProfilePage() {
               try { await apiPatch("/accounts/logout/", {}); } catch { /* ignore */ }
               window.location.href = "/login";
             }}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--brand-primary)", fontSize: "inherit" }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--saffron)", fontSize: "inherit" }}
           >
             Sign out
           </button>

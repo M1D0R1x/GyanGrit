@@ -336,7 +336,7 @@ function ParticipantsPanel({ teacherName }: { teacherName: string }) {
       <div className="live-chat-panel__messages" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-3)" }}>
         {sorted.map(p => (
           <div key={p.identity} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
-            <span style={{ fontWeight: p.name === teacherName ? 700 : 400, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: p.name === teacherName ? 700 : 400, color: "var(--ink-primary)", display: "flex", alignItems: "center", gap: 6 }}>
               {p.name || "Unknown"} {p.isLocal && <span style={{ opacity: 0.5 }}>(You)</span>}
               {p.name === teacherName && "🎓"}
             </span>
@@ -372,12 +372,12 @@ function InRoomControls({
           <div style={{ position: "relative" }}>
             <button className="btn btn--ghost" onClick={() => setShowSettings(v => !v)} style={{ fontSize: "var(--text-xs)", color: "#fff", borderColor: "#444" }} title="Room Settings">⚙️</button>
             {showSettings && (
-              <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
-                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: "var(--space-2)", color: "var(--text-muted)" }}>Student Permissions</div>
-                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
+              <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: "var(--space-2)", color: "var(--ink-muted)" }}>Student Permissions</div>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--ink-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
                   <input type="checkbox" checked={permissions.mic} onChange={e => updatePermissions(e.target.checked, permissions.camera)} /> Allow unmute
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--ink-primary)", cursor: "pointer" }}>
                   <input type="checkbox" checked={permissions.camera} onChange={e => updatePermissions(permissions.mic, e.target.checked)} /> Allow camera
                 </label>
               </div>
@@ -491,7 +491,7 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
   actionStyle?: React.CSSProperties;
   loadingAction?: boolean;
 }) {
-  const statusColors: Record<string, string> = { scheduled: "var(--text-muted)", live: "var(--success)", ended: "var(--error)" };
+  const statusColors: Record<string, string> = { scheduled: "var(--ink-muted)", live: "var(--success)", ended: "var(--error)" };
   const statusBg: Record<string, string> = { scheduled: "rgba(107,114,128,0.08)", live: "rgba(34,197,94,0.1)", ended: "rgba(239,68,68,0.08)" };
 
   const scheduledTime = session.scheduled_at
@@ -502,25 +502,25 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
     : null;
 
   return (
-    <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
+    <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
-          <span style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>{session.title}</span>
+          <span style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{session.title}</span>
           <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: "var(--radius-full)", background: statusBg[session.status], color: statusColors[session.status], textTransform: "uppercase" as const }}>
             {session.status === "live" ? "\uD83D\uDD34 LIVE" : session.status}
           </span>
         </div>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
           {session.subject_name ?? "General"} {"\u00B7"} {session.teacher_name}
           {session.attendance_count !== undefined && ` \u00B7 ${session.attendance_count} attending`}
         </div>
         {scheduledTime && (
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             {"\uD83D\uDCC5"} {scheduledTime}
             {startedTime && session.status === "live" && <span style={{ color: "var(--success)" }}> {"\u2022"} Started {startedTime}</span>}
           </div>
         )}
-        {session.description && <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{session.description}</div>}
+        {session.description && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>{session.description}</div>}
       </div>
       <button className="btn btn--primary" style={{ flexShrink: 0, fontSize: "var(--text-sm)", ...actionStyle }} onClick={() => onAction(session)} disabled={loadingAction}>
         {loadingAction ? <div className="auth-loading__spinner" style={{ width: 16, height: 16, borderTopColor: "#fff", borderRightColor: "rgba(255,255,255,0.2)", borderBottomColor: "rgba(255,255,255,0.2)", borderLeftColor: "rgba(255,255,255,0.2)" }} /> : actionLabel}
@@ -689,7 +689,7 @@ export default function LiveSessionPage() {
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--text-primary)" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>
             {isTeacher ? "My Sessions" : "Upcoming Classes"}
           </h2>
           {isTeacher && (
@@ -698,12 +698,12 @@ export default function LiveSessionPage() {
         </div>
 
         {showCreate && (
-          <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--brand-primary)", marginBottom: "var(--space-4)" }}>
-            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--text-primary)" }}>New Live Session</div>
+          <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--saffron)", marginBottom: "var(--space-4)" }}>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--ink-primary)" }}>New Live Session</div>
             <input className="form-input" placeholder="Session title *" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
             <input className="form-input" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
             <div style={{ marginBottom: "var(--space-2)" }}>
-              <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", marginBottom: "var(--space-1)" }}>Schedule Date & Time (optional)</label>
+              <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: "var(--space-1)" }}>Schedule Date & Time (optional)</label>
               <input className="form-input" type="datetime-local" value={newScheduledAt} onChange={e => setNewScheduledAt(e.target.value)} style={{ colorScheme: "dark" }} />
             </div>
             {isAdminOrPrincipal && schoolOptions.length > 1 && (

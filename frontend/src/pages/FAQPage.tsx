@@ -91,7 +91,7 @@ export default function FAQPage() {
             <button
               onClick={() => navigate("/contact")}
               style={{
-                background: "none", border: "none", color: "var(--brand-primary)",
+                background: "none", border: "none", color: "var(--saffron)",
                 cursor: "pointer", fontFamily: "inherit", fontSize: "inherit",
                 textDecoration: "underline", textUnderlineOffset: "3px", padding: 0,
               }}

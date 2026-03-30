@@ -160,20 +160,20 @@ export default function PrincipalDashboardPage() {
                   fontFamily: "var(--font-display)",
                   fontSize: "var(--text-2xl)",
                   fontWeight: 800,
-                  color: "var(--text-primary)",
+                  color: "var(--ink-primary)",
                   letterSpacing: "-0.03em",
                 }}>
                   {user.institution}
                 </h2>
                 {user.district && (
-                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                     {user.district} District
                   </p>
                 )}
               </div>
               <div style={{ display: "flex", gap: "var(--space-6)", flexWrap: "wrap" }}>
                 {[
-                  { value: classes.length,    label: "Classes",  color: "var(--text-primary)" },
+                  { value: classes.length,    label: "Classes",  color: "var(--ink-primary)" },
                   { value: totalStudents,     label: "Students", color: "var(--role-student)" },
                   { value: `${avgPassRate}%`, label: "Avg Pass", color: avgPassRate >= 70 ? "var(--success)" : "var(--warning)" },
                   { value: teachers.length,   label: "Teachers", color: "var(--role-teacher)" },
@@ -183,10 +183,10 @@ export default function PrincipalDashboardPage() {
                       <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 800, color }}>
                         {value}
                       </div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{label}</div>
                     </div>
                     {idx < arr.length - 1 && (
-                      <div style={{ width: 1, height: 40, background: "var(--border-subtle)" }} />
+                      <div style={{ width: 1, height: 40, background: "var(--border-light)" }} />
                     )}
                   </div>
                 ))}
@@ -252,7 +252,7 @@ export default function PrincipalDashboardPage() {
                       fontFamily: "var(--font-display)",
                       fontSize: "var(--text-xl)",
                       fontWeight: 800,
-                      color: "var(--text-primary)",
+                      color: "var(--ink-primary)",
                       marginBottom: "var(--space-4)",
                     }}>
                       {c.class_name}
@@ -261,7 +261,7 @@ export default function PrincipalDashboardPage() {
                       display: "flex",
                       justifyContent: "space-between",
                       fontSize: "var(--text-xs)",
-                      color: "var(--text-muted)",
+                      color: "var(--ink-muted)",
                       marginBottom: "var(--space-2)",
                     }}>
                       <span>{c.total_students} students</span>
@@ -270,7 +270,7 @@ export default function PrincipalDashboardPage() {
                     <div className="progress-bar">
                       <div className="progress-bar__fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-3)" }}>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-3)" }}>
                       {c.total_attempts} assessment attempts
                     </div>
                   </div>
@@ -327,7 +327,7 @@ export default function PrincipalDashboardPage() {
                     marginBottom: "var(--space-2)",
                   }}>
                     <span className="badge badge--info">Class {course.grade}</span>
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {course.subject}
                     </span>
                   </div>
@@ -338,11 +338,11 @@ export default function PrincipalDashboardPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     fontSize: "var(--text-xs)",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-muted)",
                     marginBottom: "var(--space-2)",
                   }}>
                     <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
-                    <span style={{ fontWeight: 700, color: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)" }}>
+                    <span style={{ fontWeight: 700, color: course.percentage >= 70 ? "var(--success)" : "var(--saffron)" }}>
                       {course.percentage}%
                     </span>
                   </div>
@@ -351,7 +351,7 @@ export default function PrincipalDashboardPage() {
                       className="progress-bar__fill"
                       style={{
                         width: `${course.percentage}%`,
-                        background: course.percentage >= 70 ? "var(--success)" : "var(--brand-primary)",
+                        background: course.percentage >= 70 ? "var(--success)" : "var(--saffron)",
                       }}
                     />
                   </div>
@@ -415,10 +415,10 @@ export default function PrincipalDashboardPage() {
                         { label: "Pass Rate", value: `${a.pass_rate}%` },
                       ].map(({ label, value }) => (
                         <div key={label} style={{ textAlign: "center" }}>
-                          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)" }}>
+                          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>
                             {value}
                           </div>
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{label}</div>
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{label}</div>
                         </div>
                       ))}
                     </div>
@@ -474,10 +474,10 @@ export default function PrincipalDashboardPage() {
                     {t.username.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                    <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                       {t.username}
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Teacher</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Teacher</div>
                   </div>
                 </div>
               </div>

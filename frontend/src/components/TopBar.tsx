@@ -1,136 +1,91 @@
-// components.TopBar
+// components.TopBar — Chalk & Sunlight v3
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import LogoutButton from "./LogoutButton";
+import { apiPost } from "../services/api";
 import Logo from "./Logo";
-import NavMenu from "./NavMenu";
+import Sidebar from "./Sidebar";
 import { NotificationBell, NotificationPanel } from "./NotificationPanel";
 import { fetchNotifications } from "../services/notifications";
 import type { Role } from "../auth/authTypes";
 
-type Props = {
-  title?: string;
+type Props = { title?: string };
+
+const ROLE_COLORS: Record<string, string> = {
+  STUDENT:   "#0EA5E9",
+  TEACHER:   "#10B981",
+  PRINCIPAL: "#F59E0B",
+  OFFICIAL:  "#8B5CF6",
+  ADMIN:     "#F43F5E",
 };
 
-const ROLE_BADGE_COLORS: Record<string, string> = {
-  STUDENT:   "#3b82f6",
-  TEACHER:   "#10b981",
-  PRINCIPAL: "#f59e0b",
-  OFFICIAL:  "#8b5cf6",
-  ADMIN:     "#ef4444",
-};
+// ── Inline logout button used inside the user dropdown ─────────────
 
-function getInitials(username: string): string {
-  return username.slice(0, 2).toUpperCase();
-}
+function LogoutDropdownItem({ onLogout }: { onLogout: () => void }) {
+  const navigate  = useNavigate();
+  const auth      = useAuth();
+  const [loading, setLoading] = useState(false);
 
-function UserDropdown({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const [hovered, setHovered] = useState<string | null>(null);
-
-  const go = (path: string) => {
-    onClose();
-    navigate(path);
+  const handle = async () => {
+    setLoading(true);
+    try { await apiPost("/accounts/logout/", {}); } catch { /* proceed */ }
+    finally {
+      setLoading(false);
+      onLogout();
+      await auth.refresh();
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
-    <div
-      role="menu"
+    <button
+      onClick={handle}
+      disabled={loading}
       style={{
-        position:     "absolute",
-        top:          "calc(100% + 8px)",
-        right:        0,
-        minWidth:     200,
-        background:   "var(--bg-elevated)",
-        border:       "1px solid var(--border-default)",
+        display:      "flex",
+        alignItems:   "center",
+        gap:          "var(--space-3)",
+        padding:      "var(--space-3) var(--space-3)",
+        background:   "transparent",
+        border:       "none",
         borderRadius: "var(--radius-md)",
-        boxShadow:    "0 8px 32px rgba(0,0,0,0.4)",
-        zIndex:       9999,
-        overflow:     "hidden",
+        color:        "var(--error)",
+        fontSize:     "var(--text-sm)",
+        fontWeight:   600,
+        cursor:       "pointer",
+        width:        "100%",
+        transition:   "background var(--transition-fast)",
+        fontFamily:   "inherit",
       }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--error-bg)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
     >
-      <UserInfoHeader />
-
-      <div style={{ padding: "4px 0" }}>
-        <button
-          role="menuitem"
-          onClick={() => go("/profile")}
-          onMouseEnter={() => setHovered("profile")}
-          onMouseLeave={() => setHovered(null)}
-          style={{
-            display:     "flex",
-            alignItems:  "center",
-            gap:         10,
-            width:       "100%",
-            padding:     "8px 16px",
-            background:  hovered === "profile" ? "var(--bg-overlay)" : "none",
-            border:      "none",
-            color:       hovered === "profile" ? "var(--text-primary)" : "var(--text-secondary)",
-            fontFamily:  "var(--font-body)",
-            fontSize:    "var(--text-sm)",
-            fontWeight:  500,
-            cursor:      "pointer",
-            textAlign:   "left",
-            transition:  "all 0.1s",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-          Profile
-        </button>
-
-        <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
-
-        <div style={{ padding: "4px 8px" }}>
-          <LogoutButton onLogout={onClose} />
-        </div>
-      </div>
-    </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      {loading ? "Signing out…" : "Sign out"}
+    </button>
   );
 }
 
-function UserInfoHeader() {
-  const auth = useAuth();
-  if (!auth.user) return null;
-  return (
-    <div style={{
-      padding:      "12px 16px",
-      borderBottom: "1px solid var(--border-subtle)",
-      background:   "var(--bg-surface)",
-    }}>
-      <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
-        {auth.user.username}
-      </div>
-      {auth.user.public_id && (
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-          {auth.user.public_id}
-        </div>
-      )}
-    </div>
-  );
-}
+// ── Main TopBar ─────────────────────────────────────────────────────
 
 export default function TopBar({ title }: Props) {
   const auth     = useAuth();
   const navigate = useNavigate();
 
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notifOpen, setNotifOpen]       = useState(false);
-  const [unreadCount, setUnreadCount]   = useState(0);
-  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [sidebarOpen,       setSidebarOpen]       = useState(false);
+  const [userMenuOpen,      setUserMenuOpen]       = useState(false);
+  const [notifOpen,         setNotifOpen]         = useState(false);
+  const [unreadCount,       setUnreadCount]       = useState(0);
+  const [installPrompt,     setInstallPrompt]     = useState<Event | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const notifRef    = useRef<HTMLDivElement>(null);
-
-  // Track the newest notification timestamp for incremental fetch.
-  // On first call, fetch everything. On subsequent polls, only fetch
-  // notifications newer than the last one we saw.
+  const userMenuRef  = useRef<HTMLDivElement>(null);
+  const notifRef     = useRef<HTMLDivElement>(null);
   const lastFetchRef = useRef<string | undefined>(undefined);
 
   const refreshUnread = useCallback(() => {
@@ -139,30 +94,25 @@ export default function TopBar({ title }: Props) {
       .then((data) => {
         if (!data) return;
         setUnreadCount(data.unread);
-        // Update the cursor: newest notification's created_at
         if (data.notifications.length > 0) {
           lastFetchRef.current = data.notifications[0].created_at;
         } else if (!lastFetchRef.current) {
-          // No notifications at all — set cursor to "now" so next poll is incremental
           lastFetchRef.current = new Date().toISOString();
         }
       })
-      .catch(() => { /* silent */ });
+      .catch(() => {});
   }, [auth.authenticated]);
 
   useEffect(() => {
     refreshUnread();
-    const interval = setInterval(refreshUnread, 30_000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refreshUnread();
-    };
-    // Listen for real-time chat notification events dispatched by AuthContext
-    const onNotifNew = () => refreshUnread();
-    window.addEventListener("notif:new", onNotifNew);
+    const interval  = setInterval(refreshUnread, 30_000);
+    const onVisible = () => { if (document.visibilityState === "visible") refreshUnread(); };
+    const onNew     = () => refreshUnread();
+    window.addEventListener("notif:new", onNew);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(interval);
-      window.removeEventListener("notif:new", onNotifNew);
+      window.removeEventListener("notif:new", onNew);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refreshUnread]);
@@ -181,22 +131,17 @@ export default function TopBar({ title }: Props) {
   useEffect(() => {
     if (!userMenuOpen && !notifOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setUserMenuOpen(false);
-        setNotifOpen(false);
-      }
+      if (e.key === "Escape") { setUserMenuOpen(false); setNotifOpen(false); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [userMenuOpen, notifOpen]);
 
-  // PWA install prompt — shown once when browser fires beforeinstallprompt
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e);
-      const dismissed = sessionStorage.getItem("pwa-banner-dismissed");
-      if (!dismissed) setShowInstallBanner(true);
+      if (!sessionStorage.getItem("pwa-banner-dismissed")) setShowInstallBanner(true);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
@@ -210,16 +155,8 @@ export default function TopBar({ title }: Props) {
     setInstallPrompt(null);
   };
 
-  const dismissInstallBanner = () => {
-    setShowInstallBanner(false);
-    sessionStorage.setItem("pwa-banner-dismissed", "1");
-  };
-
   const handleLogoClick = () => {
-    if (!auth.authenticated || !auth.user) {
-      navigate("/login");
-      return;
-    }
+    if (!auth.authenticated || !auth.user) { navigate("/login"); return; }
     const paths: Record<string, string> = {
       STUDENT:   "/dashboard",
       TEACHER:   "/teacher",
@@ -235,211 +172,224 @@ export default function TopBar({ title }: Props) {
     navigate("/notifications");
   }, [navigate]);
 
+  const roleColor = auth.user ? (ROLE_COLORS[auth.user.role] ?? "#F59E0B") : "#F59E0B";
+
   return (
     <>
       {/* PWA Install Banner */}
       {showInstallBanner && (
         <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
-          background: "var(--bg-elevated)",
-          borderTop: "2px solid var(--brand-primary)",
-          padding: "var(--space-3) var(--space-4)",
-          display: "flex", alignItems: "center", gap: "var(--space-3)",
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.3)",
-          animation: "fadeInUp 0.3s ease",
+          position:   "fixed",
+          bottom:     0, left: 0, right: 0,
+          zIndex:     9999,
+          background: "var(--bg-surface)",
+          borderTop:  "1px solid rgba(245,158,11,0.4)",
+          padding:    "var(--space-3) var(--space-4)",
+          display:    "flex",
+          alignItems: "center",
+          gap:        "var(--space-3)",
+          boxShadow:  "var(--shadow-lg)",
+          animation:  "fadeUp 0.3s ease",
         }}>
-          <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "var(--brand-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-            📚
-          </div>
+          <div style={{
+            width: 36, height: 36,
+            borderRadius: "var(--radius-md)",
+            background: "var(--saffron)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, flexShrink: 0,
+          }}>📚</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>Install GyanGrit</div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Add to home screen for offline access</div>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
+              Install GyanGrit
+            </div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+              Add to home screen for offline access
+            </div>
           </div>
-          <button onClick={handleInstall}
-            style={{ background: "var(--brand-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", padding: "var(--space-2) var(--space-4)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer", flexShrink: 0 }}>
+          <button onClick={handleInstall} style={{
+            background: "var(--saffron)", color: "#fff", border: "none",
+            borderRadius: "var(--radius-full)", padding: "var(--space-2) var(--space-4)",
+            fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer", flexShrink: 0,
+            fontFamily: "var(--font-display)",
+          }}>
             Install
           </button>
-          <button onClick={dismissInstallBanner}
-            style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 18, cursor: "pointer", padding: "var(--space-1)", flexShrink: 0 }}>
+          <button
+            onClick={() => { setShowInstallBanner(false); sessionStorage.setItem("pwa-banner-dismissed", "1"); }}
+            style={{ background: "none", border: "none", color: "var(--ink-muted)", fontSize: 18, cursor: "pointer", padding: "var(--space-1)", flexShrink: 0 }}
+          >
             ✕
           </button>
         </div>
       )}
-      <header
-      style={{
-        position:       "sticky",
-        top:            0,
-        zIndex:         100,
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "space-between",
-        padding:        "0 24px",
-        height:         56,
-        background:     "var(--bg-surface)",
-        borderBottom:   "1px solid var(--border-subtle)",
-        backdropFilter: "blur(8px)",
-      }}
-      role="banner"
-    >
-      {/* ── Left: logo + page title ─────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button
-          onClick={handleLogoClick}
-          aria-label="Go to home"
-          style={{
-            background:   "none",
-            border:       "none",
-            padding:      0,
-            cursor:       "pointer",
-            display:      "flex",
-            alignItems:   "center",
-            borderRadius: "var(--radius-sm)",
-            transition:   "opacity 0.15s",
-            flexShrink:   0,
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.75"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-        >
-          <Logo size="sm" variant="full" />
-        </button>
 
-        {title && (
-          <>
-            <span style={{ color: "var(--border-strong)", fontSize: 16, userSelect: "none" }}>/</span>
-            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary)" }}>
-              {title}
-            </span>
-          </>
-        )}
-      </div>
+      {/* Sidebar drawer */}
+      {auth.authenticated && auth.user && (
+        <Sidebar
+          role={auth.user.role as Role}
+          username={auth.user.username}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* ── Right: nav menu + notification bell + user pill ─────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-        {/*
-          ⚠️ NAV MENU — TEMPORARY SUPERVISOR DEMO
-          Shows all role-specific routes in a dropdown.
-          TODO: redesign as sidebar/drawer post-capstone.
-        */}
-        {auth.authenticated && auth.user && (
-          <NavMenu role={auth.user.role as Role} />
-        )}
-
-        {/* Notification bell */}
-        {auth.authenticated && (
-          <div ref={notifRef} style={{ position: "relative" }}>
-            <NotificationBell
-              unread={unreadCount}
-              active={notifOpen}
-              onClick={() => {
-                setNotifOpen((v) => !v);
-                setUserMenuOpen(false);
-              }}
-            />
-            {notifOpen && (
-              <NotificationPanel
-                onClose={() => setNotifOpen(false)}
-                onUnreadChange={setUnreadCount}
-                onViewAll={handleViewAll}
-              />
-            )}
-          </div>
-        )}
-
-        {/* User pill */}
-        {auth.loading ? (
-          <div style={{
-            width:        140,
-            height:       34,
-            background:   "var(--bg-elevated)",
-            borderRadius: "var(--radius-full)",
-            animation:    "shimmer 1.5s infinite linear",
-          }} />
-        ) : auth.authenticated && auth.user ? (
-          <div ref={userMenuRef} style={{ position: "relative" }}>
+      <header role="banner" className="topbar">
+        {/* ── Left ── */}
+        <div className="topbar__left">
+          {auth.authenticated && (
             <button
-              onClick={() => {
-                setUserMenuOpen((v) => !v);
-                setNotifOpen(false);
-              }}
-              aria-haspopup="menu"
-              aria-expanded={userMenuOpen}
-              aria-label="Open user menu"
-              style={{
-                display:      "flex",
-                alignItems:   "center",
-                gap:          8,
-                padding:      "4px 12px 4px 6px",
-                background:   userMenuOpen ? "var(--bg-elevated)" : "var(--bg-overlay)",
-                border:       "1px solid",
-                borderColor:  userMenuOpen ? "var(--brand-primary)" : "var(--border-subtle)",
-                borderRadius: "var(--radius-full)",
-                cursor:       "pointer",
-                transition:   "all 0.15s",
-                fontFamily:   "inherit",
-              }}
+              className="topbar__menu-btn"
+              onClick={() => setSidebarOpen((v) => !v)}
+              aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+              aria-expanded={sidebarOpen}
             >
-              <div style={{
-                width:          26,
-                height:         26,
-                borderRadius:   "50%",
-                background:     ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-                display:        "flex",
-                alignItems:     "center",
-                justifyContent: "center",
-                fontSize:       10,
-                fontWeight:     700,
-                color:          "#fff",
-                flexShrink:     0,
-              }}>
-                {getInitials(auth.user.username)}
-              </div>
-
-              <span style={{
-                fontSize:     "var(--text-sm)",
-                fontWeight:   600,
-                color:        "var(--text-primary)",
-                maxWidth:     100,
-                overflow:     "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace:   "nowrap",
-              }}>
-                {auth.user.username}
-              </span>
-
-              <span style={{
-                fontSize:      10,
-                fontWeight:    700,
-                padding:       "2px 6px",
-                borderRadius:  "var(--radius-full)",
-                background:    (ROLE_BADGE_COLORS[auth.user.role] ?? "#3b82f6") + "22",
-                color:         ROLE_BADGE_COLORS[auth.user.role] ?? "var(--brand-primary)",
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-              }}>
-                {auth.user.role}
-              </span>
-
-              <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="var(--text-muted)" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{
-                  transform:  userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.15s",
-                  flexShrink: 0,
-                }}
-                aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {sidebarOpen ? (
+                  <>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </>
+                ) : (
+                  <>
+                    <line x1="3" y1="6"  x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </>
+                )}
               </svg>
             </button>
+          )}
 
-            {userMenuOpen && <UserDropdown onClose={() => setUserMenuOpen(false)} />}
-          </div>
-        ) : null}
-      </div>
-    </header>
+          <button
+            onClick={handleLogoClick}
+            aria-label="Go to home"
+            style={{
+              background: "none", border: "none", padding: 0, cursor: "pointer",
+              display: "flex", alignItems: "center", borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <Logo size="sm" variant="full" />
+          </button>
+
+          {title && (
+            <>
+              <div className="topbar__divider" />
+              <span className="topbar__title">{title}</span>
+            </>
+          )}
+        </div>
+
+        {/* ── Right ── */}
+        <div className="topbar__right">
+          {auth.authenticated && (
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <NotificationBell
+                unread={unreadCount}
+                active={notifOpen}
+                onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); }}
+              />
+              {notifOpen && (
+                <NotificationPanel
+                  onClose={() => setNotifOpen(false)}
+                  onUnreadChange={setUnreadCount}
+                  onViewAll={handleViewAll}
+                />
+              )}
+            </div>
+          )}
+
+          {auth.loading ? (
+            <div className="skeleton" style={{
+              width: 90, height: 32,
+              borderRadius: "var(--radius-full)",
+            }} />
+          ) : auth.authenticated && auth.user ? (
+            <div ref={userMenuRef} style={{ position: "relative" }}>
+              <button
+                className="topbar__user"
+                onClick={() => { setUserMenuOpen((v) => !v); setNotifOpen(false); }}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+                aria-label="Open user menu"
+              >
+                <div className="topbar__avatar" style={{ background: roleColor }}>
+                  {auth.user.username.slice(0, 2).toUpperCase()}
+                </div>
+                <span className="topbar__username hide-mobile">
+                  {auth.user.username}
+                </span>
+                <span
+                  className="topbar__role-badge hide-mobile"
+                  style={{ background: roleColor + "18", color: roleColor }}
+                >
+                  {auth.user.role}
+                </span>
+                <svg
+                  width="11" height="11" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--ink-muted)" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              {userMenuOpen && (
+                <div
+                  role="menu"
+                  className="dropdown"
+                  style={{ top: "calc(100% + 8px)", right: 0, minWidth: 200 }}
+                >
+                  <div style={{ padding: "var(--space-4) var(--space-4) var(--space-3)", borderBottom: "1px solid var(--border-light)" }}>
+                    <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
+                      {auth.user.username}
+                    </div>
+                    {auth.user.public_id && (
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
+                        {auth.user.public_id}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ padding: "var(--space-2)" }}>
+                    {[
+                      { label: "Profile",       path: "/profile",        icon: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+                      { label: "Notifications", path: "/notifications",  icon: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        className="dropdown__item"
+                        role="menuitem"
+                        onClick={() => { setUserMenuOpen(false); navigate(item.path); }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d={item.icon} />
+                        </svg>
+                        {item.label}
+                        {item.label === "Notifications" && unreadCount > 0 && (
+                          <span style={{
+                            marginLeft: "auto",
+                            background: "var(--error)",
+                            color: "#fff", fontSize: 9, fontWeight: 800,
+                            padding: "1px 5px", borderRadius: "var(--radius-full)",
+                            fontFamily: "var(--font-display)",
+                          }}>
+                            {unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    <div className="dropdown__divider" />
+                    <LogoutDropdownItem onLogout={() => setUserMenuOpen(false)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </header>
     </>
   );
 }

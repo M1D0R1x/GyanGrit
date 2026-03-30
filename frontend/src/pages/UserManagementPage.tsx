@@ -370,7 +370,7 @@ export default function UserManagementPage() {
               fontFamily: "var(--font-display)",
               fontSize: "var(--text-lg)",
               fontWeight: 700,
-              color: "var(--text-primary)",
+              color: "var(--ink-primary)",
               marginBottom: "var(--space-5)",
             }}>
               Create Join Code
@@ -528,11 +528,11 @@ export default function UserManagementPage() {
         <div className="card" style={{ marginBottom: "var(--space-6)", padding: 0, overflow: "hidden" }}>
           <div style={{
             padding: "var(--space-4) var(--space-5)",
-            borderBottom: "1px solid var(--border-subtle)",
+            borderBottom: "1px solid var(--border-light)",
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: "var(--text-base)",
-            color: "var(--text-primary)",
+            color: "var(--ink-primary)",
           }}>
             Active Join Codes
           </div>
@@ -546,7 +546,7 @@ export default function UserManagementPage() {
           ) : codes.filter((c) => c.is_valid).length === 0 ? (
             <div style={{ padding: "var(--space-8)", textAlign: "center" }}>
               <div style={{ fontSize: 32, marginBottom: "var(--space-3)" }}>🔑</div>
-              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
                 No active join codes. Create one to invite users.
               </div>
             </div>
@@ -572,18 +572,18 @@ export default function UserManagementPage() {
                         padding: "2px 6px",
                         borderRadius: 4,
                         letterSpacing: "0.08em",
-                        color: "var(--text-primary)",
+                        color: "var(--ink-primary)",
                       }}>
                         {code.code}
                       </code>
                     </td>
                     <td><RoleBadge role={code.role} /></td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)" }}>
                       {code.institution ?? code.district ?? "—"}
                       {code.subject ? ` · ${code.subject}` : ""}
                       {code.section ? ` · §${code.section}` : ""}
                     </td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                       {new Date(code.expires_at).toLocaleDateString("en-IN", {
                         day: "numeric", month: "short",
                       })}
@@ -608,11 +608,11 @@ export default function UserManagementPage() {
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{
             padding: "var(--space-4) var(--space-5)",
-            borderBottom: "1px solid var(--border-subtle)",
+            borderBottom: "1px solid var(--border-light)",
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: "var(--text-base)",
-            color: "var(--text-primary)",
+            color: "var(--ink-primary)",
           }}>
             Users in Scope ({users.length})
           </div>
@@ -625,7 +625,7 @@ export default function UserManagementPage() {
             </div>
           ) : users.length === 0 ? (
             <div style={{ padding: "var(--space-8)", textAlign: "center" }}>
-              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
                 No users found in your scope.
               </div>
             </div>
@@ -643,7 +643,7 @@ export default function UserManagementPage() {
                   <tr key={u.id}>
                     <td style={{ fontWeight: 500 }}>{u.username}</td>
                     <td><RoleBadge role={u.role} /></td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontFamily: "monospace" }}>
+                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontFamily: "monospace" }}>
                       {u.public_id ?? `#${u.id}`}
                     </td>
                   </tr>

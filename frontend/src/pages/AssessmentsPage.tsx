@@ -1,4 +1,4 @@
-// pages.AssessmentsPage
+// pages.AssessmentsPage — Glassmorphism 2.0
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
@@ -14,7 +14,7 @@ function ScoreRing({ score, total, size = 44 }: { score: number; total: number; 
   const filled = circ * pct;
   const color  = pct >= 0.6 ? "var(--success)" : pct >= 0.4 ? "var(--warning)" : "var(--error)";
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="score-ring">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="score-ring" aria-hidden="true">
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg-elevated)" strokeWidth={5} />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5}
         strokeDasharray={`${filled} ${circ - filled}`}
@@ -31,21 +31,25 @@ function ScoreRing({ score, total, size = 44 }: { score: number; total: number; 
 
 function SkeletonRow() {
   return (
-    <div style={{ display: "flex", gap: "var(--space-4)", padding: "var(--space-4)", borderBottom: "1px solid var(--border-subtle)", alignItems: "center" }}>
+    <div style={{
+      display: "flex", gap: "var(--space-4)", padding: "var(--space-4)",
+      borderBottom: "1px solid var(--border-light)", alignItems: "center",
+    }}>
       <div className="skeleton" style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
         <div className="skeleton skeleton-line skeleton-line--medium" />
         <div className="skeleton skeleton-line skeleton-line--short" style={{ marginTop: "var(--space-2)" }} />
       </div>
+      <div className="skeleton" style={{ width: 48, height: 20, borderRadius: "var(--radius-full)" }} />
     </div>
   );
 }
 
 export default function AssessmentsPage() {
   const navigate = useNavigate();
-  const [assessments, setAssessments] = useState<AssessmentWithStatus[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  const [assessments, setAssessments]     = useState<AssessmentWithStatus[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [statusFilter, setStatusFilter]   = useState<"all" | "passed" | "pending">("all");
 
@@ -56,12 +60,11 @@ export default function AssessmentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const subjects = ["all", ...Array.from(new Set(assessments.map((a) => a.subject))).sort()];
-
-  const filtered = assessments.filter((a) => {
-    const matchSubject = subjectFilter === "all" || a.subject === subjectFilter;
-    const matchStatus  = statusFilter === "all" ? true : statusFilter === "passed" ? a.passed : !a.passed;
-    return matchSubject && matchStatus;
+  const subjects  = ["all", ...Array.from(new Set(assessments.map((a) => a.subject))).sort()];
+  const filtered  = assessments.filter((a) => {
+    const matchSubj   = subjectFilter === "all" || a.subject === subjectFilter;
+    const matchStatus = statusFilter === "all" ? true : statusFilter === "passed" ? a.passed : !a.passed;
+    return matchSubj && matchStatus;
   });
 
   const attempted = assessments.filter((a) => (a.attempt_count ?? 0) > 0).length;
@@ -75,15 +78,15 @@ export default function AssessmentsPage() {
         {/* Header */}
         <div className="page-header">
           <h2 className="page-header__title">My Assessments</h2>
-          <p className="page-header__sub">Tap any assessment to view and attempt it</p>
+          <p className="page-header__sub">Tap any test to attempt it and earn points</p>
           {!loading && (
-            <div className="stats-row">
+            <div className="stats-row" style={{ marginTop: "var(--space-4)" }}>
               <div className="stats-row__item">
                 <div className="stats-row__value">{assessments.length}</div>
                 <div className="stats-row__label">Total</div>
               </div>
               <div className="stats-row__item">
-                <div className="stats-row__value" style={{ color: "var(--brand-primary)" }}>{attempted}</div>
+                <div className="stats-row__value" style={{ color: "var(--saffron)" }}>{attempted}</div>
                 <div className="stats-row__label">Attempted</div>
               </div>
               <div className="stats-row__item">
@@ -98,20 +101,20 @@ export default function AssessmentsPage() {
         <button className="history-shortcut" onClick={() => navigate("/assessments/history")}>
           <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
               <path d="M3 3v5h5" />
               <path d="M12 7v5l4 2" />
             </svg>
-            View all attempt history
+            View attempt history
           </span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
 
-        {/* Subject filter */}
+        {/* Subject filter pills */}
         {!loading && subjects.length > 2 && (
           <div className="filter-pills">
             {subjects.map((s) => (
@@ -143,66 +146,63 @@ export default function AssessmentsPage() {
 
         {error && <div className="alert alert--error" style={{ margin: "var(--space-4)" }}>{error}</div>}
 
-        {loading ? (
-          Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-        ) : filtered.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__icon">📋</div>
-            <h3 className="empty-state__title">No assessments found</h3>
-            <p className="empty-state__message">
-              {statusFilter !== "all"
-                ? `No ${statusFilter} assessments in this subject.`
-                : "No assessments available yet."}
-            </p>
-          </div>
-        ) : (
-          filtered.map((a, i) => {
-            const isAttempted = (a.attempt_count ?? 0) > 0;
-            // Build human-readable URL: /assessments/:grade/:subject/:id
-            const detailPath  = assessmentPath(a.grade, a.subject, a.id);
-            return (
-              <button
-                key={a.id}
-                className="assessment-row page-enter"
-                style={{ animationDelay: `${i * 25}ms` }}
-                onClick={() => navigate(detailPath)}
-              >
-                <div className={`assessment-row__icon${isAttempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
-                  {isAttempted && a.best_score !== null
-                    ? <ScoreRing score={a.best_score} total={a.total_marks} />
-                    : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                      </svg>
-                    )
-                  }
-                </div>
-
-                <div className="assessment-row__body">
-                  <div className="assessment-row__subject">
-                    {a.subject} · Class {a.grade}
+        {/* List */}
+        <div className="card" style={{ padding: 0, overflow: "hidden", margin: "var(--space-4)", borderRadius: "var(--radius-lg)" }}>
+          {loading
+            ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+            : filtered.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__icon">📋</div>
+                <h3 className="empty-state__title">No assessments found</h3>
+                <p className="empty-state__message">
+                  {statusFilter !== "all"
+                    ? `No ${statusFilter} assessments matching your filters.`
+                    : "No assessments available yet."}
+                </p>
+              </div>
+            ) : filtered.map((a, i) => {
+              const isAttempted = (a.attempt_count ?? 0) > 0;
+              const detailPath  = assessmentPath(a.grade, a.subject, a.id);
+              return (
+                <button
+                  key={a.id}
+                  className="assessment-row page-enter"
+                  style={{ animationDelay: `${i * 25}ms` }}
+                  onClick={() => navigate(detailPath)}
+                >
+                  <div className={`assessment-row__icon${isAttempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
+                    {isAttempted && a.best_score !== null
+                      ? <ScoreRing score={a.best_score} total={a.total_marks} />
+                      : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="var(--ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                      )}
                   </div>
-                  <div className="assessment-row__title">{a.title}</div>
-                  <div className="assessment-row__meta">
-                    <span>{a.total_marks} marks · pass {a.pass_marks}</span>
-                    {isAttempted && (
-                      <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
-                        {a.passed ? "✓ Passed" : `${a.attempt_count ?? 0} attempt${(a.attempt_count ?? 0) !== 1 ? "s" : ""}`}
-                      </span>
-                    )}
-                  </div>
-                </div>
 
-                <svg className="assessment-row__chevron" width="16" height="16" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            );
-          })
-        )}
+                  <div className="assessment-row__body">
+                    <div className="assessment-row__subject">{a.subject} · Class {a.grade}</div>
+                    <div className="assessment-row__title">{a.title}</div>
+                    <div className="assessment-row__meta">
+                      <span>{a.total_marks} marks · pass {a.pass_marks}</span>
+                      {isAttempted && (
+                        <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
+                          {a.passed ? "✓ Passed" : `${a.attempt_count ?? 0}×`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <svg className="assessment-row__chevron" width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              );
+            })}
+        </div>
       </main>
       <BottomNav />
     </div>

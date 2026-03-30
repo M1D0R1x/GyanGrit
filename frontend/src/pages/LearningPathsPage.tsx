@@ -125,7 +125,7 @@ export default function LearningPathsPage() {
                             width: `${p.percentage}%`,
                             background: p.percentage === 100
                               ? "var(--success)"
-                              : "var(--brand-primary)",
+                              : "var(--saffron)",
                           }}
                         />
                       </div>
@@ -134,14 +134,14 @@ export default function LearningPathsPage() {
                         justifyContent: "space-between",
                         marginTop: "var(--space-1)",
                         fontSize: "var(--text-xs)",
-                        color: "var(--text-muted)",
+                        color: "var(--ink-muted)",
                       }}>
                         <span>{p.completed_courses}/{p.total_courses} courses</span>
                         <span style={{
                           fontWeight: 700,
                           color: p.percentage === 100
                             ? "var(--success)"
-                            : "var(--text-secondary)",
+                            : "var(--ink-secondary)",
                         }}>
                           {p.percentage}%
                         </span>

@@ -2,10 +2,9 @@
 
 > Bug reports only. Planned work lives in tasks_opus4.6.md.
 
----last commit before ui Overhaul from next session
+---last commit: UI Overhaul complete (Infinite Obsidian glassmorphism)
 
 ## Open Bugs
-full ui overhaul after this push
 - [ ] **Gemini AI chatbot 403** — API key `AIzaSyDAAUFrK6SsRf7AcXR72SIBS3su03BJCno` is blocked by Google. Veera must regenerate at https://aistudio.google.com/app/apikey → update GEMINI_API_KEY in Render env vars.
 - [ ] **Push not working on friend's Chrome/Edge** — user must click "Allow" on notification prompt. If dismissed: browser Settings → Site Permissions → gyangrit.site → Notifications → Allow. Not a code issue.
 

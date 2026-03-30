@@ -43,14 +43,14 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
       justifyContent: "space-between",
       alignItems:     "center",
       padding:        "var(--space-4) 0",
-      borderBottom:   "1px solid var(--border-subtle)",
+      borderBottom:   "1px solid var(--border-light)",
     }}>
-      <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 500, minWidth: 140 }}>
+      <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", fontWeight: 500, minWidth: 140 }}>
         {label}
       </span>
       <span style={{
         fontSize:  "var(--text-sm)",
-        color:     value ? "var(--text-primary)" : "var(--text-muted)",
+        color:     value ? "var(--ink-primary)" : "var(--ink-muted)",
         fontWeight: value ? 500 : 400,
         fontStyle:  value ? "normal" : "italic",
       }}>
@@ -75,7 +75,7 @@ function FormField({
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
       <label
         htmlFor={`profile-${name}`}
-        style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}
+        style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}
       >
         {label}{required && <span style={{ color: "var(--error)", marginLeft: 2 }}>*</span>}
       </label>
@@ -99,7 +99,7 @@ function ProfileSkeleton() {
   return (
     <div className="card">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "var(--space-4) 0", borderBottom: "1px solid var(--border-subtle)" }}>
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "var(--space-4) 0", borderBottom: "1px solid var(--border-light)" }}>
           <div className="skeleton skeleton-line" style={{ width: 100, height: 14 }} />
           <div className="skeleton skeleton-line" style={{ width: 160, height: 14 }} />
         </div>
@@ -164,7 +164,7 @@ function GradesSection({ studentId }: { studentId: number }) {
           fontSize: "var(--text-2xl)", color: pctColor(avgPct),
         }}>
           {avgPct}%
-          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-muted)", textAlign: "right" }}>avg</div>
+          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--ink-muted)", textAlign: "right" }}>avg</div>
         </div>
       </div>
 
@@ -176,7 +176,7 @@ function GradesSection({ studentId }: { studentId: number }) {
             <div key={subject} className="card" style={{ padding: "var(--space-4) var(--space-5)" }}>
               {/* Subject header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
-                <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                   {subject}
                 </span>
                 <span style={{
@@ -195,7 +195,7 @@ function GradesSection({ studentId }: { studentId: number }) {
                 {subEntries.map((e) => (
                   <div key={e.id} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    fontSize: "var(--text-xs)", color: "var(--text-muted)",
+                    fontSize: "var(--text-xs)", color: "var(--ink-muted)",
                   }}>
                     <span>{humanLabel(e.term)} · {humanLabel(e.category)}</span>
                     <span style={{ fontWeight: 700, color: pctColor(e.percentage) }}>
@@ -255,7 +255,7 @@ function ChangePasswordCard() {
       style={{
         position: "absolute", right: "0.75rem", top: "50%",
         transform: "translateY(-50%)", background: "none",
-        border: "none", cursor: "pointer", color: "var(--text-muted)",
+        border: "none", cursor: "pointer", color: "var(--ink-muted)",
         display: "flex", alignItems: "center", padding: 0,
       }}
     >
@@ -308,11 +308,11 @@ function ChangePasswordCard() {
           width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0,
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+        <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
           🔑 Change Password
         </span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          stroke="var(--ink-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -338,7 +338,7 @@ function ChangePasswordCard() {
             { id: "cp-confirm", label: "Confirm New",      val: confirmPw, setVal: setConfirmPw, show: showConfirm, setShow: setShowConfirm, ac: "new-password" },
           ].map(({ id, label, val, setVal, show, setShow, ac }) => (
             <div key={id} style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
-              <label htmlFor={id} style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <label htmlFor={id} style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {label}
               </label>
               <div style={{ position: "relative" }}>
@@ -493,11 +493,11 @@ export default function ProfilePage() {
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-5)", marginBottom: "var(--space-8)" }}>
           <div style={{
             width: 64, height: 64, borderRadius: "50%",
-            background: "var(--brand-primary-glow)",
-            border: "2px solid var(--brand-primary)",
+            background: "var(--saffron-glow)",
+            border: "2px solid var(--saffron)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontFamily: "var(--font-display)", fontSize: "var(--text-xl)",
-            fontWeight: 800, color: "var(--brand-primary)", flexShrink: 0,
+            fontWeight: 800, color: "var(--saffron)", flexShrink: 0,
           }}>
             {user
               ? `${(user.first_name ?? "").charAt(0)}${(user.last_name ?? "").charAt(0)}`.toUpperCase() || user.username.slice(0, 2).toUpperCase()
@@ -506,7 +506,7 @@ export default function ProfilePage() {
           <div style={{ flex: 1 }}>
             <h1 style={{
               fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)",
-              fontWeight: 800, color: "var(--text-primary)",
+              fontWeight: 800, color: "var(--ink-primary)",
               letterSpacing: "-0.03em", marginBottom: "var(--space-1)",
             }}>
               {user?.display_name ?? user?.username ?? "—"}
@@ -551,7 +551,7 @@ export default function ProfilePage() {
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--role-student)", lineHeight: 1 }}>
                     {value}
                   </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                     {label}
                   </div>
                 </div>
@@ -572,7 +572,7 @@ export default function ProfilePage() {
                       borderRadius: "var(--radius-lg)", minWidth: 80, textAlign: "center",
                     }}>
                       <div style={{ fontSize: 28 }}>{badge.emoji}</div>
-                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.3 }}>
+                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-primary)", lineHeight: 1.3 }}>
                         {badge.label}
                       </div>
                     </div>
@@ -600,7 +600,7 @@ export default function ProfilePage() {
               </div>
             )}
             <div className="card" style={{ marginBottom: "var(--space-4)" }}>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--text-primary)", marginBottom: "var(--space-5)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)", marginBottom: "var(--space-5)" }}>
                 Edit Profile
               </h2>
               <FormField label="First Name"       name="first_name"       value={fields.first_name}       required error={errors.first_name}       onChange={handleChange} />

@@ -192,7 +192,7 @@ export default function RegisterPage() {
           <span style={{
             display: "block",
             fontSize: "var(--text-xs)",
-            color: "var(--text-muted)",
+            color: "var(--ink-muted)",
             marginTop: "var(--space-2)",
           }}>
             Provided by your teacher, principal, or admin
@@ -205,7 +205,7 @@ export default function RegisterPage() {
               gap: "var(--space-2)",
               marginTop: "var(--space-2)",
               fontSize: "var(--text-xs)",
-              color: "var(--text-muted)",
+              color: "var(--ink-muted)",
             }}>
               <span className="btn__spinner" style={{ width: 10, height: 10 }} />
               Validating…

@@ -92,10 +92,10 @@ export default function ResetPasswordPage() {
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <p style={{ margin: 0, fontWeight: 600, color: "var(--text-primary)" }}>
+              <p style={{ margin: 0, fontWeight: 600, color: "var(--ink-primary)" }}>
                 Password updated!
               </p>
-              <p style={{ margin: "var(--space-2) 0 0", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+              <p style={{ margin: "var(--space-2) 0 0", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
                 Your password has been changed. Please log in with your new password.
               </p>
             </div>
@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <>
-            <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-5)", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--ink-secondary)", marginBottom: "var(--space-5)", fontSize: "0.9rem" }}>
               Choose a strong new password for your GyanGrit account.
             </p>
 
@@ -148,7 +148,7 @@ export default function ResetPasswordPage() {
                     style={{
                       position: "absolute", right: "0.75rem", top: "50%",
                       transform: "translateY(-50%)", background: "none",
-                      border: "none", cursor: "pointer", color: "var(--text-muted)",
+                      border: "none", cursor: "pointer", color: "var(--ink-muted)",
                       display: "flex", alignItems: "center", padding: 0,
                     }}
                   >
@@ -179,7 +179,7 @@ export default function ResetPasswordPage() {
                     style={{
                       position: "absolute", right: "0.75rem", top: "50%",
                       transform: "translateY(-50%)", background: "none",
-                      border: "none", cursor: "pointer", color: "var(--text-muted)",
+                      border: "none", cursor: "pointer", color: "var(--ink-muted)",
                       display: "flex", alignItems: "center", padding: 0,
                     }}
                   >

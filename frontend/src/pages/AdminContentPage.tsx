@@ -150,15 +150,15 @@ export default function AdminContentPage() {
               className="badge"
               style={{
                 cursor: "pointer",
-                border: "1px solid var(--border-default)",
+                border: "1px solid var(--border-medium)",
                 background:
                   selectedGrade === null
-                    ? "var(--brand-primary-glow)"
+                    ? "var(--saffron-glow)"
                     : "transparent",
                 color:
                   selectedGrade === null
-                    ? "var(--brand-primary)"
-                    : "var(--text-muted)",
+                    ? "var(--saffron)"
+                    : "var(--ink-muted)",
                 padding: "var(--space-1) var(--space-3)",
               }}
               onClick={() => setSelectedGrade(null)}
@@ -171,15 +171,15 @@ export default function AdminContentPage() {
                 className="badge"
                 style={{
                   cursor: "pointer",
-                  border: "1px solid var(--border-default)",
+                  border: "1px solid var(--border-medium)",
                   background:
                     selectedGrade === grade
-                      ? "var(--brand-primary-glow)"
+                      ? "var(--saffron-glow)"
                       : "transparent",
                   color:
                     selectedGrade === grade
-                      ? "var(--brand-primary)"
-                      : "var(--text-muted)",
+                      ? "var(--saffron)"
+                      : "var(--ink-muted)",
                   padding: "var(--space-1) var(--space-3)",
                 }}
                 onClick={() => setSelectedGrade(grade)}
@@ -262,7 +262,7 @@ export default function AdminContentPage() {
                       fontFamily: "var(--font-display)",
                       fontSize: "var(--text-base)",
                       fontWeight: 600,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-muted)",
                       textTransform: "uppercase",
                       letterSpacing: "0.08em",
                       marginBottom: "var(--space-4)",
@@ -346,8 +346,8 @@ export default function AdminContentPage() {
                               style={{
                                 fontSize: "var(--text-xs)",
                                 padding: "var(--space-1) var(--space-3)",
-                                color: "var(--brand-primary)",
-                                border: "1px solid var(--border-subtle)",
+                                color: "var(--saffron)",
+                                border: "1px solid var(--border-light)",
                               }}
                               onClick={() =>
                                 navigate(
@@ -363,7 +363,7 @@ export default function AdminContentPage() {
                                 fontSize: "var(--text-xs)",
                                 padding: "var(--space-1) var(--space-3)",
                                 color: "var(--warning)",
-                                border: "1px solid var(--border-subtle)",
+                                border: "1px solid var(--border-light)",
                               }}
                               onClick={() =>
                                 navigate(

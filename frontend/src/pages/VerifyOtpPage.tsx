@@ -119,16 +119,16 @@ export default function VerifyOtpPage() {
 
         <div style={{
           background: "var(--bg-elevated)",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--border-medium)",
           borderRadius: "var(--radius-sm)",
           padding: "var(--space-3) var(--space-4)",
           marginBottom: "var(--space-6)",
           fontSize: "var(--text-sm)",
-          color: "var(--text-secondary)",
+          color: "var(--ink-secondary)",
         }}>
-          Verifying as <strong style={{ color: "var(--text-primary)" }}>{username}</strong>
+          Verifying as <strong style={{ color: "var(--ink-primary)" }}>{username}</strong>
           {channel && (
-            <span style={{ display: "block", marginTop: 4, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            <span style={{ display: "block", marginTop: 4, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               OTP sent via {channel === "sms" ? "SMS" : channel === "email" ? "email" : "system log"}
             </span>
           )}
@@ -192,8 +192,8 @@ export default function VerifyOtpPage() {
         {/* Resend OTP with countdown */}
         <div style={{ textAlign: "center", marginTop: "var(--space-5)" }}>
           {countdown > 0 ? (
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
-              Resend OTP in <strong style={{ color: "var(--text-secondary)" }}>{countdown}s</strong>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+              Resend OTP in <strong style={{ color: "var(--ink-secondary)" }}>{countdown}s</strong>
             </span>
           ) : (
             <button
@@ -203,7 +203,7 @@ export default function VerifyOtpPage() {
               style={{
                 background: "none",
                 border: "none",
-                color: "var(--brand-primary)",
+                color: "var(--saffron)",
                 cursor: resending ? "wait" : "pointer",
                 fontSize: "var(--text-sm)",
                 fontWeight: 600,

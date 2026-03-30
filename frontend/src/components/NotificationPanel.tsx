@@ -58,7 +58,7 @@ export function NotificationBell({
         position:       "relative",
         background:     active ? "var(--bg-elevated)" : "none",
         border:         "1px solid",
-        borderColor:    active ? "var(--brand-primary)" : "transparent",
+        borderColor:    active ? "var(--saffron)" : "transparent",
         borderRadius:   "var(--radius-md)",
         width:          36,
         height:         36,
@@ -67,19 +67,19 @@ export function NotificationBell({
         justifyContent: "center",
         cursor:         "pointer",
         transition:     "all 0.15s",
-        color:          active ? "var(--text-primary)" : "var(--text-muted)",
+        color:          active ? "var(--ink-primary)" : "var(--ink-muted)",
         flexShrink:     0,
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
-          (e.currentTarget as HTMLButtonElement).style.color      = "var(--text-primary)";
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)";
+          (e.currentTarget as HTMLButtonElement).style.color      = "var(--ink-primary)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           (e.currentTarget as HTMLButtonElement).style.background = "none";
-          (e.currentTarget as HTMLButtonElement).style.color      = "var(--text-muted)";
+          (e.currentTarget as HTMLButtonElement).style.color      = "var(--ink-muted)";
         }
       }}
     >
@@ -210,7 +210,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
           maxWidth:        "calc(100vw - 32px)",
           maxHeight:       560,
           background:      "var(--bg-elevated)",
-          border:          "1px solid var(--border-default)",
+          border:          "1px solid var(--border-medium)",
           borderRadius:    "var(--radius-lg)",
           boxShadow:       "0 16px 48px rgba(0,0,0,0.5)",
           zIndex:          9999,
@@ -226,7 +226,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
           alignItems:     "center",
           justifyContent: "space-between",
           padding:        "12px 16px",
-          borderBottom:   "1px solid var(--border-subtle)",
+          borderBottom:   "1px solid var(--border-light)",
           background:     "var(--bg-surface)",
           flexShrink:     0,
         }}>
@@ -235,7 +235,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize:   "var(--text-sm)",
-              color:      "var(--text-primary)",
+              color:      "var(--ink-primary)",
             }}>
               Notifications
             </span>
@@ -261,7 +261,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   background: "none",
                   border:     "none",
                   fontSize:   "var(--text-xs)",
-                  color:      "var(--brand-primary)",
+                  color:      "var(--saffron)",
                   cursor:     "pointer",
                   fontWeight: 600,
                   padding:    "2px 4px",
@@ -285,7 +285,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
             <div style={{
               padding:   "40px 16px",
               textAlign: "center",
-              color:     "var(--text-muted)",
+              color:     "var(--ink-muted)",
             }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
               <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>No notifications yet</div>
@@ -303,19 +303,19 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   gap:          12,
                   width:        "100%",
                   padding:      "12px 16px",
-                  background:   n.is_read ? "transparent" : "var(--bg-overlay)",
+                  background:   n.is_read ? "transparent" : "var(--bg-elevated)",
                   border:       "none",
-                  borderBottom: "1px solid var(--border-subtle)",
+                  borderBottom: "1px solid var(--border-light)",
                   cursor:       "pointer",
                   textAlign:    "left",
                   transition:   "background 0.1s",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
+                  (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)";
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    n.is_read ? "transparent" : "var(--bg-overlay)";
+                    n.is_read ? "transparent" : "var(--bg-elevated)";
                 }}
               >
                 {/* Type icon */}
@@ -340,7 +340,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   <div style={{
                     fontSize:     "var(--text-sm)",
                     fontWeight:   n.is_read ? 500 : 700,
-                    color:        "var(--text-primary)",
+                    color:        "var(--ink-primary)",
                     marginBottom: 1,
                     overflow:     "hidden",
                     textOverflow: "ellipsis",
@@ -351,7 +351,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   {n.message && (
                     <div style={{
                       fontSize:          "var(--text-xs)",
-                      color:             "var(--text-muted)",
+                      color:             "var(--ink-muted)",
                       lineHeight:        1.4,
                       overflow:          "hidden",
                       display:           "-webkit-box",
@@ -362,20 +362,20 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                     </div>
                   )}
                   {n.attachment_name && (
-                    <div style={{ fontSize: 11, color: "var(--brand-primary)", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: "var(--saffron)", marginTop: 2 }}>
                       📎 {n.attachment_name}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
                     {n.sender && n.sender !== "System" && (
                       <>
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", fontWeight: 500 }}>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 500 }}>
                           {n.sender}
                         </span>
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", opacity: 0.5 }}>·</span>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", opacity: 0.5 }}>·</span>
                       </>
                     )}
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", opacity: 0.7 }}>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", opacity: 0.7 }}>
                       {timeAgo(n.created_at)}
                     </span>
                   </div>
@@ -400,7 +400,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
         {/* ── Footer — View all (always visible, not conditional) ───────── */}
         <div style={{
           flexShrink:   0,
-          borderTop:    "1px solid var(--border-subtle)",
+          borderTop:    "1px solid var(--border-light)",
           background:   "var(--bg-surface)",
         }}>
           <button
@@ -416,13 +416,13 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
               gap:            6,
               fontSize:       "var(--text-sm)",
               fontWeight:     600,
-              color:          "var(--brand-primary)",
+              color:          "var(--saffron)",
               cursor:         "pointer",
               transition:     "background 0.1s",
               fontFamily:     "inherit",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-overlay)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "none";

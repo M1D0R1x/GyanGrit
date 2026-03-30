@@ -225,7 +225,7 @@ export default function NavMenu({ role }: { role: Role }) {
   const menuRef         = useRef<HTMLDivElement>(null);
   const navigate        = useNavigate();
   const groups          = getNavGroups(role);
-  const roleColor       = ROLE_COLORS[role] ?? "var(--brand-primary)";
+  const roleColor       = ROLE_COLORS[role] ?? "var(--saffron)";
 
   useEffect(() => {
     if (!open) return;
@@ -262,12 +262,12 @@ export default function NavMenu({ role }: { role: Role }) {
           gap:          6,
           padding:      "5px 11px",
           height:       34,
-          background:   open ? roleColor + "18" : "var(--bg-overlay)",
+          background:   open ? roleColor + "18" : "var(--bg-elevated)",
           border:       "1px solid",
-          borderColor:  open ? roleColor : "var(--border-subtle)",
+          borderColor:  open ? roleColor : "var(--border-medium)",
           borderRadius: "var(--radius-md)",
           cursor:       "pointer",
-          color:        open ? roleColor : "var(--text-secondary)",
+          color:        open ? roleColor : "var(--ink-secondary)",
           fontSize:     "var(--text-sm)",
           fontWeight:   600,
           fontFamily:   "var(--font-body)",
@@ -278,16 +278,16 @@ export default function NavMenu({ role }: { role: Role }) {
           if (!open) {
             const b = e.currentTarget as HTMLButtonElement;
             b.style.background  = "var(--bg-elevated)";
-            b.style.color       = "var(--text-primary)";
-            b.style.borderColor = "var(--border-default)";
+            b.style.color       = "var(--ink-primary)";
+            b.style.borderColor = "var(--border-medium)";
           }
         }}
         onMouseLeave={(e) => {
           if (!open) {
             const b = e.currentTarget as HTMLButtonElement;
-            b.style.background  = "var(--bg-overlay)";
-            b.style.color       = "var(--text-secondary)";
-            b.style.borderColor = "var(--border-subtle)";
+            b.style.background  = "var(--bg-elevated)";
+            b.style.color       = "var(--ink-secondary)";
+            b.style.borderColor = "var(--border-medium)";
           }
         }}
       >
@@ -322,9 +322,11 @@ export default function NavMenu({ role }: { role: Role }) {
             maxHeight:    "calc(100vh - 80px)",
             overflowY:    "auto",
             background:   "var(--bg-elevated)",
-            border:       "1px solid var(--border-default)",
+            border:       "1px solid var(--border-medium)",
             borderRadius: "var(--radius-lg)",
-            boxShadow:    "0 20px 60px rgba(0,0,0,0.5)",
+            boxShadow:    "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+            
+            WebkitBackdropFilter: "blur(24px)",
             zIndex:       9999,
             animation:    "fadeInUp 0.15s ease both",
           }}
@@ -332,7 +334,7 @@ export default function NavMenu({ role }: { role: Role }) {
           {/* Header */}
           <div style={{
             padding:      "10px 14px 8px",
-            borderBottom: "1px solid var(--border-subtle)",
+            borderBottom: "1px solid var(--border-light)",
             background:   "var(--bg-surface)",
             borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
             position:     "sticky",
@@ -341,7 +343,7 @@ export default function NavMenu({ role }: { role: Role }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <span style={{
                 fontFamily: "var(--font-display)", fontWeight: 700,
-                fontSize: "var(--text-sm)", color: "var(--text-primary)",
+                fontSize: "var(--text-sm)", color: "var(--ink-primary)",
               }}>
                 Navigation
               </span>
@@ -354,7 +356,7 @@ export default function NavMenu({ role }: { role: Role }) {
                 {role}
               </span>
             </div>
-            <div style={{ marginTop: "var(--space-2)", fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>
+            <div style={{ marginTop: "var(--space-2)", fontSize: 10, color: "var(--ink-muted)", fontStyle: "italic" }}>
               ⚠️ Temporary demo nav · will be redesigned post-capstone
             </div>
           </div>
@@ -367,7 +369,7 @@ export default function NavMenu({ role }: { role: Role }) {
                   padding:       `${gi === 0 ? "var(--space-3)" : "var(--space-4)"} 14px var(--space-1)`,
                   fontSize:      10,
                   fontWeight:    700,
-                  color:         "var(--text-muted)",
+                  color:         "var(--ink-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                 }}>
@@ -389,7 +391,7 @@ export default function NavMenu({ role }: { role: Role }) {
                       border:     "none",
                       cursor:     "pointer",
                       textAlign:  "left",
-                      color:      "var(--text-secondary)",
+                      color:      "var(--ink-secondary)",
                       fontSize:   "var(--text-sm)",
                       fontWeight: 500,
                       fontFamily: "var(--font-body)",
@@ -397,13 +399,13 @@ export default function NavMenu({ role }: { role: Role }) {
                     }}
                     onMouseEnter={(e) => {
                       const b = e.currentTarget as HTMLButtonElement;
-                      b.style.background = "var(--bg-overlay)";
-                      b.style.color = "var(--text-primary)";
+                      b.style.background = "var(--bg-elevated)";
+                      b.style.color = "var(--ink-primary)";
                     }}
                     onMouseLeave={(e) => {
                       const b = e.currentTarget as HTMLButtonElement;
                       b.style.background = "none";
-                      b.style.color = "var(--text-secondary)";
+                      b.style.color = "var(--ink-secondary)";
                     }}
                   >
                     <span style={{ fontSize: 14, flexShrink: 0, lineHeight: item.note ? "20px" : 1 }} aria-hidden="true">
@@ -415,7 +417,7 @@ export default function NavMenu({ role }: { role: Role }) {
                         <span style={{
                           display:   "block",
                           fontSize:  10,
-                          color:     "var(--text-muted)",
+                          color:     "var(--ink-muted)",
                           fontStyle: "italic",
                           marginTop: 1,
                         }}>
@@ -424,7 +426,7 @@ export default function NavMenu({ role }: { role: Role }) {
                       )}
                     </span>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                      stroke="var(--text-muted)" strokeWidth="2"
+                      stroke="var(--ink-muted)" strokeWidth="2"
                       strokeLinecap="round" strokeLinejoin="round"
                       style={{ flexShrink: 0, marginTop: item.note ? 4 : 0 }}
                       aria-hidden="true">
@@ -435,7 +437,7 @@ export default function NavMenu({ role }: { role: Role }) {
 
                 {gi < groups.length - 1 && (
                   <div style={{
-                    height: 1, background: "var(--border-subtle)",
+                    height: 1, background: "var(--border-light)",
                     margin: "var(--space-2) 14px 0",
                   }} />
                 )}
@@ -446,8 +448,8 @@ export default function NavMenu({ role }: { role: Role }) {
           {/* Footer hint */}
           <div style={{
             padding:   "var(--space-2) 14px var(--space-3)",
-            borderTop: "1px solid var(--border-subtle)",
-            fontSize:  10, color: "var(--text-muted)", lineHeight: 1.5,
+            borderTop: "1px solid var(--border-light)",
+            fontSize:  10, color: "var(--ink-muted)", lineHeight: 1.5,
           }}>
             Items with an italic note require selecting a specific record first.
           </div>

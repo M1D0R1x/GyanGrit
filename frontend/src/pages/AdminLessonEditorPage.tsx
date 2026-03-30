@@ -45,7 +45,7 @@ function VideoPreview({
             maxHeight: 200,
             objectFit: "cover",
             borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--border-light)",
           }}
         />
         {duration && (
@@ -95,13 +95,13 @@ function VideoPreview({
       padding: "var(--space-4)",
       background: "var(--bg-elevated)",
       borderRadius: "var(--radius-md)",
-      border: "1px solid var(--border-subtle)",
+      border: "1px solid var(--border-light)",
       fontSize: "var(--text-sm)",
-      color: "var(--text-secondary)",
+      color: "var(--ink-secondary)",
     }}>
       Video URL:{" "}
       <a href={url} target="_blank" rel="noopener noreferrer"
-        style={{ color: "var(--brand-primary)" }}>
+        style={{ color: "var(--saffron)" }}>
         {url}
       </a>
     </div>
@@ -153,25 +153,25 @@ function FileUploadZone({
           if (file) void handleFile(file);
         }}
         style={{
-          border: `2px dashed ${uploading ? "var(--brand-primary)" : "var(--border-default)"}`,
+          border: `2px dashed ${uploading ? "var(--saffron)" : "var(--border-medium)"}`,
           borderRadius: "var(--radius-md)",
           padding: "var(--space-6)",
           textAlign: "center",
           cursor: uploading ? "not-allowed" : "pointer",
           transition: "all var(--transition-fast)",
-          background: uploading ? "var(--brand-primary-glow)" : "var(--bg-elevated)",
+          background: uploading ? "var(--saffron-glow)" : "var(--bg-elevated)",
         }}
       >
         {uploading ? (
           <div>
-            <div style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--brand-primary)" }}>
+            <div style={{ marginBottom: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--saffron)" }}>
               Uploading… {progress}%
             </div>
-            <div style={{ height: 4, background: "var(--bg-overlay)", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ height: 4, background: "var(--bg-elevated)", borderRadius: 2, overflow: "hidden" }}>
               <div style={{
                 height: "100%",
                 width: `${progress}%`,
-                background: "var(--brand-primary)",
+                background: "var(--saffron)",
                 borderRadius: 2,
                 transition: "width 0.1s",
               }} />
@@ -180,14 +180,14 @@ function FileUploadZone({
         ) : (
           <>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-              stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"
+              stroke="var(--ink-muted)" strokeWidth="1.5" strokeLinecap="round"
               strokeLinejoin="round" style={{ marginBottom: "var(--space-2)" }}>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{label}</div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>{label}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
               Click or drag and drop
             </div>
           </>
@@ -215,7 +215,7 @@ function FileUploadZone({
           </svg>
           <span style={{ color: "var(--success)" }}>Uploaded</span>
           <a href={currentUrl} target="_blank" rel="noopener noreferrer"
-            style={{ color: "var(--text-muted)", textDecoration: "underline" }}>
+            style={{ color: "var(--ink-muted)", textDecoration: "underline" }}>
             Preview
           </a>
         </div>
@@ -274,39 +274,39 @@ function VideoUploadZone({
           if (file) void handleFile(file);
         }}
         style={{
-          border: `2px dashed ${uploading ? "var(--brand-primary)" : "var(--border-default)"}`,
+          border: `2px dashed ${uploading ? "var(--saffron)" : "var(--border-medium)"}`,
           borderRadius: "var(--radius-md)",
           padding: "var(--space-6)",
           textAlign: "center",
           cursor: uploading ? "not-allowed" : "pointer",
-          background: uploading ? "var(--brand-primary-glow)" : "var(--bg-elevated)",
+          background: uploading ? "var(--saffron-glow)" : "var(--bg-elevated)",
           transition: "all var(--transition-fast)",
         }}
       >
         {uploading ? (
           <div>
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--brand-primary)", marginBottom: "var(--space-2)", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--saffron)", marginBottom: "var(--space-2)", fontWeight: 600 }}>
               Uploading video… {progress}%
             </div>
-            <div style={{ height: 6, background: "var(--bg-overlay)", borderRadius: 99, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-primary)", borderRadius: 99, transition: "width 0.2s" }} />
+            <div style={{ height: 6, background: "var(--bg-elevated)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progress}%`, background: "var(--saffron)", borderRadius: 99, transition: "width 0.2s" }} />
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-2)" }}>
               Large files may take a moment. Do not close this page.
             </div>
           </div>
         ) : (
           <>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-              stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"
+              stroke="var(--ink-muted)" strokeWidth="1.5" strokeLinecap="round"
               strokeLinejoin="round" style={{ marginBottom: "var(--space-3)" }}>
               <polygon points="23 7 16 12 23 17 23 7" />
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", fontWeight: 600 }}>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)", fontWeight: 600 }}>
               Upload video to CDN
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
               MP4 or WebM · max 500MB · Click or drag and drop
             </div>
           </>
@@ -334,7 +334,7 @@ function VideoUploadZone({
           </svg>
           <span style={{ color: "var(--success)", fontWeight: 600 }}>Hosted on CDN</span>
           <a href={currentUrl} target="_blank" rel="noopener noreferrer"
-            style={{ color: "var(--text-muted)", textDecoration: "underline" }}>
+            style={{ color: "var(--ink-muted)", textDecoration: "underline" }}>
             Preview
           </a>
         </div>
@@ -407,7 +407,7 @@ function LessonForm({
       <div className="form-group">
         <label className="form-label" htmlFor="lesson-content">
           Text Content
-          <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
+          <span style={{ color: "var(--ink-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
             (Markdown supported)
           </span>
         </label>
@@ -428,7 +428,7 @@ function LessonForm({
         <div style={{
           display: "flex",
           marginBottom: "var(--space-3)",
-          border: "1px solid var(--border-default)",
+          border: "1px solid var(--border-medium)",
           borderRadius: "var(--radius-sm)",
           overflow: "hidden",
         }}>
@@ -440,9 +440,9 @@ function LessonForm({
               style={{
                 flex: 1,
                 padding: "var(--space-2) var(--space-3)",
-                background: videoInputMode === tab ? "var(--brand-primary)" : "var(--bg-elevated)",
+                background: videoInputMode === tab ? "var(--saffron)" : "var(--bg-elevated)",
                 border: "none",
-                color: videoInputMode === tab ? "#fff" : "var(--text-muted)",
+                color: videoInputMode === tab ? "#fff" : "var(--ink-muted)",
                 fontSize: "var(--text-xs)",
                 fontWeight: videoInputMode === tab ? 700 : 400,
                 cursor: "pointer",
@@ -533,14 +533,14 @@ function LessonForm({
           padding: "var(--space-4)",
           background: "var(--bg-elevated)",
           borderRadius: "var(--radius-md)",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--border-light)",
           marginBottom: "var(--space-6)",
         }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
               Publish lesson
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               Published lessons are visible to enrolled students
             </div>
           </div>
@@ -549,9 +549,9 @@ function LessonForm({
               type="checkbox"
               checked={isPublished}
               onChange={(e) => setIsPublished(e.target.checked)}
-              style={{ width: 18, height: 18, accentColor: "var(--brand-primary)", cursor: "pointer" }}
+              style={{ width: 18, height: 18, accentColor: "var(--saffron)", cursor: "pointer" }}
             />
-            <span style={{ fontSize: "var(--text-sm)", color: isPublished ? "var(--success)" : "var(--text-muted)" }}>
+            <span style={{ fontSize: "var(--text-sm)", color: isPublished ? "var(--success)" : "var(--ink-muted)" }}>
               {isPublished ? "Published" : "Draft"}
             </span>
           </label>
@@ -798,7 +798,7 @@ export default function AdminLessonEditorPage() {
           <div style={{
             display: "flex",
             marginBottom: "var(--space-6)",
-            border: "1px solid var(--border-default)",
+            border: "1px solid var(--border-medium)",
             borderRadius: "var(--radius-sm)",
             overflow: "hidden",
           }}>
@@ -814,9 +814,9 @@ export default function AdminLessonEditorPage() {
                 style={{
                   flex: 1,
                   padding: "var(--space-3)",
-                  background: activeTab === tab ? "var(--brand-primary)" : "var(--bg-elevated)",
+                  background: activeTab === tab ? "var(--saffron)" : "var(--bg-elevated)",
                   border: "none",
-                  color: activeTab === tab ? "#fff" : "var(--text-muted)",
+                  color: activeTab === tab ? "#fff" : "var(--ink-muted)",
                   fontSize: "var(--text-sm)",
                   fontWeight: activeTab === tab ? 700 : 400,
                   cursor: "pointer",
@@ -871,16 +871,16 @@ export default function AdminLessonEditorPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
                           <div style={{
                             width: 32, height: 32, borderRadius: "var(--radius-sm)",
-                            background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)",
+                            background: "var(--bg-elevated)", border: "1px solid var(--border-light)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             fontFamily: "var(--font-display)", fontWeight: 700,
-                            fontSize: "var(--text-sm)", color: "var(--text-muted)", flexShrink: 0,
+                            fontSize: "var(--text-sm)", color: "var(--ink-muted)", flexShrink: 0,
                           }}>
                             {lesson.order}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
-                              fontWeight: 600, color: "var(--text-primary)", fontSize: "var(--text-sm)",
+                              fontWeight: 600, color: "var(--ink-primary)", fontSize: "var(--text-sm)",
                               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                             }}>
                               {lesson.title}
@@ -897,7 +897,7 @@ export default function AdminLessonEditorPage() {
                               onClick={() => void handleTogglePublish(lesson)}>
                               {lesson.is_published
                                 ? <span style={{ color: "var(--success)" }}>Published</span>
-                                : <span style={{ color: "var(--text-muted)" }}>Draft</span>}
+                                : <span style={{ color: "var(--ink-muted)" }}>Draft</span>}
                             </button>
                             <button className="btn btn--secondary"
                               style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
@@ -987,13 +987,13 @@ export default function AdminLessonEditorPage() {
                             background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             fontFamily: "var(--font-display)", fontWeight: 700,
-                            fontSize: "var(--text-xs)", color: "var(--brand-primary)", flexShrink: 0,
+                            fontSize: "var(--text-xs)", color: "var(--saffron)", flexShrink: 0,
                           }}>
                             {sl.order || "—"}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
-                              fontWeight: 600, color: "var(--text-primary)", fontSize: "var(--text-sm)",
+                              fontWeight: 600, color: "var(--ink-primary)", fontSize: "var(--text-sm)",
                               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                             }}>
                               {sl.title}
@@ -1004,7 +1004,7 @@ export default function AdminLessonEditorPage() {
                               {sl.has_pdf     && <span className="badge badge--warning" style={{ fontSize: 10 }}>PDF</span>}
                               <span style={{
                                 fontSize: 9, fontWeight: 700, textTransform: "uppercase",
-                                letterSpacing: "0.06em", color: "var(--brand-primary)",
+                                letterSpacing: "0.06em", color: "var(--saffron)",
                                 background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)",
                                 borderRadius: "var(--radius-full)", padding: "1px 6px",
                               }}>

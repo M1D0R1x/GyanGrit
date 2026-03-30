@@ -14,7 +14,7 @@ type Tab = "class" | "school";
 
 const PODIUM_COLORS = [
   "var(--warning)",    // 1st — gold
-  "var(--text-muted)", // 2nd — silver
+  "var(--ink-muted)", // 2nd — silver
   "#cd7f32",           // 3rd — bronze
 ];
 
@@ -44,18 +44,18 @@ function PodiumCard({ entry, position }: { entry: LeaderboardEntry; position: 0 
         height:         size,
         borderRadius:   "50%",
         background:     entry.is_me
-          ? "var(--brand-primary-glow)"
+          ? "var(--saffron-glow)"
           : "var(--bg-elevated)",
-        border:         `3px solid ${entry.is_me ? "var(--brand-primary)" : color}`,
+        border:         `3px solid ${entry.is_me ? "var(--saffron)" : color}`,
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
         fontFamily:     "var(--font-display)",
         fontWeight:     800,
         fontSize:       size * 0.3,
-        color:          entry.is_me ? "var(--brand-primary)" : color,
+        color:          entry.is_me ? "var(--saffron)" : color,
         flexShrink:     0,
-        boxShadow:      entry.is_me ? `0 0 0 3px var(--brand-primary)33` : "none",
+        boxShadow:      entry.is_me ? `0 0 0 3px var(--saffron)33` : "none",
       }}>
         {entry.display_name.slice(0, 2).toUpperCase()}
       </div>
@@ -64,7 +64,7 @@ function PodiumCard({ entry, position }: { entry: LeaderboardEntry; position: 0 
       <div style={{
         fontSize:      "var(--text-xs)",
         fontWeight:    entry.is_me ? 800 : 600,
-        color:         entry.is_me ? "var(--brand-primary)" : "var(--text-primary)",
+        color:         entry.is_me ? "var(--saffron)" : "var(--ink-primary)",
         textAlign:     "center",
         maxWidth:      "100%",
         overflow:      "hidden",
@@ -101,8 +101,8 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         ? "rgba(59,130,246,0.06)"
         : "var(--bg-surface)",
       border:      entry.is_me
-        ? "1px solid rgba(59,130,246,0.2)"
-        : "1px solid var(--border-subtle)",
+        ? "1px solid rgba(59,130,246,0.25)"
+        : "1px solid var(--border-light)",
       transition:  "background var(--transition-fast)",
     }}>
       {/* Rank number */}
@@ -117,7 +117,7 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         fontFamily:     "var(--font-display)",
         fontWeight:     800,
         fontSize:       "var(--text-xs)",
-        color:          isTop3 ? PODIUM_COLORS[entry.rank - 1] : "var(--text-muted)",
+        color:          isTop3 ? PODIUM_COLORS[entry.rank - 1] : "var(--ink-muted)",
         flexShrink:     0,
       }}>
         {entry.rank}
@@ -128,15 +128,15 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         width:          36,
         height:         36,
         borderRadius:   "50%",
-        background:     entry.is_me ? "var(--brand-primary-glow)" : "var(--bg-elevated)",
-        border:         `1px solid ${entry.is_me ? "var(--brand-primary)" : "var(--border-subtle)"}`,
+        background:     entry.is_me ? "var(--saffron-glow)" : "var(--bg-elevated)",
+        border:         `1px solid ${entry.is_me ? "var(--saffron)" : "var(--border-light)"}`,
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
         fontFamily:     "var(--font-display)",
         fontWeight:     700,
         fontSize:       "var(--text-xs)",
-        color:          entry.is_me ? "var(--brand-primary)" : "var(--text-secondary)",
+        color:          entry.is_me ? "var(--saffron)" : "var(--ink-secondary)",
         flexShrink:     0,
       }}>
         {entry.display_name.slice(0, 2).toUpperCase()}
@@ -147,7 +147,7 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         <div style={{
           fontSize:     "var(--text-sm)",
           fontWeight:   entry.is_me ? 700 : 500,
-          color:        entry.is_me ? "var(--brand-primary)" : "var(--text-primary)",
+          color:        entry.is_me ? "var(--saffron)" : "var(--ink-primary)",
           overflow:     "hidden",
           textOverflow: "ellipsis",
           whiteSpace:   "nowrap",
@@ -161,7 +161,7 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         fontFamily: "var(--font-display)",
         fontWeight: 800,
         fontSize:   "var(--text-sm)",
-        color:      entry.is_me ? "var(--brand-primary)" : "var(--text-secondary)",
+        color:      entry.is_me ? "var(--saffron)" : "var(--ink-secondary)",
         flexShrink: 0,
       }}>
         {entry.total_points} pts
@@ -252,7 +252,7 @@ export default function LeaderboardPage() {
         <div style={{
           display:        "flex",
           marginBottom:   "var(--space-6)",
-          border:         "1px solid var(--border-default)",
+          border:         "1px solid var(--border-medium)",
           borderRadius:   "var(--radius-sm)",
           overflow:       "hidden",
         }}>
@@ -265,7 +265,7 @@ export default function LeaderboardPage() {
                 padding:     "var(--space-3)",
                 background:  activeTab === tab ? "var(--role-student)" : "var(--bg-elevated)",
                 border:      "none",
-                color:       activeTab === tab ? "#fff" : "var(--text-muted)",
+                color:       activeTab === tab ? "#fff" : "var(--ink-muted)",
                 fontSize:    "var(--text-sm)",
                 fontWeight:  activeTab === tab ? 700 : 400,
                 cursor:      "pointer",
@@ -289,7 +289,7 @@ export default function LeaderboardPage() {
               fontWeight:  600,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color:       "var(--text-muted)",
+              color:       "var(--ink-muted)",
             }}>
               {activeTab === "class" ? "Class" : "School"} Rankings
             </div>
@@ -297,7 +297,7 @@ export default function LeaderboardPage() {
               fontFamily:  "var(--font-display)",
               fontWeight:  800,
               fontSize:    "var(--text-lg)",
-              color:       "var(--text-primary)",
+              color:       "var(--ink-primary)",
               marginTop:   "var(--space-1)",
             }}>
               {title}
@@ -334,7 +334,7 @@ export default function LeaderboardPage() {
                 padding:        "var(--space-6) var(--space-4)",
                 background:     "linear-gradient(180deg, rgba(59,130,246,0.04) 0%, transparent 100%)",
                 borderRadius:   "var(--radius-lg)",
-                border:         "1px solid var(--border-subtle)",
+                border:         "1px solid var(--border-light)",
               }}>
                 {podium.map((entry, idx) => (
                   <PodiumCard

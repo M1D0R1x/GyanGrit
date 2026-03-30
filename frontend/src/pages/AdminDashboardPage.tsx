@@ -79,7 +79,7 @@ function StatTile({
         <>
           <div style={{
             fontSize:      "var(--text-xs)",
-            color:         "var(--text-muted)",
+            color:         "var(--ink-muted)",
             fontWeight:    600,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
@@ -91,7 +91,7 @@ function StatTile({
             fontFamily: "var(--font-display)",
             fontSize:   "var(--text-3xl)",
             fontWeight: 800,
-            color:      accent ?? "var(--text-primary)",
+            color:      accent ?? "var(--ink-primary)",
             lineHeight: 1,
           }}>
             {value}
@@ -99,7 +99,7 @@ function StatTile({
           {sub && (
             <div style={{
               fontSize:   "var(--text-xs)",
-              color:      "var(--text-muted)",
+              color:      "var(--ink-muted)",
               marginTop:  "var(--space-1)",
             }}>
               {sub}
@@ -134,12 +134,12 @@ function QuickLink({
         fontFamily:    "var(--font-display)",
         fontWeight:    700,
         fontSize:      "var(--text-base)",
-        color:         accent ?? "var(--text-primary)",
+        color:         accent ?? "var(--ink-primary)",
         marginBottom:  "var(--space-1)",
       }}>
         {title}
       </div>
-      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", lineHeight: 1.5 }}>
         {description}
       </div>
     </div>
@@ -151,7 +151,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div style={{
       fontSize:      "var(--text-xs)",
       fontWeight:    700,
-      color:         "var(--text-muted)",
+      color:         "var(--ink-muted)",
       textTransform: "uppercase",
       letterSpacing: "0.08em",
       marginBottom:  "var(--space-3)",
@@ -215,7 +215,7 @@ export default function AdminDashboardPage() {
           <QuickLink
             icon="📚" title="Content"
             description="Manage courses, lessons, and assessments"
-            accent="var(--brand-primary)"
+            accent="var(--saffron)"
             onClick={() => navigate("/admin/content")}
           />
           <QuickLink
@@ -288,7 +288,7 @@ export default function AdminDashboardPage() {
                 label="Active Sessions"
                 value={stats?.active_sessions ?? 0}
                 sub="logged-in devices"
-                accent="var(--brand-primary)"
+                accent="var(--saffron)"
               />
             </div>
 
@@ -304,7 +304,7 @@ export default function AdminDashboardPage() {
                 <div style={{
                   fontSize:      "var(--text-xs)",
                   fontWeight:    700,
-                  color:         "var(--text-muted)",
+                  color:         "var(--ink-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                   marginBottom:  "var(--space-4)",
@@ -323,14 +323,14 @@ export default function AdminDashboardPage() {
                       { label: "Assessments",  value: stats?.content.published_assessments ?? 0, sub: "published" },
                     ].map(({ label, value, sub }) => (
                       <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
-                          {label}{sub ? <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> ({sub})</span> : ""}
+                        <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>
+                          {label}{sub ? <span style={{ color: "var(--ink-muted)", fontWeight: 400 }}> ({sub})</span> : ""}
                         </span>
                         <span style={{
                           fontFamily: "var(--font-display)",
                           fontWeight: 800,
                           fontSize:   "var(--text-lg)",
-                          color:      "var(--text-primary)",
+                          color:      "var(--ink-primary)",
                         }}>
                           {value}
                         </span>
@@ -345,7 +345,7 @@ export default function AdminDashboardPage() {
                 <div style={{
                   fontSize:      "var(--text-xs)",
                   fontWeight:    700,
-                  color:         "var(--text-muted)",
+                  color:         "var(--ink-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                   marginBottom:  "var(--space-4)",
@@ -364,14 +364,14 @@ export default function AdminDashboardPage() {
                       { icon: "🔔", label: "Broadcasts sent",       value: stats?.activity.notifications_sent_today ?? 0 },
                     ].map(({ icon, label, value }) => (
                       <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                        <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>
                           {icon} {label}
                         </span>
                         <span style={{
                           fontFamily: "var(--font-display)",
                           fontWeight: 800,
                           fontSize:   "var(--text-lg)",
-                          color:      value > 0 ? "var(--success)" : "var(--text-muted)",
+                          color:      value > 0 ? "var(--success)" : "var(--ink-muted)",
                         }}>
                           {value}
                         </span>
@@ -402,11 +402,11 @@ export default function AdminDashboardPage() {
                 style={{
                   padding:      "2px 12px",
                   borderRadius: "var(--radius-full)",
-                  border:       "1px solid var(--border-default)",
-                  background:   roleFilter === r ? "var(--brand-primary-glow)" : "transparent",
+                  border:       "1px solid var(--border-medium)",
+                  background:   roleFilter === r ? "var(--saffron-glow)" : "transparent",
                   color:        roleFilter === r
-                    ? "var(--brand-primary)"
-                    : r === "ALL" ? "var(--text-muted)" : ROLE_COLOR[r as Role],
+                    ? "var(--saffron)"
+                    : r === "ALL" ? "var(--ink-muted)" : ROLE_COLOR[r as Role],
                   fontSize:     "var(--text-xs)",
                   fontWeight:   600,
                   cursor:       "pointer",
@@ -451,13 +451,13 @@ export default function AdminDashboardPage() {
                 {filteredUsers.map((u) => (
                   <tr key={u.id}>
                     <td style={{
-                      color:      "var(--text-muted)",
+                      color:      "var(--ink-muted)",
                       fontFamily: "var(--font-display)",
                       fontSize:   "var(--text-xs)",
                     }}>
                       #{u.id}
                     </td>
-                    <td style={{ fontWeight: 500, color: "var(--text-primary)" }}>
+                    <td style={{ fontWeight: 500, color: "var(--ink-primary)" }}>
                       {u.username}
                     </td>
                     <td>

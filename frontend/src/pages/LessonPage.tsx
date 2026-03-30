@@ -128,10 +128,9 @@ function VideoEmbed({
             right: "var(--space-3)",
             padding: "var(--space-2) var(--space-3)",
             fontSize: "var(--text-xs)",
-            background: "rgba(13,17,23,0.8)",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            color: "var(--text-primary)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-medium)",
+            color: "var(--ink-primary)",
             display: "flex",
             alignItems: "center",
             gap: "var(--space-1)",
@@ -275,12 +274,9 @@ function VideoEmbed({
           >
             <div
               style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.15)",
-                backdropFilter: "blur(8px)",
-                border: "2px solid rgba(255,255,255,0.4)",
+                width: 64, height: 64, borderRadius: "50%",
+              background: "rgba(255,255,255,0.9)",
+              border: "2px solid var(--saffron)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -359,7 +355,7 @@ function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
       marginTop: "var(--space-6)",
       padding: "var(--space-4)",
       background: saved ? "rgba(16,185,129,0.06)" : "var(--bg-elevated)",
-      border: `1px solid ${saved ? "rgba(16,185,129,0.2)" : "var(--border-subtle)"}`,
+      border: `1px solid ${saved ? "rgba(16,185,129,0.2)" : "var(--border-medium)"}`,
       borderRadius: "var(--radius-lg)",
       display: "flex",
       alignItems: "center",
@@ -369,10 +365,10 @@ function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <span style={{ fontSize: 20 }}>{saved ? "\u2705" : "\uD83D\uDCE5"}</span>
         <div>
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--ink-primary)" }}>
             {saved ? "Saved for offline" : "Save for offline"}
           </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
             {saved ? "Available without internet" : "Read this lesson anytime"}
           </div>
         </div>
@@ -406,8 +402,8 @@ function PdfViewer({ url }: { url: string }) {
           borderRadius: expanded
             ? "var(--radius-lg) var(--radius-lg) 0 0"
             : "var(--radius-lg)",
-          border: "1px solid var(--border-subtle)",
-          borderBottom: expanded ? "none" : "1px solid var(--border-subtle)",
+          border: "1px solid var(--border-medium)",
+          borderBottom: expanded ? "none" : "1px solid var(--border-medium)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
@@ -439,10 +435,10 @@ function PdfViewer({ url }: { url: string }) {
             </svg>
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
               Lesson PDF
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               Study material
             </div>
           </div>
@@ -475,7 +471,7 @@ function PdfViewer({ url }: { url: string }) {
           style={{
             width: "100%",
             height: 600,
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--border-medium)",
             borderTop: "none",
             borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
             background: "white",
@@ -557,8 +553,8 @@ export default function LessonPage() {
   const hasPdf     = !!lesson.pdf_url;
   const hasContent = !!(lesson.content?.trim());
 
-  const ctaBg     = marked ? "rgba(63,185,80,0.06)" : "var(--bg-elevated)";
-  const ctaBorder = marked ? "rgba(63,185,80,0.2)"  : "var(--border-subtle)";
+  const ctaBg     = marked ? "rgba(16,185,129,0.06)" : "var(--bg-elevated)";
+  const ctaBorder = marked ? "rgba(16,185,129,0.2)"  : "var(--border-medium)";
 
   return (
     <div className="page-shell">
@@ -620,7 +616,7 @@ export default function LessonPage() {
               fontFamily: "var(--font-display)",
               fontSize: "var(--text-2xl)",
               fontWeight: 800,
-              color: "var(--text-primary)",
+              color: "var(--ink-primary)",
               letterSpacing: "-0.03em",
               lineHeight: 1.2,
             }}
@@ -670,7 +666,7 @@ export default function LessonPage() {
                 gap: "var(--space-2)",
                 marginBottom: "var(--space-4)",
                 paddingBottom: "var(--space-3)",
-                borderBottom: "1px solid var(--border-subtle)",
+                borderBottom: "1px solid var(--border-light)",
               }}
             >
               <svg
@@ -701,10 +697,10 @@ export default function LessonPage() {
                   marginBottom: "var(--space-3)",
                 }}
               >
-                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", whiteSpace: "pre-wrap" }}>
+                <p style={{ color: "var(--ink-secondary)", fontSize: "var(--text-sm)", whiteSpace: "pre-wrap" }}>
                   {note.content}
                 </p>
-                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                   — {note.author__username}
                 </div>
               </div>
@@ -743,7 +739,7 @@ export default function LessonPage() {
               >
                 Lesson complete!
               </div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
                 Well done. Keep going!
               </p>
               <button className="btn btn--secondary" onClick={() => navigate(-1)}>
@@ -752,7 +748,7 @@ export default function LessonPage() {
             </div>
           ) : (
             <div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: "var(--space-4)" }}>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
                 Finished reading? Mark this lesson as complete to track your progress.
               </p>
               <button

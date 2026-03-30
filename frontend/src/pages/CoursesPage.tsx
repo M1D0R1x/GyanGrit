@@ -1,4 +1,4 @@
-// pages.CoursesPage
+// pages.CoursesPage — Glassmorphism 2.0
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
@@ -17,20 +17,21 @@ type Course = {
 
 function CourseSkeleton() {
   return (
-    <div className="skeleton-card">
-      <div className="skeleton skeleton-line skeleton-line--short" />
+    <div className="card" style={{ minHeight: 160 }}>
+      <div className="skeleton skeleton-line skeleton-line--short" style={{ height: 10 }} />
       <div className="skeleton skeleton-line skeleton-line--title" style={{ marginTop: "var(--space-3)" }} />
       <div className="skeleton skeleton-line skeleton-line--long" style={{ marginTop: "var(--space-3)" }} />
+      <div className="skeleton skeleton-line skeleton-line--medium" style={{ marginTop: "var(--space-2)" }} />
     </div>
   );
 }
 
 export default function CoursesPage() {
-  const [courses, setCourses]   = useState<Course[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const navigate                = useNavigate();
-  const [searchParams]          = useSearchParams();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const navigate              = useNavigate();
+  const [searchParams]        = useSearchParams();
 
   const subjectIdParam = searchParams.get("subject_id");
   const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
@@ -52,38 +53,31 @@ export default function CoursesPage() {
 
   return (
     <div className="page-shell">
-      <TopBar title={subjectName ? `${subjectName} Courses` : "Courses"} />
+      <TopBar title={subjectName ? `${subjectName}` : "Courses"} />
       <main className="page-content page-enter has-bottom-nav">
 
         {subjectName && (
           <button className="back-btn" onClick={() => navigate("/dashboard")}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" aria-hidden="true">
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back to Dashboard
+            Dashboard
           </button>
         )}
 
         <div className="section-header">
           <div>
             <h2 className="section-header__title">
-              {subjectName ? `${subjectName}` : "Your Courses"}
+              {subjectName ?? "Your Courses"}
             </h2>
             <p className="section-header__subtitle">
-              {subjectName
-                ? "Select a course to start learning"
-                : "All your enrolled courses"}
+              {subjectName ? "Select a course to begin" : "All your enrolled courses"}
             </p>
           </div>
           {subjectName && (
-            <button
-              className="btn btn--ghost"
-              onClick={() => navigate("/courses")}
-              style={{ fontSize: "var(--text-sm)" }}
-            >
-              View all courses
+            <button className="btn btn--ghost btn--sm" onClick={() => navigate("/courses")}>
+              All courses
             </button>
           )}
         </div>
@@ -91,67 +85,72 @@ export default function CoursesPage() {
         {error && <div className="alert alert--error">{error}</div>}
 
         {loading ? (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "var(--space-4)",
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-5)" }}>
             {Array.from({ length: 6 }).map((_, i) => <CourseSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state__icon">🎓</div>
             <h3 className="empty-state__title">No courses available</h3>
-            <p className="empty-state__message">
-              Courses will appear here once they are assigned to your class.
-            </p>
+            <p className="empty-state__message">Courses appear here once assigned to your class.</p>
           </div>
         ) : (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "var(--space-4)",
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-5)" }}>
             {filtered.map((course, i) => (
               <div
                 key={course.id}
                 className="card card--clickable page-enter"
-                style={{ animationDelay: `${i * 50}ms` }}
+                style={{ animationDelay: `${i * 50}ms`, minHeight: 160, display: "flex", flexDirection: "column" }}
                 onClick={() => navigate(courseDetailPath(course.grade, course.subject__name))}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) =>
-                  e.key === "Enter" &&
-                  navigate(courseDetailPath(course.grade, course.subject__name))
-                }
+                onKeyDown={(e) => e.key === "Enter" && navigate(courseDetailPath(course.grade, course.subject__name))}
               >
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "var(--space-3)",
-                }}>
-                  <span className="badge badge--info">Class {course.grade}</span>
-                  {!subjectName && course.subject__name && (
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                      {course.subject__name}
-                    </span>
-                  )}
+                {/* Meta row */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 900, letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: "var(--ink-muted)",
+                  }}>
+                    {subjectName ?? course.subject__name}
+                  </span>
+                  <span className="badge badge--info" style={{ fontSize: 9 }}>Class {course.grade}</span>
                 </div>
-                <div className="card__title">{course.title}</div>
+
+                {/* Title */}
+                <div style={{
+                  fontFamily: "var(--font-display)", fontWeight: 800,
+                  fontSize: "var(--text-xl)", color: "var(--ink-primary)",
+                  lineHeight: 1.2, marginBottom: "var(--space-3)", letterSpacing: "-0.01em",
+                }}>
+                  {course.title}
+                </div>
+
+                {/* Description */}
                 {course.description && (
-                  <p className="card__description" style={{ marginTop: "var(--space-2)" }}>
-                    {course.description.length > 100
-                      ? course.description.slice(0, 100) + "…"
-                      : course.description}
+                  <p style={{
+                    fontSize: "var(--text-sm)", color: "var(--ink-muted)",
+                    lineHeight: 1.6, marginBottom: "var(--space-4)",
+                    display: "-webkit-box", WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical", overflow: "hidden",
+                    margin: "0 0 var(--space-4) 0",
+                  }}>
+                    {course.description}
                   </p>
                 )}
+
+                {/* CTA */}
                 <div style={{
-                  marginTop: "var(--space-3)",
-                  fontSize: "var(--text-xs)",
-                  color: "var(--brand-primary)",
+                  marginTop: "auto", display: "flex", alignItems: "center",
+                  justifyContent: "space-between",
                 }}>
-                  View lessons →
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 700 }}>
+                    Start learning
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--saffron)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </div>
               </div>
             ))}

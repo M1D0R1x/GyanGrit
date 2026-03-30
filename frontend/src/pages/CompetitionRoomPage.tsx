@@ -42,9 +42,9 @@ type Assessment = { id: number; title: string };
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string; bg: string }> = {
-    draft:    { label: "Lobby",    color: "var(--text-muted)",    bg: "var(--bg-elevated)" },
+    draft:    { label: "Lobby",    color: "var(--ink-muted)",    bg: "var(--bg-elevated)" },
     active:   { label: "🔴 Live",  color: "var(--success)",       bg: "rgba(16,185,129,0.1)" },
-    finished: { label: "Finished", color: "var(--brand-primary)", bg: "rgba(59,130,246,0.1)" },
+    finished: { label: "Finished", color: "var(--saffron)", bg: "rgba(59,130,246,0.1)" },
   };
   const s = map[status] ?? map.draft;
   return (
@@ -62,7 +62,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function Leaderboard({ entries, myId }: { entries: LeaderboardEntry[]; myId?: number }) {
   if (!entries.length) return (
-    <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", fontStyle: "italic" }}>
+    <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", fontStyle: "italic" }}>
       No participants yet.
     </p>
   );
@@ -80,28 +80,28 @@ function Leaderboard({ entries, myId }: { entries: LeaderboardEntry[]; myId?: nu
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
               background: e.rank === 1 ? "var(--warning)"
-                : e.rank === 2 ? "var(--text-muted)"
+                : e.rank === 2 ? "var(--ink-muted)"
                 : e.rank === 3 ? "#cd7f32"
-                : "var(--bg-overlay)",
+                : "var(--bg-elevated)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontFamily: "var(--font-display)", fontWeight: 800,
-              fontSize: "var(--text-sm)", color: e.rank && e.rank <= 3 ? "#fff" : "var(--text-secondary)",
+              fontSize: "var(--text-sm)", color: e.rank && e.rank <= 3 ? "#fff" : "var(--ink-secondary)",
               flexShrink: 0,
             }}>
               {e.rank ?? "—"}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)",
+                fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}>
                 {e.display_name || e.username}
-                {isMe && <span style={{ color: "var(--brand-primary)", marginLeft: "var(--space-2)" }}>(you)</span>}
+                {isMe && <span style={{ color: "var(--saffron)", marginLeft: "var(--space-2)" }}>(you)</span>}
               </div>
             </div>
             <div style={{
               fontFamily: "var(--font-display)", fontWeight: 800,
-              fontSize: "var(--text-base)", color: "var(--text-primary)",
+              fontSize: "var(--text-base)", color: "var(--ink-primary)",
             }}>
               {e.score} pts
             </div>
@@ -138,7 +138,7 @@ function QuestionCard({
         marginBottom: "var(--space-4)",
       }}>
         <div style={{
-          fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--brand-primary)",
+          fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--saffron)",
           textTransform: "uppercase", letterSpacing: "0.06em",
         }}>
           Q{index + 1} / {total}
@@ -149,7 +149,7 @@ function QuestionCard({
       </div>
       <p style={{
         fontFamily: "var(--font-display)", fontWeight: 600,
-        fontSize: "var(--text-base)", color: "var(--text-primary)",
+        fontSize: "var(--text-base)", color: "var(--ink-primary)",
         marginBottom: "var(--space-5)", lineHeight: 1.5,
       }}>
         {question.text}
@@ -163,9 +163,9 @@ function QuestionCard({
             style={{
               padding: "var(--space-3) var(--space-4)",
               borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-default)",
+              border: "1px solid var(--border-medium)",
               background: alreadyAnswered ? "var(--bg-elevated)" : "var(--bg-surface)",
-              color: "var(--text-primary)",
+              color: "var(--ink-primary)",
               fontSize: "var(--text-sm)",
               textAlign: "left",
               cursor: alreadyAnswered ? "default" : "pointer",
@@ -510,11 +510,11 @@ export default function CompetitionRoomPage() {
                 </div>
                 <h1 style={{
                   fontFamily: "var(--font-display)", fontWeight: 800,
-                  fontSize: "var(--text-2xl)", color: "var(--text-primary)", lineHeight: 1.2,
+                  fontSize: "var(--text-2xl)", color: "var(--ink-primary)", lineHeight: 1.2,
                 }}>
                   {room.title}
                 </h1>
-                <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-2)" }}>
                   {room.section} · {room.assessment} · {room.participant_count} participant{room.participant_count !== 1 ? "s" : ""}
                 </p>
               </div>
@@ -548,10 +548,10 @@ export default function CompetitionRoomPage() {
           {isStudent && joined && room.status === "draft" && (
             <div className="card" style={{ textAlign: "center", padding: "var(--space-10)", marginBottom: "var(--space-6)" }}>
               <div style={{ fontSize: 48, marginBottom: "var(--space-4)" }}>⏳</div>
-              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)" }}>
+              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--ink-primary)" }}>
                 Waiting for teacher to start...
               </h3>
-              <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+              <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
                 Stay on this page. The quiz will begin automatically.
               </p>
             </div>
@@ -570,7 +570,7 @@ export default function CompetitionRoomPage() {
               </div>
               {questions.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", padding: "var(--space-8)" }}>
-                  <p style={{ color: "var(--text-muted)" }}>Loading questions...</p>
+                  <p style={{ color: "var(--ink-muted)" }}>Loading questions...</p>
                 </div>
               ) : (
                 questions.map((q, i) => (
@@ -597,12 +597,12 @@ export default function CompetitionRoomPage() {
               {questions.map((q, i) => (
                 <div key={q.id} className="card" style={{ marginBottom: "var(--space-3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
-                    <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--brand-primary)", textTransform: "uppercase" }}>
+                    <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--saffron)", textTransform: "uppercase" }}>
                       Q{i + 1}
                     </span>
                     <span className="badge badge--info" style={{ fontSize: 10 }}>{q.marks} mark{q.marks !== 1 ? "s" : ""}</span>
                   </div>
-                  <p style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)", marginBottom: "var(--space-3)" }}>
+                  <p style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)", marginBottom: "var(--space-3)" }}>
                     {q.text}
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
@@ -611,9 +611,9 @@ export default function CompetitionRoomPage() {
                         padding: "var(--space-2) var(--space-3)",
                         borderRadius: "var(--radius-sm)",
                         background: opt.is_correct ? "rgba(16,185,129,0.1)" : "var(--bg-elevated)",
-                        border: opt.is_correct ? "1px solid rgba(16,185,129,0.3)" : "1px solid var(--border-subtle)",
+                        border: opt.is_correct ? "1px solid rgba(16,185,129,0.3)" : "1px solid var(--border-light)",
                         fontSize: "var(--text-sm)",
-                        color: opt.is_correct ? "var(--success)" : "var(--text-secondary)",
+                        color: opt.is_correct ? "var(--success)" : "var(--ink-secondary)",
                         fontWeight: opt.is_correct ? 600 : 400,
                         display: "flex", alignItems: "center", gap: "var(--space-2)",
                       }}>
@@ -767,17 +767,17 @@ export default function CompetitionRoomPage() {
                     </div>
                     <div style={{
                       fontFamily: "var(--font-display)", fontWeight: 700,
-                      fontSize: "var(--text-base)", color: "var(--text-primary)",
+                      fontSize: "var(--text-base)", color: "var(--ink-primary)",
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                     }}>
                       {r.title}
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
                       {r.section} · {r.assessment} · {r.participant_count} joined
                     </div>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"
+                    stroke="var(--ink-muted)" strokeWidth="2" strokeLinecap="round"
                     strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <polyline points="9 18 15 12 9 6" />
                   </svg>

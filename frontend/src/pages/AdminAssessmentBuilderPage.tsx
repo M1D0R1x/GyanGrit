@@ -7,7 +7,6 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "../services/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import TopBar from "../components/TopBar";
 
 type AssessmentItem = {
   id: number;
@@ -209,9 +208,7 @@ export default function AdminAssessmentBuilderPage() {
   };
 
   return (
-    <div className="page-shell">
-      <TopBar title="Assessment Builder" />
-      <main className="page-content page-content--narrow page-enter">
+    
 
         {/* Back button — uses detected role prefix, not hardcoded /admin path */}
         <button className="back-btn" onClick={() => navigate(backPath)}>
@@ -463,7 +460,6 @@ export default function AdminAssessmentBuilderPage() {
             )}
           </>
         )}
-      </main>
-    </div>
+    </>
   );
 }

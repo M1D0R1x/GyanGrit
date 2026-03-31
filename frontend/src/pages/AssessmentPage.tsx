@@ -10,8 +10,6 @@ import {
 } from "../services/assessments";
 import { assessmentTakePath, assessmentHistoryPath } from "../utils/slugs";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 const DURATION_MINUTES = 30;
 const STAFF_ROLES = ["ADMIN", "TEACHER", "PRINCIPAL", "OFFICIAL"] as const;
@@ -81,36 +79,28 @@ export default function AssessmentPage() {
 
   if (loading) {
     return (
-      <div className="page-shell">
-        <TopBar title="Assessment" />
-        <main className="page-content page-content--narrow">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="skeleton-card" style={{ marginBottom: "var(--space-4)" }}>
-              <div className="skeleton skeleton-line skeleton-line--title" />
-              <div className="skeleton skeleton-line skeleton-line--medium" style={{ marginTop: "var(--space-3)" }} />
-            </div>
-          ))}
-        </main>
+      <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="skeleton-card" style={{ marginBottom: "var(--space-4)" }}>
+            <div className="skeleton skeleton-line skeleton-line--title" />
+            <div className="skeleton skeleton-line skeleton-line--medium" style={{ marginTop: "var(--space-3)" }} />
+          </div>
+        ))}
       </div>
     );
   }
 
   if (error || !assessment) {
     return (
-      <div className="page-shell">
-        <TopBar title="Assessment" />
-        <main className="page-content page-content--narrow">
-          <div className="alert alert--error">{error ?? "Assessment not found."}</div>
-          <button className="btn btn--secondary" onClick={() => navigate(-1)}>Go back</button>
-        </main>
+      <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
+        <div className="alert alert--error">{error ?? "Assessment not found."}</div>
+        <button className="btn btn--secondary" onClick={() => navigate(-1)}>Go back</button>
       </div>
     );
   }
 
   return (
-    <div className="page-shell">
-      <TopBar title="Assessment" />
-      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+    <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -310,8 +300,8 @@ export default function AssessmentPage() {
           </div>
         )}
 
-      </main>
-      {!isStaff && <BottomNav />}
+      
+      {!isStaff && }
     </div>
   );
 }

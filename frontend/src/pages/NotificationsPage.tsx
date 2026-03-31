@@ -12,7 +12,6 @@
 import { createPortal }          from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth }               from "../auth/AuthContext";
-import TopBar                    from "../components/TopBar";
 import NotificationDetailModal   from "../components/NotificationDetailModal";
 import {
   getAudienceOptions,
@@ -653,9 +652,7 @@ export default function NotificationsPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="page-shell">
-      <TopBar title="Notifications" />
-      <main className="page-content page-enter">
+    <>
 
         {/* Tab bar */}
         <div style={{ display: "flex", marginBottom: "var(--space-6)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
@@ -864,17 +861,16 @@ export default function NotificationsPage() {
           </>
         )}
 
-      </main>
+      
 
-      {/* Portalled modals — outside page DOM to avoid stacking context issues */}
+      {/* Portalled modals */}
       {detailNotif && createPortal(
         <NotificationDetailModal notification={detailNotif} onClose={() => setDetailNotif(null)} />,
         document.body
       )}
-
       {broadcastDetailId !== null && (
         <BroadcastDetailModal broadcast_id={broadcastDetailId} onClose={() => setBroadcastDetailId(null)} />
       )}
-    </div>
+    </>
   );
 }

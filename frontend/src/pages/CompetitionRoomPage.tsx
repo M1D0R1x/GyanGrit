@@ -31,7 +31,6 @@ import {
 } from "../services/competitions";
 import { useAuth } from "../auth/AuthContext";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -462,33 +461,26 @@ export default function CompetitionRoomPage() {
   if (numRoomId) {
     if (loadingRoom && !room) {
       return (
-        <div className="page-shell">
-          <TopBar title="Competition" />
-          <main className="page-content page-content--narrow">
+        
             {[160, 80, 120, 80].map((h, i) => (
               <div key={i} className="skeleton" style={{ height: h, borderRadius: "var(--radius-lg)", marginBottom: "var(--space-3)" }} />
             ))}
-          </main>
-        </div>
-      );
-    }
+    </>
+  );
+}
 
     if (!room) return (
-      <div className="page-shell">
-        <TopBar title="Competition" />
-        <main className="page-content page-content--narrow">
+      
           <div className="alert alert--error">Room not found.</div>
           <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
-        </main>
+        
       </div>
     );
 
     const questions = room.questions ?? [];
 
     return (
-      <div className="page-shell">
-        <TopBar title="Competition Room" />
-        <main className="page-content page-content--narrow page-enter">
+      
 
           <button className="back-btn" onClick={() => navigate(`${prefix}/competitions`)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -647,11 +639,9 @@ export default function CompetitionRoomPage() {
               <p className="empty-state__message">No participants attempted this room.</p>
             </div>
           )}
-
-        </main>
-      </div>
-    );
-  }
+    </>
+  );
+}
 
   // ─────────────────────────────────────────────────────────────────────
   // RENDER — Room list view (no roomId)
@@ -661,9 +651,7 @@ export default function CompetitionRoomPage() {
     navigate(isTeacher ? `${prefix}/competitions/${id}` : `/competitions/${id}`);
 
   return (
-    <div className="page-shell">
-      <TopBar title="Competition Rooms" />
-      <main className="page-content page-enter">
+    
 
         {error   && <div className="alert alert--error"   onClick={() => setError(null)}>{error}</div>}
         {success && <div className="alert alert--success" onClick={() => setSuccess(null)}>{success}</div>}
@@ -786,7 +774,6 @@ export default function CompetitionRoomPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

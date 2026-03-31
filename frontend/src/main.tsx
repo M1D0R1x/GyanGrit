@@ -3,6 +3,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { RouterProvider } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Toaster } from "sonner";
 import * as Sentry from "@sentry/react";
 import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
@@ -89,6 +90,21 @@ createRoot(document.getElementById("root")!).render(
     <ChunkErrorBoundary>
       <AuthProvider>
         <RouterProvider router={router} />
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              fontFamily: "var(--font-body)",
+              background: "var(--bg-surface)",
+              color: "var(--ink-primary)",
+              border: "1px solid var(--border-medium)",
+              borderRadius: "var(--radius-lg)",
+              boxShadow: "var(--shadow-lg)",
+            },
+          }}
+          richColors
+          closeButton
+        />
         {/* Vercel Analytics — tracks page views and web vitals in production */}
         <Analytics />
         {/* Vercel Speed Insights — tracks Core Web Vitals per route */}

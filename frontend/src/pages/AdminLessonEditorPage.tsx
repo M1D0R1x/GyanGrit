@@ -15,7 +15,6 @@ import {
 } from "../services/content";
 import { uploadFile, extractYouTubeId, getYouTubeThumbnail } from "../services/media";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
 
 type EditorMode   = "list" | "create" | "edit";
 type VideoInputMode = "url" | "upload";
@@ -767,9 +766,7 @@ export default function AdminLessonEditorPage() {
                    (activeTab === "section" && sectionMode !== "list");
 
   return (
-    <div className="page-shell">
-      <TopBar title="Lesson Editor" />
-      <main className="page-content page-content--narrow page-enter">
+    
 
         <button
           className="back-btn"
@@ -1052,8 +1049,6 @@ export default function AdminLessonEditorPage() {
             )}
           </>
         )}
-
-      </main>
-    </div>
+    </>
   );
 }

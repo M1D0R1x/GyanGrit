@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import TopBar from "../components/TopBar";
 import { getCourses, createCourse, type CourseItem } from "../services/content";
 import { apiGet } from "../services/api";
 
@@ -100,9 +99,7 @@ export default function AdminContentPage() {
   };
 
   return (
-    <div className="page-shell">
-      <TopBar title="Content" />
-      <main className="page-content page-enter">
+    
 
         {/* Page header */}
         <div className="section-header">
@@ -504,7 +501,6 @@ export default function AdminContentPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

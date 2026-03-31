@@ -8,7 +8,6 @@ import {
   getTeacherStudentAssessments,
   type TeacherStudentDetailResponse,
 } from "../services/teacherAnalytics";
-import TopBar from "../components/TopBar";
 
 export default function TeacherStudentDetailPage() {
   const { classId, studentId } = useParams();
@@ -33,9 +32,7 @@ export default function TeacherStudentDetailPage() {
   }, [classId, studentId]);
 
   return (
-    <div className="page-shell">
-      <TopBar title={data ? data.username : "Student Detail"} />
-      <main className="page-content page-content--narrow page-enter">
+    <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
 
         <button className="back-btn" onClick={() => navigate(`${prefix}/classes/${classId}`)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -147,7 +144,6 @@ export default function TeacherStudentDetailPage() {
             )}
           </>
         )}
-      </main>
-    </div>
+    </>
   );
 }

@@ -7,8 +7,6 @@ import { getMySummary, type MySummary } from "../services/gamification";
 import { type AssessmentWithStatus } from "../services/assessments";
 import { getCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -409,10 +407,7 @@ export default function DashboardPage() {
   const pendingCount = assessments.filter((a) => !a.passed).length;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Dashboard" />
-
-      <main className="page-content page-enter has-bottom-nav" style={{ maxWidth: 1100 }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%" }}>
 
         {/* ── Greeting ── */}
         <div style={{ marginBottom: "var(--space-8)" }}>
@@ -550,9 +545,6 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-
-      </main>
-      <BottomNav />
     </div>
   );
 }

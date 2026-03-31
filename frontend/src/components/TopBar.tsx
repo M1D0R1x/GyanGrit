@@ -1,15 +1,17 @@
-// components.TopBar — Chalk & Sunlight v3
+// components/TopBar.tsx — V4
+// Clean topbar: no sidebar state, receives onMenuClick from AppLayout
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiPost } from "../services/api";
 import Logo from "./Logo";
-import Sidebar from "./Sidebar";
 import { NotificationBell, NotificationPanel } from "./NotificationPanel";
 import { fetchNotifications } from "../services/notifications";
-import type { Role } from "../auth/authTypes";
 
-type Props = { title?: string };
+type Props = {
+  title?: string;
+  onMenuClick?: () => void;
+};
 
 const ROLE_COLORS: Record<string, string> = {
   STUDENT:   "#0EA5E9",
@@ -19,11 +21,9 @@ const ROLE_COLORS: Record<string, string> = {
   ADMIN:     "#F43F5E",
 };
 
-// ── Inline logout button used inside the user dropdown ─────────────
-
 function LogoutDropdownItem({ onLogout }: { onLogout: () => void }) {
-  const navigate  = useNavigate();
-  const auth      = useAuth();
+  const navigate = useNavigate();
+  const auth     = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handle = async () => {
@@ -42,20 +42,12 @@ function LogoutDropdownItem({ onLogout }: { onLogout: () => void }) {
       onClick={handle}
       disabled={loading}
       style={{
-        display:      "flex",
-        alignItems:   "center",
-        gap:          "var(--space-3)",
-        padding:      "var(--space-3) var(--space-3)",
-        background:   "transparent",
-        border:       "none",
-        borderRadius: "var(--radius-md)",
-        color:        "var(--error)",
-        fontSize:     "var(--text-sm)",
-        fontWeight:   600,
-        cursor:       "pointer",
-        width:        "100%",
-        transition:   "background var(--transition-fast)",
-        fontFamily:   "inherit",
+        display: "flex", alignItems: "center", gap: "var(--space-3)",
+        padding: "var(--space-3)", background: "transparent", border: "none",
+        borderRadius: "var(--radius-md)", color: "var(--error)",
+        fontSize: "var(--text-sm)", fontWeight: 600, cursor: "pointer",
+        width: "100%", fontFamily: "inherit",
+        transition: `background var(--duration-press) var(--ease-out-strong)`,
       }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--error-bg)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
@@ -71,21 +63,17 @@ function LogoutDropdownItem({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// ── Main TopBar ─────────────────────────────────────────────────────
-
-export default function TopBar({ title }: Props) {
+export default function TopBar({ title, onMenuClick }: Props) {
   const auth     = useAuth();
   const navigate = useNavigate();
 
-  const [sidebarOpen,       setSidebarOpen]       = useState(false);
-  const [userMenuOpen,      setUserMenuOpen]       = useState(false);
+  const [userMenuOpen,      setUserMenuOpen]      = useState(false);
   const [notifOpen,         setNotifOpen]         = useState(false);
   const [unreadCount,       setUnreadCount]       = useState(0);
   const [installPrompt,     setInstallPrompt]     = useState<Event | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  const userMenuRef  = useRef<HTMLDivElement>(null);
-  const notifRef     = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const lastFetchRef = useRef<string | undefined>(undefined);
 
   const refreshUnread = useCallback(() => {
@@ -158,11 +146,8 @@ export default function TopBar({ title }: Props) {
   const handleLogoClick = () => {
     if (!auth.authenticated || !auth.user) { navigate("/login"); return; }
     const paths: Record<string, string> = {
-      STUDENT:   "/dashboard",
-      TEACHER:   "/teacher",
-      PRINCIPAL: "/principal",
-      OFFICIAL:  "/official",
-      ADMIN:     "/admin-panel",
+      STUDENT: "/dashboard", TEACHER: "/teacher", PRINCIPAL: "/principal",
+      OFFICIAL: "/official", ADMIN: "/admin-panel",
     };
     navigate(paths[auth.user.role] ?? "/");
   };
@@ -179,96 +164,47 @@ export default function TopBar({ title }: Props) {
       {/* PWA Install Banner */}
       {showInstallBanner && (
         <div style={{
-          position:   "fixed",
-          bottom:     0, left: 0, right: 0,
-          zIndex:     9999,
-          background: "var(--bg-surface)",
-          borderTop:  "1px solid rgba(245,158,11,0.4)",
-          padding:    "var(--space-3) var(--space-4)",
-          display:    "flex",
-          alignItems: "center",
-          gap:        "var(--space-3)",
-          boxShadow:  "var(--shadow-lg)",
-          animation:  "fadeUp 0.3s ease",
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
+          background: "var(--bg-surface)", borderTop: "1px solid rgba(245,158,11,0.4)",
+          padding: "var(--space-3) var(--space-4)", display: "flex",
+          alignItems: "center", gap: "var(--space-3)", boxShadow: "var(--shadow-lg)",
         }}>
           <div style={{
-            width: 36, height: 36,
-            borderRadius: "var(--radius-md)",
-            background: "var(--saffron)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, flexShrink: 0,
+            width: 36, height: 36, borderRadius: "var(--radius-md)",
+            background: "var(--saffron)", display: "flex", alignItems: "center",
+            justifyContent: "center", fontSize: 18, flexShrink: 0,
           }}>📚</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
-              Install GyanGrit
-            </div>
-            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-              Add to home screen for offline access
-            </div>
+            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>Install GyanGrit</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Add to home screen for offline access</div>
           </div>
-          <button onClick={handleInstall} style={{
-            background: "var(--saffron)", color: "#fff", border: "none",
-            borderRadius: "var(--radius-full)", padding: "var(--space-2) var(--space-4)",
-            fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer", flexShrink: 0,
-            fontFamily: "var(--font-display)",
-          }}>
-            Install
-          </button>
+          <button onClick={handleInstall} className="btn btn--primary btn--sm" style={{ flexShrink: 0 }}>Install</button>
           <button
             onClick={() => { setShowInstallBanner(false); sessionStorage.setItem("pwa-banner-dismissed", "1"); }}
-            style={{ background: "none", border: "none", color: "var(--ink-muted)", fontSize: 18, cursor: "pointer", padding: "var(--space-1)", flexShrink: 0 }}
-          >
-            ✕
-          </button>
+            style={{ background: "none", border: "none", color: "var(--ink-muted)", fontSize: 20, cursor: "pointer", padding: "var(--space-1)", flexShrink: 0 }}
+          >✕</button>
         </div>
       )}
 
-      {/* Sidebar drawer */}
-      {auth.authenticated && auth.user && (
-        <Sidebar
-          role={auth.user.role as Role}
-          username={auth.user.username}
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-      )}
-
       <header role="banner" className="topbar">
-        {/* ── Left ── */}
+        {/* Left */}
         <div className="topbar__left">
-          {auth.authenticated && (
-            <button
-              className="topbar__menu-btn"
-              onClick={() => setSidebarOpen((v) => !v)}
-              aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
-              aria-expanded={sidebarOpen}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {sidebarOpen ? (
-                  <>
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </>
-                ) : (
-                  <>
-                    <line x1="3" y1="6"  x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                  </>
-                )}
-              </svg>
-            </button>
-          )}
-
+          {/* Hamburger — always shows, calls parent handler on mobile */}
           <button
-            onClick={handleLogoClick}
-            aria-label="Go to home"
-            style={{
-              background: "none", border: "none", padding: 0, cursor: "pointer",
-              display: "flex", alignItems: "center", borderRadius: "var(--radius-sm)",
-            }}
+            className="topbar__menu-btn"
+            onClick={onMenuClick}
+            aria-label="Open navigation"
           >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6"  x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
+          <button onClick={handleLogoClick} aria-label="Home"
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", borderRadius: "var(--radius-sm)" }}>
             <Logo size="sm" variant="full" />
           </button>
 
@@ -280,30 +216,30 @@ export default function TopBar({ title }: Props) {
           )}
         </div>
 
-        {/* ── Right ── */}
+        {/* Right */}
         <div className="topbar__right">
           {auth.authenticated && (
-            <div ref={notifRef} style={{ position: "relative" }}>
-              <NotificationBell
-                unread={unreadCount}
-                active={notifOpen}
-                onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); }}
-              />
-              {notifOpen && (
-                <NotificationPanel
-                  onClose={() => setNotifOpen(false)}
-                  onUnreadChange={setUnreadCount}
-                  onViewAll={handleViewAll}
+            <div ref={userMenuRef && { current: null } as unknown as React.RefObject<HTMLDivElement>} style={{ position: "relative" }}>
+              {/* Notification bell */}
+              <div style={{ position: "relative" }}>
+                <NotificationBell
+                  unread={unreadCount}
+                  active={notifOpen}
+                  onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); }}
                 />
-              )}
+                {notifOpen && (
+                  <NotificationPanel
+                    onClose={() => setNotifOpen(false)}
+                    onUnreadChange={setUnreadCount}
+                    onViewAll={handleViewAll}
+                  />
+                )}
+              </div>
             </div>
           )}
 
           {auth.loading ? (
-            <div className="skeleton" style={{
-              width: 90, height: 32,
-              borderRadius: "var(--radius-full)",
-            }} />
+            <div className="skeleton" style={{ width: 90, height: 32, borderRadius: "var(--radius-full)" }} />
           ) : auth.authenticated && auth.user ? (
             <div ref={userMenuRef} style={{ position: "relative" }}>
               <button
@@ -311,36 +247,24 @@ export default function TopBar({ title }: Props) {
                 onClick={() => { setUserMenuOpen((v) => !v); setNotifOpen(false); }}
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
-                aria-label="Open user menu"
               >
                 <div className="topbar__avatar" style={{ background: roleColor }}>
                   {auth.user.username.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="topbar__username hide-mobile">
-                  {auth.user.username}
-                </span>
-                <span
-                  className="topbar__role-badge hide-mobile"
-                  style={{ background: roleColor + "18", color: roleColor }}
-                >
+                <span className="topbar__username hide-mobile">{auth.user.username}</span>
+                <span className="topbar__role-badge hide-mobile"
+                  style={{ background: roleColor + "18", color: roleColor }}>
                   {auth.user.role}
                 </span>
-                <svg
-                  width="11" height="11" viewBox="0 0 24 24" fill="none"
-                  stroke="var(--ink-muted)" strokeWidth="2.5"
-                  strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}
-                >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--ink-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: userMenuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 150ms", flexShrink: 0 }}>
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
 
               {userMenuOpen && (
-                <div
-                  role="menu"
-                  className="dropdown"
-                  style={{ top: "calc(100% + 8px)", right: 0, minWidth: 200 }}
-                >
+                <div role="menu" className="dropdown" style={{ top: "calc(100% + 8px)", right: 0, minWidth: 200 }}>
                   <div style={{ padding: "var(--space-4) var(--space-4) var(--space-3)", borderBottom: "1px solid var(--border-light)" }}>
                     <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                       {auth.user.username}
@@ -351,11 +275,10 @@ export default function TopBar({ title }: Props) {
                       </div>
                     )}
                   </div>
-
                   <div style={{ padding: "var(--space-2)" }}>
                     {[
-                      { label: "Profile",       path: "/profile",        icon: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
-                      { label: "Notifications", path: "/notifications",  icon: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
+                      { label: "Profile", path: "/profile", d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+                      { label: "Notifications", path: "/notifications", d: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
                     ].map((item) => (
                       <button
                         key={item.label}
@@ -365,16 +288,14 @@ export default function TopBar({ title }: Props) {
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d={item.icon} />
+                          <path d={item.d} />
                         </svg>
                         {item.label}
                         {item.label === "Notifications" && unreadCount > 0 && (
                           <span style={{
-                            marginLeft: "auto",
-                            background: "var(--error)",
-                            color: "#fff", fontSize: 9, fontWeight: 800,
-                            padding: "1px 5px", borderRadius: "var(--radius-full)",
-                            fontFamily: "var(--font-display)",
+                            marginLeft: "auto", background: "var(--error)", color: "#fff",
+                            fontSize: 9, fontWeight: 800, padding: "1px 5px",
+                            borderRadius: "var(--radius-full)", fontFamily: "var(--font-display)",
                           }}>
                             {unreadCount}
                           </span>

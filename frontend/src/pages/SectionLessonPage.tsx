@@ -12,8 +12,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 // ── Type ──────────────────────────────────────────────────────────────────
 
@@ -266,27 +264,21 @@ export default function SectionLessonPage() {
 
   if (loading) {
     return (
-      <div className="page-shell">
-        <TopBar />
-        <main className="page-content page-content--narrow">
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", paddingTop: "var(--space-8)" }}>
-            <div className="skeleton" style={{ height: 32, width: "60%", borderRadius: "var(--radius-sm)" }} />
-            <div className="skeleton" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />
-            <div className="skeleton" style={{ height: 20, width: "90%", borderRadius: "var(--radius-sm)" }} />
-          </div>
-        </main>
+      <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", paddingTop: "var(--space-8)" }}>
+          <div className="skeleton" style={{ height: 32, width: "60%", borderRadius: "var(--radius-sm)" }} />
+          <div className="skeleton" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />
+          <div className="skeleton" style={{ height: 20, width: "90%", borderRadius: "var(--radius-sm)" }} />
+        </div>
       </div>
     );
   }
 
   if (error || !lesson) {
     return (
-      <div className="page-shell">
-        <TopBar />
-        <main className="page-content page-content--narrow">
-          <div className="alert alert--error">{error ?? "Lesson not found."}</div>
-          <button className="back-btn" onClick={() => navigate(-1)}>← Go back</button>
-        </main>
+      <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
+        <div className="alert alert--error">{error ?? "Lesson not found."}</div>
+        <button className="back-btn" onClick={() => navigate(-1)}>← Go back</button>
       </div>
     );
   }
@@ -296,9 +288,7 @@ export default function SectionLessonPage() {
   const hasContent = lesson.has_content;
 
   return (
-    <div className="page-shell">
-      <TopBar />
-      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+    <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -365,9 +355,6 @@ export default function SectionLessonPage() {
         )}
 
         {/* Note: section lessons don't track completion progress */}
-
-      </main>
-      <BottomNav />
     </div>
   );
 }

@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 import { useAuth } from "../auth/AuthContext";
 
 type ClassData = {
@@ -127,9 +126,7 @@ export default function PrincipalDashboardPage() {
   const shownAssessments = showAllAssessments ? assessments : assessments.slice(0, ASSESSMENT_PREVIEW);
 
   return (
-    <div className="page-shell">
-      <TopBar title="Principal" />
-      <main className="page-content page-enter">
+    <>
 
         {/* Institution banner */}
         {user?.institution && (
@@ -484,8 +481,6 @@ export default function PrincipalDashboardPage() {
             ))}
           </div>
         )}
-
-      </main>
-    </div>
+    </>
   );
 }

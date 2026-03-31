@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getAllMyAttempts, type AttemptWithContext } from "../services/assessments";
 import { assessmentPath } from "../utils/slugs";
-import TopBar from "../components/TopBar";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-IN", {
@@ -76,9 +75,7 @@ export default function AssessmentHistoryPage() {
     : "History";
 
   return (
-    <div className="page-shell">
-      <TopBar title={pageTitle} />
-      <main className="page-enter" style={{ flex: 1 }}>
+    
 
         <div className="page-header">
           <button
@@ -180,7 +177,6 @@ export default function AssessmentHistoryPage() {
             </button>
           ))
         )}
-      </main>
-    </div>
+    </>
   );
 }

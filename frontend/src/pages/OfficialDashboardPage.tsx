@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 import { useAuth } from "../auth/AuthContext";
 
 type CourseAnalytics = {
@@ -132,9 +131,7 @@ export default function OfficialDashboardPage() {
   const shownAssessments = showAllAssessments ? assessments : assessments.slice(0, ASSESSMENT_PREVIEW);
 
   return (
-    <div className="page-shell">
-      <TopBar title="Official" />
-      <main className="page-content page-enter">
+    <>
 
         {/* District Banner */}
         <div className="card" style={{
@@ -486,8 +483,6 @@ export default function OfficialDashboardPage() {
             )}
           </>
         )}
-
-      </main>
-    </div>
+    </>
   );
 }

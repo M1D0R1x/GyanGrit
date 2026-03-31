@@ -79,7 +79,7 @@ export default function FAQPage() {
         </div>
       </nav>
 
-      <main className="public-content page-enter">
+      
         <section className="public-hero">
           <div className="public-hero__badge">Help Center</div>
           <h1 className="public-hero__title">
@@ -140,7 +140,7 @@ export default function FAQPage() {
             </button>
           </div>
         </section>
-      </main>
+      
 
       <footer className="public-footer">
         <div className="public-footer__brand">Gyan<span>Grit</span></div>

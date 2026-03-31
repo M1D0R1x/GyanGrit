@@ -142,6 +142,18 @@
   --transition-slow:   300ms ease;
   --transition-spring: 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
 
+  /* ── Emil easing curves ── */
+  --ease-out-strong:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer:        cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ── Emil duration tokens ── */
+  --duration-press:    120ms;
+  --duration-tooltip:  150ms;
+  --duration-dropdown: 200ms;
+  --duration-modal:    300ms;
+  --duration-page:     220ms;
+
   /* ── Z-index ── */
   --z-base:    1;
   --z-sticky:  10;
@@ -152,8 +164,15 @@
   --z-topbar:  100;
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
+/* ── Bottom nav: MOBILE ONLY ── */
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none !important;
+  }
+  .has-bottom-nav {
+    padding-bottom: var(--space-8);
+  }
+}
   :root {
     --bg-canvas:   #1C1510;
     --bg-surface:  #26201A;
@@ -190,7 +209,7 @@
     --info-bg:        rgba(2, 132, 199, 0.12);
     --info-border:    rgba(186, 230, 253, 0.2);
   }
-}
+
 
 /* ----------------------------------------------------------------
    RESET & BASE
@@ -2296,3 +2315,165 @@ textarea.form-input {
   .card:has(.data-table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .data-table th, .data-table td { padding: var(--space-2) var(--space-3); white-space: nowrap; }
 }
+
+/* ----------------------------------------------------------------
+   V4 — EMIL + NEFEE UPGRADES
+---------------------------------------------------------------- */
+
+/* Bottom nav: MOBILE ONLY */
+@media (min-width: 768px) {
+  .bottom-nav { display: none !important; }
+  .has-bottom-nav { padding-bottom: var(--space-8); }
+}
+
+/* Emil button press feedback */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform var(--duration-press) var(--ease-out-strong);
+}
+
+/* Emil card hover — subtle, not theatrical */
+.card--clickable:hover {
+  box-shadow:   var(--shadow-card-hover);
+  transform:    translateY(-2px);
+  border-color: rgba(245,158,11,0.2);
+}
+
+.card--clickable:active {
+  transform: scale(0.99);
+  transition: transform 100ms var(--ease-out-strong);
+}
+
+/* Emil page enter — fade up from 6px */
+.page-enter {
+  animation: fadeUp var(--duration-page) var(--ease-out-strong) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Emil scale-in for popovers/dropdowns */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Dropdown origin-aware */
+.dropdown {
+  transform-origin: top left;
+  animation: scaleIn var(--duration-dropdown) var(--ease-out-strong) both;
+}
+
+/* Stagger children */
+.stagger-children > *:nth-child(1)  { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2)  { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3)  { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4)  { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5)  { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6)  { animation-delay: 200ms; }
+.stagger-children > *:nth-child(n+7) { animation-delay: 240ms; }
+
+/* Sidebar layout: desktop persistent + content beside it */
+.app-layout {
+  display: flex;
+  flex: 1;
+  min-height: calc(100dvh - var(--topbar-height));
+  background: var(--bg-canvas);
+}
+
+.app-layout__sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  height: calc(100dvh - var(--topbar-height));
+  position: sticky;
+  top: var(--topbar-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  z-index: var(--z-sidebar);
+}
+
+.app-layout__main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 767px) {
+  .app-layout__sidebar { display: none; }
+}
+
+/* Sidebar item hover — Emil spec: immediate feedback */
+.sidebar__item {
+  transition: background var(--duration-press) var(--ease-out-strong),
+              color var(--duration-press) var(--ease-out-strong);
+}
+
+/* Vaul drawer overrides */
+[data-vaul-drawer] {
+  background: var(--bg-surface) !important;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+}
+
+[data-vaul-overlay] {
+  background: var(--bg-overlay) !important;
+}
+
+/* Sonner toast overrides — warm theme */
+[data-sonner-toaster] {
+  --normal-bg: var(--bg-surface);
+  --normal-text: var(--ink-primary);
+  --normal-border: var(--border-medium);
+  --success-bg: var(--success-bg);
+  --success-text: var(--success);
+  --error-bg: var(--error-bg);
+  --error-text: var(--error);
+  font-family: var(--font-body) !important;
+}
+
+/* Input focus — Emil: immediate, saffron ring */
+.form-input:focus {
+  border-color: var(--saffron);
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
+  background: var(--bg-surface);
+  outline: none;
+  transition: border-color var(--duration-press) var(--ease-out-strong),
+              box-shadow var(--duration-press) var(--ease-out-strong);
+}
+
+/* Assessment option hover — Emil active state */
+.assessment-option-btn:active {
+  transform: scale(0.98);
+  transition: transform 80ms var(--ease-out-strong);
+}
+
+/* prefers-reduced-motion — Emil compliance */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .page-enter { animation: none; opacity: 1; transform: none; }
+}
+
+/* Desktop sidebar panel inside AppLayout — always static, no transforms */
+.app-layout__sidebar .sidebar {
+  position:   static;
+  height:     100%;
+  transform:  none !important;
+  box-shadow: none;
+  width:      100%;
+}
+
+.app-layout__sidebar .sidebar-overlay { display: none !important; }
+.app-layout__sidebar .sidebar__close-btn { display: none !important; }
+  .card--clickable:hover {
+    transform: none;
+    box-shadow: var(--shadow-card);
+    border-color: var(--border-light);
+  }
+  .btn:hover { transform: none; box-shadow: var(--shadow-btn); }
+

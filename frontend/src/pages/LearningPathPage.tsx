@@ -7,8 +7,6 @@ import {
   type LearningPathDetail,
   type LearningPathProgress,
 } from "../services/learningPaths";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 export default function LearningPathPage() {
   const { pathId } = useParams();
@@ -44,9 +42,7 @@ export default function LearningPathPage() {
   }, [pathId]);
 
   return (
-    <div className="page-shell">
-      <TopBar title={path?.name ?? "Learning Path"} />
-      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+    <>
 
         <button className="back-btn" onClick={() => navigate("/learning")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -226,8 +222,6 @@ export default function LearningPathPage() {
             </div>
           </>
         )}
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

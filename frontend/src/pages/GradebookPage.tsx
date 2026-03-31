@@ -11,7 +11,6 @@
  */
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import TopBar from "../components/TopBar";
 import {
   getClassGrades,
   getGradeChoices,
@@ -521,9 +520,7 @@ export default function GradebookPage() {
   const totalEntries = data?.students.reduce((s, st) => s + st.entries.length, 0) ?? 0;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Gradebook" />
-      <main className="page-content page-enter">
+    <>
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -616,7 +613,6 @@ export default function GradebookPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

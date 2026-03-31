@@ -7,8 +7,6 @@ import {
   type ClassLeaderboard,
   type SchoolLeaderboard,
 } from "../services/gamification.ts";
-import TopBar from "../components/TopBar.tsx";
-import BottomNav from "../components/BottomNav.tsx";
 
 type Tab = "class" | "school";
 
@@ -244,9 +242,7 @@ export default function LeaderboardPage() {
   const error    = activeTab === "class" ? errorClass   : errorSchool;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Leaderboard" />
-      <main className="page-content page-enter has-bottom-nav">
+    <>
 
         {/* Tab toggle */}
         <div style={{
@@ -356,8 +352,6 @@ export default function LeaderboardPage() {
             )}
           </>
         )}
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

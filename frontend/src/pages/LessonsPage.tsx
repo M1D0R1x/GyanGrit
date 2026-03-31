@@ -5,8 +5,6 @@ import { apiGet } from "../services/api";
 import { getCourseBySlug } from "../services/content";
 import { updateLessonProgress } from "../services/progress";
 import { fromSlug } from "../utils/slugs";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 type LessonItem = {
   id: number;
@@ -188,9 +186,7 @@ export default function LessonsPage() {
   const pageTitle = subjectLabel ? `${subjectLabel} · Class ${grade ?? ""}` : "Lessons";
 
   return (
-    <div className="page-shell">
-      <TopBar title={pageTitle} />
-      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+    <>
 
         <button className="back-btn" onClick={() => navigate("/courses")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -285,8 +281,6 @@ export default function LessonsPage() {
             </svg>
           </button>
         )}
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

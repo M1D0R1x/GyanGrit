@@ -22,7 +22,7 @@ export default function AboutPage() {
         </div>
       </nav>
 
-      <main className="public-content page-enter">
+      
         {/* Hero Section */}
         <section className="public-hero">
           <div className="public-hero__badge">Our Mission</div>
@@ -182,7 +182,7 @@ export default function AboutPage() {
             </button>
           </div>
         </section>
-      </main>
+      
 
       <footer className="public-footer">
         <div className="public-footer__brand">Gyan<span>Grit</span></div>

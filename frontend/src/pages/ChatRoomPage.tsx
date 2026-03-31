@@ -22,8 +22,6 @@ import {
 } from "../services/chat";
 import { getAblyToken } from "../services/competitions";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type ThreadMessage = ChatMessage & { replies?: ChatMessage[] };
@@ -553,15 +551,12 @@ export default function ChatRoomPage() {
 
   // ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="page-shell">
-      <TopBar title="Class Chat" />
-
-      {/* Push notification toasts */}
+    {/* Push notification toasts */}
       {toasts.map((t) => (
         <NotificationToast key={t.id} toast={t} onDismiss={dismissToast} onOpen={openRoomFromNotif} />
       ))}
 
-      <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+      
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
@@ -792,9 +787,9 @@ export default function ChatRoomPage() {
             </div>
           )}
         </div>
-      </main>
+      
 
-      {isStudent && <BottomNav />}
+      {isStudent && }
     </div>
   );
 }

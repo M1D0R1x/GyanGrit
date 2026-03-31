@@ -7,7 +7,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminListRooms, adminGetRoomMessages, type ChatRoom, type ChatMessage } from "../services/chat";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 
 type Institution = { id: number; name: string };
 type AdminRoom   = ChatRoom & { message_count: number; institution_name: string | null };
@@ -89,9 +88,7 @@ export default function AdminChatManagementPage() {
   }
 
   return (
-    <div className="page-shell">
-      <TopBar title="Chat Management" />
-      <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+    
 
         {/* ── Room list panel ── */}
         <div style={{ width: selectedRoom ? 320 : "100%", flexShrink: 0, borderRight: selectedRoom ? "1px solid var(--border-light)" : "none", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
@@ -226,7 +223,6 @@ export default function AdminChatManagementPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

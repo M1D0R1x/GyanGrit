@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 import type { Role } from "../auth/authTypes";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -196,9 +195,7 @@ export default function AdminDashboardPage() {
   const ROLES: Role[] = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
 
   return (
-    <div className="page-shell">
-      <TopBar title="Admin" />
-      <main className="page-content page-enter">
+    <>
 
         {/* ── Quick nav ──────────────────────────────────────────────────── */}
         <div className="section-header">
@@ -471,8 +468,6 @@ export default function AdminDashboardPage() {
             </table>
           )}
         </div>
-
-      </main>
-    </div>
+    </>
   );
 }

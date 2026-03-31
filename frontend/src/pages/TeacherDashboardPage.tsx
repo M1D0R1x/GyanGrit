@@ -10,7 +10,6 @@ import {
   type TeacherClassAnalytics,
 } from "../services/teacherAnalytics";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
 
 type MyAssignment = {
   subject_id:   number;
@@ -90,9 +89,7 @@ export default function TeacherDashboardPage() {
   }, {});
 
   return (
-    <div className="page-shell">
-      <TopBar title="Teacher" />
-      <main className="page-content page-enter">
+    <>
 
         {/* Quick actions */}
         <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-10)", flexWrap: "wrap" }}>
@@ -313,8 +310,6 @@ export default function TeacherDashboardPage() {
             </div>
           )}
         </SectionBlock>
-
-      </main>
-    </div>
+    </>
   );
 }

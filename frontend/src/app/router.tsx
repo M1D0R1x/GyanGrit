@@ -56,6 +56,7 @@ function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
 
 import { RequireRole }   from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
+import AppLayout         from "../components/AppLayout";
 
 // Error pages — eagerly loaded
 import NotFoundPage     from "../pages/errors/NotFoundPage";
@@ -134,14 +135,18 @@ function PageLoader() {
 function Protected({
   role,
   children,
+  title,
 }: {
   role: Parameters<typeof RequireRole>[0]["role"];
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <RequireRole role={role}>
       <Suspense fallback={<PageLoader />}>
-        {children}
+        <AppLayout title={title}>
+          {children}
+        </AppLayout>
       </Suspense>
     </RequireRole>
   );

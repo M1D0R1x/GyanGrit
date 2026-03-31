@@ -11,8 +11,6 @@ import {
   type Conversation, type AIMessage, type ConversationDetail,
 } from "../services/aiAssistant";
 import { apiGet } from "../services/api";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 type Subject = { id: number; name: string };
 
@@ -156,9 +154,8 @@ export default function AIChatPage() {
   const showSidebar = conversations.length > 0 || activeConv;
 
   return (
-    <div className="page-shell">
-      <TopBar title="AI Study Assistant" />
-      <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+    <>
+      <div style={{ display: "flex", height: "calc(100dvh - var(--topbar-height))", overflow: "hidden", margin: "calc(var(--space-8) * -1) calc(var(--space-6) * -1)" }}>
 
         {/* ── Conversation sidebar ── */}
         {showSidebar && (
@@ -273,16 +270,13 @@ export default function AIChatPage() {
               </div>
             </>
           )}
-        </div>
-      </main>
-      <BottomNav />
-
+      </div>
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50%       { opacity: 1;   transform: scale(1.2); }
         }
       `}</style>
-    </div>
+    </>
   );
 }

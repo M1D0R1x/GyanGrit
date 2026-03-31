@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getMySummary, type MySummary } from "../services/gamification";
 import { assessmentHistoryPath } from "../utils/slugs";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 type ResultState = {
   score:         number;
@@ -39,9 +37,7 @@ export default function AssessmentResultPage() {
 
   if (!state) {
     return (
-      <div className="page-shell">
-        <TopBar title="Result" />
-        <main className="page-content has-bottom-nav">
+      
           <div className="empty-state">
             <div className="empty-state__icon">❓</div>
             <h3 className="empty-state__title">No result data</h3>
@@ -52,11 +48,9 @@ export default function AssessmentResultPage() {
               Go to Dashboard
             </button>
           </div>
-        </main>
-        <BottomNav />
-      </div>
-    );
-  }
+    </>
+  );
+}
 
   const percentage = state.total_marks
     ? Math.round((state.score / state.total_marks) * 100)
@@ -74,12 +68,7 @@ export default function AssessmentResultPage() {
     : "/assessments/history";
 
   return (
-    <div className="page-shell">
-      <TopBar title="Result" />
-      <main
-        className="page-content page-enter has-bottom-nav"
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "var(--space-10)" }}
-      >
+    
         <div className="result-card">
 
           {/* Emoji */}
@@ -190,8 +179,6 @@ export default function AssessmentResultPage() {
           </button>
 
         </div>
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

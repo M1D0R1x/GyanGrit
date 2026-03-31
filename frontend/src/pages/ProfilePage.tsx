@@ -5,9 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getMySummary, type MySummary } from "../services/gamification";
 import { getStudentGrades, type GradeEntry } from "../services/gradebook";
 import { apiPatch, apiPost } from "../services/api";
-import TopBar from "../components/TopBar";
 import LogoutButton from "../components/LogoutButton";
-import BottomNav from "../components/BottomNav";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -476,9 +474,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="page-shell">
-      <TopBar title="Profile" />
-      <main className="page-content page-content--narrow page-enter has-bottom-nav">
+    <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -669,8 +665,6 @@ export default function ProfilePage() {
         <div style={{ marginTop: "var(--space-8)" }}>
           <LogoutButton />
         </div>
-      </main>
-      <BottomNav />
     </div>
   );
 }

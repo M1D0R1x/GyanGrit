@@ -7,7 +7,6 @@ import {
   getTeacherClassStudents,
   type TeacherClassStudent,
 } from "../services/teacherAnalytics";
-import TopBar from "../components/TopBar";
 
 // ── Progress pill ──────────────────────────────────────────────────────────
 
@@ -68,9 +67,7 @@ export default function TeacherClassDetailPage() {
     : 0;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Class Detail" />
-      <main className="page-content page-enter">
+    <>
 
         {/* Nav row — back + gradebook shortcut */}
         <div style={{
@@ -217,7 +214,6 @@ export default function TeacherClassDetailPage() {
             </table>
           </div>
         )}
-      </main>
-    </div>
+    </>
   );
 }

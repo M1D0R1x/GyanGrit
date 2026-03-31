@@ -8,7 +8,6 @@ import {
 } from "../services/flashcards";
 import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
 
 type Subject = { id: number; name: string };
 type TeachingAssignment = { section_id: number; section_name: string; subject_id: number; subject_name: string };
@@ -165,9 +164,7 @@ export default function FlashcardDecksPage() {
     : subjects;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Flashcard Decks" />
-      <main style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100dvh - var(--topbar-height))", overflow: "hidden", margin: "calc(var(--space-8) * -1) calc(var(--space-6) * -1)" }}>
 
         {/* ── Left: deck list ── */}
         <div style={{ width: activeDeck ? 280 : "100%", flexShrink: 0, borderRight: activeDeck ? "1px solid var(--border-light)" : "none", overflowY: "auto", display: "flex", flexDirection: "column" }}>
@@ -286,7 +283,6 @@ export default function FlashcardDecksPage() {
             </div>
           </div>
         )}
-      </main>
     </div>
   );
 }

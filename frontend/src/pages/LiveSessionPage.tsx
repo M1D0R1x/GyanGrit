@@ -37,8 +37,6 @@ import {
 } from "../services/livesessions";
 import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 import type { WhiteboardState } from "../components/Whiteboard";
 
 // Lazy-load the heavy Excalidraw whiteboard (~1.5MB)
@@ -679,9 +677,7 @@ export default function LiveSessionPage() {
 
   // Session list view
   return (
-    <div className="page-shell">
-      <TopBar title="Live Classes" />
-      <main style={{ padding: "var(--space-4)", paddingBottom: 80, maxWidth: 640, margin: "0 auto" }}>
+    <div style={{ maxWidth: 640, margin: "0 auto", width: "100%" }}>
         {error && (
           <div className="alert alert--error" style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: "var(--space-3)" }}>
             <span style={{ flex: 1 }}>{error}</span>
@@ -764,8 +760,6 @@ export default function LiveSessionPage() {
             })}
           </div>
         )}
-      </main>
-      {!isTeacher && <BottomNav />}
     </div>
   );
 }

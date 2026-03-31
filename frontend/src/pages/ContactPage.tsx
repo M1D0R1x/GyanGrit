@@ -31,7 +31,7 @@ export default function ContactPage() {
         </div>
       </nav>
 
-      <main className="public-content page-enter">
+      
         <section className="public-hero">
           <div className="public-hero__badge">Get in Touch</div>
           <h1 className="public-hero__title">
@@ -129,7 +129,7 @@ export default function ContactPage() {
             </div>
           </div>
         </div>
-      </main>
+      
 
       <footer className="public-footer">
         <div className="public-footer__brand">Gyan<span>Grit</span></div>

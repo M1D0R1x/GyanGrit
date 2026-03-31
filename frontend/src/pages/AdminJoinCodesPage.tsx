@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../services/api";
-import TopBar from "../components/TopBar";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -435,9 +434,7 @@ export default function AdminJoinCodesPage() {
   );
 
   return (
-    <div className="page-shell">
-      <TopBar title="Join Codes" />
-      <main className="page-content page-enter">
+    
 
         {/* Header */}
         <div className="section-header">
@@ -583,7 +580,7 @@ export default function AdminJoinCodesPage() {
             </table>
           </div>
         )}
-      </main>
+      
 
       {emailCode && (
         <EmailModal code={emailCode} onClose={() => setEmailCode(null)}

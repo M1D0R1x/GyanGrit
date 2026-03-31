@@ -5,8 +5,6 @@ import {
   listStudyDecks, getDueCards, submitReview,
   type FlashcardDeck, type Flashcard, type DueSession,
 } from "../services/flashcards";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 // ── Card flip component ───────────────────────────────────────────────────────
 function FlipCard({ card, onRate }: { card: Flashcard; onRate: (quality: number) => void }) {
@@ -183,82 +181,70 @@ export default function FlashcardsStudyPage() {
 
   // ── Deck list view ──
   if (!session) return (
-    <div className="page-shell">
-      <TopBar title="Flashcards" />
-      <main style={{ padding: "var(--space-4)", paddingBottom: 80 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>Study</h2>
+    <>
+      <div style={{ marginBottom: "var(--space-4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>Study Decks</h2>
+      </div>
+
+      {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }} onClick={() => setError(null)}>{error}</div>}
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: "var(--radius-lg)" }} />)}
         </div>
-
-        {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }} onClick={() => setError(null)}>{error}</div>}
-
-        {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: "var(--radius-lg)" }} />)}
-          </div>
-        ) : decks.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__icon">🃏</div>
-            <h3 className="empty-state__title">No decks available</h3>
-            <p className="empty-state__message">Your teachers haven't published any flashcard decks yet.</p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {decks.map(deck => (
-              <div key={deck.id} style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{deck.title}</div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
-                    {deck.subject_name} · {deck.card_count} cards
-                    {deck.due_count !== undefined && deck.due_count > 0 && (
-                      <span style={{ marginLeft: "var(--space-2)", background: "var(--saffron)", color: "#fff", padding: "1px 6px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 700 }}>
-                        {deck.due_count} due
-                      </span>
-                    )}
-                  </div>
+      ) : decks.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state__icon">🃏</div>
+          <h3 className="empty-state__title">No decks available</h3>
+          <p className="empty-state__message">Your teachers haven't published any flashcard decks yet.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          {decks.map(deck => (
+            <div key={deck.id} style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>{deck.title}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
+                  {deck.subject_name} · {deck.card_count} cards
+                  {deck.due_count !== undefined && deck.due_count > 0 && (
+                    <span style={{ marginLeft: "var(--space-2)", background: "var(--saffron)", color: "#fff", padding: "1px 6px", borderRadius: "var(--radius-full)", fontSize: 10, fontWeight: 700 }}>
+                      {deck.due_count} due
+                    </span>
+                  )}
                 </div>
-                <button className="btn btn--primary" style={{ fontSize: "var(--text-sm)", flexShrink: 0 }}
-                  onClick={() => startStudy(deck.id)} disabled={studying}>
-                  {studying ? "Loading…" : "Study"}
-                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </main>
-      <BottomNav />
-    </div>
+              <button className="btn btn--primary" style={{ fontSize: "var(--text-sm)", flexShrink: 0 }}
+                onClick={() => startStudy(deck.id)} disabled={studying}>
+                {studying ? "Loading…" : "Study"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 
   // ── Session complete view ──
   if (done) return (
-    <div className="page-shell" style={{ display: "flex", flexDirection: "column" }}>
-      <TopBar title="Flashcards" />
-      <SessionComplete
-        stats={sessionStats}
-        deckTitle={session.deck_title}
-        onRestart={() => startStudy(session.deck_id)}
-        onBack={() => { setSession(null); setDone(false); }}
-      />
-      <BottomNav />
-    </div>
+    <SessionComplete
+      stats={sessionStats}
+      deckTitle={session.deck_title}
+      onRestart={() => startStudy(session.deck_id)}
+      onBack={() => { setSession(null); setDone(false); }}
+    />
   );
 
   // ── Active study session ──
   return (
-    <div className="page-shell" style={{ display: "flex", flexDirection: "column" }}>
-      <TopBar title={session.deck_title} />
-      <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0, background: "var(--bg-surface)" }}>
+    <>
+      <div style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <div style={{ flex: 1, height: 6, background: "var(--bg-elevated)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${progress}%`, background: "var(--saffron)", borderRadius: "var(--radius-full)", transition: "width 0.3s" }} />
         </div>
         <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", flexShrink: 0 }}>{cardIndex + 1} / {session.cards.length}</span>
         <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", flexShrink: 0 }} onClick={() => setSession(null)}>Exit</button>
       </div>
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", padding: "var(--space-6) var(--space-4)", paddingBottom: 80, overflowY: "auto" }}>
-        {currentCard && <FlipCard key={currentCard.id} card={currentCard} onRate={handleRate} />}
-      </main>
-      <BottomNav />
-    </div>
+      {currentCard && <FlipCard key={currentCard.id} card={currentCard} onRate={handleRate} />}
+    </>
   );
 }

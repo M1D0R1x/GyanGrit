@@ -7,8 +7,6 @@ import {
   type LearningPath,
   type LearningPathProgress,
 } from "../services/learningPaths";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 function PathSkeleton() {
   return (
@@ -64,9 +62,7 @@ export default function LearningPathsPage() {
   }, []);
 
   return (
-    <div className="page-shell">
-      <TopBar title="Learning Paths" />
-      <main className="page-content page-enter has-bottom-nav">
+    <>
 
         <div className="section-header">
           <div>
@@ -159,8 +155,6 @@ export default function LearningPathsPage() {
             })}
           </div>
         )}
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

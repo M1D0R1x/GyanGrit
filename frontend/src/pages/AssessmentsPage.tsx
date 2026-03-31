@@ -4,8 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { type AssessmentWithStatus } from "../services/assessments";
 import { assessmentPath } from "../utils/slugs";
-import TopBar from "../components/TopBar";
-import BottomNav from "../components/BottomNav";
 
 function ScoreRing({ score, total, size = 44 }: { score: number; total: number; size?: number }) {
   const pct    = total > 0 ? score / total : 0;
@@ -71,9 +69,7 @@ export default function AssessmentsPage() {
   const passed    = assessments.filter((a) => a.passed).length;
 
   return (
-    <div className="page-shell">
-      <TopBar title="Assessments" />
-      <main className="page-enter has-bottom-nav" style={{ flex: 1 }}>
+    <>
 
         {/* Header */}
         <div className="page-header">
@@ -203,8 +199,6 @@ export default function AssessmentsPage() {
               );
             })}
         </div>
-      </main>
-      <BottomNav />
-    </div>
+    </>
   );
 }

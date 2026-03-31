@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
-import TopBar from "../components/TopBar";
 
 
 /**
@@ -307,9 +306,7 @@ export default function UserManagementPage() {
 
   if (allowedRoles.length === 0) {
     return (
-      <div className="page-shell">
-        <TopBar title="Manage Users" />
-        <main className="page-content">
+      
           <div className="empty-state">
             <div className="empty-state__icon">🔒</div>
             <h3 className="empty-state__title">Access Restricted</h3>
@@ -317,15 +314,12 @@ export default function UserManagementPage() {
               Your role does not have permission to manage users.
             </p>
           </div>
-        </main>
-      </div>
-    );
-  }
+    </>
+  );
+}
 
   return (
-    <div className="page-shell">
-      <TopBar title={pageTitle} />
-      <main className="page-content page-enter">
+    
 
         {/* ── Header ── */}
         <div className="section-header">
@@ -652,8 +646,6 @@ export default function UserManagementPage() {
             </table>
           )}
         </div>
-
-      </main>
-    </div>
+    </>
   );
 }

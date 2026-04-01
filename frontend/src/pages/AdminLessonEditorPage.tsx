@@ -766,7 +766,7 @@ export default function AdminLessonEditorPage() {
                    (activeTab === "section" && sectionMode !== "list");
 
   return (
-    
+    <>
 
         <button
           className="back-btn"

@@ -88,7 +88,7 @@ export default function AdminChatManagementPage() {
   }
 
   return (
-    
+    <div style={{ display: "flex", height: "calc(100dvh - var(--topbar-height))", overflow: "hidden", margin: "calc(-1 * var(--space-8)) calc(-1 * var(--space-6))" }}>
 
         {/* ── Room list panel ── */}
         <div style={{ width: selectedRoom ? 320 : "100%", flexShrink: 0, borderRight: selectedRoom ? "1px solid var(--border-light)" : "none", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
@@ -194,8 +194,18 @@ export default function AdminChatManagementPage() {
                   const color = roleColors[msg.sender_role] ?? "#6b7280";
                   const time = new Date(msg.sent_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
                   return (
-                    <div key={msg.id} style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)", border: msg.is_pinned ? "1px solid rgba(245,158,11,0.3)" : "1px solid var(--border-light)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-2)" }}>
+                    <div key={msg.id} style={{
+                      padding: "8px 10px 18px 10px",
+                      background: "#FFFFFF",
+                      borderRadius: "0 12px 12px 12px",
+                      marginBottom: "var(--space-4)",
+                      border: msg.is_pinned ? "1px solid rgba(245,158,11,0.5)" : "1px solid rgba(0,0,0,0.05)",
+                      position: "relative",
+                      maxWidth: "85%",
+                      minWidth: "120px",
+                      boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
+                     }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-1)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                           <RoleDot role={msg.sender_role} />
                           <span style={{ fontWeight: 700, fontSize: "var(--text-xs)", color: "var(--ink-primary)" }}>{msg.sender_name}</span>
@@ -203,9 +213,8 @@ export default function AdminChatManagementPage() {
                           {msg.is_pinned && <span style={{ fontSize: 10 }}>📌</span>}
                           {msg.parent_id && <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>↩ reply</span>}
                         </div>
-                        <span style={{ fontSize: 10, color: "var(--ink-muted)" }}>{time}</span>
                       </div>
-                      {msg.content && <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-primary)", margin: 0, lineHeight: 1.5 }}>{msg.content}</p>}
+                      {msg.content && <p style={{ fontSize: "14px", color: "var(--ink-primary)", margin: 0, lineHeight: 1.5, paddingRight: 50, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{msg.content}</p>}
                       {msg.attachment_url && (
                         <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", marginTop: "var(--space-1)", display: "block" }}>
                           📎 {msg.attachment_name ?? "Attachment"}
@@ -216,6 +225,7 @@ export default function AdminChatManagementPage() {
                           {msg.reply_count} {msg.reply_count === 1 ? "reply" : "replies"}
                         </div>
                       )}
+                      <span style={{ position: "absolute", right: 8, bottom: 4, display: "inline-block", fontSize: 10, color: "var(--ink-muted)", textAlign: "right" }}>{time}</span>
                     </div>
                   );
                 })
@@ -223,6 +233,6 @@ export default function AdminChatManagementPage() {
             </div>
           </div>
         )}
-    </>
+    </div>
   );
 }

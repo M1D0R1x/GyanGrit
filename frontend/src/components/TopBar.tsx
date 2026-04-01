@@ -187,34 +187,38 @@ export default function TopBar({ title, onMenuClick }: Props) {
       )}
 
       <header role="banner" className="topbar">
-        {/* Left */}
-        <div className="topbar__left">
-          {/* Hamburger — always shows, calls parent handler on mobile */}
-          <button
-            className="topbar__menu-btn"
-            onClick={onMenuClick}
-            aria-label="Open navigation"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6"  x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          width: "100%", maxWidth: 1100, margin: "0 auto", padding: "0"
+        }}>
+          {/* Left */}
+          <div className="topbar__left">
+            {/* Hamburger — always shows, calls parent handler on mobile */}
+            <button
+              className="topbar__menu-btn"
+              onClick={onMenuClick}
+              aria-label="Open navigation"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6"  x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
 
-          <button onClick={handleLogoClick} aria-label="Home"
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", borderRadius: "var(--radius-sm)" }}>
-            <Logo size="sm" variant="full" />
-          </button>
+            <button onClick={handleLogoClick} aria-label="Home"
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", borderRadius: "var(--radius-sm)" }}>
+              <Logo size="sm" variant="full" />
+            </button>
 
-          {title && (
-            <>
-              <div className="topbar__divider" />
-              <span className="topbar__title">{title}</span>
-            </>
-          )}
-        </div>
+            {title && (
+              <>
+                <div className="topbar__divider" />
+                <span className="topbar__title">{title}</span>
+              </>
+            )}
+          </div>
 
         {/* Right */}
         <div className="topbar__right">
@@ -309,6 +313,7 @@ export default function TopBar({ title, onMenuClick }: Props) {
               )}
             </div>
           ) : null}
+        </div>
         </div>
       </header>
     </>

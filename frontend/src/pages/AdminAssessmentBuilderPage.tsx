@@ -208,7 +208,7 @@ export default function AdminAssessmentBuilderPage() {
   };
 
   return (
-    
+    <>
 
         {/* Back button — uses detected role prefix, not hardcoded /admin path */}
         <button className="back-btn" onClick={() => navigate(backPath)}>

@@ -146,19 +146,20 @@ function MessageBubble({ msg, isMe, canPin, canReply, replyCount, onPin, onReply
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     >
       <SenderLabel msg={msg} isMe={isMe} />
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", maxWidth: "78%", flexDirection: isMe ? "row-reverse" : "row" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)", maxWidth: "85%", flexDirection: isMe ? "row-reverse" : "row" }}>
         <div style={{
-          padding: "var(--space-3) var(--space-4)",
-          borderRadius: isMe ? "var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)" : "var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)",
-          background: isMe ? "var(--saffron)" : "var(--bg-elevated)",
-          color: isMe ? "#fff" : "var(--ink-primary)",
-          border: isMe ? "none" : "1px solid var(--border-medium)",
-          position: "relative" as const, maxWidth: "100%",
+          padding: "8px 10px 18px 10px", // space for absolute time at bottom
+          borderRadius: isMe ? "12px 0 12px 12px" : "0 12px 12px 12px",
+          background: isMe ? "#DCF8C6" : "#FFFFFF",
+          color: "var(--ink-primary)",
+          border: "1px solid rgba(0,0,0,0.05)",
+          position: "relative" as const, maxWidth: "100%", minWidth: "80px",
+          boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
         }}>
           {msg.is_pinned && <span style={{ position: "absolute", top: -8, right: -6, fontSize: 12 }}>📌</span>}
-          {msg.content && <p style={{ fontSize: "var(--text-sm)", lineHeight: 1.55, margin: 0, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{msg.content}</p>}
+          {msg.content && <p style={{ fontSize: "14px", lineHeight: 1.5, margin: 0, wordBreak: "break-word", whiteSpace: "pre-wrap", color: "var(--ink-primary)", paddingRight: "40px" }}>{msg.content}</p>}
           <AttachmentPreview msg={msg} />
-          <span style={{ display: "block", fontSize: 10, marginTop: msg.content ? "var(--space-1)" : "var(--space-2)", color: isMe ? "rgba(255,255,255,0.6)" : "var(--ink-muted)", textAlign: "right" }}>{time}</span>
+          <span style={{ position: "absolute", right: 8, bottom: 4, fontSize: 10, color: "var(--ink-muted)", textAlign: "right" }}>{time}</span>
         </div>
         {hovered && (
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
@@ -318,6 +319,17 @@ export default function ChatRoomPage() {
     const isAdmin = user?.role === "ADMIN";
     const loadRooms = isAdmin
       ? adminListRooms({ institution_id: params.get("institution_id") ?? undefined })
+          .then(rs => {
+            let filtered = rs.filter(r => r.room_type === "subject");
+            // If admin has a specific registered section, only show those (like a student)
+            if (user?.section_id) {
+              filtered = filtered.filter(r => r.section_id === user.section_id);
+            } else if (user?.institution_id) {
+              // Otherwise at least filter by school if they have one
+              filtered = filtered.filter(r => r.institution_id === user.institution_id);
+            }
+            return filtered;
+          })
       : listChatRooms(params.get("institution_id") ?? undefined);
     loadRooms
       .then((rs) => {
@@ -551,12 +563,13 @@ export default function ChatRoomPage() {
 
   // ─────────────────────────────────────────────────────────────────────
   return (
-    {/* Push notification toasts */}
+    <>
+      {/* Push notification toasts */}
       {toasts.map((t) => (
         <NotificationToast key={t.id} toast={t} onDismiss={dismissToast} onOpen={openRoomFromNotif} />
       ))}
 
-      
+      <div style={{ display: "flex", height: "calc(100dvh - var(--topbar-height))", overflow: "hidden", margin: "calc(-1 * var(--space-8)) calc(-1 * var(--space-6))" }}>
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
@@ -564,78 +577,28 @@ export default function ChatRoomPage() {
             <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
               Rooms
             </div>
-            {user?.role === "ADMIN" ? (
-              // Admin view: group by school, then by room type
-              (() => {
-                const schoolMap = new Map<string, typeof rooms>();
-                rooms.forEach((r) => {
-                  const school = ("institution_name" in r ? (r as { institution_name?: string | null }).institution_name : null) ?? "Unknown School";
-                  if (!schoolMap.has(school)) schoolMap.set(school, []);
-                  schoolMap.get(school)!.push(r);
-                });
-                const schools = [...schoolMap.entries()].sort(([a], [b]) => a.localeCompare(b));
-                return schools.map(([school, schoolRooms]) => (
-                  <div key={school}>
-                    <div style={{
-                      padding: "var(--space-3) var(--space-4) var(--space-1)",
-                      fontSize: 11, fontWeight: 800, letterSpacing: "0.02em",
-                      color: "var(--saffron)",
-                      borderBottom: "1px solid var(--border-light)",
-                      background: "rgba(59,130,246,0.04)",
-                      position: "sticky" as const, top: 0, zIndex: 1,
+            {(["officials", "staff", "subject"] as const).map((type) => {
+              const group = rooms.filter((r) => r.room_type === type);
+              if (!group.length) return null;
+              return (
+                <div key={type}>
+                  <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
+                    {type === "subject" && user?.role === "ADMIN" ? "Class Chats" : ROOM_TYPE_LABELS[type]}
+                  </div>
+                  {group.map((r) => (
+                    <button key={r.id} onClick={() => setActiveRoom(r)} style={{
+                      width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
+                      borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
+                      textAlign: "left", cursor: "pointer",
                     }}>
-                      🏫 {school}
-                    </div>
-                    {(["officials", "staff", "subject"] as const).map((type) => {
-                      const group = schoolRooms.filter((r) => r.room_type === type);
-                      if (!group.length) return null;
-                      return (
-                        <div key={type}>
-                          <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
-                            {ROOM_TYPE_LABELS[type]}
-                          </div>
-                          {group.map((r) => (
-                            <button key={r.id} onClick={() => setActiveRoom(r)} style={{
-                              width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                              borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
-                              textAlign: "left", cursor: "pointer",
-                            }}>
-                              <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {r.name}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ));
-              })()
-            ) : (
-              // Non-admin view: group by room type only
-              (["officials", "staff", "subject"] as const).map((type) => {
-                const group = rooms.filter((r) => r.room_type === type);
-                if (!group.length) return null;
-                return (
-                  <div key={type}>
-                    <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
-                      {ROOM_TYPE_LABELS[type]}
-                    </div>
-                    {group.map((r) => (
-                      <button key={r.id} onClick={() => setActiveRoom(r)} style={{
-                        width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                        borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
-                        textAlign: "left", cursor: "pointer",
-                      }}>
-                        <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {r.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                );
-              })
-            )}
+                      <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {r.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -787,9 +750,7 @@ export default function ChatRoomPage() {
             </div>
           )}
         </div>
-      
-
-      {isStudent && }
-    </div>
+      </div>
+    </>
   );
 }

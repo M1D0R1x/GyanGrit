@@ -521,7 +521,6 @@ backend
 ├── package-lock.json
 ├── package.json
 ├── pytest.ini
-├── railway.json
 ├── requirements
 │   ├── base.txt
 │   ├── dev.txt
@@ -557,6 +556,7 @@ frontend
 │   │   ├── RoleBasedRedirect.tsx
 │   │   └── authTypes.ts
 │   ├── components
+│   │   ├── AppLayout.tsx
 │   │   ├── BottomNav.tsx
 │   │   ├── ChunkErrorBoundary.tsx
 │   │   ├── LessonItem.tsx
@@ -565,6 +565,7 @@ frontend
 │   │   ├── NavMenu.tsx
 │   │   ├── NotificationDetailModal.tsx
 │   │   ├── NotificationPanel.tsx
+│   │   ├── Sidebar.tsx
 │   │   ├── TopBar.tsx
 │   │   └── Whiteboard.tsx
 │   ├── index.css
@@ -670,10 +671,12 @@ docs
 ├── SESSION_HANDOFF.md
 ├── SIGNAL_CHAIN.md
 ├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
+├── UI_REDESIGN_V4.md
+├── UI_V4_TRACKING.md
 ├── UPDATE_PROJECT_KNOWLEDGE.md
 ├── seo
 │   ├── LINK_SHEET.md
 │   └── SEO_STRATEGY.md
 └── tasks_opus4.6.md
 
-100 directories, 577 files
+100 directories, 580 files

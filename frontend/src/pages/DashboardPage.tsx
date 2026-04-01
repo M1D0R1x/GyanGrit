@@ -407,7 +407,7 @@ export default function DashboardPage() {
   const pendingCount = assessments.filter((a) => !a.passed).length;
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%" }}>
+    <div style={{ width: "100%" }}>
 
         {/* ── Greeting ── */}
         <div style={{ marginBottom: "var(--space-8)" }}>

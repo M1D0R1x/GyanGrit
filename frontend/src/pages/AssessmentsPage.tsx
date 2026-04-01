@@ -70,54 +70,63 @@ export default function AssessmentsPage() {
 
   return (
     <>
-
         {/* Header */}
-        <div className="page-header">
-          <h2 className="page-header__title">My Assessments</h2>
-          <p className="page-header__sub">Tap any test to attempt it and earn points</p>
-          {!loading && (
-            <div className="stats-row" style={{ marginTop: "var(--space-4)" }}>
-              <div className="stats-row__item">
-                <div className="stats-row__value">{assessments.length}</div>
-                <div className="stats-row__label">Total</div>
-              </div>
-              <div className="stats-row__item">
-                <div className="stats-row__value" style={{ color: "var(--saffron)" }}>{attempted}</div>
-                <div className="stats-row__label">Attempted</div>
-              </div>
-              <div className="stats-row__item">
-                <div className="stats-row__value" style={{ color: "var(--success)" }}>{passed}</div>
-                <div className="stats-row__label">Passed</div>
-              </div>
-            </div>
-          )}
+        <div style={{ marginBottom: "var(--space-6)" }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "var(--text-2xl)", color: "var(--ink-primary)", letterSpacing: "-0.03em", margin: 0 }}>My Assessments</h1>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>Tap any test to attempt it and earn points</p>
         </div>
 
+        {/* Stats — 3 inline cards */}
+        {!loading && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
+            {[
+              { label: "Total",     value: assessments.length,                         color: "var(--ink-primary)" },
+              { label: "Attempted", value: attempted,                                   color: "var(--saffron)" },
+              { label: "Passed",    value: passed,                                      color: "var(--success)" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "var(--text-2xl)", color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600, marginTop: "var(--space-1)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* History shortcut */}
-        <button className="history-shortcut" onClick={() => navigate("/assessments/history")}>
+        <button className="history-shortcut" style={{ marginBottom: "var(--space-4)" }} onClick={() => navigate("/assessments/history")}>
           <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M12 7v5l4 2" />
+              <path d="M3 3v5h5" /><path d="M12 7v5l4 2" />
             </svg>
             View attempt history
           </span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
 
         {/* Subject filter pills */}
         {!loading && subjects.length > 2 && (
-          <div className="filter-pills">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
             {subjects.map((s) => (
               <button
                 key={s}
-                className={`filter-pill${subjectFilter === s ? " filter-pill--active" : ""}`}
                 onClick={() => setSubjectFilter(s)}
+                style={{
+                  padding:      "5px 14px",
+                  borderRadius: "var(--radius-full)",
+                  border:       `1.5px solid ${subjectFilter === s ? "var(--saffron)" : "var(--border-medium)"}`,
+                  background:   subjectFilter === s ? "var(--saffron)" : "var(--bg-elevated)",
+                  color:        subjectFilter === s ? "#fff" : "var(--ink-secondary)",
+                  fontSize:     "var(--text-xs)",
+                  fontWeight:   subjectFilter === s ? 700 : 500,
+                  fontFamily:   "var(--font-body)",
+                  cursor:       "pointer",
+                  whiteSpace:   "nowrap",
+                  transition:   "all var(--duration-press) var(--ease-out-strong)",
+                  boxShadow:    subjectFilter === s ? "0 2px 8px rgba(245,158,11,0.3)" : "none",
+                }}
               >
                 {s === "all" ? "All Subjects" : s}
               </button>
@@ -127,12 +136,24 @@ export default function AssessmentsPage() {
 
         {/* Status tabs */}
         {!loading && (
-          <div className="status-tabs">
+          <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-5)" }}>
             {(["all", "pending", "passed"] as const).map((f) => (
               <button
                 key={f}
-                className={`status-tab${statusFilter === f ? " status-tab--active" : ""}`}
                 onClick={() => setStatusFilter(f)}
+                style={{
+                  padding:      "6px 18px",
+                  borderRadius: "var(--radius-full)",
+                  border:       `1.5px solid ${statusFilter === f ? "var(--border-strong)" : "var(--border-medium)"}`,
+                  background:   statusFilter === f ? "var(--ink-primary)" : "transparent",
+                  color:        statusFilter === f ? "#fff" : "var(--ink-muted)",
+                  fontSize:     "var(--text-xs)",
+                  fontWeight:   statusFilter === f ? 700 : 500,
+                  fontFamily:   "var(--font-body)",
+                  cursor:       "pointer",
+                  textTransform: "capitalize",
+                  transition:   "all var(--duration-press) var(--ease-out-strong)",
+                }}
               >
                 {f}
               </button>
@@ -140,10 +161,10 @@ export default function AssessmentsPage() {
           </div>
         )}
 
-        {error && <div className="alert alert--error" style={{ margin: "var(--space-4)" }}>{error}</div>}
+        {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>{error}</div>}
 
         {/* List */}
-        <div className="card" style={{ padding: 0, overflow: "hidden", margin: "var(--space-4)", borderRadius: "var(--radius-lg)" }}>
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {loading
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
             : filtered.length === 0 ? (
@@ -151,50 +172,28 @@ export default function AssessmentsPage() {
                 <div className="empty-state__icon">📋</div>
                 <h3 className="empty-state__title">No assessments found</h3>
                 <p className="empty-state__message">
-                  {statusFilter !== "all"
-                    ? `No ${statusFilter} assessments matching your filters.`
-                    : "No assessments available yet."}
+                  {statusFilter !== "all" ? `No ${statusFilter} assessments matching your filters.` : "No assessments available yet."}
                 </p>
               </div>
             ) : filtered.map((a, i) => {
               const isAttempted = (a.attempt_count ?? 0) > 0;
               const detailPath  = assessmentPath(a.grade, a.subject, a.id);
               return (
-                <button
-                  key={a.id}
-                  className="assessment-row page-enter"
-                  style={{ animationDelay: `${i * 25}ms` }}
-                  onClick={() => navigate(detailPath)}
-                >
+                <button key={a.id} className="assessment-row page-enter" style={{ animationDelay: `${i * 25}ms` }} onClick={() => navigate(detailPath)}>
                   <div className={`assessment-row__icon${isAttempted && a.best_score !== null ? " assessment-row__icon--scored" : ""}`}>
                     {isAttempted && a.best_score !== null
                       ? <ScoreRing score={a.best_score} total={a.total_marks} />
-                      : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                          stroke="var(--ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                      )}
+                      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
                   </div>
-
                   <div className="assessment-row__body">
                     <div className="assessment-row__subject">{a.subject} · Class {a.grade}</div>
                     <div className="assessment-row__title">{a.title}</div>
                     <div className="assessment-row__meta">
                       <span>{a.total_marks} marks · pass {a.pass_marks}</span>
-                      {isAttempted && (
-                        <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>
-                          {a.passed ? "✓ Passed" : `${a.attempt_count ?? 0}×`}
-                        </span>
-                      )}
+                      {isAttempted && <span style={{ color: a.passed ? "var(--success)" : "var(--warning)" }}>{a.passed ? "✓ Passed" : `${a.attempt_count ?? 0}×`}</span>}
                     </div>
                   </div>
-
-                  <svg className="assessment-row__chevron" width="16" height="16" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
+                  <svg className="assessment-row__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               );
             })}

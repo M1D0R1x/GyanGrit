@@ -1,118 +1,94 @@
-// components/AppLayout.tsx — V4
-// The single layout shell for all authenticated pages.
-// Desktop: TopBar + (Sidebar panel 260px | main content)
-// Mobile:  TopBar + Vaul drawer sidebar + main content + BottomNav
-import { useState } from "react";
+// components/AppLayout.tsx — V4 Final
+// Hamburger: click to open, click again to close, click outside to close,
+// nav item click closes. All via controlled open state + toggle.
+import { useState, useEffect, useCallback } from "react";
 import { Drawer } from "vaul";
 import TopBar from "./TopBar";
-import Sidebar from "./Sidebar";
+import SidebarContent from "./Sidebar";
 import BottomNav from "./BottomNav";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
 
 interface AppLayoutProps {
-  children:       React.ReactNode;
-  title?:         string;
-  showBottomNav?: boolean;
-  /** Extra bottom padding for pages that need it */
-  padBottom?:     boolean;
+  children:  React.ReactNode;
+  title?:    string;
 }
 
-export default function AppLayout({
-  children,
-  title,
-  showBottomNav = true,
-  padBottom     = false,
-}: AppLayoutProps) {
+export default function AppLayout({ children, title }: AppLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auth = useAuth();
 
-  const role     = (auth.user?.role     ?? "STUDENT") as Role;
-  const username =  auth.user?.username ?? "";
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [drawerOpen]);
+
+  // Pure toggle — called only by the hamburger button in TopBar
+  const handleMenuClick = useCallback(() => {
+    setDrawerOpen(prev => !prev);
+  }, []);
+
+  const role      = (auth.user?.role     ?? "STUDENT") as Role;
+  const username  =  auth.user?.username ?? "";
+  const isStudent = role === "STUDENT";
 
   return (
-    <div className="page-shell">
-      <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />
+    <div className="app-shell">
+      <TopBar title={title} onMenuClick={handleMenuClick} />
 
-      <div className="app-layout">
-        {/* ── Desktop sidebar — pure CSS, never shown on mobile ── */}
-        <aside className="app-layout__sidebar" aria-label="Navigation">
-          <Sidebar
-            role={role}
-            username={username}
-            open={false}
-            onClose={() => {}}
-          />
-        </aside>
+      <main className="app-content" id="main-content" tabIndex={-1}>
+        <div className="page-content page-enter">
+          {children}
+        </div>
+      </main>
 
-        {/* ── Main content ── */}
-        <main className="app-layout__main">
-          <div
-            className="page-content page-enter"
-            style={padBottom ? { paddingBottom: "calc(var(--bottom-nav-height) + var(--space-6))" } : undefined}
-          >
-            {children}
-          </div>
-        </main>
-      </div>
-
-      {/* ── Mobile drawer — Vaul, left direction ── */}
+      {/*
+        Vaul controlled drawer.
+        - `open` + `onOpenChange` = Vaul owns close-via-drag and ESC key.
+        - Our manual overlay div = click-outside closes.
+        - handleMenuClick = hamburger toggles (open→close, closed→open).
+        - SidebarContent.onNavigate = nav item click closes.
+        
+        Key: we do NOT render Vaul.Overlay (it intercepts all clicks including
+        the hamburger). Instead we render our own div overlay.
+      */}
       <Drawer.Root
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         direction="left"
-        snapPoints={undefined}
+        noBodyStyles
+        dismissible
       >
         <Drawer.Portal>
-          <Drawer.Overlay
-            style={{
-              position:   "fixed",
-              inset:      0,
-              background: "var(--bg-overlay)",
-              zIndex:     59,
-            }}
-          />
-          <Drawer.Content
-            aria-label="Navigation menu"
-            style={{
-              position:      "fixed",
-              top:           0,
-              left:          0,
-              bottom:        0,
-              width:         "min(var(--sidebar-width), 85vw)",
-              background:    "var(--bg-surface)",
-              zIndex:        60,
-              display:       "flex",
-              flexDirection: "column",
-              boxShadow:     "var(--shadow-xl)",
-              outline:       "none",
-            }}
-          >
-            {/* Vaul drag handle — right edge */}
+          {/* Our overlay — click-outside closes */}
+          {drawerOpen && (
             <div
+              aria-hidden="true"
+              onClick={() => setDrawerOpen(false)}
               style={{
-                position:     "absolute",
-                right:        -16,
-                top:          "50%",
-                transform:    "translateY(-50%)",
-                width:        4,
-                height:       48,
-                background:   "var(--border-medium)",
-                borderRadius: "0 var(--radius-full) var(--radius-full) 0",
+                position: "fixed", inset: 0,
+                background: "var(--bg-overlay)",
+                zIndex: 59,
+                animation: "fadeIn 0.18s ease both",
               }}
             />
-            <Sidebar
+          )}
+
+          <Drawer.Content
+            className="vaul-drawer-left"
+            aria-label="Navigation menu"
+          >
+            <div className="vaul-drag-handle" />
+            <SidebarContent
               role={role}
               username={username}
-              open={true}
-              onClose={() => setDrawerOpen(false)}
+              onNavigate={() => setDrawerOpen(false)}
             />
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
 
-      {/* ── Bottom nav — CSS hides on ≥768px ── */}
-      {showBottomNav && role === "STUDENT" && <BottomNav />}
+      {isStudent && <BottomNav />}
     </div>
   );
 }

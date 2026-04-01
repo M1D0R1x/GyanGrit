@@ -270,6 +270,7 @@ export default function AIChatPage() {
               </div>
             </>
           )}
+        </div>
       </div>
       <style>{`
         @keyframes pulse {

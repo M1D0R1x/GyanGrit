@@ -181,9 +181,7 @@ export default function LessonsPage() {
   const sectionLessons = lessons.filter((l) => l.type === "section");
   const completedCount = globalLessons.filter((l) => l.completed).length;
   const progressPct    = globalLessons.length ? Math.round((completedCount / globalLessons.length) * 100) : 0;
-  const progressColor  = progressPct === 100 ? "var(--success)" : progressPct >= 60 ? "var(--saffron)" : "var(--saffron)";
-
-  const pageTitle = subjectLabel ? `${subjectLabel} · Class ${grade ?? ""}` : "Lessons";
+  const progressColor  = progressPct === 100 ? "var(--success)" : "var(--saffron)";
 
   return (
     <>

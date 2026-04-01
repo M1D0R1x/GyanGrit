@@ -527,6 +527,176 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
   );
 }
 
+// ── Glassmorphic DateTime Picker ──────────────────────────────────────────
+
+function GlassDateTimePicker({
+  value,
+  onChange,
+}: {
+  value:    string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen]    = useState(false);
+  const [viewYear, setVY]  = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
+  const [viewMonth, setVM] = useState(() => value ? new Date(value).getMonth() : new Date().getMonth());
+  const [hour, setHour]    = useState(() => value ? String(new Date(value).getHours()).padStart(2, "0") : "09");
+  const [minute, setMin]   = useState(() => value ? String(new Date(value).getMinutes()).padStart(2, "0") : "00");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const selectedDate = value ? new Date(value) : null;
+  const isSelected = (d: number) => selectedDate?.getFullYear() === viewYear && selectedDate?.getMonth() === viewMonth && selectedDate?.getDate() === d;
+  const isToday    = (d: number) => { const t = new Date(); return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === d; };
+
+  const commit = (d: number, h: string, m: string) => {
+    const mm = String(viewMonth + 1).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    onChange(`${viewYear}-${mm}-${dd}T${h}:${m}`);
+  };
+
+  const pickDay = (d: number) => { commit(d, hour, minute); };
+
+  const applyTime = () => {
+    if (!selectedDate) return;
+    commit(selectedDate.getDate(), hour, minute);
+    setOpen(false);
+  };
+
+  const prevMonth = () => { if (viewMonth === 0) { setVM(11); setVY(y => y - 1); } else setVM(m => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setVM(0); setVY(y => y + 1); } else setVM(m => m + 1); };
+
+  const displayValue = value
+    ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    : "";
+
+  const HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const MIN_OPTS  = ["00","05","10","15","20","25","30","35","40","45","50","55"];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", padding: "10px var(--space-4)",
+          background: "var(--bg-sunken)", border: `1.5px solid ${open || value ? "var(--saffron)" : "var(--border-medium)"}`,
+          borderRadius: "var(--radius-md)", color: value ? "var(--ink-primary)" : "var(--ink-muted)",
+          fontSize: "var(--text-sm)", fontFamily: "var(--font-body)", textAlign: "left",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
+          boxShadow: open ? "0 0 0 3px rgba(245,158,11,0.15)" : "none",
+          transition: "all var(--duration-press) var(--ease-out-strong)",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--saffron)", flexShrink: 0 }}>
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          {displayValue || "Pick date & time"}
+        </span>
+        {value ? (
+          <span onClick={e => { e.stopPropagation(); onChange(""); }} style={{ color: "var(--ink-muted)", fontSize: 14, lineHeight: 1, padding: "2px 4px" }}>✕</span>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        )}
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 300,
+          background: "#FFFDF7",
+          border: "1.5px solid rgba(245,158,11,0.35)", borderRadius: "var(--radius-xl)",
+          boxShadow: "0 24px 64px rgba(26,18,8,0.22), 0 8px 24px rgba(26,18,8,0.1)",
+          padding: "var(--space-5)", width: 300,
+          animation: "scaleIn 0.16s var(--ease-out-strong) both",
+          transformOrigin: "top left",
+        }}>
+          {/* Month nav */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
+            <button type="button" onClick={prevMonth} style={{ background: "rgba(245,158,11,0.12)", border: "none", borderRadius: "var(--radius-md)", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#92400e" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-sm)", color: "#1A1208" }}>
+              {MONTHS[viewMonth]} {viewYear}
+            </div>
+            <button type="button" onClick={nextMonth} style={{ background: "rgba(245,158,11,0.12)", border: "none", borderRadius: "var(--radius-md)", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#92400e" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+
+          {/* Day headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: "var(--space-2)" }}>
+            {DAYS.map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "#9B8E7E", textTransform: "uppercase", letterSpacing: "0.06em", padding: "var(--space-1) 0" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Days grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: "var(--space-4)" }}>
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1;
+              const sel = isSelected(d);
+              const tod = isToday(d);
+              return (
+                <button key={d} type="button" onClick={() => pickDay(d)} style={{
+                  width: "100%", aspectRatio: "1", border: "none", borderRadius: "var(--radius-md)",
+                  background: sel ? "#F59E0B" : tod ? "rgba(245,158,11,0.15)" : "transparent",
+                  color: sel ? "#fff" : tod ? "#92400e" : "#1A1208",
+                  fontFamily: "var(--font-display)", fontWeight: sel ? 800 : tod ? 700 : 500,
+                  fontSize: "var(--text-xs)", cursor: "pointer",
+                  transition: "all var(--duration-press) var(--ease-out-strong)",
+                  boxShadow: sel ? "0 2px 8px rgba(245,158,11,0.4)" : "none",
+                }}
+                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.background = "rgba(245,158,11,0.15)"; e.currentTarget.style.color = "#92400e"; } }}
+                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.background = tod ? "rgba(245,158,11,0.15)" : "transparent"; e.currentTarget.style.color = tod ? "#92400e" : "#1A1208"; } }}
+                >{d}</button>
+              );
+            })}
+          </div>
+
+          {/* Time picker */}
+          <div style={{ borderTop: "1px solid rgba(245,158,11,0.2)", paddingTop: "var(--space-4)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-xs)", color: "#9B8E7E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-3)" }}>
+              🕐 Time
+            </div>
+            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", marginBottom: "var(--space-4)" }}>
+              <select value={hour} onChange={e => setHour(e.target.value)} style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", padding: "8px var(--space-2)", background: "#fff", color: "#1A1208", border: "1.5px solid rgba(245,158,11,0.4)", borderRadius: "var(--radius-md)", appearance: "none", cursor: "pointer" }}>
+                {HOUR_OPTS.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "#F59E0B", flexShrink: 0 }}>:</span>
+              <select value={minute} onChange={e => setMin(e.target.value)} style={{ flex: 1, textAlign: "center", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-base)", padding: "8px var(--space-2)", background: "#fff", color: "#1A1208", border: "1.5px solid rgba(245,158,11,0.4)", borderRadius: "var(--radius-md)", appearance: "none", cursor: "pointer" }}>
+                {MIN_OPTS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <button type="button" onClick={() => { onChange(""); setOpen(false); }} style={{ flex: 1, padding: "var(--space-2) var(--space-3)", background: "transparent", border: "1.5px solid #D4C5B0", borderRadius: "var(--radius-md)", color: "#9B8E7E", fontSize: "var(--text-xs)", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600 }}>Clear</button>
+              <button type="button" onClick={applyTime} disabled={!selectedDate} style={{ flex: 2, padding: "var(--space-2) var(--space-3)", background: selectedDate ? "#F59E0B" : "#E8E0D5", border: "none", borderRadius: "var(--radius-md)", color: selectedDate ? "#fff" : "#9B8E7E", fontSize: "var(--text-xs)", cursor: selectedDate ? "pointer" : "not-allowed", fontFamily: "var(--font-display)", fontWeight: 700, boxShadow: selectedDate ? "0 2px 8px rgba(245,158,11,0.35)" : "none" }}>
+                {selectedDate ? "✓ Confirm Time" : "Pick a date first"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function LiveSessionPage() {
@@ -684,45 +854,105 @@ export default function LiveSessionPage() {
             <button onClick={() => setError(null)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16, lineHeight: 1, opacity: 0.7 }} aria-label="Dismiss">{"\u2715"}</button>
           </div>
         )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>
-            {isTeacher ? "My Sessions" : "Upcoming Classes"}
-          </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-6)" }}>
+          <div>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "var(--text-2xl)", color: "var(--ink-primary)", letterSpacing: "-0.03em", margin: 0 }}>
+              {isTeacher ? "Live Classes" : "Upcoming Classes"}
+            </h1>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: "var(--space-1)" }}>
+              {isTeacher ? "Schedule, start, and manage your live sessions." : "Join your teacher's live class when it goes live."}
+            </p>
+          </div>
           {isTeacher && (
-            <button className="btn btn--primary" style={{ fontSize: "var(--text-xs)" }} onClick={() => setShowCreate(v => !v)}>+ New Session</button>
+            <button className="btn btn--primary" style={{ flexShrink: 0 }} onClick={() => setShowCreate(v => !v)}>
+              {showCreate ? "Cancel" : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  New Session
+                </>
+              )}
+            </button>
           )}
         </div>
 
         {showCreate && (
-          <div style={{ padding: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--saffron)", marginBottom: "var(--space-4)" }}>
-            <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", marginBottom: "var(--space-3)", color: "var(--ink-primary)" }}>New Live Session</div>
-            <input className="form-input" placeholder="Session title *" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
-            <input className="form-input" placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ marginBottom: "var(--space-2)" }} />
-            <div style={{ marginBottom: "var(--space-2)" }}>
-              <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: "var(--space-1)" }}>Schedule Date & Time (optional)</label>
-              <input className="form-input" type="datetime-local" value={newScheduledAt} onChange={e => setNewScheduledAt(e.target.value)} style={{ colorScheme: "dark" }} />
+          <div style={{
+            padding:      "var(--space-6)",
+            background:   "rgba(255,255,255,0.6)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            borderRadius: "var(--radius-xl)",
+            border:       "1px solid rgba(245,158,11,0.3)",
+            marginBottom: "var(--space-5)",
+            boxShadow:    "0 8px 32px rgba(245,158,11,0.08), 0 1px 0 rgba(255,255,255,0.8) inset",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-5)" }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-base)", color: "var(--ink-primary)" }}>New Live Session</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>Fill in the details to schedule or start a class</div>
+              </div>
+              <button onClick={() => setShowCreate(false)} style={{ background: "rgba(0,0,0,0.06)", border: "none", borderRadius: "var(--radius-full)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-muted)", fontSize: 14 }}>✕</button>
             </div>
-            {isAdminOrPrincipal && schoolOptions.length > 1 && (
-              <select className="form-input" value={selectedSchool} onChange={e => { setSelectedSchool(Number(e.target.value) || ""); setNewSection(""); }} style={{ marginBottom: "var(--space-2)" }}>
-                <option value="">All schools - select to filter</option>
-                {schoolOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            )}
-            <select className="form-input" value={newSection} onChange={e => setNewSection(Number(e.target.value))} style={{ marginBottom: "var(--space-2)" }}>
-              <option value="">Select class / section *</option>
-              {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            {subjectOptions.length > 0 && (
-              <select className="form-input" value={newSubject} onChange={e => setNewSubject(Number(e.target.value))} style={{ marginBottom: "var(--space-3)" }}>
-                <option value="">Select subject</option>
-                {subjectOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            )}
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <button className="btn btn--primary" style={{ fontSize: "var(--text-sm)" }} onClick={handleCreate} disabled={creating || !newTitle.trim() || !newSection}>
-                {creating ? "Creating..." : "Create Session"}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Session title <span style={{ color: "var(--error)" }}>*</span></label>
+                <input className="form-input" placeholder="e.g. Chapter 5 — Photosynthesis" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Description <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 400 }}>(optional)</span></label>
+                <input className="form-input" placeholder="What will you cover today?" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+              </div>
+
+              {/* ── Glassmorphic datetime picker ── */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
+                  Schedule date & time <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 400 }}>(optional — leave blank to start now)</span>
+                </label>
+                <GlassDateTimePicker value={newScheduledAt} onChange={setNewScheduledAt} />
+                {newScheduledAt && (
+                  <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <span>📅</span>
+                    <span>{new Date(newScheduledAt).toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}</span>
+                  </div>
+                )}
+              </div>
+
+              {isAdminOrPrincipal && schoolOptions.length > 1 && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Filter by school</label>
+                  <select className="form-input" value={selectedSchool} onChange={e => { setSelectedSchool(Number(e.target.value) || ""); setNewSection(""); }}>
+                    <option value="">All schools</option>
+                    {schoolOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Class / section <span style={{ color: "var(--error)" }}>*</span></label>
+                <select className="form-input" value={newSection} onChange={e => setNewSection(Number(e.target.value))}>
+                  <option value="">Select class / section</option>
+                  {uniqueSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              {subjectOptions.length > 0 && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Subject</label>
+                  <select className="form-input" value={newSubject} onChange={e => setNewSubject(Number(e.target.value))}>
+                    <option value="">Select subject</option>
+                    {subjectOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-5)" }}>
+              <button className="btn btn--primary" onClick={handleCreate} disabled={creating || !newTitle.trim() || !newSection}>
+                {creating ? <><span className="btn__spinner" /> Creating…</> : "Create Session"}
               </button>
-              <button className="btn btn--ghost" style={{ fontSize: "var(--text-sm)" }} onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="btn btn--secondary" onClick={() => setShowCreate(false)}>Cancel</button>
             </div>
           </div>
         )}

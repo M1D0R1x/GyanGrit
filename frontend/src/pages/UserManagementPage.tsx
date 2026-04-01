@@ -306,20 +306,18 @@ export default function UserManagementPage() {
 
   if (allowedRoles.length === 0) {
     return (
-      
-          <div className="empty-state">
-            <div className="empty-state__icon">🔒</div>
-            <h3 className="empty-state__title">Access Restricted</h3>
-            <p className="empty-state__message">
-              Your role does not have permission to manage users.
-            </p>
-          </div>
-    </>
-  );
-}
+      <div className="empty-state">
+        <div className="empty-state__icon">🔒</div>
+        <h3 className="empty-state__title">Access Restricted</h3>
+        <p className="empty-state__message">
+          Your role does not have permission to manage users.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    
+    <>
 
         {/* ── Header ── */}
         <div className="section-header">

@@ -99,7 +99,7 @@ export default function AdminContentPage() {
   };
 
   return (
-    
+    <>
 
         {/* Page header */}
         <div className="section-header">
@@ -187,27 +187,20 @@ export default function AdminContentPage() {
           </div>
         )}
 
-        {/* Stats row */}
+        {/* Stats row — inline 4 columns */}
         {!loading && (
-          <div className="stat-grid" style={{ marginBottom: "var(--space-8)" }}>
-            <div className="card">
-              <div className="card__label">Total Courses</div>
-              <div className="card__value">{courses.length}</div>
-            </div>
-            <div className="card">
-              <div className="card__label">Grades Covered</div>
-              <div className="card__value">{grades.length}</div>
-            </div>
-            <div className="card">
-              <div className="card__label">Subjects</div>
-              <div className="card__value">
-                {new Set(courses.map((c) => c.subject__name)).size}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-3)", marginBottom: "var(--space-8)" }}>
+            {[
+              { label: "Total Courses",  value: courses.length },
+              { label: "Grades Covered", value: grades.length },
+              { label: "Subjects",       value: new Set(courses.map((c) => c.subject__name)).size },
+              { label: "Shown",          value: filtered.length },
+            ].map(({ label, value }) => (
+              <div key={label} className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "var(--text-2xl)", color: "var(--ink-primary)", letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600, marginTop: "var(--space-1)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
               </div>
-            </div>
-            <div className="card">
-              <div className="card__label">Shown</div>
-              <div className="card__value">{filtered.length}</div>
-            </div>
+            ))}
           </div>
         )}
 

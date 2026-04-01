@@ -34,7 +34,7 @@ import { apiGet } from "../services/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-type Section  = { id: number; name: string; short_label: string; class_name: string };
+type Section  = { id: number; name: string; short_label: string; class_name?: string; grade?: string; institution_id?: number; institution_name?: string };
 type Assessment = { id: number; title: string };
 
 // ── Status badge ──────────────────────────────────────────────────────────
@@ -228,9 +228,11 @@ export default function CompetitionRoomPage() {
   const [createTitle,  setCreateTitle]  = useState("");
   const [createSection, setCreateSection] = useState("");
   const [createAssessment, setCreateAssessment] = useState("");
+  const [createSchool, setCreateSchool] = useState<number | "">("");
   const [sections,     setSections]     = useState<Section[]>([]);
-  const [assessments,  setAssessments]  = useState<Assessment[]>([]);
+  const [assessments,  setAssessments]  = useState<(Assessment & { subject_id?: number; title: string; grade?: number })[]>([]);
   const [creating,     setCreating]     = useState(false);
+  const [assignments,  setAssignments]  = useState<{ section_id: number; section_name: string; class_name: string; subject_id: number; subject_name: string }[]>([]);
 
   // ── Ably ──────────────────────────────────────────────────────────────
   const ablyRef    = useRef<Ably.Realtime | null>(null);
@@ -257,23 +259,23 @@ export default function CompetitionRoomPage() {
     if (!isTeacher || !showCreate) return;
 
     if (isAdminOrPrincipal) {
-      // ADMIN/PRINCIPAL: fetch all sections from dedicated endpoint (no duplicates)
-      apiGet<{ id: number; short_label: string; class_name?: string }[]>("/academics/sections/")
+      // ADMIN/PRINCIPAL: fetch all sections and schools
+      apiGet<Section[]>("/academics/sections/")
         .then((secs) => {
-          setSections(secs.map(s => ({ id: s.id, name: s.short_label, short_label: s.short_label, class_name: "" })));
+          setSections(secs);
         })
         .catch(() => {});
     } else {
       // TEACHER: use my-assignments (section+subject pairs they teach)
-      type AssignmentRow = { section_id: number; section_name: string; class_name: string };
-      apiGet<AssignmentRow[]>("/academics/my-assignments/")
-        .then((assignments) => {
+      apiGet<typeof assignments>("/academics/my-assignments/")
+        .then((data) => {
+          setAssignments(data);
           const seen = new Set<number>();
           const secs: Section[] = [];
-          assignments.forEach((a) => {
+          data.forEach((a) => {
             if (!seen.has(a.section_id)) {
               seen.add(a.section_id);
-              secs.push({ id: a.section_id, name: `Class ${a.class_name} - ${a.section_name}`, short_label: a.section_name, class_name: a.class_name });
+              secs.push({ id: a.section_id, short_label: a.section_name, class_name: a.class_name } as any);
             }
           });
           setSections(secs);
@@ -281,9 +283,9 @@ export default function CompetitionRoomPage() {
         .catch(() => {});
     }
 
-    apiGet<{ id: number; title: string }[]>("/courses/")
+    apiGet<{ id: number; title: string; subject__id?: number; grade?: number }[]>("/courses/")
       .then((courses) => {
-        setAssessments(courses.map((c) => ({ id: c.id, title: c.title })));
+        setAssessments(courses.map((c) => ({ id: c.id, title: c.title, subject_id: c.subject__id, grade: c.grade })));
       })
       .catch(() => {});
   }, [isTeacher, showCreate, isAdminOrPrincipal]);
@@ -461,26 +463,25 @@ export default function CompetitionRoomPage() {
   if (numRoomId) {
     if (loadingRoom && !room) {
       return (
-        
-            {[160, 80, 120, 80].map((h, i) => (
-              <div key={i} className="skeleton" style={{ height: h, borderRadius: "var(--radius-lg)", marginBottom: "var(--space-3)" }} />
-            ))}
-    </>
-  );
-}
+        <>
+          {[160, 80, 120, 80].map((h, i) => (
+            <div key={i} className="skeleton" style={{ height: h, borderRadius: "var(--radius-lg)", marginBottom: "var(--space-3)" }} />
+          ))}
+        </>
+      );
+    }
 
     if (!room) return (
-      
-          <div className="alert alert--error">Room not found.</div>
-          <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
-        
-      </div>
+      <>
+        <div className="alert alert--error">Room not found.</div>
+        <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
+      </>
     );
 
     const questions = room.questions ?? [];
 
     return (
-      
+      <>
 
           <button className="back-btn" onClick={() => navigate(`${prefix}/competitions`)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -651,7 +652,7 @@ export default function CompetitionRoomPage() {
     navigate(isTeacher ? `${prefix}/competitions/${id}` : `/competitions/${id}`);
 
   return (
-    
+    <>
 
         {error   && <div className="alert alert--error"   onClick={() => setError(null)}>{error}</div>}
         {success && <div className="alert alert--success" onClick={() => setSuccess(null)}>{success}</div>}
@@ -680,14 +681,40 @@ export default function CompetitionRoomPage() {
                     value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} />
                 </div>
 
+                {isAdminOrPrincipal && (
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 600, color: "var(--ink-secondary)" }}>School/Institution</label>
+                    <select className="form-input" value={createSchool} onChange={(e) => {
+                      setCreateSchool(e.target.value ? Number(e.target.value) : "");
+                      setCreateSection("");
+                      setCreateAssessment("");
+                    }}>
+                      <option value="">All Schools</option>
+                      {Array.from(new Set(sections.filter(s => s.institution_name).map(s => s.institution_name))).map(name => {
+                        const instId = sections.find(s => s.institution_name === name)?.institution_id;
+                        return <option key={instId} value={instId}>{name}</option>;
+                      })}
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label className="form-label">Section *</label>
                   <select className="form-input" value={createSection}
-                    onChange={(e) => setCreateSection(e.target.value)}>
+                    onChange={(e) => {
+                      setCreateSection(e.target.value);
+                      setCreateAssessment("");
+                    }}>
                     <option value="">Select section</option>
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.id}>Class {s.class_name} — {s.short_label || s.name}</option>
-                    ))}
+                    {isAdminOrPrincipal
+                      ? sections
+                          .filter(s => createSchool === "" || s.institution_id === createSchool)
+                          .map(s => <option key={s.id} value={s.id}>{s.short_label}</option>)
+                      : Array.from(new Set(assignments.map(a => a.section_id))).map(id => {
+                          const a = assignments.find(x => x.section_id === id)!;
+                          return <option key={id} value={id}>Class {a.class_name} - {a.section_name}</option>;
+                      })
+                    }
                   </select>
                 </div>
 
@@ -696,7 +723,23 @@ export default function CompetitionRoomPage() {
                   <select className="form-input" value={createAssessment}
                     onChange={(e) => setCreateAssessment(e.target.value)}>
                     <option value="">Select assessment</option>
-                    {assessments.map((a) => (
+                    {assessments
+                      .filter(a => {
+                        if (!createSection) return true;
+                        if (isAdminOrPrincipal) {
+                          // Admin sees all subjects for that section's grade
+                          const sec = sections.find(s => s.id === Number(createSection));
+                          const classLevel = sec?.grade || sec?.class_name;
+                          if (classLevel && a.grade) {
+                            return String(a.grade) === String(classLevel);
+                          }
+                          return true;
+                        }
+                        // Teacher sees only subjects they actually teach for that section
+                        const teacherSubjectsForSection = assignments.filter(assign => assign.section_id === Number(createSection)).map(assign => assign.subject_id);
+                        return a.subject_id === undefined || teacherSubjectsForSection.includes(a.subject_id);
+                      })
+                      .map((a) => (
                       <option key={a.id} value={a.id}>{a.title}</option>
                     ))}
                   </select>

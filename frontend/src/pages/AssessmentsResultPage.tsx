@@ -37,20 +37,18 @@ export default function AssessmentResultPage() {
 
   if (!state) {
     return (
-      
-          <div className="empty-state">
-            <div className="empty-state__icon">❓</div>
-            <h3 className="empty-state__title">No result data</h3>
-            <p className="empty-state__message">
-              This page must be reached by submitting an assessment.
-            </p>
-            <button className="btn btn--secondary" onClick={() => navigate("/dashboard")}>
-              Go to Dashboard
-            </button>
-          </div>
-    </>
-  );
-}
+      <div className="empty-state">
+        <div className="empty-state__icon">❓</div>
+        <h3 className="empty-state__title">No result data</h3>
+        <p className="empty-state__message">
+          This page must be reached by submitting an assessment.
+        </p>
+        <button className="btn btn--secondary" onClick={() => navigate("/dashboard")}>
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const percentage = state.total_marks
     ? Math.round((state.score / state.total_marks) * 100)
@@ -68,7 +66,7 @@ export default function AssessmentResultPage() {
     : "/assessments/history";
 
   return (
-    
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", minHeight: "60vh", padding: "var(--space-8) var(--space-4)" }}>
         <div className="result-card">
 
           {/* Emoji */}
@@ -179,6 +177,6 @@ export default function AssessmentResultPage() {
           </button>
 
         </div>
-    </>
+    </div>
   );
 }

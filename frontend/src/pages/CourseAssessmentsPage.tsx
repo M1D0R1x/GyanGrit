@@ -38,7 +38,7 @@ export default function CourseAssessmentsPage() {
   }, [grade, subjectSlug]);
 
   return (
-    
+    <>
 
         <button className="back-btn" onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"

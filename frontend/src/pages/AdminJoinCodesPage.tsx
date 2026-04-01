@@ -434,7 +434,7 @@ export default function AdminJoinCodesPage() {
   );
 
   return (
-    
+    <>
 
         {/* Header */}
         <div className="section-header">
@@ -490,10 +490,9 @@ export default function AdminJoinCodesPage() {
             </div>
 
             {formMode === "bulk" && (
-              <div className="alert alert--info" style={{ marginBottom: "var(--space-4)" }}>
-                <strong>Bulk mode:</strong> Generates N identical codes for the same role/section.
-                Each code is single-use — distribute one per student.
-                After generation, download the Excel sheet to share codes.
+              <div className="alert alert--info" style={{ marginBottom: "var(--space-4)", display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
+                <span style={{ fontWeight: 700, flexShrink: 0, color: "var(--info)" }}>Bulk mode:</span>
+                <span>Generates N identical codes for the same role/section. Each code is single-use — distribute one per student. After generation, download the Excel sheet to share codes.</span>
               </div>
             )}
 
@@ -580,12 +579,11 @@ export default function AdminJoinCodesPage() {
             </table>
           </div>
         )}
-      
 
       {emailCode && (
         <EmailModal code={emailCode} onClose={() => setEmailCode(null)}
           onSent={(msg) => { setSuccess(msg); setEmailCode(null); }} />
       )}
-    </div>
+    </>
   );
 }

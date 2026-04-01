@@ -70,12 +70,9 @@ export default function AssessmentHistoryPage() {
     ? Math.round(filtered.reduce((s, a) => s + (a.score / a.total_marks) * 100, 0) / filtered.length)
     : 0;
 
-  const pageTitle = assessmentIdFilter
-    ? (base[0]?.assessment_title ?? "Assessment History")
-    : "History";
 
   return (
-    
+    <>
 
         <div className="page-header">
           <button

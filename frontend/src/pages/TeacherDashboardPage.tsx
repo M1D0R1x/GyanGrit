@@ -179,8 +179,8 @@ export default function TeacherDashboardPage() {
                     role="button" tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/classes/${c.class_id}`)}
                   >
-                    <div style={{ fontSize: 9, fontWeight: 900, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "var(--space-2)" }}>
-                      {c.institution ?? "Class"}
+                    <div style={{ padding: "4px 8px", background: "rgba(59,130,246,0.1)", color: "#1e40af", borderRadius: "var(--radius-sm)", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "var(--space-3)", display: "inline-block", border: "1px solid rgba(59,130,246,0.2)" }}>
+                      {c.institution ?? "Institution"}
                     </div>
                     <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--ink-primary)", marginBottom: "var(--space-2)", letterSpacing: "-0.02em" }}>
                       Class {c.class_name}
@@ -227,7 +227,7 @@ export default function TeacherDashboardPage() {
                     role="button" tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/courses/${course.course_id}/lessons`)}
                   >
-                    <div style={{ fontSize: 9, fontWeight: 900, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "var(--space-2)" }}>
+                    <div style={{ padding: "4px 8px", background: "rgba(16,185,129,0.1)", color: "#065f46", borderRadius: "var(--radius-sm)", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "var(--space-3)", display: "inline-block", border: "1px solid rgba(16,185,129,0.2)" }}>
                       {course.subject} · Class {course.grade}
                     </div>
                     <div className="card__title" style={{ marginBottom: "var(--space-3)" }}>{course.title}</div>
@@ -271,7 +271,7 @@ export default function TeacherDashboardPage() {
                     role="button" tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && navigate(`/teacher/courses/${a.course_id}/assessments`)}
                   >
-                    <div style={{ fontSize: 9, fontWeight: 900, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "var(--space-2)" }}>
+                    <div style={{ padding: "4px 8px", background: "rgba(245,158,11,0.1)", color: "#92400e", borderRadius: "var(--radius-sm)", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "var(--space-3)", display: "inline-block", border: "1px solid rgba(245,158,11,0.2)" }}>
                       {a.subject} · Class {a.grade}
                     </div>
                     <div className="card__title" style={{ marginBottom: "var(--space-4)" }}>{a.title}</div>

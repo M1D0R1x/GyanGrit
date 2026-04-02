@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import "./PublicPages.css";
+
 const FAQ_ITEMS = [
   {
     q: "How do I create an account?",
@@ -37,7 +38,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I use GyanGrit on multiple devices?",
-    a: "For security (FR-02 of our SRS), GyanGrit enforces single-device sessions. If you log in on a new device, your previous session will be automatically terminated. This prevents unauthorized account sharing.",
+    a: "GyanGrit enforces single-device sessions for security. If you log in on a new device, your previous session will be automatically terminated. This prevents unauthorized account sharing.",
   },
   {
     q: "How do competitions work?",
@@ -49,7 +50,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Who maintains GyanGrit?",
-    a: "GyanGrit is a capstone project built for empowering rural education in Punjab. It's actively maintained and continuously improved with new features, performance optimizations, and security updates.",
+    a: "GyanGrit is a capstone project built to empower rural education in Punjab. It's actively maintained and continuously improved with new features, performance optimizations, and security updates.",
   },
 ];
 
@@ -64,7 +65,7 @@ export default function FAQPage() {
   return (
     <div className="public-page">
       <Helmet>
-        <title>FAQ | GyanGrit Document Portal</title>
+        <title>FAQ | GyanGrit Help Center</title>
         <meta name="description" content="Frequently asked questions about GyanGrit's offline capabilities, gamification, AI tutor, and school enrollment process." />
       </Helmet>
       <nav className="public-nav">
@@ -80,8 +81,8 @@ export default function FAQPage() {
       </nav>
 
       <main className="public-content">
+        {/* Hero */}
         <section className="public-hero">
-          <div className="public-hero__badge">Help Center</div>
           <h1 className="public-hero__title">
             Frequently Asked<br />
             <span className="public-hero__highlight">Questions</span>
@@ -101,18 +102,19 @@ export default function FAQPage() {
           </p>
         </section>
 
-        <section className="faq-list">
+        {/* FAQ Accordion */}
+        <div className="faq-list">
           {FAQ_ITEMS.map((item, i) => (
             <div
               key={i}
-              className={`faq-item ${openIndex === i ? "faq-item--open" : ""}`}
+              className={`faq-item${openIndex === i ? " faq-item--open" : ""}`}
             >
               <button className="faq-item__question" onClick={() => toggle(i)}>
                 <span>{item.q}</span>
                 <svg
                   className="faq-item__chevron"
                   width="20" height="20" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2"
+                  fill="none" stroke="currentColor" strokeWidth="2.5"
                   strokeLinecap="round" strokeLinejoin="round"
                 >
                   <polyline points="6 9 12 15 18 9" />
@@ -123,7 +125,7 @@ export default function FAQPage() {
               </div>
             </div>
           ))}
-        </section>
+        </div>
 
         {/* CTA */}
         <section className="public-cta">

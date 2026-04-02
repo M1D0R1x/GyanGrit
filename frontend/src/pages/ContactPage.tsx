@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import "./PublicPages.css";
+
 export default function ContactPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -9,7 +10,6 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Static form — just show success for now
     setSubmitted(true);
   };
 
@@ -32,8 +32,8 @@ export default function ContactPage() {
       </nav>
 
       <main className="public-content">
+        {/* Hero */}
         <section className="public-hero">
-          <div className="public-hero__badge">Get in Touch</div>
           <h1 className="public-hero__title">
             We'd Love to<br />
             <span className="public-hero__highlight">Hear From You</span>

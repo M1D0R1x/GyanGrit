@@ -1,34 +1,11 @@
-/* PublicPages.css — Infinite Obsidian v2
-   This file is intentionally minimal.
-   All tokens and shared styles live in index.css.
-   These are only page-specific overrides. */
+/* PublicPages.css — Infinite Obsidian v3
+   Intentionally minimal. All tokens, glass recipe, and layout
+   styles live in index.css under the PUBLIC PAGES section.
+   Only truly page-specific micro-overrides go here. */
 
-/* Contact form textarea */
+/* Contact form: allow textarea to grow vertically */
 .form-input--textarea {
   resize:      vertical;
-  min-height:  120px;
+  min-height:  140px;
   font-family: var(--font-body);
-}
-
-/* Contact success state */
-.contact-success {
-  text-align:  center;
-  padding:     var(--space-8) 0;
-}
-
-.contact-success__icon  { font-size: 3rem; margin-bottom: var(--space-4); }
-
-.contact-success__title {
-  font-family:  var(--font-display);
-  font-size:    var(--text-xl);
-  font-weight:  700;
-  color:        var(--text-primary);
-  margin-bottom: var(--space-3);
-}
-
-.contact-success__desc {
-  font-size:    var(--text-sm);
-  color:        var(--text-secondary);
-  margin-bottom: var(--space-6);
-  line-height:  1.7;
 }

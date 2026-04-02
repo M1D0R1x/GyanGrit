@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import "./PublicPages.css";
+
 export default function AboutPage() {
   const navigate = useNavigate();
 
@@ -23,26 +24,25 @@ export default function AboutPage() {
       </nav>
 
       <main className="public-content">
-        {/* Hero Section */}
-        <section className="public-hero">
-          <div className="public-hero__badge">Our Mission</div>
+        {/* Hero */}
+        <section className="public-hero" style={{ marginBottom: "7rem" }}>
           <h1 className="public-hero__title">
             Empowering Rural Students,<br />
             <span className="public-hero__highlight">One Lesson at a Time</span>
           </h1>
           <p className="public-hero__subtitle">
             GyanGrit is a digital education platform built for students in rural Punjab.
-            We believe every child, regardless of their location or connectivity,
+            We believe every child, regardless of location or connectivity,
             deserves access to world-class education tools.
           </p>
         </section>
 
-        {/* Values Grid */}
+        {/* What We Stand For */}
         <section className="public-section">
           <h2 className="public-section__title">What We Stand For</h2>
           <div className="public-grid public-grid--3">
             <div className="public-card">
-              <div className="public-card__icon">📡</div>
+              <span className="public-card__icon">📡</span>
               <h3 className="public-card__title">Offline-First</h3>
               <p className="public-card__desc">
                 Our PWA works without internet. Students can study flashcards,
@@ -50,7 +50,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="public-card">
-              <div className="public-card__icon">🎯</div>
+              <span className="public-card__icon">🎯</span>
               <h3 className="public-card__title">Adaptive Learning</h3>
               <p className="public-card__desc">
                 Spaced repetition flashcards, personalized learning paths,
@@ -58,15 +58,15 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="public-card">
-              <div className="public-card__icon">🔒</div>
-              <h3 className="public-card__title">Secure & Private</h3>
+              <span className="public-card__icon">🔒</span>
+              <h3 className="public-card__title">Secure &amp; Private</h3>
               <p className="public-card__desc">
                 Single-device sessions, encrypted communications, and role-based
                 access ensure student data stays protected at all times.
               </p>
             </div>
             <div className="public-card">
-              <div className="public-card__icon">📹</div>
+              <span className="public-card__icon">📹</span>
               <h3 className="public-card__title">Live Sessions</h3>
               <p className="public-card__desc">
                 Teachers conduct real-time video classes with interactive whiteboards,
@@ -74,7 +74,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="public-card">
-              <div className="public-card__icon">🏆</div>
+              <span className="public-card__icon">🏆</span>
               <h3 className="public-card__title">Gamification</h3>
               <p className="public-card__desc">
                 Points, badges, streaks, and leaderboards keep students motivated
@@ -82,7 +82,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="public-card">
-              <div className="public-card__icon">🤖</div>
+              <span className="public-card__icon">🤖</span>
               <h3 className="public-card__title">AI Tutor</h3>
               <p className="public-card__desc">
                 Powered by Google Gemini, our AI chatbot answers questions in
@@ -93,65 +93,65 @@ export default function AboutPage() {
         </section>
 
         {/* Impact Stats */}
-        <section className="public-section">
+        <section className="public-section" style={{ marginTop: "6rem" }}>
           <h2 className="public-section__title">Making a Difference</h2>
-          <div className="public-grid public-grid--4">
-            <div className="public-stat">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-5)", justifyContent: "center" }}>
+            <div className="public-stat" style={{ flex: "0 1 210px" }}>
               <div className="public-stat__value">12+</div>
               <div className="public-stat__label">Rural Districts</div>
             </div>
-            <div className="public-stat">
+            <div className="public-stat" style={{ flex: "0 1 210px" }}>
               <div className="public-stat__value">15k+</div>
               <div className="public-stat__label">Students Impacted</div>
             </div>
-            <div className="public-stat">
+            <div className="public-stat" style={{ flex: "0 1 210px" }}>
               <div className="public-stat__value">1.2k+</div>
               <div className="public-stat__label">Interactive Lessons</div>
             </div>
-            <div className="public-stat">
+            <div className="public-stat" style={{ flex: "0 1 210px" }}>
               <div className="public-stat__value">100%</div>
-              <div className="public-stat__label">Offline Capability</div>
+              <div className="public-stat__label">Offline Capable</div>
             </div>
           </div>
         </section>
 
-        {/* Meet the Team */}
+        {/* Team */}
         <section className="public-section">
           <h2 className="public-section__title">The Team Behind GyanGrit</h2>
           <p className="public-section__desc">
             Built as a B.Tech Computer Science Capstone Project at Lovely Professional University (Class of 2026).
           </p>
           <div className="public-grid public-grid--3">
-            <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👩🏻‍💻</div>
-              <h3 className="public-card__title">Kode Sai harshitha</h3>
-              <p className="public-card__desc">Developer</p>
+            <div className="public-card" style={{ textAlign: "center" }}>
+              <span className="public-card__icon" style={{ fontSize: "3.25rem" }}>👩🏻‍💻</span>
+              <h3 className="public-card__title">Kode Sai Harshitha</h3>
+              <p className="public-card__desc">Full-Stack Developer</p>
             </div>
-            <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👨🏻‍💻</div>
+            <div className="public-card" style={{ textAlign: "center" }}>
+              <span className="public-card__icon" style={{ fontSize: "3.25rem" }}>👨🏾‍💻</span>
               <h3 className="public-card__title">Saviti Veerababu</h3>
-              <p className="public-card__desc">Developer</p>
+              <p className="public-card__desc">Backend &amp; DevOps Engineer</p>
             </div>
-            <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👨🏽‍💻</div>
+            <div className="public-card" style={{ textAlign: "center" }}>
+              <span className="public-card__icon" style={{ fontSize: "3.25rem" }}>🧑🏽‍💻</span>
               <h3 className="public-card__title">Tathineni Govardhan</h3>
-              <p className="public-card__desc">Developer</p>
+              <p className="public-card__desc">Frontend &amp; UI Engineer</p>
             </div>
           </div>
         </section>
 
-        {/* Our Vision */}
-        <section className="public-section" style={{ maxWidth: "800px", margin: "0 auto var(--space-20)" }}>
-          <h2 className="public-section__title">Our Vision</h2>
-          <div className="public-card" style={{ padding: "var(--space-10)", textAlign: "center" }}>
-            <p className="public-card__desc" style={{ fontSize: "1.25rem", color: "var(--ink-primary)", marginBottom: "var(--space-6)" }}>
-              "To bridge the digital divide in rural education by providing high-quality, 
-              accessible, and gamified learning experiences that work even without 
+        {/* Vision */}
+        <section style={{ maxWidth: "800px", margin: "8rem auto 4rem", textAlign: "center" }}>
+          <h2 className="public-section__title" style={{ textAlign: "center" }}>Our Vision</h2>
+          <div className="public-card" style={{ padding: "var(--space-12)", textAlign: "center" }}>
+            <p style={{ fontSize: "1.15rem", color: "var(--ink-primary)", marginBottom: "var(--space-8)", lineHeight: "1.9", textAlign: "center", fontStyle: "italic" }}>
+              "To bridge the digital divide in rural education by providing high-quality,
+              accessible, and gamified learning experiences that work even without
               an internet connection."
             </p>
-            <p className="public-card__desc">
-              GyanGrit was born from the realization that while digital tools are transforming 
-              education in cities, rural areas are often left behind due to infrastructure 
+            <p style={{ fontSize: "var(--text-base)", color: "var(--ink-secondary)", lineHeight: "1.8", textAlign: "center", margin: 0 }}>
+              GyanGrit was born from the realization that while digital tools are transforming
+              education in cities, rural areas are often left behind due to infrastructure
               challenges. We are committed to changing that narrative, one village at a time.
             </p>
           </div>

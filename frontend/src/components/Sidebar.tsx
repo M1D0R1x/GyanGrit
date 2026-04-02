@@ -54,6 +54,9 @@ const KeyIcon     = () => <IcoP><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.7
 const EditIcon    = () => <IcoP><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></IcoP>;
 const SchoolIcon  = () => <IcoP><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IcoP>;
 const HistoryIcon = () => <IcoP><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></IcoP>;
+const InfoIcon    = () => <IcoP><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></IcoP>;
+const HelpIcon    = () => <IcoP><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></IcoP>;
+const MailIcon    = () => <IcoP><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></IcoP>;
 
 // ── Role nav config ────────────────────────────────────────────────
 
@@ -81,6 +84,11 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Class Chat",   path: "/chat",          icon: <ChatIcon /> },
         { label: "Competitions", path: "/competitions",  icon: <TrophyIcon /> },
       ]},
+      { title: "Info", items: [
+        { label: "About",      path: "/about",   icon: <InfoIcon /> },
+        { label: "FAQ",        path: "/faq",     icon: <HelpIcon /> },
+        { label: "Contact Us", path: "/contact", icon: <MailIcon /> },
+      ]},
     ];
 
     case "TEACHER": return [
@@ -101,6 +109,11 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Class Chat",   path: "/teacher/chat",         icon: <ChatIcon /> },
         { label: "Competitions", path: "/teacher/competitions", icon: <TrophyIcon /> },
       ]},
+      { title: "Info", items: [
+        { label: "About",      path: "/about",   icon: <InfoIcon /> },
+        { label: "FAQ",        path: "/faq",     icon: <HelpIcon /> },
+        { label: "Contact Us", path: "/contact", icon: <MailIcon /> },
+      ]},
     ];
 
     case "PRINCIPAL": return [
@@ -120,6 +133,11 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Class Chat",   path: "/principal/chat",         icon: <ChatIcon /> },
         { label: "Competitions", path: "/principal/competitions", icon: <TrophyIcon /> },
       ]},
+      { title: "Info", items: [
+        { label: "About",      path: "/about",   icon: <InfoIcon /> },
+        { label: "FAQ",        path: "/faq",     icon: <HelpIcon /> },
+        { label: "Contact Us", path: "/contact", icon: <MailIcon /> },
+      ]},
     ];
 
     case "OFFICIAL": return [
@@ -130,6 +148,11 @@ function getNavSections(role: Role): NavSection[] {
       ]},
       { title: "Management", items: [
         { label: "Principal Codes", path: "/official/users", icon: <KeyIcon /> },
+      ]},
+      { title: "Info", items: [
+        { label: "About",      path: "/about",   icon: <InfoIcon /> },
+        { label: "FAQ",        path: "/faq",     icon: <HelpIcon /> },
+        { label: "Contact Us", path: "/contact", icon: <MailIcon /> },
       ]},
     ];
 
@@ -153,6 +176,11 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Live Classes",    path: "/admin/live",            icon: <VideoIcon /> },
         { label: "Flashcards",      path: "/admin/flashcards",      icon: <CardIcon /> },
         { label: "AI Tutor",        path: "/admin/ai-tutor",        icon: <BotIcon /> },
+      ]},
+      { title: "Info", items: [
+        { label: "About",      path: "/about",   icon: <InfoIcon /> },
+        { label: "FAQ",        path: "/faq",     icon: <HelpIcon /> },
+        { label: "Contact Us", path: "/contact", icon: <MailIcon /> },
       ]},
     ];
 

@@ -7,6 +7,7 @@ import { apiPost } from "../services/api";
 import Logo from "./Logo";
 import { NotificationBell, NotificationPanel } from "./NotificationPanel";
 import { fetchNotifications } from "../services/notifications";
+import { useTheme } from "./ThemeProvider";
 
 type Props = {
   title?: string;
@@ -66,6 +67,7 @@ function LogoutDropdownItem({ onLogout }: { onLogout: () => void }) {
 export default function TopBar({ title, onMenuClick }: Props) {
   const auth     = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const [userMenuOpen,      setUserMenuOpen]      = useState(false);
   const [notifOpen,         setNotifOpen]         = useState(false);
@@ -159,6 +161,15 @@ export default function TopBar({ title, onMenuClick }: Props) {
 
   const roleColor = auth.user ? (ROLE_COLORS[auth.user.role] ?? "#F59E0B") : "#F59E0B";
 
+  // Same Nefee glass recipe as topbar: glass-fill gradient + glass-stroke border + blur(12px)
+  const glassStyle: React.CSSProperties = {
+    background:           "var(--glass-fill)",
+    border:               "1px solid var(--glass-stroke)",
+    backdropFilter:       "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    boxShadow:            "var(--shadow-xl)",
+  };
+
   return (
     <>
       {/* PWA Install Banner */}
@@ -189,11 +200,10 @@ export default function TopBar({ title, onMenuClick }: Props) {
       <header role="banner" className="topbar">
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          width: "100%", maxWidth: 1100, margin: "0 auto", padding: "0"
+          width: "100%", maxWidth: 1100, margin: "0 auto",
         }}>
           {/* Left */}
           <div className="topbar__left">
-            {/* Hamburger — always shows, calls parent handler on mobile */}
             <button
               className="topbar__menu-btn"
               onClick={onMenuClick}
@@ -220,12 +230,11 @@ export default function TopBar({ title, onMenuClick }: Props) {
             )}
           </div>
 
-        {/* Right */}
-        <div className="topbar__right">
-          {auth.authenticated && (
-            <div ref={userMenuRef && { current: null } as unknown as React.RefObject<HTMLDivElement>} style={{ position: "relative" }}>
-              {/* Notification bell */}
+          {/* Right */}
+          <div className="topbar__right">
+            {auth.authenticated && (
               <div style={{ position: "relative" }}>
+                {/* Notification bell */}
                 <NotificationBell
                   unread={unreadCount}
                   active={notifOpen}
@@ -239,81 +248,121 @@ export default function TopBar({ title, onMenuClick }: Props) {
                   />
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {auth.loading ? (
-            <div className="skeleton" style={{ width: 90, height: 32, borderRadius: "var(--radius-full)" }} />
-          ) : auth.authenticated && auth.user ? (
-            <div ref={userMenuRef} style={{ position: "relative" }}>
-              <button
-                className="topbar__user"
-                onClick={() => { setUserMenuOpen((v) => !v); setNotifOpen(false); }}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-              >
-                <div className="topbar__avatar" style={{ background: roleColor }}>
-                  {auth.user.username.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="topbar__username hide-mobile">{auth.user.username}</span>
-                <span className="topbar__role-badge hide-mobile"
-                  style={{ background: roleColor + "18", color: roleColor }}>
-                  {auth.user.role}
-                </span>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                  stroke="var(--ink-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: userMenuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 150ms", flexShrink: 0 }}>
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
+            {auth.loading ? (
+              <div className="skeleton" style={{ width: 90, height: 32, borderRadius: "var(--radius-full)" }} />
+            ) : auth.authenticated && auth.user ? (
+              <div ref={userMenuRef} style={{ position: "relative" }}>
+                <button
+                  className="topbar__user"
+                  onClick={() => { setUserMenuOpen((v) => !v); setNotifOpen(false); }}
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                >
+                  <div className="topbar__avatar" style={{ background: roleColor }}>
+                    {auth.user.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="topbar__username hide-mobile">{auth.user.username}</span>
+                  <span className="topbar__role-badge hide-mobile"
+                    style={{ background: roleColor + "18", color: roleColor }}>
+                    {auth.user.role}
+                  </span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--ink-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: userMenuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 150ms", flexShrink: 0 }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
 
-              {userMenuOpen && (
-                <div role="menu" className="dropdown" style={{ top: "calc(100% + 8px)", right: 0, minWidth: 200 }}>
-                  <div style={{ padding: "var(--space-4) var(--space-4) var(--space-3)", borderBottom: "1px solid var(--border-light)" }}>
-                    <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
-                      {auth.user.username}
-                    </div>
-                    {auth.user.public_id && (
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
-                        {auth.user.public_id}
+                {/* User dropdown — same glass as topbar */}
+                {userMenuOpen && (
+                  <div
+                    role="menu"
+                    style={{
+                      position:             "absolute",
+                      top:                  "calc(100% + 8px)",
+                      right:                0,
+                      minWidth:             210,
+                      borderRadius:         "var(--radius-xl)",
+                      overflow:             "hidden",
+                      zIndex:               999,
+                      animation:            "scaleIn 0.15s ease both",
+                      transformOrigin:      "top right",
+                      ...glassStyle,
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ padding: "var(--space-4) var(--space-4) var(--space-3)", borderBottom: "1px solid var(--glass-stroke)" }}>
+                      <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
+                        {auth.user.username}
                       </div>
-                    )}
-                  </div>
-                  <div style={{ padding: "var(--space-2)" }}>
-                    {[
-                      { label: "Profile", path: "/profile", d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
-                      { label: "Notifications", path: "/notifications", d: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
-                    ].map((item) => (
-                      <button
-                        key={item.label}
-                        className="dropdown__item"
-                        role="menuitem"
-                        onClick={() => { setUserMenuOpen(false); navigate(item.path); }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d={item.d} />
-                        </svg>
-                        {item.label}
-                        {item.label === "Notifications" && unreadCount > 0 && (
-                          <span style={{
-                            marginLeft: "auto", background: "var(--error)", color: "#fff",
-                            fontSize: 9, fontWeight: 800, padding: "1px 5px",
-                            borderRadius: "var(--radius-full)", fontFamily: "var(--font-display)",
-                          }}>
-                            {unreadCount}
-                          </span>
+                      {auth.user.public_id && (
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
+                          {auth.user.public_id}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ padding: "var(--space-2)" }}>
+                      {[
+                        { label: "Profile",       path: "/profile",       d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+                        { label: "Notifications", path: "/notifications", d: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          className="dropdown__item"
+                          role="menuitem"
+                          onClick={() => { setUserMenuOpen(false); navigate(item.path); }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d={item.d} />
+                          </svg>
+                          {item.label}
+                          {item.label === "Notifications" && unreadCount > 0 && (
+                            <span style={{
+                              marginLeft: "auto", background: "var(--error)", color: "#fff",
+                              fontSize: 9, fontWeight: 800, padding: "1px 5px",
+                              borderRadius: "var(--radius-full)", fontFamily: "var(--font-display)",
+                            }}>
+                              {unreadCount}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+
+                      <button className="dropdown__item" role="menuitem" onClick={toggleTheme}>
+                        {theme === "light" ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="5" />
+                            <line x1="12" y1="1" x2="12" y2="3" />
+                            <line x1="12" y1="21" x2="12" y2="23" />
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                            <line x1="1" y1="12" x2="3" y2="12" />
+                            <line x1="21" y1="12" x2="23" y2="12" />
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                          </svg>
                         )}
+                        {theme === "light" ? "Dark Mode" : "Light Mode"}
                       </button>
-                    ))}
-                    <div className="dropdown__divider" />
-                    <LogoutDropdownItem onLogout={() => setUserMenuOpen(false)} />
+
+                      <div className="dropdown__divider" />
+                      <LogoutDropdownItem onLogout={() => setUserMenuOpen(false)} />
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
     </>

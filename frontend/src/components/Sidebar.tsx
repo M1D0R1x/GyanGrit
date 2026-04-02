@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import type { Role } from "../auth/authTypes";
 import Logo from "./Logo";
 import LogoutButton from "./LogoutButton";
+import { useTheme } from "./ThemeProvider";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -187,6 +188,7 @@ type Props = {
 export default function SidebarContent({ role, username, onNavigate }: Props) {
   const navigate  = useNavigate();
   const location  = useLocation();
+  const { toggleTheme } = useTheme();
 
   const sections  = getNavSections(role);
   const roleColor = ROLE_COLORS[role] ?? "var(--saffron)";
@@ -205,8 +207,8 @@ export default function SidebarContent({ role, username, onNavigate }: Props) {
   return (
     <div className="sidebar-content">
       {/* Logo header */}
-      <div className="sidebar-content__header">
-        <Logo size="sm" variant="full" />
+      <div className="sidebar-content__header" style={{ padding: "var(--space-6) var(--space-6) var(--space-4)", borderBottom: "1px solid var(--border-light)" }}>
+        <Logo size="md" variant="full" />
       </div>
 
       {/* Nav sections */}
@@ -246,7 +248,7 @@ export default function SidebarContent({ role, username, onNavigate }: Props) {
       {/* User footer */}
       <div className="sidebar-content__footer">
         {/* User chip */}
-        <div className="sidebar-content__user">
+        <div className="sidebar-content__user" onClick={toggleTheme} style={{ cursor: "pointer" }} title="Toggle Theme">
           <div className="sidebar-content__avatar"
             style={{ background: roleGlow, border: `1.5px solid ${roleColor}40` }}>
             <span style={{ color: roleColor, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 12 }}>

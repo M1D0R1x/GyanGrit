@@ -203,21 +203,23 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
         role="dialog"
         aria-label="Notifications"
         style={{
-          position:        "absolute",
-          top:             "calc(100% + 8px)",
-          right:           0,
-          width:           380,
-          maxWidth:        "calc(100vw - 32px)",
-          maxHeight:       560,
-          background:      "var(--bg-elevated)",
-          border:          "1px solid var(--border-medium)",
-          borderRadius:    "var(--radius-lg)",
-          boxShadow:       "0 16px 48px rgba(0,0,0,0.5)",
-          zIndex:          9999,
-          display:         "flex",
-          flexDirection:   "column",
-          overflow:        "hidden",
-          animation:       "fadeInUp 0.15s ease both",
+          position:             "absolute",
+          top:                  "calc(100% + 8px)",
+          right:                0,
+          width:                380,
+          maxWidth:             "calc(100vw - 32px)",
+          maxHeight:            560,
+          background:           "var(--glass-fill)",
+          border:               "1px solid var(--glass-stroke)",
+          borderRadius:         "var(--radius-lg)",
+          boxShadow:            "var(--shadow-xl)",
+          zIndex:               9999,
+          display:              "flex",
+          flexDirection:        "column",
+          overflow:             "hidden",
+          animation:            "fadeInUp 0.15s ease both",
+          backdropFilter:       "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
       >
         {/* ── Header ───────────────────────────────────────────────────── */}
@@ -227,7 +229,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
           justifyContent: "space-between",
           padding:        "12px 16px",
           borderBottom:   "1px solid var(--border-light)",
-          background:     "var(--bg-surface)",
+          background:     "transparent",
           flexShrink:     0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -401,7 +403,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
         <div style={{
           flexShrink:   0,
           borderTop:    "1px solid var(--border-light)",
-          background:   "var(--bg-surface)",
+          background:   "transparent",
         }}>
           <button
             onClick={handleViewAllClick}

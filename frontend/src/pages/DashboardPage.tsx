@@ -70,12 +70,12 @@ function StatPill({ icon, value, label, color, onClick }: {
         alignItems:   "center",
         gap:          "var(--space-4)",
         padding:      "var(--space-4) var(--space-5)",
-        background:   hov ? "var(--bg-elevated)" : "var(--bg-surface)",
-        border:       `1px solid ${hov ? "var(--border-medium)" : "var(--border-light)"}`,
+        background:   hov ? "var(--glass-fill)" : "var(--bg-surface)",
+        border:       `1px solid ${hov ? "var(--glass-stroke)" : "var(--border-light)"}`,
         borderRadius: "var(--radius-xl)",
         cursor:       onClick ? "pointer" : "default",
-        transition:   "all 0.2s ease",
-        transform:    hov ? "translateY(-2px)" : "translateY(0)",
+        transition:   "all var(--transition-base)",
+        transform:    hov ? "translateY(-1px)" : "translateY(0)",
         boxShadow:    hov ? "var(--shadow-md)" : "var(--shadow-card)",
       }}
     >
@@ -134,13 +134,13 @@ function SubjectCard({ subject, resumeLessonId }: {
       aria-label={`${subject.name} — ${subject.progress}% complete`}
       style={{
         padding:       "var(--space-6)",
-        background:    "var(--bg-surface)",
-        border:        `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--border-light)"}`,
+        background:    "var(--glass-fill)",
+        border:        `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--glass-stroke)"}`,
         borderLeft:    `4px solid ${progressColor}`,
         borderRadius:  "var(--radius-lg)",
         cursor:        "pointer",
-        transition:    "all 0.2s ease",
-        transform:     hov ? "translateY(-3px)" : "translateY(0)",
+        transition:    "all var(--transition-base)",
+        transform:     hov ? "translateY(-1px)" : "translateY(0)",
         boxShadow:     hov ? "var(--shadow-card-hover)" : "var(--shadow-card)",
         display:       "flex",
         flexDirection: "column",
@@ -219,9 +219,9 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
       className="assessment-row page-enter"
       style={{
         animationDelay: `${index * 50}ms`,
-        background:     hov ? "var(--saffron-light)" : "transparent",
+        background:     hov ? "var(--saffron-glow)" : "transparent",
         transform:      hov ? "translateX(4px)" : "translateX(0)",
-        transition:     "all 0.15s ease",
+        transition:     "all var(--transition-base)",
       }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -320,13 +320,13 @@ function StreakCard({ gamification, onNavigate }: { gamification: MySummary; onN
           const b = e.currentTarget as HTMLButtonElement;
           b.style.borderColor = "var(--saffron)";
           b.style.color = "var(--saffron-dark)";
-          b.style.background = "var(--saffron-light)";
+          b.style.background = "var(--saffron-glow)";
         }}
         onMouseLeave={(e) => {
           const b = e.currentTarget as HTMLButtonElement;
-          b.style.borderColor = "var(--border-medium)";
+          b.style.borderColor = "var(--glass-stroke)";
           b.style.color = "var(--ink-secondary)";
-          b.style.background = "var(--bg-surface)";
+          b.style.background = "var(--glass-fill)";
         }}
       >
         🏆 Leaderboard
@@ -462,7 +462,7 @@ export default function DashboardPage() {
             </div>
           ) : loadingAssess ? (
             <div style={{
-              background: "var(--bg-surface)", border: "1px solid var(--border-light)",
+              background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)",
               borderRadius: "var(--radius-xl)", overflow: "hidden",
             }}>
               {Array.from({ length: 3 }).map((_, i) => <AssessmentRowSkeleton key={i} />)}
@@ -488,7 +488,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <div style={{
-                background: "var(--bg-surface)", border: "1px solid var(--border-light)",
+                background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)",
                 borderRadius: "var(--radius-xl)", overflow: "hidden",
                 boxShadow: "var(--shadow-card)",
               }}>

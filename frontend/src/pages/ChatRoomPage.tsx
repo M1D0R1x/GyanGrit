@@ -150,24 +150,24 @@ function MessageBubble({ msg, isMe, canPin, canReply, replyCount, onPin, onReply
         <div style={{
           padding: "8px 10px 18px 10px", // space for absolute time at bottom
           borderRadius: isMe ? "12px 0 12px 12px" : "0 12px 12px 12px",
-          background: isMe ? "#DCF8C6" : "#FFFFFF",
-          color: "var(--ink-primary)",
-          border: "1px solid rgba(0,0,0,0.05)",
+          background: isMe ? "var(--saffron)" : "var(--glass-fill)",
+          color: isMe ? "#FFF" : "var(--ink-primary)",
+          border: isMe ? "1px solid var(--saffron-dark)" : "1px solid var(--glass-stroke)",
           position: "relative" as const, maxWidth: "100%", minWidth: "80px",
           boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
         }}>
           {msg.is_pinned && <span style={{ position: "absolute", top: -8, right: -6, fontSize: 12 }}>📌</span>}
-          {msg.content && <p style={{ fontSize: "14px", lineHeight: 1.5, margin: 0, wordBreak: "break-word", whiteSpace: "pre-wrap", color: "var(--ink-primary)", paddingRight: "40px" }}>{msg.content}</p>}
+          {msg.content && <p style={{ fontSize: "14px", lineHeight: 1.5, margin: 0, wordBreak: "break-word", whiteSpace: "pre-wrap", color: "inherit", paddingRight: "40px" }}>{msg.content}</p>}
           <AttachmentPreview msg={msg} />
-          <span style={{ position: "absolute", right: 8, bottom: 4, fontSize: 10, color: "var(--ink-muted)", textAlign: "right" }}>{time}</span>
+          <span style={{ position: "absolute", right: 8, bottom: 4, fontSize: 10, color: isMe ? "rgba(255,255,255,0.8)" : "var(--ink-muted)", textAlign: "right" }}>{time}</span>
         </div>
         {hovered && (
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
             {canReply && !isReply && (
-              <button onClick={() => onReplyClick(msg)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)", display: "flex", alignItems: "center", gap: 3 }}>↩ Reply</button>
+              <button onClick={() => onReplyClick(msg)} style={{ background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)", display: "flex", alignItems: "center", gap: 3 }}>↩ Reply</button>
             )}
             {canPin && (
-              <button onClick={() => onPin(msg.id)} style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)" }}>
+              <button onClick={() => onPin(msg.id)} style={{ background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)", borderRadius: "var(--radius-sm)", cursor: "pointer", padding: "2px 6px", fontSize: 11, color: "var(--ink-muted)" }}>
                 {msg.is_pinned ? "📌 Unpin" : "📌 Pin"}
               </button>
             )}
@@ -206,11 +206,11 @@ function ThreadPanel({ parentMsg, replies, onClose, onSendReply, myId, canPin, c
 
   return (
     <div style={{ width: 320, flexShrink: 0, borderLeft: "1px solid var(--border-light)", display: "flex", flexDirection: "column", background: "var(--bg-surface)", height: "100%" }}>
-      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--glass-stroke)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>Thread</span>
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-muted)", fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
-      <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-elevated)" }}>
+      <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--glass-stroke)", background: "var(--glass-fill)" }}>
         <MessageBubble msg={parentMsg} isMe={parentMsg.sender_id === myId} canPin={false} canReply={false} replyCount={0} onPin={() => {}} onReplyClick={() => {}} />
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)" }}>
@@ -248,7 +248,7 @@ function NotificationToast({ toast, onDismiss, onOpen }: { toast: PushToast; onD
   return (
     <div style={{
       position: "fixed", bottom: "var(--space-6)", right: "var(--space-4)", zIndex: 999,
-      background: "var(--bg-elevated)", border: "1px solid var(--border-medium)",
+      background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)", backdropFilter: "blur(12px)",
       borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
       boxShadow: "var(--shadow-lg)", maxWidth: 320,
       display: "flex", gap: "var(--space-3)", alignItems: "flex-start",
@@ -573,8 +573,8 @@ export default function ChatRoomPage() {
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
-          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border-light)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
+          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--glass-stroke)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--glass-stroke)", flexShrink: 0 }}>
               Rooms
             </div>
             {(["officials", "staff", "subject"] as const).map((type) => {
@@ -626,7 +626,7 @@ export default function ChatRoomPage() {
               <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
                 {/* Room header */}
-                <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
+                <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--glass-stroke)", background: "var(--glass-fill)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 2 }}>
                       <RoomTypeBadge type={activeRoom.room_type} />
@@ -686,7 +686,7 @@ export default function ChatRoomPage() {
 
                 {/* Input bar */}
                 {(canPostTopLevel || canReply) && (
-                  <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--border-light)", background: "var(--bg-surface)", flexShrink: 0 }}>
+                  <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--glass-stroke)", background: "var(--glass-fill)", flexShrink: 0 }}>
                     {!canPostTopLevel && canReply && (
                       <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginBottom: "var(--space-2)" }}>
                         Tap "Reply" on a message to respond in a thread.

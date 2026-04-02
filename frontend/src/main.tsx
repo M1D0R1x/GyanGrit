@@ -8,6 +8,7 @@ import * as Sentry from "@sentry/react";
 import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
+import { ThemeProvider } from "./components/ThemeProvider";
 import "./index.css";
 
 // ── Sentry error tracking ─────────────────────────────────────────────────────
@@ -89,26 +90,30 @@ createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
     <ChunkErrorBoundary>
       <AuthProvider>
-        <RouterProvider router={router} />
-        <Toaster
-          position="bottom-center"
-          toastOptions={{
-            style: {
-              fontFamily: "var(--font-body)",
-              background: "var(--bg-surface)",
-              color: "var(--ink-primary)",
-              border: "1px solid var(--border-medium)",
-              borderRadius: "var(--radius-lg)",
-              boxShadow: "var(--shadow-lg)",
-            },
-          }}
-          richColors
-          closeButton
-        />
-        {/* Vercel Analytics — tracks page views and web vitals in production */}
-        <Analytics />
-        {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
-        <SpeedInsights />
+        <ThemeProvider>
+          <RouterProvider router={router} />
+          <Toaster
+            position="bottom-center"
+            toastOptions={{
+              style: {
+                fontFamily:           "var(--font-body)",
+                background:           "var(--glass-fill)",
+                color:                "var(--ink-primary)",
+                border:               "1px solid var(--glass-stroke)",
+                borderRadius:         "var(--radius-lg)",
+                boxShadow:            "var(--shadow-xl)",
+                backdropFilter:       "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+              },
+            }}
+            richColors
+            closeButton
+          />
+          {/* Vercel Analytics — tracks page views and web vitals in production */}
+          <Analytics />
+          {/* Vercel Speed Insights — tracks Core Web Vitals per route */}
+          <SpeedInsights />
+        </ThemeProvider>
       </AuthProvider>
     </ChunkErrorBoundary>
   </HelmetProvider>

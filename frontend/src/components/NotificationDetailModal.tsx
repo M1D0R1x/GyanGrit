@@ -246,8 +246,8 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
       }}
     >
       <div style={{
-        background:    "var(--bg-elevated)",
-        border:        "1px solid var(--border-medium)",
+        background:    "var(--glass-fill)",
+        border:        "1px solid var(--glass-stroke)",
         borderRadius:  "var(--radius-lg)",
         width:         "min(580px, 100%)",
         maxHeight:     "calc(90vh - 2rem)",
@@ -255,7 +255,9 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
         flexDirection: "column",
         overflow:      "hidden",
         animation:     "fadeInUp 0.18s ease both",
-        boxShadow:     "0 24px 64px rgba(0,0,0,0.5)",
+        boxShadow:     "var(--shadow-xl)",
+        backdropFilter:       "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
       }}>
 
         {/* ── Header ───────────────────────────────────────────────────── */}

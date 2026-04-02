@@ -218,8 +218,8 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
           flexDirection:        "column",
           overflow:             "hidden",
           animation:            "fadeInUp 0.15s ease both",
-          backdropFilter:       "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          backdropFilter:       "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
         }}
       >
         {/* ── Header ───────────────────────────────────────────────────── */}
@@ -353,7 +353,7 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   {n.message && (
                     <div style={{
                       fontSize:          "var(--text-xs)",
-                      color:             "var(--ink-muted)",
+                      color:             "var(--ink-secondary)",
                       lineHeight:        1.4,
                       overflow:          "hidden",
                       display:           "-webkit-box",
@@ -371,13 +371,13 @@ export function NotificationPanel({ onClose, onUnreadChange, onViewAll }: Props)
                   <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
                     {n.sender && n.sender !== "System" && (
                       <>
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 500 }}>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)", fontWeight: 600 }}>
                           {n.sender}
                         </span>
-                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", opacity: 0.5 }}>·</span>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)", opacity: 0.8 }}>·</span>
                       </>
                     )}
-                    <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", opacity: 0.7 }}>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-secondary)" }}>
                       {timeAgo(n.created_at)}
                     </span>
                   </div>

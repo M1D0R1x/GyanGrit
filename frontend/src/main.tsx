@@ -102,11 +102,10 @@ createRoot(document.getElementById("root")!).render(
                 border:               "1px solid var(--glass-stroke)",
                 borderRadius:         "var(--radius-lg)",
                 boxShadow:            "var(--shadow-xl)",
-                backdropFilter:       "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
+                backdropFilter:       "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
               },
             }}
-            richColors
             closeButton
           />
           {/* Vercel Analytics — tracks page views and web vitals in production */}

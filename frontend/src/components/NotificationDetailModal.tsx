@@ -236,7 +236,7 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
       style={{
         position:       "fixed",
         inset:          0,
-        background:     "rgba(0,0,0,0.65)",
+        background:     "rgba(0, 0, 0, 0.15)",
         zIndex:         10000,
         display:        "flex",
         alignItems:     "flex-start",
@@ -256,8 +256,8 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
         overflow:      "hidden",
         animation:     "fadeInUp 0.18s ease both",
         boxShadow:     "var(--shadow-xl)",
-        backdropFilter:       "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        backdropFilter:       "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
       }}>
 
         {/* ── Header ───────────────────────────────────────────────────── */}
@@ -309,10 +309,11 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               gap:       "var(--space-2)",
               marginTop: "var(--space-2)",
               fontSize:  "var(--text-xs)",
-              color:     "var(--ink-muted)",
+              color:     "var(--ink-secondary)",
+              fontWeight: 500,
             }}>
               {n.sender && n.sender !== "System" && (
-                <span style={{ fontWeight: 600, color: "var(--ink-secondary)" }}>
+                <span style={{ fontWeight: 700, color: "var(--ink-primary)" }}>
                   {n.sender}
                 </span>
               )}
@@ -358,10 +359,11 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
           {n.message ? (
             <div
               className="notification-body"
+              style={{ color: "var(--ink-primary)", fontSize: "var(--text-base)", fontWeight: 500 }}
               dangerouslySetInnerHTML={{ __html: renderedBody }}
             />
           ) : (
-            <p style={{ color: "var(--ink-muted)", fontStyle: "italic", fontSize: "var(--text-sm)" }}>
+            <p style={{ color: "var(--ink-secondary)", fontStyle: "italic", fontSize: "var(--text-sm)" }}>
               No message body.
             </p>
           )}
@@ -461,8 +463,8 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize:      "var(--text-xs)",
-                  color:         "var(--ink-muted)",
-                  fontWeight:    600,
+                  color:         "var(--ink-secondary)",
+                  fontWeight:    700,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                   marginBottom:  2,
@@ -470,8 +472,9 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
                   Linked resource
                 </div>
                 <div style={{
-                  fontSize:     "var(--text-xs)",
-                  color:        "var(--ink-secondary)",
+                  fontSize:     "var(--text-sm)",
+                  color:        "var(--ink-primary)",
+                  fontWeight:   600,
                   overflow:     "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace:   "nowrap",

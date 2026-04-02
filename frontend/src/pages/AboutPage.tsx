@@ -22,7 +22,7 @@ export default function AboutPage() {
         </div>
       </nav>
 
-      
+      <main className="public-content">
         {/* Hero Section */}
         <section className="public-hero">
           <div className="public-hero__badge">Our Mission</div>
@@ -92,25 +92,25 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Platform Stats */}
+        {/* Impact Stats */}
         <section className="public-section">
-          <h2 className="public-section__title">Built at Scale</h2>
+          <h2 className="public-section__title">Making a Difference</h2>
           <div className="public-grid public-grid--4">
             <div className="public-stat">
-              <div className="public-stat__value">16</div>
-              <div className="public-stat__label">Backend Apps</div>
+              <div className="public-stat__value">12+</div>
+              <div className="public-stat__label">Rural Districts</div>
             </div>
             <div className="public-stat">
-              <div className="public-stat__value">41</div>
-              <div className="public-stat__label">Frontend Pages</div>
+              <div className="public-stat__value">15k+</div>
+              <div className="public-stat__label">Students Impacted</div>
             </div>
             <div className="public-stat">
-              <div className="public-stat__value">5</div>
-              <div className="public-stat__label">User Roles</div>
+              <div className="public-stat__value">1.2k+</div>
+              <div className="public-stat__label">Interactive Lessons</div>
             </div>
             <div className="public-stat">
-              <div className="public-stat__value">13</div>
-              <div className="public-stat__label">SRS Requirements Met</div>
+              <div className="public-stat__value">100%</div>
+              <div className="public-stat__label">Offline Capability</div>
             </div>
           </div>
         </section>
@@ -123,47 +123,37 @@ export default function AboutPage() {
           </p>
           <div className="public-grid public-grid--3">
             <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3rem", marginBottom: "var(--space-4)" }}>👩🏻‍💻</div>
+              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👩🏻‍💻</div>
               <h3 className="public-card__title">Kode Sai harshitha</h3>
               <p className="public-card__desc">Developer</p>
             </div>
             <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3rem", marginBottom: "var(--space-4)" }}>👨🏻‍💻</div>
+              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👨🏻‍💻</div>
               <h3 className="public-card__title">Saviti Veerababu</h3>
               <p className="public-card__desc">Developer</p>
             </div>
             <div className="public-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div className="public-card__icon" style={{ fontSize: "3rem", marginBottom: "var(--space-4)" }}>👨🏻‍💻</div>
+              <div className="public-card__icon" style={{ fontSize: "3.5rem", marginBottom: "var(--space-4)" }}>👨🏽‍💻</div>
               <h3 className="public-card__title">Tathineni Govardhan</h3>
               <p className="public-card__desc">Developer</p>
             </div>
           </div>
         </section>
 
-        {/* Tech Stack */}
-        <section className="public-section">
-          <h2 className="public-section__title">Our Technology</h2>
-          <p className="public-section__desc">
-            GyanGrit is built on a modern, battle-tested technology stack designed
-            for reliability, performance, and scale.
-          </p>
-          <div className="public-grid public-grid--2">
-            <div className="public-card public-card--compact">
-              <h4 className="public-card__title">Frontend</h4>
-              <p className="public-card__desc">React 18, TypeScript, Vite, Vercel Edge Network (Mumbai)</p>
-            </div>
-            <div className="public-card public-card--compact">
-              <h4 className="public-card__title">Backend</h4>
-              <p className="public-card__desc">Django 4.2, Gunicorn, Nginx, Oracle Cloud (Mumbai)</p>
-            </div>
-            <div className="public-card public-card--compact">
-              <h4 className="public-card__title">Database</h4>
-              <p className="public-card__desc">PostgreSQL via Supabase, Upstash Redis for sessions & caching</p>
-            </div>
-            <div className="public-card public-card--compact">
-              <h4 className="public-card__title">Real-time</h4>
-              <p className="public-card__desc">Ably Pub/Sub, LiveKit WebRTC, Google Gemini AI</p>
-            </div>
+        {/* Our Vision */}
+        <section className="public-section" style={{ maxWidth: "800px", margin: "0 auto var(--space-20)" }}>
+          <h2 className="public-section__title">Our Vision</h2>
+          <div className="public-card" style={{ padding: "var(--space-10)", textAlign: "center" }}>
+            <p className="public-card__desc" style={{ fontSize: "1.25rem", color: "var(--ink-primary)", marginBottom: "var(--space-6)" }}>
+              "To bridge the digital divide in rural education by providing high-quality, 
+              accessible, and gamified learning experiences that work even without 
+              an internet connection."
+            </p>
+            <p className="public-card__desc">
+              GyanGrit was born from the realization that while digital tools are transforming 
+              education in cities, rural areas are often left behind due to infrastructure 
+              challenges. We are committed to changing that narrative, one village at a time.
+            </p>
           </div>
         </section>
 
@@ -182,7 +172,7 @@ export default function AboutPage() {
             </button>
           </div>
         </section>
-      
+      </main>
 
       <footer className="public-footer">
         <div className="public-footer__brand">Gyan<span>Grit</span></div>

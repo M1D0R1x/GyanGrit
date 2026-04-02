@@ -165,8 +165,8 @@ export default function TopBar({ title, onMenuClick }: Props) {
   const glassStyle: React.CSSProperties = {
     background:           "var(--glass-fill)",
     border:               "1px solid var(--glass-stroke)",
-    backdropFilter:       "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
+    backdropFilter:       "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
     boxShadow:            "var(--shadow-xl)",
   };
 

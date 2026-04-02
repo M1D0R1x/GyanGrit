@@ -67,7 +67,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
               onClick={() => setDrawerOpen(false)}
               style={{
                 position: "fixed", inset: 0,
-                background: "var(--bg-overlay)",
+                background: "rgba(0, 0, 0, 0.15)",
                 zIndex: 59,
                 animation: "fadeIn 0.18s ease both",
               }}

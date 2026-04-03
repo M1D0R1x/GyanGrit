@@ -14,4 +14,8 @@ urlpatterns = [
     path("sessions/<str:session_id>/token/",           views.session_token),
     path("sessions/<str:session_id>/attendance/",      views.session_attendance),
     path("sessions/<str:session_id>/remind/",          views.session_remind),
+    # ── Recording endpoints ────────────────────────────────────────────────────
+    path("recording-webhook/",                         views.recording_webhook),
+    path("recordings/",                                views.recordings_list),
+    path("recordings/<str:session_id>/",               views.recording_detail),
 ]

@@ -15,6 +15,11 @@ Student:
 
 Both:
   GET  /api/v1/live/sessions/<id>/token/       — LiveKit JWT token for room
+
+Recordings:
+  POST /api/v1/live/recording-webhook/         — LiveKit Egress completion callback
+  GET  /api/v1/live/recordings/                — list recordings (role-filtered)
+  GET  /api/v1/live/recordings/<id>/           — single recording detail
 """
 import json
 import logging
@@ -30,7 +35,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from apps.accesscontrol.permissions import require_roles
-from .models import LiveSession, LiveAttendance, SessionStatus
+from .models import LiveSession, LiveAttendance, SessionStatus, RecordingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -243,6 +248,13 @@ def session_start(request, session_id):
     session.status     = SessionStatus.LIVE
     session.started_at = timezone.now()
     session.save(update_fields=["status", "started_at"])
+
+    # Start LiveKit Egress recording (best-effort — session goes live regardless)
+    try:
+        from .recording import start_recording
+        start_recording(session)
+    except Exception as exc:
+        logger.warning("Recording start failed for session %s: %s", session.public_id, exc)
 
     # Notify students via Ably
     try:
@@ -534,3 +546,134 @@ def session_remind(request, session_id):
 
     logger.info("Reminder sent: session=%s minutes_before=%s", session.public_id, minutes_label)
     return JsonResponse({"reminded": True, "session_id": session.public_id})
+
+
+# ── Recording endpoints ──────────────────────────────────────────────────────────────
+
+def _recording_to_dict(session: LiveSession) -> dict:
+    """Serialize a session's recording fields for API response."""
+    return {
+        "id":                         session.public_id,
+        "title":                      session.title,
+        "subject_id":                 session.subject_id,
+        "subject_name":               session.subject.name if session.subject else None,
+        "teacher_name":               session.teacher.get_full_name() or session.teacher.username,
+        "section_id":                 session.section_id,
+        "section_name":               session.section.name if session.section else None,
+        "scheduled_at":               session.scheduled_at.isoformat(),
+        "started_at":                 session.started_at.isoformat() if session.started_at else None,
+        "recording_status":           session.recording_status,
+        "recording_url":              session.recording_url,
+        "recording_duration_seconds": session.recording_duration_seconds,
+        "recording_size_bytes":       session.recording_size_bytes,
+    }
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def recording_webhook(request):
+    """
+    POST /api/v1/live/recording-webhook/
+
+    LiveKit Egress completion callback.
+    Verifies HMAC-SHA256 signature from Authorization header.
+    Updates LiveSession.recording_status when Egress completes.
+    No auth cookie required — LiveKit is the caller.
+    """
+    from .recording import verify_webhook_signature, handle_recording_webhook
+
+    # Verify signature
+    signature = request.headers.get("Authorization", "")
+    if not verify_webhook_signature(request.body, signature):
+        logger.warning("Recording webhook: invalid signature")
+        return JsonResponse({"error": "Invalid signature"}, status=401)
+
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    try:
+        handle_recording_webhook(payload)
+    except Exception as exc:
+        logger.error("Recording webhook handler error: %s", exc, exc_info=True)
+        return JsonResponse({"error": "Internal error"}, status=500)
+
+    return JsonResponse({"ok": True})
+
+
+@require_auth
+@require_http_methods(["GET"])
+def recordings_list(request):
+    """
+    GET /api/v1/live/recordings/
+
+    Returns sessions that have a recording (status != 'none').
+    Access rules:
+      STUDENT    — own section only
+      TEACHER    — sessions they taught
+      ADMIN/PRINCIPAL — all recordings in the institution
+    """
+    user = request.user
+    base_qs = (
+        LiveSession.objects
+        .exclude(recording_status=RecordingStatus.NONE)
+        .select_related("subject", "teacher", "section")
+        .order_by("-scheduled_at")
+    )
+
+    if user.role == "STUDENT":
+        section = getattr(user, "section", None)
+        if not section:
+            return JsonResponse([], safe=False)
+        qs = base_qs.filter(section=section, recording_status=RecordingStatus.READY)
+    elif user.role == "TEACHER":
+        qs = base_qs.filter(teacher=user)
+    else:
+        # ADMIN / PRINCIPAL / OFFICIAL — all
+        qs = base_qs
+
+    # Optional filters from query params
+    subject_id = request.GET.get("subject_id")
+    if subject_id:
+        qs = qs.filter(subject_id=subject_id)
+
+    status_filter = request.GET.get("recording_status")
+    if status_filter:
+        qs = qs.filter(recording_status=status_filter)
+
+    return JsonResponse(
+        [_recording_to_dict(s) for s in qs[:100]],
+        safe=False,
+    )
+
+
+@require_auth
+@require_http_methods(["GET"])
+def recording_detail(request, session_id):
+    """
+    GET /api/v1/live/recordings/<session_id>/
+
+    Returns full recording detail for a single session.
+    """
+    user = request.user
+    session = get_object_or_404(
+        LiveSession.objects.select_related("subject", "teacher", "section"),
+        public_id=session_id,
+    )
+
+    # Access check
+    if user.role == "STUDENT":
+        if getattr(user, "section_id", None) != session.section_id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+    elif user.role == "TEACHER":
+        if session.teacher_id != user.id:
+            return JsonResponse({"error": "Forbidden"}, status=403)
+
+    if session.recording_status == RecordingStatus.NONE:
+        return JsonResponse({"error": "No recording for this session"}, status=404)
+
+    data = _recording_to_dict(session)
+    # Also include attendance count for the player page
+    data["attendance_count"] = session.attendance.filter(is_present=True).count()
+    return JsonResponse(data)

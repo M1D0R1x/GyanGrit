@@ -24,6 +24,13 @@ import uuid
 def generate_public_id():
     return str(uuid.uuid4())[:8]
 
+class RecordingStatus(models.TextChoices):
+    NONE       = "none",       "None"
+    PROCESSING = "processing", "Processing"
+    READY      = "ready",      "Ready"
+    FAILED     = "failed",     "Failed"
+
+
 class LiveSession(models.Model):
     public_id       = models.CharField(max_length=20, default=generate_public_id, unique=True, db_index=True)
     title           = models.CharField(max_length=200)
@@ -48,11 +55,31 @@ class LiveSession(models.Model):
     description     = models.TextField(blank=True)
     created_at      = models.DateTimeField(default=timezone.now)
 
+    # ── Recording (LiveKit Egress → Cloudflare R2) ─────────────────────────────
+    recording_status   = models.CharField(
+        max_length=12,
+        choices=RecordingStatus.choices,
+        default=RecordingStatus.NONE,
+        db_index=True,
+    )
+    # R2 object key (e.g. recordings/101/10-A/Mathematics/2026-04-03_10-30_slug.mp4)
+    recording_r2_key   = models.CharField(max_length=500, blank=True)
+    # Public CDN URL served to students
+    recording_url      = models.URLField(blank=True)
+    # Duration in seconds (filled by webhook callback)
+    recording_duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    # File size in bytes (filled by webhook callback)
+    recording_size_bytes       = models.BigIntegerField(null=True, blank=True)
+    # LiveKit Egress job ID for cancellation / status polling
+    recording_egress_id        = models.CharField(max_length=200, blank=True)
+
     class Meta:
         ordering = ["-scheduled_at"]
         indexes  = [
             models.Index(fields=["section", "status"]),
             models.Index(fields=["teacher", "status"]),
+            # For "my recordings" queries — students browse section recordings
+            models.Index(fields=["section", "recording_status", "-scheduled_at"]),
         ]
 
     def __str__(self):

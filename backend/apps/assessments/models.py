@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 
 class Assessment(models.Model):
 
+    class Status(models.TextChoices):
+        DRAFT     = "draft",     "Draft"
+        PUBLISHED = "published", "Published"
+
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,
@@ -31,11 +35,37 @@ class Assessment(models.Model):
     pass_marks = models.PositiveIntegerField(default=0)
 
     is_published = models.BooleanField(default=False)
+
+    # Draft/Published workflow (replaces is_published for new code — kept for backwards compat)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PUBLISHED,  # existing assessments default to published
+        db_index=True,
+    )
+
+    # AI generation metadata
+    ai_generated  = models.BooleanField(default=False)
+    source_lesson = models.ForeignKey(
+        "content.Lesson",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="generated_assessments",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["course", "is_published"])]
+        indexes = [
+            models.Index(fields=["course", "is_published"]),
+            models.Index(fields=["course", "status"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Keep is_published in sync with status for any code still using it
+        self.is_published = (self.status == self.Status.PUBLISHED)
+        super().save(*args, **kwargs)
 
     def recalculate_total_marks(self):
         """

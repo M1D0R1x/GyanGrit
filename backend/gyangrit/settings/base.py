@@ -334,6 +334,12 @@ LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 # ── Gemini ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
+# ── Groq (primary AI provider — llama-3.3-70b-versatile, 30 req/min free) ────
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+# ── Together AI (fallback AI provider — Llama-4-Maverick-17B, $25 free credit) ─
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY", "")
+
 # ── Web Push (VAPID) ─────────────────────────────────────────────────────────
 # Generate keys once:
 #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); print(v.private_pem().decode()); print(v.public_key)"

@@ -120,7 +120,7 @@ _db_url = _strip_quotes(_raw_db_url)
 DATABASES = {
     "default": dj_database_url.config(
         default=_db_url,
-        conn_max_age=0,     # MUST be 0 with gevent workers
+        conn_max_age=60,    # 60s persistent connections — safe with gthread + same-region DB (Mumbai)
         conn_health_checks=True,
     )
 }

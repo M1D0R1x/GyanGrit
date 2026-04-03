@@ -1,29 +1,27 @@
 # gunicorn.conf.py
-# Gunicorn configuration for GyanGrit production (Render free tier).
+# Gunicorn configuration for GyanGrit production (Oracle Cloud Mumbai).
 #
 # WORKER CLASS: gthread (threaded sync workers)
 # ─────────────────────────────────────────────────────────────────
-# Previously used gevent, but gevent's monkey-patching of ssl causes
-# crashes and warnings on Python 3.13+ / 3.14. The ssl MonkeyPatchWarning
-# ("Monkey-patching ssl after ssl has already been imported") is triggered
-# by redis, boto3, urllib3, and anyio all importing ssl before gevent
-# can patch it (because preload_app=True loads Django first).
-#
 # gthread is simpler, stable across all Python versions, and sufficient
-# for GyanGrit's scale (~50 concurrent users on free tier):
-#   - 2 workers × 4 threads = 8 concurrent requests
+# for GyanGrit's scale.
+#
+# Oracle Cloud VM.Standard.A1.Flex — 2 OCPU, 12 GB RAM, ARM64
+# Worker formula: 2 × OCPU + 1 = 5 workers
+#   - 5 workers × 4 threads = 20 concurrent requests
+#   - Memory: ~200 MB per worker × 5 = ~1 GB (leaves 11 GB free)
 #   - No monkey-patching required
 #   - psycopg, redis, and boto3 all work without gevent-specific hacks
 #
-# If you need more concurrency later (500+ users), switch back to gevent
-# on Python 3.11/3.12 where it's stable.
+# If you need more concurrency later (1000+ users), consider gevent
+# on Python 3.11/3.12 where it's stable, or add a second OCPU.
 
 import os
 
 # ── Worker class ───────────────────────────────────────────────────────────
 worker_class       = "gthread"
-workers            = 2          # 2 workers for 512MB RAM (each ~80-120MB)
-threads            = 4          # 4 threads per worker = 8 concurrent requests
+workers            = 5          # 2×OCPU+1 = 5 workers for Oracle 2-OCPU instance
+threads            = 4          # 4 threads per worker = 20 concurrent requests
 
 # ── Preload ────────────────────────────────────────────────────────────────
 # Load Django BEFORE forking workers:
@@ -33,12 +31,12 @@ threads            = 4          # 4 threads per worker = 8 concurrent requests
 preload_app = True
 
 # ── Timeouts ──────────────────────────────────────────────────────────────
-timeout            = 120        # 120s — generous for slow Supabase connections from Singapore
+timeout            = 30         # 30s — DB and backend are same-region (Mumbai), no cold starts
 graceful_timeout   = 30         # 30s to finish in-flight requests on restart
-keepalive          = 5
+keepalive          = 75         # keep-alive for Nginx → Gunicorn upstream reuse
 
 # ── Binding ───────────────────────────────────────────────────────────────
-# Render injects $PORT — fallback to 8000 for local dev
+# Oracle Cloud: Nginx proxies to Gunicorn on port 8000
 bind               = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 
 # ── Logging ───────────────────────────────────────────────────────────────
@@ -52,8 +50,8 @@ max_requests_jitter = 50        # randomise so all workers don't restart simulta
 
 # ── Django DB connection cleanup ──────────────────────────────────────────
 # Close DB connections after forking so each worker gets its own connection.
-# With gthread, Django's CONN_MAX_AGE=0 (set in prod.py) already ensures
-# connections are closed after each request. This is a safety net.
+# With gthread + conn_max_age=60 (set in prod.py), connections are persistent
+# within a worker but reset cleanly at fork time.
 def post_fork(server, worker):
     from django.db import connections
     for conn in connections.all():

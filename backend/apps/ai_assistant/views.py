@@ -1,6 +1,9 @@
 # apps.ai_assistant.views
 """
-AI Chatbot — doubt clearance using Gemini.
+AI Chatbot — doubt clearance using a multi-provider AI chain.
+
+Provider priority: Groq (llama-3.3-70b) → Together AI (Llama-4-Maverick) → Gemini 2.0 Flash
+Fallback logic is in providers.py — views.py only calls call_ai().
 
 Endpoints:
   GET  /api/v1/ai/conversations/               — list student's conversations
@@ -10,15 +13,14 @@ Endpoints:
 
 RAG approach:
   1. Fetch lesson titles + content summaries for the student's enrolled subjects
-  2. Pass them as context to Gemini
-  3. Gemini answers the student's question using the curriculum content
+  2. Pass them as context to the AI provider
+  3. AI answers the student's question using the curriculum content
 
 No vector DB needed for capstone — simple context injection works well
 for a subject-scoped chatbot with ~20 lessons per subject.
 """
 import json
 import logging
-import time
 
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
@@ -27,15 +29,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import ChatConversation, AIChatMessage
+from .providers import call_ai
+from .ratelimit import check_ai_rate_limit
 
 logger = logging.getLogger(__name__)
 
-MAX_HISTORY = 10   # last N messages sent to Gemini for context
+MAX_HISTORY = 10   # last N messages sent to the AI for context
 MAX_CONTEXT = 3000  # max characters of curriculum context to inject
-
-# Gemini free tier: 15 requests/min, 1500 requests/day
-GEMINI_MAX_RETRIES = 3
-GEMINI_BASE_DELAY = 2.0  # seconds — doubles on each retry
 
 
 # ── Curriculum context builder ─────────────────────────────────────────────────
@@ -77,116 +77,6 @@ def _build_curriculum_context(student, subject_id: int | None) -> str:
     context = "\n".join(lines)
     return context[:MAX_CONTEXT]
 
-
-# ── Gemini API call with retry ─────────────────────────────────────────────────
-
-def _call_gemini(messages: list[dict], curriculum_context: str) -> str:
-    """
-    Call Gemini API with conversation history + curriculum context.
-    Returns assistant text response.
-
-    Implements exponential backoff retry for 429 (rate limit) and 503
-    (service unavailable) responses. Gemini free tier allows 15 req/min.
-    """
-    from django.conf import settings
-    import requests as http_requests
-
-    api_key = getattr(settings, "GEMINI_API_KEY", "").strip()
-    if not api_key:
-        return "AI assistant is not configured. Please contact your administrator."
-
-    system_prompt = f"""You are GyanGrit's AI study assistant for rural school students in Punjab, India.
-Your role is to help students understand their curriculum. Be friendly, encouraging, and clear.
-Answer in simple English. If a student asks in Punjabi or Hindi, respond in the same language.
-Keep answers concise (2-4 sentences for simple questions, more for complex ones).
-Do NOT answer questions unrelated to education (e.g. politics, entertainment).
-
-Curriculum context for this student:
-{curriculum_context if curriculum_context else "General school curriculum"}
-
-Remember: You are a helpful tutor, not a search engine. Guide students to understand, not just memorise."""
-
-    # Build Gemini contents array from conversation history
-    contents = []
-    for msg in messages[-MAX_HISTORY:]:
-        contents.append({
-            "role":  "user"  if msg["role"] == "user" else "model",
-            "parts": [{"text": msg["content"]}],
-        })
-
-    payload = {
-        "system_instruction": {"parts": [{"text": system_prompt}]},
-        "contents": contents,
-        "generationConfig": {
-            "maxOutputTokens": 512,
-            "temperature":     0.7,
-        },
-    }
-
-    # Model: gemini-2.0-flash (gemini-1.5-flash was deprecated in March 2026)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-
-    last_error = None
-    for attempt in range(GEMINI_MAX_RETRIES + 1):
-        try:
-            resp = http_requests.post(url, json=payload, timeout=15)
-
-            # Success
-            if resp.ok:
-                data = resp.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
-
-            # Rate limited (429) or temporarily unavailable (503) — retry
-            if resp.status_code in (429, 503):
-                last_error = f"HTTP {resp.status_code}"
-                if attempt < GEMINI_MAX_RETRIES:
-                    # Exponential backoff: 2s, 4s, 8s
-                    delay = GEMINI_BASE_DELAY * (2 ** attempt)
-                    logger.warning(
-                        "Gemini %d on attempt %d/%d — retrying in %.1fs",
-                        resp.status_code, attempt + 1, GEMINI_MAX_RETRIES + 1, delay,
-                    )
-                    time.sleep(delay)
-                    continue
-                # Exhausted retries
-                logger.error(
-                    "Gemini rate limit: exhausted %d retries. Status=%d",
-                    GEMINI_MAX_RETRIES, resp.status_code,
-                )
-                return (
-                    "I'm getting a lot of questions right now! 😊 "
-                    "Please wait 30 seconds and try again. "
-                    "The AI tutor has a limit on how many questions it can answer per minute."
-                )
-
-            # Other HTTP errors — don't retry
-            resp.raise_for_status()
-
-        except http_requests.Timeout:
-            last_error = "timeout"
-            if attempt < GEMINI_MAX_RETRIES:
-                delay = GEMINI_BASE_DELAY * (2 ** attempt)
-                logger.warning("Gemini timeout on attempt %d — retrying in %.1fs", attempt + 1, delay)
-                time.sleep(delay)
-                continue
-            return "The AI is taking too long to respond. Please try again in a moment."
-
-        except http_requests.ConnectionError:
-            last_error = "connection_error"
-            if attempt < GEMINI_MAX_RETRIES:
-                delay = GEMINI_BASE_DELAY * (2 ** attempt)
-                logger.warning("Gemini connection error on attempt %d — retrying in %.1fs", attempt + 1, delay)
-                time.sleep(delay)
-                continue
-            return "Could not connect to the AI service. Please check your internet and try again."
-
-        except Exception as exc:
-            logger.error("Gemini API error: %s", exc)
-            return "Sorry, I couldn't process your question right now. Please try again."
-
-    # Should never reach here, but safety net
-    logger.error("Gemini: fell through retry loop. Last error: %s", last_error)
-    return "Sorry, the AI tutor is temporarily unavailable. Please try again in a minute."
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -233,6 +123,16 @@ def chat(request):
     if len(message) > 1000:
         return JsonResponse({"error": "Message too long (max 1000 chars)"}, status=400)
 
+    # Redis rate limit: 10 requests per user per minute (ADR-003)
+    if not check_ai_rate_limit(request.user.id):
+        return JsonResponse(
+            {
+                "error": "Too many requests. Please wait a minute before asking another question.",
+                "retry_after": 60,
+            },
+            status=429,
+        )
+
     # Get or create conversation
     if conversation_id:
         conv = get_object_or_404(ChatConversation, id=conversation_id, student=request.user)
@@ -247,16 +147,16 @@ def chat(request):
     # Save user message
     AIChatMessage.objects.create(conversation=conv, role="user",      content=message)
 
-    # Build history
+    # Build history (last MAX_HISTORY messages)
     history = list(
         conv.messages.order_by("created_at").values("role", "content")
-    )
+    )[-MAX_HISTORY:]
 
     # Build curriculum context
     context = _build_curriculum_context(request.user, conv.subject_id)
 
-    # Call Gemini (with retry logic for 429 rate limits)
-    ai_response = _call_gemini(history, context)
+    # Call AI via provider chain: Groq → Together AI → Gemini
+    ai_response = call_ai(history, context)
 
     # Save AI response
     ai_msg = AIChatMessage.objects.create(conversation=conv, role="assistant", content=ai_response)

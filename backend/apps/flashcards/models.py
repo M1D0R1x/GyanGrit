@@ -24,6 +24,11 @@ import datetime
 
 
 class FlashcardDeck(models.Model):
+
+    class Status(models.TextChoices):
+        DRAFT     = "draft",     "Draft"
+        PUBLISHED = "published", "Published"
+
     title       = models.CharField(max_length=200, db_index=True)
     description = models.TextField(blank=True)
     subject     = models.ForeignKey(
@@ -40,6 +45,24 @@ class FlashcardDeck(models.Model):
         related_name="created_flashcard_decks",
     )
     is_published = models.BooleanField(default=False, db_index=True)
+
+    # Draft/Published workflow (replaces is_published for new code — kept for backwards compat)
+    status       = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PUBLISHED,   # existing decks default to published
+        db_index=True,
+    )
+
+    # AI generation metadata
+    ai_generated  = models.BooleanField(default=False)
+    source_lesson = models.ForeignKey(
+        "content.Lesson",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="generated_flashcard_decks",
+    )
+
     created_at   = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
@@ -47,7 +70,13 @@ class FlashcardDeck(models.Model):
         indexes  = [
             models.Index(fields=["subject", "is_published"]),
             models.Index(fields=["section", "is_published"]),
+            models.Index(fields=["subject", "status"]),
         ]
+
+    def save(self, *args, **kwargs):
+        # Keep is_published in sync with status for any code still using it
+        self.is_published = (self.status == self.Status.PUBLISHED)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} ({self.subject.name})"

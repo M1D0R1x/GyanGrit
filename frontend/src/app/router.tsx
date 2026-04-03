@@ -121,6 +121,9 @@ const LiveSessionPage       = lazyRetry(() => import("../pages/LiveSessionPage")
 // ── AI Chatbot ────────────────────────────────────────────────────────────────
 const AIChatPage            = lazyRetry(() => import("../pages/AIChatPage"));
 
+// ── AI Tools ──────────────────────────────────────────────────────────────────
+const AIToolsPage           = lazyRetry(() => import("../pages/AIToolsPage"));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PageLoader() {
@@ -215,6 +218,7 @@ export const router = createBrowserRouter([
   { path: "/teacher/competitions/:roomId",      element: <Protected role="TEACHER"><CompetitionRoomPage /></Protected> },
   { path: "/teacher/chat",                      element: <Protected role="TEACHER"><ChatRoomPage /></Protected> },
   { path: "/teacher/chat/:roomId",              element: <Protected role="TEACHER"><ChatRoomPage /></Protected> },
+  { path: "/teacher/ai-tools",                  element: <Protected role="TEACHER"><AIToolsPage /></Protected> },
 
   // ── Principal ─────────────────────────────────────────────────────────────
   { path: "/principal",                                          element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
@@ -228,6 +232,7 @@ export const router = createBrowserRouter([
   { path: "/principal/competitions/:roomId",      element: <Protected role="PRINCIPAL"><CompetitionRoomPage /></Protected> },
   { path: "/principal/chat",                      element: <Protected role="PRINCIPAL"><ChatRoomPage /></Protected> },
   { path: "/principal/chat/:roomId",              element: <Protected role="PRINCIPAL"><ChatRoomPage /></Protected> },
+  { path: "/principal/ai-tools",                  element: <Protected role="PRINCIPAL"><AIToolsPage /></Protected> },
 
   // ── Official ──────────────────────────────────────────────────────────────
   { path: "/official",       element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
@@ -245,6 +250,7 @@ export const router = createBrowserRouter([
   { path: "/admin/chat",                 element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
   { path: "/admin/chat/:roomId",         element: <Protected role="ADMIN"><ChatRoomPage /></Protected> },
   { path: "/admin/chat-management",      element: <Protected role="ADMIN"><AdminChatManagementPage /></Protected> },
+  { path: "/admin/ai-tools",             element: <Protected role="ADMIN"><AIToolsPage /></Protected> },
 
   // ── Flashcards ──────────────────────────────────────────────────────────────
   // Student study

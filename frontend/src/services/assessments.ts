@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./api";
+import { apiGet, apiPost, apiPatch } from "./api";
 
 export type AssessmentListItem = {
   id: number;
@@ -100,3 +100,6 @@ export const getMyAttempts = (assessmentId: number) =>
 
 export const getAllMyAttempts = () =>
   apiGet<AttemptWithContext[]>(`/assessments/my-history/`);
+
+export const updateAssessment = (assessmentId: number, payload: Partial<AssessmentDetail & { is_published: boolean }>) =>
+  apiPatch<AssessmentDetail>(`/assessments/${assessmentId}/update/`, payload);

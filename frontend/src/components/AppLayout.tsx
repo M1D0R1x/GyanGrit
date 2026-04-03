@@ -8,6 +8,7 @@ import SidebarContent from "./Sidebar";
 import BottomNav from "./BottomNav";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
+import { usePageTracking } from "../utils/telemetry";
 
 interface AppLayoutProps {
   children:  React.ReactNode;
@@ -15,6 +16,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children, title }: AppLayoutProps) {
+  usePageTracking();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auth = useAuth();
 

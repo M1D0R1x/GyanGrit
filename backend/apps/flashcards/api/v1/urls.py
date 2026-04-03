@@ -12,6 +12,10 @@ urlpatterns = [
     path("decks/<int:deck_id>/cards/",                      views.card_create),
     path("decks/<int:deck_id>/cards/<int:card_id>/",        views.card_detail),
 
+    # AI Teacher tools
+    path("ai-generate/",                                    views.ai_generate_flashcards),
+    path("ai-generate/<int:deck_id>/publish/",              views.ai_publish_flashcard_deck),
+
     # Student — study
     path("study/",                                          views.study_list),
     path("study/<int:deck_id>/due/",                        views.study_due),

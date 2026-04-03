@@ -3,20 +3,24 @@
 Flashcard endpoints.
 
 Teacher endpoints:
-  GET  /api/v1/flashcards/decks/                  — list my decks
-  POST /api/v1/flashcards/decks/                  — create deck
-  GET  /api/v1/flashcards/decks/<id>/             — deck detail + cards
-  PATCH /api/v1/flashcards/decks/<id>/            — update deck (title, description, published)
-  DELETE /api/v1/flashcards/decks/<id>/           — delete deck
-  POST /api/v1/flashcards/decks/<id>/cards/       — add card to deck
-  PATCH /api/v1/flashcards/decks/<id>/cards/<cid>/ — edit card
+  GET  /api/v1/flashcards/decks/                    — list my decks
+  POST /api/v1/flashcards/decks/                    — create deck
+  GET  /api/v1/flashcards/decks/<id>/               — deck detail + cards
+  PATCH /api/v1/flashcards/decks/<id>/              — update deck
+  DELETE /api/v1/flashcards/decks/<id>/             — delete deck
+  POST /api/v1/flashcards/decks/<id>/cards/         — add card to deck
+  PATCH /api/v1/flashcards/decks/<id>/cards/<cid>/  — edit card
   DELETE /api/v1/flashcards/decks/<id>/cards/<cid>/ — delete card
 
+AI Teacher endpoints:
+  POST /api/v1/flashcards/ai-generate/              — generate draft deck from lesson/text
+  POST /api/v1/flashcards/ai-generate/<id>/publish/ — publish a draft AI-generated deck
+
 Student endpoints:
-  GET  /api/v1/flashcards/study/                  — list available decks for student
-  GET  /api/v1/flashcards/study/<deck_id>/due/    — cards due today for this deck
-  POST /api/v1/flashcards/study/<deck_id>/review/ — submit rating for a card
-  GET  /api/v1/flashcards/study/<deck_id>/stats/  — deck stats for this student
+  GET  /api/v1/flashcards/study/                    — list available decks
+  GET  /api/v1/flashcards/study/<deck_id>/due/      — cards due today
+  POST /api/v1/flashcards/study/<deck_id>/review/   — submit rating
+  GET  /api/v1/flashcards/study/<deck_id>/stats/    — deck stats
 """
 import json
 import logging
@@ -385,3 +389,222 @@ def study_stats(request, deck_id):
 
 # Fix missing import
 from django.db import models
+
+
+# ── AI Flashcard Generator ───────────────────────────────────────────────────────────────
+
+AI_FLASHCARD_PROMPT = """\
+Generate exactly {count} high-quality flashcard pairs from the content below.
+Return ONLY a valid JSON array — no explanation, no markdown, no code block.
+Format:
+[
+  {{"front": "question or term", "back": "answer or definition", "hint": "optional memory hint (max 100 chars)"}},
+  ...
+]
+Rules:
+- Each card must test one clear concept
+- Front should be a question or a term
+- Back should be the direct answer or definition
+- Hint is optional — leave empty string "" if not useful
+- Cards must be factually accurate and curriculum-appropriate
+- Language: match the content language (English/Hindi/Punjabi)
+
+Content:
+{content}
+"""
+
+
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["POST"])
+@csrf_exempt
+def ai_generate_flashcards(request):
+    """
+    POST /api/v1/flashcards/ai-generate/
+
+    Generate a DRAFT flashcard deck using AI.
+    Teacher reviews and edits cards, then calls the publish endpoint.
+
+    Body:
+      lesson_id: int (optional) — generate from lesson content
+      text: str (optional)      — generate from pasted text
+      subject_id: int (required if no lesson_id)
+      section_id: int (optional)
+      count: int (5–20, default 10) — number of cards to generate
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    lesson_id  = body.get("lesson_id")
+    raw_text   = body.get("text", "").strip()
+    subject_id = body.get("subject_id")
+    section_id = body.get("section_id")
+    count      = max(5, min(20, int(body.get("count", 10))))
+
+    # ── Resolve source content ────────────────────────────────────────────────────────
+    source_lesson = None
+    deck_title    = "AI-Generated Flashcards"
+
+    if lesson_id:
+        from apps.content.models import Lesson
+        try:
+            lesson = Lesson.objects.select_related("course", "course__subject").get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return JsonResponse({"error": "Lesson not found"}, status=404)
+
+        # Use lesson content as source
+        content_parts = [lesson.title]
+        if hasattr(lesson, "description") and lesson.description:
+            content_parts.append(lesson.description)
+        if hasattr(lesson, "content") and lesson.content:
+            content_parts.append(lesson.content if isinstance(lesson.content, str) else str(lesson.content))
+
+        raw_text      = "\n\n".join(content_parts)[:4000]
+        source_lesson = lesson
+        subject_id    = lesson.course.subject_id
+        deck_title    = f"{lesson.title} — Flashcards"
+
+    elif not raw_text:
+        return JsonResponse({"error": "Either lesson_id or text is required"}, status=400)
+
+    if not subject_id:
+        return JsonResponse({"error": "subject_id is required when not using lesson_id"}, status=400)
+
+    from apps.academics.models import Subject, Section
+    subject = get_object_or_404(Subject, id=subject_id)
+    section = Section.objects.filter(id=section_id).first() if section_id else None
+
+    # ── AI generation ──────────────────────────────────────────────────────────────
+    from apps.ai_assistant.providers import call_ai
+
+    prompt = AI_FLASHCARD_PROMPT.format(count=count, content=raw_text[:4000])
+    raw_response = call_ai(
+        messages=[{"role": "user", "content": prompt}],
+        curriculum_context="",  # the content IS in the prompt
+    )
+
+    # ── Parse JSON response ───────────────────────────────────────────────────────────
+    import re as _re
+    # Strip markdown code fences if AI wrapped the JSON
+    clean = _re.sub(r"```(?:json)?\s*", "", raw_response).strip().strip("`")
+    try:
+        cards_data = json.loads(clean)
+        if not isinstance(cards_data, list):
+            raise ValueError("Expected a JSON array")
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.error("AI flashcard parse error: %s | raw=%s", exc, raw_response[:300])
+        return JsonResponse(
+            {"error": "AI returned an unexpected format. Please try again."},
+            status=502,
+        )
+
+    # ── Create draft deck + cards in DB ───────────────────────────────────────────────
+    deck = FlashcardDeck.objects.create(
+        title=deck_title,
+        description=f"AI-generated from {'lesson: ' + source_lesson.title if source_lesson else 'pasted text'}.",
+        subject=subject,
+        section=section,
+        created_by=request.user,
+        status=FlashcardDeck.Status.DRAFT,   # teacher must review before publishing
+        ai_generated=True,
+        source_lesson=source_lesson,
+    )
+
+    cards_created = []
+    for i, card_data in enumerate(cards_data[:count]):
+        front = str(card_data.get("front", "")).strip()
+        back  = str(card_data.get("back",  "")).strip()
+        hint  = str(card_data.get("hint",  "")).strip()[:300]
+        if not front or not back:
+            continue
+        card = Flashcard.objects.create(deck=deck, front=front, back=back, hint=hint, order=i)
+        cards_created.append(_card_to_dict(card))
+
+    logger.info(
+        "AI flashcard deck created: id=%s cards=%d teacher=%s",
+        deck.id, len(cards_created), request.user.username,
+    )
+
+    return JsonResponse(
+        {
+            "deck_id":      deck.id,
+            "title":        deck.title,
+            "status":       deck.status,
+            "ai_generated": True,
+            "cards":        cards_created,
+            "message":      "Review and edit the cards, then publish the deck to make it visible to students.",
+        },
+        status=201,
+    )
+
+
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["POST"])
+@csrf_exempt
+def ai_publish_flashcard_deck(request, deck_id):
+    """
+    POST /api/v1/flashcards/ai-generate/<deck_id>/publish/
+
+    Publish a DRAFT AI-generated flashcard deck.
+    Sends notifications to all students in the deck's section.
+    """
+    deck = get_object_or_404(FlashcardDeck, id=deck_id)
+
+    if request.user.role not in ("ADMIN",) and deck.created_by_id != request.user.id:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    if deck.status == FlashcardDeck.Status.PUBLISHED:
+        return JsonResponse({"error": "Deck is already published"}, status=400)
+
+    deck.status = FlashcardDeck.Status.PUBLISHED
+    deck.save()  # save() syncs is_published = True automatically
+
+    # Notify students
+    try:
+        from apps.notifications.models import Notification, NotificationType
+        from apps.accounts.models import User as UserModel
+
+        if deck.section:
+            student_ids = list(
+                UserModel.objects.filter(role="STUDENT", section=deck.section)
+                .values_list("id", flat=True)
+            )
+        else:
+            # No section — notify all students enrolled in the subject
+            from apps.academics.models import TeachingAssignment
+            section_ids = TeachingAssignment.objects.filter(
+                subject=deck.subject
+            ).values_list("section_id", flat=True).distinct()
+            student_ids = list(
+                UserModel.objects.filter(role="STUDENT", section_id__in=section_ids)
+                .values_list("id", flat=True)
+            )
+
+        notifs = [
+            Notification(
+                user_id=uid,
+                subject=f"\U0001f4da New Flashcard Deck: {deck.title}",
+                message=f"A new flashcard deck '{deck.title}' is ready for you to study.",
+                notification_type=NotificationType.INFO,
+                link=f"/flashcards",
+            )
+            for uid in student_ids
+        ]
+        if notifs:
+            Notification.objects.bulk_create(notifs)
+
+        logger.info(
+            "Flashcard deck published: id=%s notified=%d students",
+            deck.id, len(student_ids),
+        )
+    except Exception as exc:
+        logger.warning("Notification failed on deck publish %s: %s", deck.id, exc)
+
+    return JsonResponse(
+        {
+            "deck_id":   deck.id,
+            "status":    deck.status,
+            "published": True,
+        }
+    )

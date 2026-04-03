@@ -824,3 +824,164 @@ def teacher_student_assessments(request, class_id, student_id):
         "username":   student.username,
         "attempts":   data,
     })
+
+# ── AI Assessment Generator ──────────────────────────────────────────────────────
+
+_AI_ASSESSMENT_PROMPT = """\
+Generate exactly {count} multiple-choice questions from the content below.
+Return ONLY a valid JSON array — no explanation, no markdown, no code block.
+Format:
+[
+  {{"question": "...", "options": ["A", "B", "C", "D"], "answer": 0}},
+  ...
+]
+Rules:
+- Each question tests one clear concept
+- Exactly 4 options per question; "answer" is the 0-based index of the correct one
+- Distractors must be plausible but clearly wrong on reflection
+- Factually accurate, curriculum-appropriate, grades 6-10 difficulty
+- Language: match the content language (English/Hindi/Punjabi)
+
+Content:
+{content}
+"""
+
+
+@csrf_exempt
+@require_roles(["ADMIN", "TEACHER", "PRINCIPAL"])
+@require_http_methods(["POST"])
+def ai_generate_assessment(request, course_id):
+    """
+    POST /api/v1/assessments/course/<course_id>/ai-generate/
+
+    Generate a DRAFT MCQ assessment from a lesson or pasted text.
+    Teacher reviews and publishes via PATCH /<id>/update/ is_published=true.
+
+    Body:
+      lesson_id: int (optional)
+      text: str (optional)
+      count: int (5-20, default 10)
+      marks_per_question: int (default 1)
+      pass_percent: int (default 40)
+    """
+    import re as _re
+    from apps.content.models import Lesson as _Lesson
+    from apps.ai_assistant.providers import call_ai
+
+    course = get_object_or_404(Course, id=course_id)
+
+    if request.user.role in ["TEACHER", "PRINCIPAL"]:
+        if not has_access_to_course(request.user, course):
+            return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    lesson_id     = body.get("lesson_id")
+    raw_text      = body.get("text", "").strip()
+    count         = max(5, min(20, int(body.get("count", 10))))
+    marks_per_q   = max(1, int(body.get("marks_per_question", 1)))
+    pass_percent  = max(0, min(100, int(body.get("pass_percent", 40))))
+
+    source_lesson    = None
+    assessment_title = f"AI Assessment -- {course.title}"
+
+    if lesson_id:
+        try:
+            lesson = _Lesson.objects.get(id=lesson_id, course=course)
+        except _Lesson.DoesNotExist:
+            return JsonResponse({"error": "Lesson not found in this course"}, status=404)
+        parts = [lesson.title]
+        if lesson.content:
+            parts.append(lesson.content)
+        raw_text         = "\n\n".join(parts)[:4000]
+        source_lesson    = lesson
+        assessment_title = f"{lesson.title} -- Quiz"
+    elif not raw_text:
+        return JsonResponse({"error": "Either lesson_id or text is required"}, status=400)
+
+    prompt = _AI_ASSESSMENT_PROMPT.format(count=count, content=raw_text[:4000])
+    raw_response = call_ai(
+        messages=[{"role": "user", "content": prompt}],
+        curriculum_context="",
+    )
+
+    clean = _re.sub(r"```(?:json)?\s*", "", raw_response).strip().strip("`")
+    try:
+        questions_data = json.loads(clean)
+        if not isinstance(questions_data, list):
+            raise ValueError("Expected a JSON array")
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.error("AI assessment parse error: %s | raw=%s", exc, raw_response[:300])
+        return JsonResponse({"error": "AI returned unexpected format. Please try again."}, status=502)
+
+    total_marks = count * marks_per_q
+    pass_marks  = max(1, round(total_marks * pass_percent / 100))
+
+    assessment = Assessment.objects.create(
+        course=course,
+        title=assessment_title,
+        description=(
+            "AI-generated from "
+            + ("lesson: " + source_lesson.title if source_lesson else "pasted text")
+            + ". Review before publishing."
+        ),
+        pass_marks=pass_marks,
+        status=Assessment.Status.DRAFT,
+        ai_generated=True,
+        source_lesson=source_lesson,
+    )
+
+    questions_created = []
+    for order_idx, q_data in enumerate(questions_data[:count], start=1):
+        q_text  = str(q_data.get("question", "")).strip()
+        options = q_data.get("options", [])
+        answer  = int(q_data.get("answer", 0))
+        if not q_text or len(options) < 2:
+            continue
+        question = Question.objects.create(
+            assessment=assessment,
+            text=q_text,
+            marks=marks_per_q,
+            order=order_idx,
+        )
+        for opt_idx, opt_text in enumerate(options[:4]):
+            QuestionOption.objects.create(
+                question=question,
+                text=str(opt_text).strip(),
+                is_correct=(opt_idx == answer),
+            )
+        questions_created.append({
+            "id":      question.id,
+            "text":    question.text,
+            "marks":   question.marks,
+            "order":   question.order,
+            "options": [
+                {"text": str(o).strip(), "is_correct": (i == answer)}
+                for i, o in enumerate(options[:4])
+            ],
+        })
+
+    assessment.recalculate_total_marks()
+    assessment.refresh_from_db(fields=["total_marks"])
+
+    logger.info(
+        "AI assessment created: id=%s questions=%d teacher=%s",
+        assessment.id, len(questions_created), request.user.username,
+    )
+
+    return JsonResponse({
+        "assessment_id": assessment.id,
+        "title":         assessment.title,
+        "status":        assessment.status,
+        "ai_generated":  True,
+        "total_marks":   assessment.total_marks,
+        "pass_marks":    assessment.pass_marks,
+        "questions":     questions_created,
+        "message": (
+            "Review each question before publishing. "
+            "Use PATCH /assessments/<id>/update/ with is_published=true when ready."
+        ),
+    }, status=201)

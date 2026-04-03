@@ -13,6 +13,7 @@ urlpatterns = [
     path("<int:assessment_id>/my-attempts/", views.my_attempts),
 
     # Admin CRUD
+    path("course/<int:course_id>/ai-generate/", views.ai_generate_assessment),
     path("course/<int:course_id>/create/", views.create_assessment),
     path("<int:assessment_id>/update/", views.update_assessment),
     path("<int:assessment_id>/delete/", views.delete_assessment),

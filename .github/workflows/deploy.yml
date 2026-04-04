@@ -73,10 +73,9 @@ jobs:
             # ── Rollback function ─────────────────────────────────────────────
             rollback() {
               echo ""
-              echo "DEPLOY FAILED — rolling back"
+              echo "DEPLOY FAILED — rolling back to $PREV_SHA"
               cd $APP
               if [ "$PREV_SHA" != "none" ]; then
-                # Reset to previous state using reflog (survives force pushes)
                 git checkout "$PREV_SHA" -- . 2>/dev/null || git reset --hard HEAD
               fi
               source $BACKEND/venv/bin/activate
@@ -95,20 +94,19 @@ jobs:
             echo "======================================================"
             cd $APP
 
-            # Clean any local changes that might block the pull
+            # Clean local changes that might block pull
             git checkout -- . 2>/dev/null || true
 
-            # Fetch with prune to handle force-pushed / rewritten history
+            # --prune removes stale remote refs, --force handles rewritten history
             git fetch origin master --prune --force
 
             NEW_SHA=$(git rev-parse origin/master)
             echo "Deploying: $PREV_SHA -> $NEW_SHA"
 
             if [ "$PREV_SHA" = "$NEW_SHA" ]; then
-              echo "Already at latest commit — skipping code update"
-            else
-              git reset --hard origin/master
+              echo "Already at latest commit — still running migrations + reload"
             fi
+            git reset --hard origin/master
 
             echo "======================================================"
             echo "Step 2/5 — Install Python dependencies"
@@ -129,19 +127,20 @@ jobs:
             echo "======================================================"
             cd $APP
             sudo systemctl reload gyangrit || sudo systemctl restart gyangrit
-
-            echo "======================================================"
-            echo "Step 5/5 — Health check (3 attempts, 5s apart)"
-            echo "======================================================"
             sleep 4
 
+            echo "======================================================"
+            echo "Step 5/5 — Health check (hit Gunicorn directly, bypass Nginx)"
+            echo "======================================================"
+            # Hit port 8000 directly — avoids Nginx HTTP→HTTPS 301 redirect
+            # /api/v1/health/ always returns 200, no auth required
             HEALTH_OK=false
             for attempt in 1 2 3; do
               HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                 --max-time 10 \
-                https://api.gyangrit.site/api/v1/health/ 2>/dev/null || echo "000")
+                http://127.0.0.1:8000/api/v1/health/ 2>/dev/null || echo "000")
 
-              if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "204" ]; then
+              if [ "$HTTP_STATUS" = "200" ]; then
                 echo "Health check passed (attempt $attempt, HTTP $HTTP_STATUS)"
                 HEALTH_OK=true
                 break

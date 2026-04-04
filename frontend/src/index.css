@@ -347,6 +347,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   to { transform: rotate(360deg); }
 }
 
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.85); }
+}
+
 @keyframes pulse-dot {
   0%, 100% { transform: scale(0.8); opacity: 0.4; }
   50%       { transform: scale(1.2); opacity: 1; }

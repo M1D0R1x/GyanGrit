@@ -5,3 +5,4 @@
 
 django-debug-toolbar>=4.2       # SQL query inspection in browser
 ipython>=8.0                    # Enhanced Django shell (python manage.py shell)
+argon2-cffi>=23.1.0

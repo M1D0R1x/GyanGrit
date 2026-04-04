@@ -73,13 +73,37 @@ def _subject_matches_slug(subject_name: str, slug: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @csrf_exempt
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "HEAD"])
 def health(request):
+    """
+    Unauthenticated health check for uptime monitors (QStash, UptimeRobot, etc.).
+
+    Returns:
+      200 + JSON body with status, DB check, and timestamp.
+      503 if the database is unreachable.
+    """
+    import time as _time
+
+    # DB connectivity check
+    db_ok = True
+    db_latency_ms = None
+    try:
+        from django.db import connection
+        t0 = _time.monotonic()
+        with connection.cursor() as cur:
+            cur.execute("SELECT 1")
+        db_latency_ms = round((_time.monotonic() - t0) * 1000, 1)
+    except Exception:
+        db_ok = False
+
+    status_code = 200 if db_ok else 503
     return JsonResponse({
-        "status": "ok",
-        "service": "gyangrit-backend",
-        "timestamp": timezone.now().isoformat(),
-    })
+        "status":       "ok" if db_ok else "degraded",
+        "service":      "gyangrit-backend",
+        "db":           "ok" if db_ok else "unreachable",
+        "db_latency_ms": db_latency_ms,
+        "timestamp":    timezone.now().isoformat(),
+    }, status=status_code)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

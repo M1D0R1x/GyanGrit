@@ -17,6 +17,7 @@ export type LiveSession = {
   ended_at:           string | null;
   description:        string;
   attendance_count?:  number;
+  recording_status?:  "none" | "processing" | "ready" | "failed";
 };
 
 export type LiveToken = {

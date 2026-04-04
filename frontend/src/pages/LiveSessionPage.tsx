@@ -57,11 +57,12 @@ if (typeof document !== "undefined" && !document.getElementById("gyangrit-unmirr
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type HandRaiseMsg = { type: "hand_raise"; raised: boolean; sender_name: string; sender_id: string; };
-type ChatMsg      = { type: "chat"; message: string; sender_name: string; sender_id: string; timestamp: number; };
-type HandAckMsg   = { type: "hand_ack"; target_id: string; };
-type PermMsg      = { type: "permissions"; mic: boolean; camera: boolean; };
-type DataMsg      = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState | PermMsg;
+type HandRaiseMsg       = { type: "hand_raise"; raised: boolean; sender_name: string; sender_id: string; };
+type ChatMsg            = { type: "chat"; message: string; sender_name: string; sender_id: string; timestamp: number; };
+type HandAckMsg         = { type: "hand_ack"; target_id: string; };
+type PermMsg            = { type: "permissions"; mic: boolean; camera: boolean; };
+type WhiteboardToggleMsg = { type: "whiteboard_toggle"; open: boolean; };
+type DataMsg = HandRaiseMsg | ChatMsg | HandAckMsg | WhiteboardState | PermMsg | WhiteboardToggleMsg;
 
 type InRoomChat = { id: string; sender_name: string; sender_id: string; message: string; timestamp: number; };
 
@@ -709,6 +710,8 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
   const { permissions, updatePermissions } = useRoomPermissions(isTeacher);
   const [activeTab, setActiveTab]       = useState<"chat" | "participants" | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  // Students track the teacher's board open/close state via data channel (not track presence)
+  const [teacherBoardOpen, setTeacherBoardOpen] = useState(false);
 
 
   // ── Canvas captureStream for Egress recording ─────────────────────────────
@@ -784,20 +787,67 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
     return () => { room.off(RoomEvent.Disconnected, handleDisconnected); };
   }, [room, onLeave]);
 
-  // Students: auto-show whiteboard when teacher publishes screenshare OR data channel fires.
-  // No autoOpenedRef — we re-check every time remoteState changes so re-opens work too.
-  // (useEffect runs whenever remoteState changes, so every new broadcast triggers this.)
+  // Teacher: broadcast whiteboard open/close state via data channel.
+  // This is separate from the whiteboard drawing data — it tells students
+  // whether to show the fullscreen board view or the camera grid.
+  const broadcastWhiteboardToggle = useCallback((open: boolean) => {
+    if (!room || !isTeacher) return;
+    const msg: WhiteboardToggleMsg = { type: "whiteboard_toggle", open };
+    room.localParticipant.publishData(
+      new TextEncoder().encode(JSON.stringify(msg)),
+      { reliable: true },
+    );
+  }, [room, isTeacher]);
+
+  // Students: listen for whiteboard_toggle messages from teacher
   useEffect(() => {
-    if (!isTeacher && remoteState) {
+    if (isTeacher || !room) return;
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "whiteboard_toggle") {
+          setTeacherBoardOpen(msg.open);
+          // Also sync the whiteboard UI visibility for the student
+          setWhiteboardOpen(msg.open);
+        }
+      } catch { /* ignore */ }
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => { room.off(RoomEvent.DataReceived, handleData); };
+  }, [isTeacher, room]);
+
+  // Students: auto-show whiteboard when teacher sends whiteboard drawing data.
+  // This is only for the initial open detection — subsequent toggles are
+  // driven by the whiteboard_toggle message above.
+  useEffect(() => {
+    if (!isTeacher && remoteState && !teacherBoardOpen) {
+      setTeacherBoardOpen(true);
       setWhiteboardOpen(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTeacher, remoteState]);
 
   return (
     <div className="live-room">
       <div className="live-room__header">
         <div className="live-room__title">
-          {"\uD83D\uDD34"} Live {"\u2014"} {activeSession?.title ?? "Class Session"}
+          {/* Recording indicator */}
+          {isTeacher && activeSession?.recording_status === "processing" && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: 20, padding: "3px 10px", fontSize: "var(--text-xs)", fontWeight: 700,
+              color: "#ef4444", marginRight: 8,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%", background: "#ef4444",
+                animation: "pulse-rec 1.5s ease-in-out infinite",
+                boxShadow: "0 0 6px rgba(239,68,68,0.6)",
+              }} />
+              REC
+            </span>
+          )}
+          Live {"\u2014"} {activeSession?.title ?? "Class Session"}
           {activeSession?.id && (
             <span style={{ marginLeft: 8, fontSize: "0.75em", opacity: 0.7, fontFamily: "monospace", background: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: 4 }}>
               #{activeSession.id}
@@ -813,7 +863,12 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
         <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
           <button className={`btn ${whiteboardOpen ? "btn--primary" : "btn--ghost"}`}
             style={{ fontSize: "var(--text-xs)", color: whiteboardOpen ? "#fff" : "var(--text-primary)", borderColor: "var(--border-strong)" }}
-            onClick={() => setWhiteboardOpen(v => !v)}>
+            onClick={() => {
+              const next = !whiteboardOpen;
+              setWhiteboardOpen(next);
+              // Teacher: broadcast toggle to students
+              if (isTeacher) broadcastWhiteboardToggle(next);
+            }}>
             {"\uD83D\uDCDD"} {isTeacher ? "Whiteboard" : whiteboardOpen ? "Hide Board" : "Board"}
           </button>
           {isTeacher && whiteboardOpen && (
@@ -870,10 +925,12 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
               </>
             ) : (
               // ── STUDENT VIEW ───────────────────────────────────────────────
-              // StudentWhiteboardView auto-detects the teacher's screenshare track.
-              // When present: fullscreen whiteboard + teacher PiP.
-              // When absent: normal camera grid.
-              <StudentWhiteboardView teacherName={activeSession?.teacher_name || "Teacher"} />
+              // Use teacherBoardOpen (driven by whiteboard_toggle data channel)
+              // to decide view, NOT screenshare track presence (track stays
+              // published for recording even when teacher closes the board).
+              teacherBoardOpen
+                ? <StudentWhiteboardView teacherName={activeSession?.teacher_name || "Teacher"} />
+                : <VideoLayout />
             )}
             <InRoomControls
               onToggleTab={(t) => setActiveTab(v => v === t ? null : t)}
@@ -1124,7 +1181,12 @@ export default function LiveSessionPage() {
         if (raw.includes("ended"))                              msg = "This session has ended.";
         else if (raw.includes("not live"))                      msg = "This session hasn't started yet.";
         else if (raw.includes("forbidden") || raw.includes("403")) msg = "You don't have access to this session.";
-        else msg = err.message;
+        else {
+          // Strip HTML tags if the backend returned raw HTML
+          const cleaned = err.message.replace(/<[^>]*>/g, "").trim();
+          msg = cleaned.length > 200 ? cleaned.slice(0, 200) + "…" : cleaned;
+          if (!msg) msg = "Something went wrong. Please try again.";
+        }
       }
       setError(msg);
       const fetchFn = isTeacher ? listMySessions : getUpcomingSessions;
@@ -1283,7 +1345,7 @@ export default function LiveSessionPage() {
               {newScheduledAt && (
                 <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                   <span>\uD83D\uDCC5</span>
-                  <span>{new Date(newScheduledAt).toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}</span>
+                  <span>{new Date(newScheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
                 </div>
               )}
             </div>

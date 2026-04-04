@@ -20,6 +20,14 @@ Recordings:
   POST /api/v1/live/recording-webhook/         — LiveKit Egress completion callback
   GET  /api/v1/live/recordings/                — list recordings (role-filtered)
   GET  /api/v1/live/recordings/<id>/           — single recording detail
+
+Fixes applied 2026-04-04:
+  BUG1: _notify_students_inapp — removed nonexistent class_id field from Broadcast.create
+        (was causing TypeError → all live-session notifications silently failed)
+  BUG2: session_token — students now get canPublishData=False (whiteboard is truly read-only)
+        (was canPublishData=True for everyone — students could broadcast whiteboard data)
+  BUG3: session_end — now deletes LiveKit room so all participants are forcibly disconnected
+        (was only setting DB status; students had to click Leave manually)
 """
 import json
 import logging
@@ -43,34 +51,33 @@ logger = logging.getLogger(__name__)
 # ── LiveKit token helper ──────────────────────────────────────────────────────
 
 def _make_livekit_token(room_name: str, identity: str, name: str,
-                        can_publish: bool = False) -> str:
+                        can_publish: bool = True,
+                        can_publish_data: bool = False) -> str:
     """
-    Generate a LiveKit JWT token using the API key + secret.
-    Uses PyJWT directly — no LiveKit SDK needed (avoids async issues).
+    Generate a LiveKit JWT token.
+    can_publish      = True for everyone (mic, camera, screenshare)
+    can_publish_data = True only for teachers (whiteboard/chat data channel)
     """
     from django.conf import settings
     import jwt as pyjwt
 
     api_key    = settings.LIVEKIT_API_KEY
     api_secret = settings.LIVEKIT_API_SECRET
-
-    now = int(time.time())
-
-    video_grant = {
-        "room":            room_name,
-        "roomJoin":        True,
-        "canPublish":      can_publish,        # teacher=True, student=False
-        "canSubscribe":    True,
-        "canPublishData":  can_publish,        # teacher can send data messages
-    }
+    now        = int(time.time())
 
     payload = {
         "iss":   api_key,
         "sub":   identity,
         "iat":   now,
-        "exp":   now + 4 * 3600,               # 4-hour token
+        "exp":   now + 4 * 3600,
         "name":  name,
-        "video": video_grant,
+        "video": {
+            "room":           room_name,
+            "roomJoin":       True,
+            "canPublish":     can_publish,
+            "canSubscribe":   True,
+            "canPublishData": can_publish_data,
+        },
     }
     return pyjwt.encode(payload, api_secret, algorithm="HS256")
 
@@ -95,12 +102,18 @@ def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> 
     return d
 
 
-# ── In-app + push notification helper ──────────────────────────────────────────
+# ── In-app + push notification helper ────────────────────────────────────────
 
-def _notify_students_inapp(session: LiveSession, sender, subject_line: str, message: str, link: str):
+def _notify_students_inapp(session: LiveSession, sender, subject_line: str,
+                           message: str, link: str) -> None:
     """
-    Create an in-app notification (shows in bell panel) AND send browser push
-    to all students in the session's section.
+    Create in-app notification rows + send browser push to all students
+    in the session's section.
+
+    BUG FIXED: Broadcast model has no class_id field.
+    Previously passing class_id= caused a TypeError that was silently swallowed,
+    meaning ALL live-session notifications (scheduled, started, reminders) never
+    actually created any DB rows.
     """
     from apps.accounts.models import User
     from apps.notifications.models import Broadcast, Notification, AudienceType, NotificationType
@@ -113,19 +126,22 @@ def _notify_students_inapp(session: LiveSession, sender, subject_line: str, mess
     if not student_ids:
         return
 
-    # Create a Broadcast record (shows in teacher's "sent history")
+    section_label = (
+        f"{session.section.classroom.name}-{session.section.name}"
+        if session.section else "class"
+    )
+
     broadcast = Broadcast.objects.create(
         sender=sender,
         subject=subject_line,
         message=message,
         notification_type=NotificationType.INFO,
         audience_type=AudienceType.CLASS_STUDENTS,
-        class_id=session.section.classroom_id if session.section else None,
+        audience_label=section_label,
         link=link,
     )
 
-    # Create individual Notification records for each student (shows in bell panel)
-    notifications = [
+    Notification.objects.bulk_create([
         Notification(
             user_id=uid,
             broadcast=broadcast,
@@ -135,16 +151,14 @@ def _notify_students_inapp(session: LiveSession, sender, subject_line: str, mess
             link=link,
         )
         for uid in student_ids
-    ]
-    Notification.objects.bulk_create(notifications)
+    ])
 
-    # Update recipient count on the broadcast
     broadcast.recipient_count = len(student_ids)
     broadcast.save(update_fields=["recipient_count"])
 
-    logger.info("In-app notifications created: session=%s students=%d", session.public_id, len(student_ids))
+    logger.info("In-app notifications created: session=%s students=%d",
+                session.public_id, len(student_ids))
 
-    # Also send browser push (best-effort)
     try:
         send_push_to_users(
             user_ids=student_ids,
@@ -157,6 +171,53 @@ def _notify_students_inapp(session: LiveSession, sender, subject_line: str, mess
         logger.warning("Push delivery failed for session %s: %s", session.public_id, exc)
 
 
+# ── LiveKit room admin helper ─────────────────────────────────────────────────
+
+def _delete_livekit_room(room_name: str) -> None:
+    """
+    Delete a LiveKit room via RoomService API.
+    All participants receive a Disconnected event and are forcibly removed.
+    Called by session_end so students are auto-kicked instead of staying in the room.
+    """
+    import requests as _req
+    from django.conf import settings as _s
+
+    api_key    = getattr(_s, "LIVEKIT_API_KEY", "")
+    api_secret = getattr(_s, "LIVEKIT_API_SECRET", "")
+    livekit_url = getattr(_s, "LIVEKIT_URL", "")
+
+    if not api_key or not api_secret or not livekit_url:
+        logger.warning("LiveKit credentials not configured — cannot delete room")
+        return
+
+    import jwt as _pyjwt
+    now = int(time.time())
+    token = _pyjwt.encode({
+        "iss": api_key,
+        "exp": now + 60,
+        "nbf": now,
+        "video": {"roomCreate": True, "roomList": True, "roomAdmin": True},
+    }, api_secret, algorithm="HS256")
+
+    http_url = livekit_url.replace("wss://", "https://").replace("ws://", "http://").rstrip("/")
+    try:
+        resp = _req.post(
+            f"{http_url}/twirp/livekit.RoomService/DeleteRoom",
+            json={"room": room_name},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type":  "application/json",
+            },
+            timeout=5,
+        )
+        if resp.ok:
+            logger.info("LiveKit room deleted: %s", room_name)
+        else:
+            logger.warning("LiveKit room delete HTTP %d: %s", resp.status_code, resp.text[:200])
+    except _req.RequestException as exc:
+        logger.error("LiveKit room delete failed: %s", exc)
+
+
 # ── Teacher endpoints ─────────────────────────────────────────────────────────
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -167,14 +228,15 @@ def session_list_create(request):
 
     if request.method == "GET":
         if user.role == "ADMIN":
-            qs = LiveSession.objects.select_related("section", "subject", "teacher").order_by("-scheduled_at")[:50]
+            qs = LiveSession.objects.select_related(
+                "section", "subject", "teacher"
+            ).order_by("-scheduled_at")[:50]
         else:
             qs = LiveSession.objects.filter(
                 teacher=user
             ).select_related("section", "subject", "teacher").order_by("-scheduled_at")[:50]
         return JsonResponse([_session_to_dict(s, include_attendance=True) for s in qs], safe=False)
 
-    # POST — create
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -202,7 +264,6 @@ def session_list_create(request):
                 dt = timezone.make_aware(dt)
             parsed_scheduled = dt
 
-    # Unique room name: section_id + short uuid
     room_name = f"gyangrit-{section_id}-{uuid.uuid4().hex[:8]}"
 
     session = LiveSession.objects.create(
@@ -214,19 +275,20 @@ def session_list_create(request):
     )
     logger.info("LiveSession created: id=%s room=%s", session.public_id, room_name)
 
-    # Notify students: in-app notification (bell panel) + browser push
     try:
         _notify_students_inapp(
             session=session,
             sender=user,
             subject_line=f"\U0001f4cb Live Class Scheduled: {session.title}",
-            message=f"{user.get_full_name() or user.username} scheduled a live class for {section.classroom.name}-{section.name}.",
+            message=(
+                f"{user.get_full_name() or user.username} scheduled a live class "
+                f"for {section.classroom.name}-{section.name}."
+            ),
             link=f"/live/{session.public_id}",
         )
     except Exception as exc:
         logger.warning("Notify failed for new session %s: %s", session.public_id, exc)
 
-    # Schedule QStash reminders (15min + 5min before scheduled_at)
     try:
         _schedule_session_reminders(session)
     except Exception as exc:
@@ -249,28 +311,27 @@ def session_start(request, session_id):
     session.started_at = timezone.now()
     session.save(update_fields=["status", "started_at"])
 
-    # Start LiveKit Egress recording (delayed to allow for room instantiation via WebRTC handshake)
+    # Start LiveKit Egress recording after 5s (room needs time to initialise)
     try:
         from .recording import start_recording
         import threading
-        
+
         def _delayed_recording(session_ref):
             try:
                 start_recording(session_ref)
-            except Exception as e:
-                logger.warning(f"Delayed recording start failed: {e}")
-                
+            except Exception as exc:
+                logger.warning("Delayed recording start failed: %s", exc)
+
         threading.Timer(5.0, _delayed_recording, args=[session]).start()
     except Exception as exc:
-        logger.warning("Recording start thread initialization failed for session %s: %s", session.public_id, exc)
+        logger.warning("Recording thread init failed for session %s: %s",
+                       session.public_id, exc)
 
-    # Notify students via Ably
     try:
         _notify_session_event(session, "session:started")
     except Exception as exc:
         logger.warning("Ably notify failed: %s", exc)
 
-    # In-app notification (bell panel) + browser push
     try:
         teacher_name = session.teacher.get_full_name() or session.teacher.username
         _notify_students_inapp(
@@ -300,10 +361,20 @@ def session_end(request, session_id):
     session.ended_at = timezone.now()
     session.save(update_fields=["status", "ended_at"])
 
+    # Notify via Ably (bell panel update)
     try:
         _notify_session_event(session, "session:ended")
     except Exception as exc:
         logger.warning("Ably notify failed: %s", exc)
+
+    # BUG FIX: Delete the LiveKit room so ALL participants receive a Disconnected
+    # event in the browser and are automatically removed from the call.
+    # Previously students had to click Leave manually after the teacher ended.
+    try:
+        _delete_livekit_room(session.livekit_room_name)
+    except Exception as exc:
+        logger.warning("LiveKit room delete failed for session %s: %s",
+                       session.public_id, exc)
 
     return JsonResponse(_session_to_dict(session))
 
@@ -330,7 +401,6 @@ def session_attendance(request, session_id):
 @require_auth
 @require_http_methods(["GET"])
 def upcoming_sessions(request):
-    """List live + upcoming sessions for the student's section."""
     user    = request.user
     section = getattr(user, "section", None)
     if not section:
@@ -348,10 +418,8 @@ def upcoming_sessions(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def join_session(request, session_id):
-    """Student joins session — creates attendance record."""
     session = get_object_or_404(LiveSession, public_id=session_id)
 
-    # Verify student is in the right section
     if request.user.role == "STUDENT":
         if getattr(request.user, "section_id", None) != session.section_id:
             return JsonResponse({"error": "You are not in this class"}, status=403)
@@ -368,17 +436,27 @@ def join_session(request, session_id):
     return JsonResponse({"session": _session_to_dict(session)})
 
 
-# ── Token endpoint — both teacher and student ─────────────────────────────────
+# ── Token endpoint ────────────────────────────────────────────────────────────
 
 @require_auth
 @require_http_methods(["GET"])
 def session_token(request, session_id):
-    """Return a LiveKit JWT for this session room."""
+    """
+    Return a LiveKit JWT for this session room.
+
+    BUG FIX: canPublishData is now role-dependent.
+    Previously everyone got can_publish=True which set canPublishData=True for
+    ALL participants including students. This meant students could broadcast
+    whiteboard data, overriding the teacher's drawings.
+
+    Now:
+      TEACHER/PRINCIPAL/ADMIN — canPublish=True, canPublishData=True
+      STUDENT                 — canPublish=True, canPublishData=False
+    """
     from django.conf import settings as django_settings
 
     session = get_object_or_404(LiveSession, public_id=session_id)
 
-    # Access check
     if request.user.role == "STUDENT":
         if getattr(request.user, "section_id", None) != session.section_id:
             return JsonResponse({"error": "Forbidden"}, status=403)
@@ -386,48 +464,51 @@ def session_token(request, session_id):
         if session.teacher_id != request.user.id:
             return JsonResponse({"error": "Forbidden"}, status=403)
 
-    # All participants can publish (mic/camera). Teacher always can.
-    # Students get publish rights so they can unmute/share camera when allowed.
-    can_publish = True
-    identity    = str(request.user.id)
-    name        = request.user.get_full_name() or request.user.username
+    is_teacher_role  = request.user.role in ("TEACHER", "PRINCIPAL", "ADMIN")
+    can_publish_data = is_teacher_role   # only teacher broadcasts whiteboard/chat
+
+    identity = str(request.user.id)
+    name     = request.user.get_full_name() or request.user.username
 
     try:
         token = _make_livekit_token(
             room_name=session.livekit_room_name,
             identity=identity,
             name=name,
-            can_publish=can_publish,
+            can_publish=True,
+            can_publish_data=can_publish_data,
         )
     except Exception as exc:
         logger.error("LiveKit token error: %s", exc)
         return JsonResponse({"error": "Could not generate token"}, status=500)
 
     return JsonResponse({
-        "token":      token,
-        "room_name":  session.livekit_room_name,
-        "livekit_url": getattr(django_settings, "LIVEKIT_URL", ""),
-        "identity":   identity,
-        "can_publish": can_publish,
+        "token":           token,
+        "room_name":       session.livekit_room_name,
+        "livekit_url":     getattr(django_settings, "LIVEKIT_URL", ""),
+        "identity":        identity,
+        "can_publish":     True,
+        "can_publish_data": can_publish_data,
     })
 
 
 # ── Ably notification helper ──────────────────────────────────────────────────
 
 def _notify_session_event(session: LiveSession, event: str) -> None:
-    """Notify all students in the section via Ably."""
     from django.conf import settings
     import requests as http_requests
     import base64
     from urllib.parse import quote
     from apps.accounts.models import User
-    from apps.chatrooms.models import ChatRoomMember
 
     api_key = getattr(settings, "ABLY_API_KEY", "").strip()
-    if not api_key: return
+    if not api_key:
+        return
 
     credentials = base64.b64encode(api_key.encode()).decode()
-    students = User.objects.filter(role="STUDENT", section_id=session.section_id).values_list("id", flat=True)
+    students = User.objects.filter(
+        role="STUDENT", section_id=session.section_id
+    ).values_list("id", flat=True)
 
     for uid in students:
         channel = quote(f"notifications:{uid}", safe="")
@@ -439,30 +520,25 @@ def _notify_session_event(session: LiveSession, event: str) -> None:
                     "session_title": session.title,
                     "teacher_name":  session.teacher.get_full_name() or session.teacher.username,
                 }},
-                headers={"Authorization": f"Basic {credentials}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type":  "application/json",
+                },
                 timeout=3,
             )
         except Exception as exc:
             logger.warning("Ably notify session user %s: %s", uid, exc)
 
 
-# ── QStash scheduled reminders ─────────────────────────────────────────────
+# ── QStash scheduled reminders ────────────────────────────────────────────────
 
 def _schedule_session_reminders(session: LiveSession) -> None:
-    """
-    Schedule QStash delayed callbacks for 15-min and 5-min reminders.
-    QStash will POST to /api/v1/live/sessions/<id>/remind/ at the scheduled time.
-    
-    If scheduled_at is less than 15 min from now, only schedule the reminders
-    that are still in the future.
-    """
     from django.conf import settings
     import requests as http_requests
+    import os
 
     qstash_token = getattr(settings, "QSTASH_TOKEN", "").strip()
     if not qstash_token:
-        # Try alternate env var names (Upstash uses verbose naming)
-        import os
         qstash_token = os.environ.get("UPSTASH_QSTASH_QSTASH_TOKEN", "").strip()
     if not qstash_token:
         logger.debug("QStash token not configured — skipping session reminders")
@@ -470,26 +546,21 @@ def _schedule_session_reminders(session: LiveSession) -> None:
 
     backend_url = getattr(settings, "BACKEND_BASE_URL", "").strip()
     if not backend_url:
-        import os
-        backend_url = os.environ.get("BACKEND_BASE_URL", "https://gyangrit.onrender.com").strip()
+        backend_url = os.environ.get("BACKEND_BASE_URL", "https://api.gyangrit.site").strip()
 
     remind_url = f"{backend_url}/api/v1/live/sessions/{session.public_id}/remind/"
-    now = timezone.now()
+    now        = timezone.now()
 
-    # Schedule reminders at 15min and 5min before the session
-    offsets = [
+    for offset, label in [
         (timedelta(minutes=15), "15 minutes"),
         (timedelta(minutes=5),  "5 minutes"),
-    ]
-
-    for offset, label in offsets:
-        remind_at = session.scheduled_at - offset
+    ]:
+        remind_at     = session.scheduled_at - offset
         if remind_at <= now:
-            continue  # already past this reminder time
-
+            continue
         delay_seconds = int((remind_at - now).total_seconds())
         if delay_seconds < 10:
-            continue  # too close, skip
+            continue
 
         try:
             resp = http_requests.post(
@@ -497,13 +568,14 @@ def _schedule_session_reminders(session: LiveSession) -> None:
                 json={"session_id": session.id, "minutes_before": label},
                 headers={
                     "Authorization": f"Bearer {qstash_token}",
-                    "Content-Type": "application/json",
+                    "Content-Type":  "application/json",
                     "Upstash-Delay": f"{delay_seconds}s",
                 },
                 timeout=5,
             )
             if resp.ok:
-                logger.info("QStash reminder scheduled: session=%s in %ds (%s before)", session.public_id, delay_seconds, label)
+                logger.info("QStash reminder scheduled: session=%s delay=%ds label=%s",
+                            session.public_id, delay_seconds, label)
             else:
                 logger.warning("QStash schedule failed: %s %s", resp.status_code, resp.text[:200])
         except Exception as exc:
@@ -513,16 +585,6 @@ def _schedule_session_reminders(session: LiveSession) -> None:
 @csrf_exempt
 @require_http_methods(["POST"])
 def session_remind(request, session_id):
-    """
-    POST /api/v1/live/sessions/<id>/remind/
-    
-    Called by QStash at scheduled reminder times.
-    Sends push + in-app notification to students in the session's section.
-    
-    No auth required — QStash sends a signed request. For now we trust
-    the request since the endpoint only sends notifications (no mutation).
-    TODO: Verify QStash signature header for production hardening.
-    """
     try:
         session = LiveSession.objects.select_related(
             "section", "section__classroom", "subject", "teacher"
@@ -530,18 +592,16 @@ def session_remind(request, session_id):
     except LiveSession.DoesNotExist:
         return JsonResponse({"error": "Session not found"}, status=404)
 
-    # Don't send reminders for sessions that are already live or ended
     if session.status != SessionStatus.SCHEDULED:
         return JsonResponse({"skipped": True, "reason": f"Session is {session.status}"})
 
-    # Parse minutes_before from body
     try:
-        body = json.loads(request.body)
+        body          = json.loads(request.body)
         minutes_label = body.get("minutes_before", "soon")
     except (json.JSONDecodeError, ValueError):
         minutes_label = "soon"
 
-    teacher_name = session.teacher.get_full_name() or session.teacher.username
+    teacher_name  = session.teacher.get_full_name() or session.teacher.username
     subject_label = session.subject.name if session.subject else "General"
 
     _notify_students_inapp(
@@ -556,10 +616,9 @@ def session_remind(request, session_id):
     return JsonResponse({"reminded": True, "session_id": session.public_id})
 
 
-# ── Recording endpoints ──────────────────────────────────────────────────────────────
+# ── Recording helpers ─────────────────────────────────────────────────────────
 
 def _recording_to_dict(session: LiveSession) -> dict:
-    """Serialize a session's recording fields for API response."""
     return {
         "id":                         session.public_id,
         "title":                      session.title,
@@ -580,17 +639,8 @@ def _recording_to_dict(session: LiveSession) -> dict:
 @csrf_exempt
 @require_http_methods(["POST"])
 def recording_webhook(request):
-    """
-    POST /api/v1/live/recording-webhook/
-
-    LiveKit Egress completion callback.
-    Verifies HMAC-SHA256 signature from Authorization header.
-    Updates LiveSession.recording_status when Egress completes.
-    No auth cookie required — LiveKit is the caller.
-    """
     from .recording import verify_webhook_signature, handle_recording_webhook
 
-    # Verify signature
     signature = request.headers.get("Authorization", "")
     if not verify_webhook_signature(request.body, signature):
         logger.warning("Recording webhook: invalid signature")
@@ -613,17 +663,8 @@ def recording_webhook(request):
 @require_auth
 @require_http_methods(["GET"])
 def recordings_list(request):
-    """
-    GET /api/v1/live/recordings/
-
-    Returns sessions that have a recording (status != 'none').
-    Access rules:
-      STUDENT    — own section only
-      TEACHER    — sessions they taught
-      ADMIN/PRINCIPAL — all recordings in the institution
-    """
-    user = request.user
-    base_qs = (
+    user     = request.user
+    base_qs  = (
         LiveSession.objects
         .exclude(recording_status=RecordingStatus.NONE)
         .select_related("subject", "teacher", "section")
@@ -638,39 +679,25 @@ def recordings_list(request):
     elif user.role == "TEACHER":
         qs = base_qs.filter(teacher=user)
     else:
-        # ADMIN / PRINCIPAL / OFFICIAL — all
         qs = base_qs
 
-    # Optional filters from query params
-    subject_id = request.GET.get("subject_id")
-    if subject_id:
-        qs = qs.filter(subject_id=subject_id)
-
+    subject_id    = request.GET.get("subject_id")
     status_filter = request.GET.get("recording_status")
-    if status_filter:
-        qs = qs.filter(recording_status=status_filter)
+    if subject_id:    qs = qs.filter(subject_id=subject_id)
+    if status_filter: qs = qs.filter(recording_status=status_filter)
 
-    return JsonResponse(
-        [_recording_to_dict(s) for s in qs[:100]],
-        safe=False,
-    )
+    return JsonResponse([_recording_to_dict(s) for s in qs[:100]], safe=False)
 
 
 @require_auth
 @require_http_methods(["GET"])
 def recording_detail(request, session_id):
-    """
-    GET /api/v1/live/recordings/<session_id>/
-
-    Returns full recording detail for a single session.
-    """
-    user = request.user
+    user    = request.user
     session = get_object_or_404(
         LiveSession.objects.select_related("subject", "teacher", "section"),
         public_id=session_id,
     )
 
-    # Access check
     if user.role == "STUDENT":
         if getattr(user, "section_id", None) != session.section_id:
             return JsonResponse({"error": "Forbidden"}, status=403)
@@ -682,6 +709,5 @@ def recording_detail(request, session_id):
         return JsonResponse({"error": "No recording for this session"}, status=404)
 
     data = _recording_to_dict(session)
-    # Also include attendance count for the player page
     data["attendance_count"] = session.attendance.filter(is_present=True).count()
     return JsonResponse(data)

@@ -2,20 +2,20 @@
 /**
  * Excalidraw whiteboard wrapper for live sessions.
  *
- * All @excalidraw types are defined locally to avoid TS2307 errors when
- * the package is not yet installed (Vercel installs on build, but tsc
- * runs before vite bundles). The actual Excalidraw component is loaded
- * via dynamic import() at runtime only.
- *
  * Two modes:
- *   - Teacher (readOnly=false): can draw. Changes broadcast via onBroadcast.
- *   - Student (readOnly=true): receives state updates, renders read-only.
+ *   Teacher (readOnly=false): draws, changes broadcast via onBroadcast.
+ *   Student (readOnly=true): receives state via remoteState, renders read-only.
+ *
+ * Persistence: teacher's whiteboard state saved to localStorage keyed by
+ * sessionId so it survives page refreshes.
+ *
+ * Fixes applied 2026-04-04:
+ *   - hasAppliedRemoteRef set to true on localStorage restore so teacher's
+ *     first draw after refresh is broadcast immediately (was silently suppressed)
+ *   - clearAction handled correctly for both teacher and student
  */
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 
-// ── Local type definitions (avoids importing from @excalidraw at compile time) ─
-
-/** Minimal ExcalidrawElement shape — only the fields we serialize over data channel */
 export interface WhiteboardElement {
   id: string;
   type: string;
@@ -24,7 +24,6 @@ export interface WhiteboardElement {
   [key: string]: unknown;
 }
 
-/** Serialized whiteboard state sent over LiveKit data channel */
 export interface WhiteboardState {
   type: "whiteboard";
   elements: WhiteboardElement[];
@@ -34,7 +33,6 @@ export interface WhiteboardState {
   clearAction?: boolean;
 }
 
-/** Minimal AppState shape for the onChange callback */
 interface MinimalAppState {
   scrollX: number;
   scrollY: number;
@@ -42,14 +40,11 @@ interface MinimalAppState {
   [key: string]: unknown;
 }
 
-/** Excalidraw imperative API — only the methods we use */
 interface ExcalidrawAPI {
   updateScene: (scene: { elements: WhiteboardElement[] }) => void;
   getSceneElements: () => WhiteboardElement[];
   resetScene: () => void;
 }
-
-// ── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   readOnly: boolean;
@@ -58,8 +53,6 @@ interface Props {
 }
 
 const BROADCAST_THROTTLE_MS = 200;
-
-// ── Component ────────────────────────────────────────────────────────────────
 
 const UI_OPTIONS = {
   canvasActions: {
@@ -79,14 +72,16 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ExcalidrawComp, setExcalidrawComp] = useState<React.ComponentType<any> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Initialize refs
   const apiRef = useRef<ExcalidrawAPI | null>(null);
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastBroadcastRef = useRef<number>(0);
-  const hasAppliedRemoteRef = useRef(false);
 
-  // Memoize stable props before any early returns to obey React Hook Rules
-  // We completely omit dynamic elements here and strictly use updateScene in useEffect!
+  // KEY FIX: if we have a saved remoteState (from localStorage restore), mark as already
+  // applied so teacher's first draw immediately broadcasts instead of being suppressed.
+  const hasAppliedRemoteRef = useRef<boolean>(
+    !readOnly && remoteState !== null && remoteState !== undefined
+  );
+
   const initData = useMemo(() => ({
     appState: INITIAL_APP_STATE,
   }), []);
@@ -96,14 +91,22 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
     remoteStateRef.current = remoteState;
   }, [remoteState]);
 
-  const handleAPI = useCallback((api: ExcalidrawAPI) => { apiRef.current = api; }, []);
+  const handleAPI = useCallback((api: ExcalidrawAPI) => {
+    apiRef.current = api;
+    // Immediately apply any saved state when API becomes available
+    if (api && remoteStateRef.current) {
+      if (remoteStateRef.current.elements.length > 0) {
+        api.updateScene({ elements: remoteStateRef.current.elements });
+      }
+      hasAppliedRemoteRef.current = true;
+    }
+  }, []);
 
-  // Dynamic import — loads Excalidraw + its CSS at runtime only
+  // Dynamic import
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // Import CSS first so the toolbar and canvas render correctly
         await import("@excalidraw/excalidraw/index.css");
         const mod = await import("@excalidraw/excalidraw");
         if (!cancelled) setExcalidrawComp(() => mod.Excalidraw);
@@ -115,32 +118,40 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
     return () => { cancelled = true; };
   }, []);
 
-  // Apply remote state
+  // Apply remote state updates from data channel
   useEffect(() => {
     if (!remoteState || !apiRef.current) return;
+
+    if (remoteState.clearAction) {
+      apiRef.current.resetScene();
+      hasAppliedRemoteRef.current = true;
+      return;
+    }
+
     if (readOnly) {
-      if (remoteState.elements.length === 0) apiRef.current.resetScene();
-      else apiRef.current.updateScene({ elements: remoteState.elements });
-    } else {
-      // Teacher
-      if (!hasAppliedRemoteRef.current) {
-        if (remoteState.clearAction) apiRef.current.resetScene();
-        else if (remoteState.elements.length > 0) apiRef.current.updateScene({ elements: remoteState.elements });
-        hasAppliedRemoteRef.current = true;
-      } else if (remoteState.clearAction) {
-        // Handle explicit clear command sent to remoteState manually
+      // Student: always apply whatever teacher sends
+      if (remoteState.elements.length === 0) {
         apiRef.current.resetScene();
+      } else {
+        apiRef.current.updateScene({ elements: remoteState.elements });
+      }
+    } else {
+      // Teacher: only apply on first load (don't overwrite mid-session drawing)
+      if (!hasAppliedRemoteRef.current) {
+        if (remoteState.elements.length > 0) {
+          apiRef.current.updateScene({ elements: remoteState.elements });
+        }
+        hasAppliedRemoteRef.current = true;
       }
     }
   }, [remoteState, readOnly]);
 
-  // Throttled broadcast (teacher)
+  // Throttled broadcast (teacher only)
   const handleChange = useCallback(
     (elements: readonly WhiteboardElement[], appState: MinimalAppState) => {
       if (readOnly || !onBroadcast) return;
-      
-      // Do not accept any changes (even empty ones) until we have finished injecting the saved state
-      if (!hasAppliedRemoteRef.current && remoteStateRef.current !== null) return;
+      // Block broadcasts until initial state is applied
+      if (!hasAppliedRemoteRef.current) return;
 
       const now = Date.now();
       const broadcast = () => {
@@ -180,8 +191,6 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
     );
   }
 
-  // These hooks were illegally placed after conditional returns.
-  // Wait, I will hoist them right now.
   const Exc = ExcalidrawComp;
 
   return (
@@ -196,10 +205,7 @@ export default function Whiteboard({ readOnly, remoteState, onBroadcast }: Props
         autoFocus={false}
         UIOptions={UI_OPTIONS}
         initialData={initData}
-      >
-        {/* Empty fragment suppresses the default WelcomeScreen (lock icon + shapes panel) */}
-      </Exc>
+      />
     </div>
   );
 }
-

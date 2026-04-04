@@ -878,14 +878,36 @@ def teacher_class_analytics(request):
         classrooms = scope_queryset(user, ClassRoom.objects.select_related("institution"))
 
     data = []
+    
+    # Try to import StudentRiskScore inside to avoid circular imports just in case
+    try:
+        from apps.analytics.models import StudentRiskScore
+        has_risk_models = True
+    except ImportError:
+        has_risk_models = False
+
     for c in classrooms:
-        total_students = User.objects.filter(role="STUDENT", section__classroom=c).count()
+        students_qs = User.objects.filter(role="STUDENT", section__classroom=c)
+        total_students = students_qs.count()
         attempts = AssessmentAttempt.objects.filter(
             user__section__classroom=c, submitted_at__isnull=False
         )
         total_att = attempts.count()
         pass_att  = attempts.filter(passed=True).count()
         pass_rate = round(pass_att / total_att * 100) if total_att else 0
+        
+        high_risk_count = 0
+        medium_risk_count = 0
+        
+        if has_risk_models and total_students > 0:
+            student_ids = students_qs.values_list("id", flat=True)
+            risks = StudentRiskScore.objects.filter(student_id__in=student_ids)
+            for r in risks:
+                if r.risk_level == "HIGH":
+                    high_risk_count += 1
+                elif r.risk_level == "MEDIUM":
+                    medium_risk_count += 1
+            
         data.append({
             "class_id":       c.id,
             "class_name":     c.name,
@@ -893,6 +915,8 @@ def teacher_class_analytics(request):
             "total_students": total_students,
             "total_attempts": total_att,
             "pass_rate":      pass_rate,
+            "high_risk_count": high_risk_count,
+            "medium_risk_count": medium_risk_count,
         })
     return JsonResponse(data, safe=False)
 
@@ -902,6 +926,18 @@ def teacher_class_analytics(request):
 def teacher_class_students(request, class_id):
     classroom = get_object_or_404(ClassRoom, id=class_id)
     students  = User.objects.filter(role="STUDENT", section__classroom=classroom)
+    
+    # Fetch risk scores
+    try:
+        from apps.analytics.models import StudentRiskScore
+        student_ids = [s.id for s in students]
+        risk_map = {
+            r.student_id: {"risk_level": r.risk_level, "risk_score": r.risk_score}
+            for r in StudentRiskScore.objects.filter(student_id__in=student_ids)
+        }
+    except Exception:
+        risk_map = {}
+
     data = [
         {
             "id":                s.id,
@@ -909,6 +945,8 @@ def teacher_class_students(request, class_id):
             "display_name":      s.display_name,
             "total_lessons":     LessonProgress.objects.filter(user=s).count(),
             "completed_lessons": LessonProgress.objects.filter(user=s, completed=True).count(),
+            "risk_level":        risk_map.get(s.id, {}).get("risk_level", "LOW"),
+            "risk_score":        risk_map.get(s.id, {}).get("risk_score", 0),
         }
         for s in students
     ]

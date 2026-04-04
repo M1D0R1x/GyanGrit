@@ -112,7 +112,13 @@ def log_event(request):
     resource_label = body.get("resource_label", "")[:200]
     duration = body.get("duration_seconds", 0)
 
-    valid_event_types = {EventType.ASSESSMENT, EventType.AI_CHAT}
+    valid_event_types = {
+        EventType.ASSESSMENT, EventType.AI_CHAT,
+        EventType.LESSON_COMPLETE, EventType.ASSESSMENT_PASS, EventType.ASSESSMENT_FAIL,
+        EventType.LOGIN, EventType.RECORDING_VIEW, EventType.CHATROOM_MSG,
+        EventType.COMPETITION, EventType.STREAK_BREAK, EventType.NOTIFICATION_CLICK,
+        EventType.PAGE_VISIT
+    }
     if event_type not in valid_event_types:
         return JsonResponse({"error": f"Invalid event_type. Use one of: {sorted(valid_event_types)}"}, status=400)
 
@@ -255,6 +261,13 @@ def class_summary(request):
 
     for s in student_map.values():
         s["total_min"] = s["lesson_min"] + s["live_min"] + s["assessment_min"] + s["flashcard_min"]
+
+    from .models import StudentRiskScore
+    risk_scores = StudentRiskScore.objects.filter(user_id__in=student_ids).values("user_id", "risk_level", "score")
+    for r in risk_scores:
+        if r["user_id"] in student_map:
+            student_map[r["user_id"]]["risk_level"] = r["risk_level"]
+            student_map[r["user_id"]]["risk_score"] = r["score"]
 
     results = sorted(student_map.values(), key=lambda x: -x["total_min"])
 

@@ -12,6 +12,8 @@ type ClassData = {
   total_attempts: number;
   average_score: number;
   pass_rate: number;
+  high_risk_count?: number;
+  medium_risk_count?: number;
 };
 
 type TeacherData = {
@@ -267,8 +269,21 @@ export default function PrincipalDashboardPage() {
                     <div className="progress-bar">
                       <div className="progress-bar__fill" style={{ width: `${c.pass_rate}%`, background: passColor }} />
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-3)" }}>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-3)", marginBottom: "var(--space-2)" }}>
                       {c.total_attempts} assessment attempts
+                    </div>
+                    {/* Risk Indicators */}
+                    <div style={{ display: "flex", gap: "var(--space-2)", minHeight: 20 }}>
+                      {c.high_risk_count && c.high_risk_count > 0 ? (
+                        <div style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(255, 59, 48, 0.15)", color: "#ff3b30", border: "1px solid rgba(255, 59, 48, 0.3)" }}>
+                          {c.high_risk_count} High Risk
+                        </div>
+                      ) : null}
+                      {c.medium_risk_count && c.medium_risk_count > 0 ? (
+                        <div style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(255, 149, 0, 0.15)", color: "#ff9500", border: "1px solid rgba(255, 149, 0, 0.3)" }}>
+                          {c.medium_risk_count} Medium Risk
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );

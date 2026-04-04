@@ -41,6 +41,8 @@ export type StudentEngagement = {
   ai_messages: number;
   flashcard_min: number;
   total_min: number;
+  risk_level?: string;
+  risk_score?: number;
 };
 
 // ── Heartbeat (call every 30s while student is actively viewing) ─────────────

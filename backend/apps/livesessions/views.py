@@ -249,12 +249,20 @@ def session_start(request, session_id):
     session.started_at = timezone.now()
     session.save(update_fields=["status", "started_at"])
 
-    # Start LiveKit Egress recording (best-effort — session goes live regardless)
+    # Start LiveKit Egress recording (delayed to allow for room instantiation via WebRTC handshake)
     try:
         from .recording import start_recording
-        start_recording(session)
+        import threading
+        
+        def _delayed_recording(session_ref):
+            try:
+                start_recording(session_ref)
+            except Exception as e:
+                logger.warning(f"Delayed recording start failed: {e}")
+                
+        threading.Timer(5.0, _delayed_recording, args=[session]).start()
     except Exception as exc:
-        logger.warning("Recording start failed for session %s: %s", session.public_id, exc)
+        logger.warning("Recording start thread initialization failed for session %s: %s", session.public_id, exc)
 
     # Notify students via Ably
     try:

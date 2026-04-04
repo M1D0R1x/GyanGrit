@@ -185,12 +185,25 @@ export default function TeacherDashboardPage() {
                     <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--ink-primary)", marginBottom: "var(--space-2)", letterSpacing: "-0.02em" }}>
                       Class {c.class_name}
                     </div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginBottom: "var(--space-3)" }}>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginBottom: "var(--space-2)" }}>
                       {c.total_students} student{c.total_students !== 1 ? "s" : ""}
                       {c.total_attempts > 0 && (
                         <> · <span style={{ color: passColor, fontWeight: 700 }}>{c.pass_rate}% pass</span></>
                       )}
                       {c.total_attempts === 0 && " · No attempts yet"}
+                    </div>
+                    {/* Risk Indicators */}
+                    <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)", minHeight: 20 }}>
+                      {c.high_risk_count && c.high_risk_count > 0 ? (
+                        <div style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(255, 59, 48, 0.15)", color: "#ff3b30", border: "1px solid rgba(255, 59, 48, 0.3)" }}>
+                          {c.high_risk_count} High Risk
+                        </div>
+                      ) : null}
+                      {c.medium_risk_count && c.medium_risk_count > 0 ? (
+                        <div style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(255, 149, 0, 0.15)", color: "#ff9500", border: "1px solid rgba(255, 149, 0, 0.3)" }}>
+                          {c.medium_risk_count} Medium Risk
+                        </div>
+                      ) : null}
                     </div>
                     {c.total_attempts > 0 && (
                       <div className="progress-bar" style={{ margin: 0 }}>

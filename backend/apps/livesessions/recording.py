@@ -147,27 +147,28 @@ def start_recording(session) -> str | None:
 
     payload = {
         "room_name": session.livekit_room_name,
-        "output": {
+        "file": {
+            "filepath": r2_key,
             "s3": {
                 "access_key":  access_key,
                 "secret":      secret_key,
                 "region":      "auto",
                 "endpoint":    s3_endpoint,
                 "bucket":      bucket,
-                "key":         r2_key,
                 "force_path_style": True,
             }
         },
-        # Composite layout — full room video, portrait layout for school use
-        "layout": {
-            "type": "SPEAKER_WITH_SCREENSHARE",
-        },
-        "preset": "H264_1080P_30",
+        # Composite layout for Whiteboard + Teacher Video natively handled
+        "layout": "speaker",
+        "options": {
+            "preset": "H264_1080P_30"
+        }
     }
 
     try:
+        http_url = livekit_url.rstrip('/').replace("wss://", "https://").replace("ws://", "http://")
         resp = requests.post(
-            f"{livekit_url.rstrip('/')}/twirp/livekit.Egress/StartRoomCompositeEgress",
+            f"{http_url}/twirp/livekit.Egress/StartRoomCompositeEgress",
             json=payload,
             headers={
                 "Authorization": _livekit_auth_header(session.livekit_room_name),

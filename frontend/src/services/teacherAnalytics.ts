@@ -71,6 +71,8 @@ export type TeacherClassAnalytics = {
   total_students: number;   // added 2026-03-18
   total_attempts: number;   // added 2026-03-18
   pass_rate:      number;   // added 2026-03-18
+  high_risk_count?: number; 
+  medium_risk_count?: number;
 };
 
 export function getTeacherClassAnalytics() {
@@ -86,6 +88,8 @@ export type TeacherClassStudent = {
   display_name:      string;
   total_lessons:     number;
   completed_lessons: number;
+  risk_level?:       string;
+  risk_score?:       number;
 };
 
 export function getTeacherClassStudents(classId: number) {

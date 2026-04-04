@@ -28,6 +28,16 @@ class EventType(models.TextChoices):
     ASSESSMENT       = "assessment",        "Assessment Attempt"
     AI_CHAT          = "ai_chat",           "AI Chat Message"
     FLASHCARD_STUDY  = "flashcard_study",   "Flashcard Study"
+    LESSON_COMPLETE  = "lesson_complete",   "Lesson Complete"
+    ASSESSMENT_PASS  = "assessment_pass",   "Assessment Pass"
+    ASSESSMENT_FAIL  = "assessment_fail",   "Assessment Fail"
+    LOGIN            = "login",             "Login"
+    RECORDING_VIEW   = "recording_view",    "Recording View"
+    CHATROOM_MSG     = "chatroom_msg",      "Chat Message"
+    COMPETITION      = "competition",       "Competition"
+    STREAK_BREAK     = "streak_break",      "Streak Break"
+    NOTIFICATION_CLICK = "notification_click", "Notification Click"
+    PAGE_VISIT       = "page_visit",        "Page Visit"
 
 
 class EngagementEvent(models.Model):
@@ -93,3 +103,28 @@ class DailyEngagementSummary(models.Model):
 
     def __str__(self):
         return f"{self.user_id} {self.date} {self.total_minutes}min"
+
+
+class StudentRiskScore(models.Model):
+    """
+    Stores predictive analytics indicating a student's risk level of falling behind.
+    Calculated recursively over night by analyzing drop-offs in recent engagement.
+    """
+    class RiskLevel(models.TextChoices):
+        LOW = "low", "Low Risk"
+        MEDIUM = "medium", "Medium Risk"
+        HIGH = "high", "High Risk"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="risk_score"
+    )
+    risk_level = models.CharField(max_length=20, choices=RiskLevel.choices, default=RiskLevel.LOW)
+    # Scaled from 0.0 to 100.0, higher means greater risk
+    score = models.FloatField(default=0.0)
+    last_calculated = models.DateTimeField(auto_now=True)
+    # JSON dict of contributing factors, e.g. {"consecutive_absences": 3, "failed_assessments": 2}
+    factors = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.risk_level} ({self.score})"

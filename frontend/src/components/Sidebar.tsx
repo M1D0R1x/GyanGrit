@@ -74,6 +74,7 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Learning Paths", path: "/learning",            icon: <MapIcon /> },
         { label: "Flashcards",     path: "/flashcards",          icon: <CardIcon /> },
         { label: "Live Classes",   path: "/live",                icon: <VideoIcon /> },
+        { label: "Recordings",     path: "/recordings",          icon: <VideoIcon /> },
         { label: "AI Tutor",       path: "/ai-tutor",            icon: <BotIcon /> },
       ]},
       { title: "Assessments", items: [
@@ -100,7 +101,9 @@ function getNavSections(role: Role): NavSection[] {
       { title: "Teaching", items: [
         { label: "My Classes",      path: "/teacher",                icon: <SchoolIcon /> },
         { label: "Live Classes",    path: "/teacher/live",           icon: <VideoIcon /> },
+        { label: "Recordings",      path: "/recordings",             icon: <VideoIcon /> },
         { label: "Flashcard Decks", path: "/teacher/flashcards",     icon: <CardIcon /> },
+        { label: "AI Tools",        path: "/teacher/ai-tools",       icon: <BotIcon /> },
       ]},
       { title: "Students & Codes", items: [
         { label: "Join Codes", path: "/teacher/users", icon: <KeyIcon /> },
@@ -125,6 +128,7 @@ function getNavSections(role: Role): NavSection[] {
       { title: "School", items: [
         { label: "All Classes", path: "/principal",       icon: <SchoolIcon /> },
         { label: "Live Classes", path: "/principal/live", icon: <VideoIcon /> },
+        { label: "Recordings",   path: "/recordings",     icon: <VideoIcon /> },
       ]},
       { title: "Staff & Codes", items: [
         { label: "Join Codes", path: "/principal/users", icon: <KeyIcon /> },
@@ -132,6 +136,7 @@ function getNavSections(role: Role): NavSection[] {
       { title: "Communication", items: [
         { label: "Class Chat",   path: "/principal/chat",         icon: <ChatIcon /> },
         { label: "Competitions", path: "/principal/competitions", icon: <TrophyIcon /> },
+        { label: "AI Tools",     path: "/principal/ai-tools",     icon: <BotIcon /> },
       ]},
       { title: "Info", items: [
         { label: "About",      path: "/about",   icon: <InfoIcon /> },
@@ -174,8 +179,10 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Chat Management", path: "/admin/chat-management", icon: <EditIcon /> },
         { label: "Competitions",    path: "/admin/competitions",    icon: <TrophyIcon /> },
         { label: "Live Classes",    path: "/admin/live",            icon: <VideoIcon /> },
+        { label: "Recordings",      path: "/recordings",            icon: <VideoIcon /> },
         { label: "Flashcards",      path: "/admin/flashcards",      icon: <CardIcon /> },
         { label: "AI Tutor",        path: "/admin/ai-tutor",        icon: <BotIcon /> },
+        { label: "AI Tools",        path: "/admin/ai-tools",        icon: <BotIcon /> },
       ]},
       { title: "Info", items: [
         { label: "About",      path: "/about",   icon: <InfoIcon /> },

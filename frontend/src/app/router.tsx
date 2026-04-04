@@ -118,6 +118,10 @@ const FlashcardsStudyPage   = lazyRetry(() => import("../pages/FlashcardsStudyPa
 // ── Live Sessions ─────────────────────────────────────────────────────────────
 const LiveSessionPage       = lazyRetry(() => import("../pages/LiveSessionPage"));
 
+// ── Recordings ────────────────────────────────────────────────────────────────
+const RecordedSessionsPage  = lazyRetry(() => import("../pages/RecordedSessionsPage"));
+const RecordingPlayerPage   = lazyRetry(() => import("../pages/RecordingPlayerPage"));
+
 // ── AI Chatbot ────────────────────────────────────────────────────────────────
 const AIChatPage            = lazyRetry(() => import("../pages/AIChatPage"));
 
@@ -270,6 +274,10 @@ export const router = createBrowserRouter([
   { path: "/principal/live/:sessionId", element: <Protected role="PRINCIPAL"><LiveSessionPage /></Protected> },
   { path: "/admin/live",              element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
   { path: "/admin/live/:sessionId",   element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
+
+  // ── Recordings ───────────────────────────────────────────────────────────────
+  { path: "/recordings",              element: <Protected role="STUDENT"><RecordedSessionsPage /></Protected> },
+  { path: "/recordings/:sessionId",   element: <Protected role="STUDENT"><RecordingPlayerPage /></Protected> },
 
   // ── AI Chatbot ───────────────────────────────────────────────────────────────
   { path: "/ai-tutor",                element: <Protected role="STUDENT"><AIChatPage /></Protected> },

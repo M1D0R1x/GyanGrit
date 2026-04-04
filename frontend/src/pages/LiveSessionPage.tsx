@@ -29,6 +29,7 @@ import {
 } from "@livekit/components-react";
 import { Track, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   listMySessions, createSession, startSession, endSession,
@@ -249,6 +250,7 @@ function useWhiteboard(sessionId?: string) {
   const broadcastWhiteboard = useCallback((state: WhiteboardState) => {
     if (!room) return;
     if (sessionId) localStorage.setItem(`gyangrit_wb_${sessionId}`, JSON.stringify(state));
+    setRemoteState(state);
     room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(state)), { reliable: true });
   }, [room, sessionId]);
 
@@ -289,9 +291,9 @@ function ChatPanel({ messages, onSend, userId }: {
       <div className="live-chat-panel__input">
         <input type="text" className="form-input" placeholder="Type a message..." value={input}
           onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()}
-          maxLength={500} style={{ flex: 1, margin: 0, fontSize: "var(--text-xs)" }} />
+          maxLength={500} style={{ flex: 1, margin: 0, fontSize: "var(--text-xs)", color: "var(--text-primary)" }} />
         <button className="btn btn--primary" onClick={handleSend} disabled={!input.trim()}
-          style={{ fontSize: "var(--text-xs)", padding: "var(--space-2) var(--space-3)", flexShrink: 0 }}>Send</button>
+          style={{ fontSize: "var(--text-xs)", padding: "var(--space-2) var(--space-3)", flexShrink: 0, color: "#fff" }}>Send</button>
       </div>
     </div>
   );
@@ -363,27 +365,27 @@ function InRoomControls({
 }) {
   const [showSettings, setShowSettings] = useState(false);
   return (
-    <div className="live-controls-bar" style={{ position: "relative" }}>
+    <div className="live-controls-bar">
       <ControlBar controls={{ microphone: isTeacher || permissions.mic, camera: isTeacher || permissions.camera, screenShare: true, leave: true }} />
       <div style={{ display: "flex", gap: "var(--space-2)", marginLeft: "var(--space-4)" }}>
         {isTeacher && (
           <div style={{ position: "relative" }}>
-            <button className="btn btn--ghost" onClick={() => setShowSettings(v => !v)} style={{ fontSize: "var(--text-xs)", color: "#fff", borderColor: "#444" }} title="Room Settings">⚙️</button>
+            <button className="btn btn--ghost" onClick={() => setShowSettings(v => !v)} style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", borderColor: "var(--border-strong)" }} title="Room Settings">⚙️</button>
             {showSettings && (
               <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-2)", width: 220, zIndex: 50 }}>
                 <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: "var(--space-2)", color: "var(--ink-muted)" }}>Student Permissions</div>
-                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--ink-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer", marginBottom: "var(--space-2)" }}>
                   <input type="checkbox" checked={permissions.mic} onChange={e => updatePermissions(e.target.checked, permissions.camera)} /> Allow unmute
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--ink-primary)", cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
                   <input type="checkbox" checked={permissions.camera} onChange={e => updatePermissions(permissions.mic, e.target.checked)} /> Allow camera
                 </label>
               </div>
             )}
           </div>
         )}
-        <button className={`btn ${activeTab === "participants" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("participants")} style={{ fontSize: "var(--text-xs)", color: activeTab === "participants" ? undefined : "#fff", borderColor: "#444" }} title="Participants">{"\uD83D\uDC65"}</button>
-        <button className={`btn ${activeTab === "chat" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("chat")} style={{ fontSize: "var(--text-xs)", color: activeTab === "chat" ? undefined : "#fff", borderColor: "#444" }} title="Toggle chat">{"\uD83D\uDCAC"}</button>
+        <button className={`btn ${activeTab === "participants" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("participants")} style={{ fontSize: "var(--text-xs)", color: activeTab === "participants" ? "#fff" : "var(--text-primary)", borderColor: "var(--border-strong)" }} title="Participants">{"\uD83D\uDC65"}</button>
+        <button className={`btn ${activeTab === "chat" ? "btn--primary" : "btn--ghost"}`} onClick={() => onToggleTab("chat")} style={{ fontSize: "var(--text-xs)", color: activeTab === "chat" ? "#fff" : "var(--text-primary)", borderColor: "var(--border-strong)" }} title="Toggle chat">{"\uD83D\uDCAC"}</button>
       </div>
     </div>
   );
@@ -436,16 +438,23 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
           <button className={`btn ${whiteboardOpen ? "btn--primary" : "btn--ghost"}`}
-            style={{ fontSize: "var(--text-xs)", color: whiteboardOpen ? undefined : "#fff", borderColor: "#444" }}
+            style={{ fontSize: "var(--text-xs)", color: whiteboardOpen ? "#fff" : "var(--text-primary)", borderColor: "var(--border-strong)" }}
             onClick={() => setWhiteboardOpen(v => !v)}
             title={whiteboardOpen ? "Hide whiteboard" : "Show whiteboard"}>
             {"\uD83D\uDCDD"} {isTeacher ? "Whiteboard" : whiteboardOpen ? "Hide Board" : "Board"}
           </button>
+          {isTeacher && whiteboardOpen && (
+            <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", borderColor: "var(--border-strong)" }}
+              onClick={() => broadcastWhiteboard({ type: "whiteboard", elements: [], clearAction: true, scrollX: 0, scrollY: 0, zoom: 1 })}
+              title="Clear entire whiteboard">
+              {"\uD83D\uDDD1\uFE0F"} Clear Board
+            </button>
+          )}
           {isTeacher && activeSession && (
             <button className="btn" style={{ background: "var(--error)", color: "#fff", fontSize: "var(--text-xs)" }}
               onClick={() => onEnd(activeSession)}>End Session</button>
           )}
-          <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", color: "#fff", borderColor: "#444" }}
+          <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", borderColor: "var(--border-strong)" }}
             onClick={onLeave}>Leave</button>
         </div>
       </div>
@@ -559,6 +568,7 @@ function GlassDateTimePicker({
   const selectedDate = value ? new Date(value) : null;
   const isSelected = (d: number) => selectedDate?.getFullYear() === viewYear && selectedDate?.getMonth() === viewMonth && selectedDate?.getDate() === d;
   const isToday    = (d: number) => { const t = new Date(); return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === d; };
+  const isPastDay  = (d: number) => { const t = new Date(); t.setHours(0,0,0,0); return new Date(viewYear, viewMonth, d).getTime() < t.getTime(); };
 
   const commit = (d: number, h: string, m: string) => {
     const mm = String(viewMonth + 1).padStart(2, "0");
@@ -570,6 +580,11 @@ function GlassDateTimePicker({
 
   const applyTime = () => {
     if (!selectedDate) return;
+    const chosen = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), parseInt(hour), parseInt(minute));
+    if (chosen.getTime() < Date.now()) {
+      alert("Please select a future time.");
+      return;
+    }
     commit(selectedDate.getDate(), hour, minute);
     setOpen(false);
   };
@@ -651,18 +666,20 @@ function GlassDateTimePicker({
               const d = i + 1;
               const sel = isSelected(d);
               const tod = isToday(d);
+              const pst = isPastDay(d);
               return (
-                <button key={d} type="button" onClick={() => pickDay(d)} style={{
+                <button key={d} type="button" onClick={() => !pst && pickDay(d)} style={{
                   width: "100%", aspectRatio: "1", border: "none", borderRadius: "var(--radius-md)",
                   background: sel ? "#F59E0B" : tod ? "rgba(245,158,11,0.15)" : "transparent",
                   color: sel ? "#fff" : tod ? "#92400e" : "#1A1208",
                   fontFamily: "var(--font-display)", fontWeight: sel ? 800 : tod ? 700 : 500,
-                  fontSize: "var(--text-xs)", cursor: "pointer",
+                  fontSize: "var(--text-xs)", cursor: pst ? "not-allowed" : "pointer",
+                  opacity: pst ? 0.3 : 1,
                   transition: "all var(--duration-press) var(--ease-out-strong)",
                   boxShadow: sel ? "0 2px 8px rgba(245,158,11,0.4)" : "none",
                 }}
-                  onMouseEnter={e => { if (!sel) { e.currentTarget.style.background = "rgba(245,158,11,0.15)"; e.currentTarget.style.color = "#92400e"; } }}
-                  onMouseLeave={e => { if (!sel) { e.currentTarget.style.background = tod ? "rgba(245,158,11,0.15)" : "transparent"; e.currentTarget.style.color = tod ? "#92400e" : "#1A1208"; } }}
+                  onMouseEnter={e => { if (!sel && !pst) { e.currentTarget.style.background = "rgba(245,158,11,0.15)"; e.currentTarget.style.color = "#92400e"; } }}
+                  onMouseLeave={e => { if (!sel && !pst) { e.currentTarget.style.background = tod ? "rgba(245,158,11,0.15)" : "transparent"; e.currentTarget.style.color = tod ? "#92400e" : "#1A1208"; } }}
                 >{d}</button>
               );
             })}
@@ -834,15 +851,16 @@ export default function LiveSessionPage() {
   // In-room view
   if (inRoom && liveToken) {
     const activeSession = sessions.find(s => s.status === "live");
-    return (
+    const roomNode = (
       <LiveKitRoom token={liveToken.token} serverUrl={liveToken.livekit_url} connect={true} video={false} audio={isTeacher}
         onDisconnected={handleLeaveRoom}
-        style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#0f0f0f" }}>
+        style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-canvas)", position: "fixed", top: 0, left: 0, zIndex: 99999 }}>
         <RoomAudioRenderer />
         <InRoomView isTeacher={isTeacher} activeSession={activeSession} onEnd={handleEnd}
           onLeave={handleLeaveRoom} userName={userName} userId={userId} />
       </LiveKitRoom>
     );
+    return createPortal(roomNode, document.body);
   }
 
   // Session list view
@@ -878,13 +896,13 @@ export default function LiveSessionPage() {
         {showCreate && (
           <div style={{
             padding:      "var(--space-6)",
-            background:   "rgba(255,255,255,0.6)",
+            background:   "var(--bg-surface)",
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
             borderRadius: "var(--radius-xl)",
-            border:       "1px solid rgba(245,158,11,0.3)",
+            border:       "1px solid var(--border-medium)",
             marginBottom: "var(--space-5)",
-            boxShadow:    "0 8px 32px rgba(245,158,11,0.08), 0 1px 0 rgba(255,255,255,0.8) inset",
+            boxShadow:    "var(--shadow-lg)",
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-5)" }}>
               <div>

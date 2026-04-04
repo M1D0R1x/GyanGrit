@@ -16,3 +16,4 @@ whitenoise>=6.6        # Static file serving — required in MIDDLEWARE in base.
 ably>=2.0              # Real-time channels — competition rooms, chat rooms
 django-unfold>=0.86      # Modern Django admin theme
 PyJWT>=2.8                      # LiveKit JWT token generation
+dj-database-url>=2.1            # Parses DATABASE_URL env var into Django DATABASES dict

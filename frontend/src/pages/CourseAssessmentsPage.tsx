@@ -1,9 +1,114 @@
 // pages.CourseAssessmentsPage
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getCourseAssessments, type AssessmentListItem } from "../services/assessments";
+import { getCourseAssessments, getAssessment, type AssessmentListItem } from "../services/assessments";
 import { getCourseBySlug } from "../services/content";
 import { assessmentPath, fromSlug } from "../utils/slugs";
+import {
+  saveAssessmentOffline,
+  getOfflineAssessment,
+  isOnline,
+} from "../services/offline";
+
+// ── Assessment download button ────────────────────────────────────────────────
+
+function AssessmentDownloadBtn({
+  assessmentId,
+}: {
+  assessmentId: number;
+}) {
+  const [saved, setSaved]   = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getOfflineAssessment(assessmentId).then((a) => setSaved(!!a)).catch(() => {});
+  }, [assessmentId]);
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (saved || saving || !isOnline()) return;
+    setSaving(true);
+    try {
+      // Fetch full questions so the offline take works
+      const full = await getAssessment(assessmentId);
+      await saveAssessmentOffline({
+        id:         full.id,
+        courseId:   0, // not available in list, OK — we store by id
+        title:      full.title,
+        totalMarks: full.total_marks,
+        passMarks:  full.pass_marks,
+        questions:  full.questions.map((q) => ({
+          id:      q.id,
+          text:    q.text,
+          marks:   q.marks,
+          order:   q.order,
+          options: q.options,
+        })),
+        savedAt: new Date().toISOString(),
+      });
+      setSaved(true);
+    } catch {
+      // silent
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSave}
+      disabled={saving || saved}
+      title={saved ? "Saved for offline" : "Save assessment for offline"}
+      aria-label={saved ? "Assessment saved offline" : "Download assessment for offline"}
+      style={{
+        flexShrink: 0,
+        width: 32, height: 32,
+        borderRadius: "var(--radius-sm)",
+        border: `1px solid ${saved ? "rgba(16,185,129,0.35)" : "var(--border-light)"}`,
+        background: saved ? "rgba(16,185,129,0.08)" : "transparent",
+        color: saved ? "var(--success)" : "var(--ink-muted)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: saved ? "default" : "pointer",
+        transition: "all 180ms ease",
+        marginLeft: "var(--space-2)",
+      }}
+      onMouseEnter={(e) => {
+        if (!saved && !saving) {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.borderColor = "var(--saffron)";
+          el.style.color = "var(--saffron)";
+          el.style.background = "rgba(245,158,11,0.06)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!saved) {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.borderColor = "var(--border-light)";
+          el.style.color = "var(--ink-muted)";
+          el.style.background = "transparent";
+        }
+      }}
+    >
+      {saving ? (
+        <span className="btn__spinner" style={{ width: 11, height: 11 }} />
+      ) : saved ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CourseAssessmentsPage() {
   // Route: /courses/:grade/:subject/assessments
@@ -22,7 +127,6 @@ export default function CourseAssessmentsPage() {
 
   useEffect(() => {
     if (!grade || !subjectSlug) {
-      // Use setTimeout to avoid setState-in-effect lint warning
       const t = setTimeout(() => {
         setError("Invalid course URL.");
         setLoading(false);
@@ -88,7 +192,7 @@ export default function CourseAssessmentsPage() {
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="card__title">{a.title}</div>
                     {a.description && (
                       <p className="card__description" style={{ marginTop: "var(--space-2)" }}>
@@ -106,17 +210,23 @@ export default function CourseAssessmentsPage() {
                       <span>Pass: <strong style={{ color: "var(--success)" }}>{a.pass_marks}</strong> marks</span>
                     </div>
                   </div>
-                  <button
-                    className="btn btn--primary"
-                    onClick={() =>
-                      grade && subjectSlug
-                        ? navigate(assessmentPath(grade, subjectSlug, a.id))
-                        : navigate(`/assessments`)
-                    }
-                    style={{ marginLeft: "var(--space-4)", flexShrink: 0 }}
-                  >
-                    Start
-                  </button>
+
+                  {/* Actions: download + start */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "var(--space-4)", flexShrink: 0 }}>
+                    <AssessmentDownloadBtn
+                      assessmentId={a.id}
+                    />
+                    <button
+                      className="btn btn--primary"
+                      onClick={() =>
+                        grade && subjectSlug
+                          ? navigate(assessmentPath(grade, subjectSlug, a.id))
+                          : navigate(`/assessments`)
+                      }
+                    >
+                      Start
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

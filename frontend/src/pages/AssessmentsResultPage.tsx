@@ -5,15 +5,17 @@ import { getMySummary, type MySummary } from "../services/gamification";
 import { assessmentHistoryPath } from "../utils/slugs";
 
 type ResultState = {
-  score:         number;
-  passed:        boolean;
+  score:         number | null;
+  passed:        boolean | null;
   total_marks:   number;
   pass_marks:    number;
   assessment_id: number;
-  attempt_id:    number;
+  attempt_id?:   number;
   // Passed through from AssessmentTakePage for slug-based navigation
   grade?:        number | null;
   subject_slug?: string | null;
+  // Set when assessment was submitted offline (queued for sync)
+  offline?:      boolean;
 };
 
 export default function AssessmentResultPage() {
@@ -50,11 +52,33 @@ export default function AssessmentResultPage() {
     );
   }
 
-  const percentage = state.total_marks
+  // Offline submission — queued for sync when back online
+  if (state.offline) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", minHeight: "60vh", padding: "var(--space-8) var(--space-4)" }}>
+        <div className="result-card">
+          <div className="result-card__icon">📶</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)", textAlign: "center", marginBottom: "var(--space-3)" }}>
+            Answers Saved Offline
+          </div>
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", textAlign: "center", marginBottom: "var(--space-6)", maxWidth: 340 }}>
+            Your assessment answers have been saved and will be automatically submitted when you're back online.
+          </p>
+          <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "center" }}>
+            <button className="btn btn--primary" onClick={() => navigate("/dashboard")}>
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const percentage = state.total_marks && state.score != null
     ? Math.round((state.score / state.total_marks) * 100)
     : 0;
 
-  const isPerfect = state.score === state.total_marks && state.total_marks > 0;
+  const isPerfect = state.score != null && state.score === state.total_marks && state.total_marks > 0;
 
   let pointsEarned = 5; // attempt bonus always
   if (state.passed)  pointsEarned += 25;

@@ -55,12 +55,26 @@ async function processQueueItem(item: OfflineQueueItem): Promise<boolean> {
         });
         break;
 
-      case "assessment_submit":
+      case "assessment_submit": {
+        // Offline assessment was submitted without a backend attempt_id.
+        // Start a fresh attempt, then submit with the queued answers.
+        let attemptId = item.payload.attemptId as number | undefined;
+        if (!attemptId) {
+          const startResp = await apiPost<{ attempt_id: number }>(
+            `/assessments/${item.payload.assessmentId}/start/`,
+            {},
+          );
+          attemptId = startResp.attempt_id;
+        }
         await apiPost(
           `/assessments/${item.payload.assessmentId}/submit/`,
-          { answers: item.payload.answers },
+          {
+            attempt_id:       attemptId,
+            selected_options: item.payload.selectedOptions as Record<number, number>,
+          },
         );
         break;
+      }
 
       default:
         console.warn(`[OfflineSync] Unknown queue item type: ${item.type}`);

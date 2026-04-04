@@ -508,32 +508,34 @@ export default function OfflineDownloadsPage() {
         </div>
       ) : isEmpty ? (
         <div style={{
-          padding: "var(--space-16) var(--space-6)",
+          padding: "var(--space-12) var(--space-6)",
           background: "var(--glass-fill)",
           border: "1px solid var(--glass-stroke)",
           borderRadius: "var(--radius-xl)",
           backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
           textAlign: "center",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-4)",
         }}>
-          <div style={{ fontSize: 48, marginBottom: "var(--space-4)" }}>📥</div>
-          <div style={{
-            fontFamily: "var(--font-display)", fontWeight: 700,
-            fontSize: "var(--text-lg)", color: "var(--ink-primary)",
-            marginBottom: "var(--space-2)",
-          }}>
-            No downloaded content
+          <div style={{ fontSize: 48 }}>📥</div>
+          <div>
+            <div style={{
+              fontFamily: "var(--font-display)", fontWeight: 700,
+              fontSize: "var(--text-lg)", color: "var(--ink-primary)",
+              marginBottom: "var(--space-2)",
+            }}>
+              No downloaded content
+            </div>
+            <p style={{
+              fontSize: "var(--text-sm)", color: "var(--ink-muted)",
+              maxWidth: 320, margin: "0 auto",
+              lineHeight: 1.6,
+            }}>
+              Save lessons and flashcard decks for offline access. Open any lesson and tap the download button to save it.
+            </p>
           </div>
-          <p style={{
-            fontSize: "var(--text-sm)", color: "var(--ink-muted)",
-            maxWidth: 360, margin: "0 auto var(--space-6)",
-            lineHeight: 1.6,
-          }}>
-            Save lessons and flashcard decks for offline access.
-            Open any lesson and use the download panel to save it.
-          </p>
           <button
             className="btn btn--primary"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/courses")}
           >
             Browse lessons
           </button>

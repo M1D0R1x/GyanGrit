@@ -8,6 +8,7 @@ import {
   type AssessmentDetail,
   type AssessmentQuestion,
 } from "../services/assessments";
+import { getOfflineAssessment, enqueueOfflineAction, isOnline } from "../services/offline";
 
 const DURATION_MINUTES = 30;
 const DURATION_SECONDS = DURATION_MINUTES * 60;
@@ -225,6 +226,7 @@ export default function AssessmentTakePage() {
   const [showSubmit, setShowSubmit] = useState(false);
   const [timeLeft, setTimeLeft]     = useState(DURATION_SECONDS);
   const [timerActive, setTimerActive] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const answersRef    = useRef(answers);
   const attemptRef    = useRef(attemptId);
@@ -250,7 +252,36 @@ export default function AssessmentTakePage() {
         } catch { /* silent */ }
         setTimerActive(true);
       } catch {
-        setError("Failed to load assessment. Please go back and try again.");
+        // Offline fallback: try IndexedDB
+        try {
+          const offlineA = await getOfflineAssessment(id);
+          if (offlineA) {
+            // Convert OfflineAssessment to AssessmentDetail shape
+            const detail: AssessmentDetail = {
+              id: offlineA.id,
+              title: offlineA.title,
+              description: "",
+              total_marks: offlineA.totalMarks,
+              pass_marks: offlineA.passMarks,
+              questions: offlineA.questions.map(q => ({
+                id: q.id,
+                text: q.text,
+                marks: q.marks,
+                order: q.order,
+                options: q.options,
+              })) as AssessmentQuestion[],
+            };
+            setAssessment(detail);
+            setIsOfflineMode(true);
+            try {
+              const saved = sessionStorage.getItem(storageKey);
+              if (saved) setAnswers(JSON.parse(saved) as Record<number, number>);
+            } catch { /* silent */ }
+            setTimerActive(true);
+            return;
+          }
+        } catch { /* IndexedDB also failed */ }
+        setError("Failed to load assessment. You may be offline — download it first to study offline.");
       } finally {
         setLoading(false);
       }
@@ -271,11 +302,33 @@ export default function AssessmentTakePage() {
     setSubmitting(true);
     const a  = assessRef.current;
     const id = attemptRef.current;
-    if (!a || !id) return;
+    if (!a) return;
     try {
       sessionStorage.removeItem(storageKey);
+      if (isOfflineMode || !isOnline()) {
+        // Queue submission for sync when back online
+        await enqueueOfflineAction("assessment_submit", {
+          assessmentId:    a.id,
+          attemptId:       id,
+          selectedOptions: finalAnswers,
+        });
+        // Show a friendly result page with offline notice
+        navigate("/assessment-result", {
+          state: {
+            offline: true,
+            assessment_id:  a.id,
+            grade:          grade,
+            subject_slug:   subjectSlug,
+            score:          null,
+            total_marks:    a.total_marks,
+            pass_marks:     a.pass_marks,
+            passed:         null,
+          },
+        });
+        return;
+      }
       const result = await submitAssessment(a.id, {
-        attempt_id:       id,
+        attempt_id:       id!,
         selected_options: finalAnswers,
       });
       // Pass grade + subject slug in result state so AssessmentResultPage
@@ -294,7 +347,7 @@ export default function AssessmentTakePage() {
       setError("Submission failed. Please try again.");
       setShowSubmit(false);
     }
-  }, [navigate, storageKey, grade, subjectSlug]);
+  }, [navigate, storageKey, grade, subjectSlug, isOfflineMode]);
 
   useEffect(() => {
     if (!timerActive) return;
@@ -372,6 +425,15 @@ export default function AssessmentTakePage() {
             );
           })}
         </div>
+
+        {isOfflineMode && (
+          <span style={{
+            fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+            background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
+            color: "#ef4444", borderRadius: "var(--radius-full)", padding: "1px 6px",
+            flexShrink: 0,
+          }}>OFFLINE</span>
+        )}
 
         <div className={`assessment-timer assessment-timer--${timerClass}`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"

@@ -3,8 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { getCourseBySlug } from "../services/content";
-import { updateLessonProgress } from "../services/progress";
 import { fromSlug } from "../utils/slugs";
+import {
+  isLessonSavedOffline,
+  saveLessonOffline,
+  isOnline,
+} from "../services/offline";
 
 type LessonItem = {
   id: number;
@@ -29,12 +33,119 @@ function LessonsSkeleton() {
   );
 }
 
+// ── Inline download button for a lesson row ──────────────────────────────────
+
+function LessonDownloadBtn({
+  lesson,
+  courseId,
+  courseName,
+  subjectName,
+  grade,
+}: {
+  lesson: LessonItem;
+  courseId: number;
+  courseName: string;
+  subjectName: string;
+  grade: number;
+}) {
+  const [saved, setSaved]     = useState(false);
+  const [saving, setSaving]   = useState(false);
+
+  // Check if already saved on mount
+  useEffect(() => {
+    isLessonSavedOffline(lesson.id).then(setSaved).catch(() => {});
+  }, [lesson.id]);
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (saved || saving || !isOnline()) return;
+    setSaving(true);
+    try {
+      await saveLessonOffline({
+        id:          lesson.id,
+        courseId,
+        courseTitle: courseName,
+        subjectName,
+        grade,
+        title:       lesson.title,
+        content:     "",   // full content loaded on lesson page
+        pdfUrl:      "",
+        videoUrl:    "",
+        order:       lesson.order,
+        savedAt:     new Date().toISOString(),
+      });
+      setSaved(true);
+    } catch {
+      // silent — user can retry from the lesson detail page
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSave}
+      disabled={saving || saved}
+      title={saved ? "Saved for offline" : "Save for offline"}
+      aria-label={saved ? "Saved for offline" : "Download for offline"}
+      style={{
+        flexShrink: 0,
+        width: 30, height: 30,
+        borderRadius: "var(--radius-sm)",
+        border: `1px solid ${saved ? "rgba(16,185,129,0.35)" : "var(--border-light)"}`,
+        background: saved ? "rgba(16,185,129,0.08)" : "transparent",
+        color: saved ? "var(--success)" : "var(--ink-muted)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: saved ? "default" : "pointer",
+        transition: "all 180ms ease",
+      }}
+      onMouseEnter={(e) => {
+        if (!saved && !saving) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--saffron)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--saffron)";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,158,11,0.06)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!saved) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-light)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-muted)";
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+        }
+      }}
+    >
+      {saving ? (
+        <span className="btn__spinner" style={{ width: 10, height: 10 }} />
+      ) : saved ? (
+        // checkmark
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        // download arrow
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── Lesson row ────────────────────────────────────────────────────────────────
+
 function LessonRow({
-  lesson, onSelect, onComplete,
+  lesson, onSelect, courseId, courseName, subjectName, grade,
 }: {
   lesson: LessonItem;
   onSelect: () => void;
-  onComplete?: () => void;
+  courseId: number;
+  courseName: string;
+  subjectName: string;
+  grade: number;
 }) {
   const isSection = lesson.type === "section";
 
@@ -54,7 +165,6 @@ function LessonRow({
         cursor: "pointer",
         transition: "all var(--ease-out)",
         opacity: lesson.completed ? 0.78 : 1,
-        backdropFilter: undefined,
         WebkitBackdropFilter: "blur(8px)",
       }}
       onClick={onSelect}
@@ -119,16 +229,15 @@ function LessonRow({
         </div>
       </div>
 
-      {/* Mark done */}
-      {!lesson.completed && onComplete && lesson.type === "global" && (
-        <button
-          className="btn btn--ghost btn--sm"
-          style={{ flexShrink: 0 }}
-          onClick={(e) => { e.stopPropagation(); onComplete(); }}
-          aria-label={`Mark ${lesson.title} as complete`}
-        >
-          Done
-        </button>
+      {/* Download for offline — only for global lessons */}
+      {lesson.type === "global" && (
+        <LessonDownloadBtn
+          lesson={lesson}
+          courseId={courseId}
+          courseName={courseName}
+          subjectName={subjectName}
+          grade={grade}
+        />
       )}
 
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -167,11 +276,6 @@ export default function LessonsPage() {
       .catch(() => setError("Course not found or you don't have access."))
       .finally(() => setLoading(false));
   }, [grade, subjectSlug]);
-
-  const handleComplete = async (lessonId: number) => {
-    await updateLessonProgress(lessonId, { completed: true });
-    setLessons((prev) => prev.map((l) => l.id === lessonId ? { ...l, completed: true } : l));
-  };
 
   const handleSelect = (lesson: LessonItem) => {
     navigate(lesson.type === "section" ? `/lessons/section/${lesson.id}` : `/lessons/${lesson.id}`);
@@ -255,7 +359,10 @@ export default function LessonsPage() {
                 <LessonRow
                   lesson={lesson}
                   onSelect={() => handleSelect(lesson)}
-                  onComplete={lesson.type === "global" ? () => void handleComplete(lesson.id) : undefined}
+                  courseId={courseId ?? 0}
+                  courseName={courseName}
+                  subjectName={subjectLabel}
+                  grade={grade ?? 0}
                 />
               </div>
             ))}

@@ -33,7 +33,7 @@ import {
 } from "../services/livesessions";
 import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
-import { isSlowConnection, getConnectionType } from "../services/offline";
+import { isSlowConnection } from "../services/offline";
 import type { WhiteboardState } from "../components/Whiteboard";
 
 const Whiteboard = lazy(() => import("../components/Whiteboard"));

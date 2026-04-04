@@ -17,5 +17,6 @@ urlpatterns = [
     # ── Recording endpoints ────────────────────────────────────────────────────
     path("recording-webhook/",                         views.recording_webhook),
     path("recordings/",                                views.recordings_list),
+    path("recordings/<str:session_id>/sync/",          views.sync_recording),
     path("recordings/<str:session_id>/",               views.recording_detail),
 ]

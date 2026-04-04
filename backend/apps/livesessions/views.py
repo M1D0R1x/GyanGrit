@@ -739,3 +739,105 @@ def recording_detail(request, session_id):
     data = _recording_to_dict(session)
     data["attendance_count"] = session.attendance.filter(is_present=True).count()
     return JsonResponse(data)
+
+
+@require_auth
+@require_http_methods(["POST"])
+def sync_recording(request, session_id):
+    """
+    Manual R2 sync — checks if the recorded MP4 exists in Cloudflare R2 and
+    marks the session as READY without requiring the LiveKit webhook.
+
+    This is the fallback for when:
+      - The webhook URL isn't configured in LiveKit Cloud dashboard
+      - The webhook JWT verification fails
+      - LiveKit never fires the webhook (network issue, etc.)
+
+    The video is ALREADY in R2 (Egress uploads it regardless of webhook).
+    We just need to update the DB status.
+
+    Only TEACHER (their own session) / PRINCIPAL / ADMIN can call this.
+    """
+    import boto3
+    from botocore.exceptions import ClientError
+
+    user    = request.user
+    session = get_object_or_404(
+        LiveSession.objects.select_related("subject", "teacher", "section"),
+        public_id=session_id,
+    )
+
+    # Access control
+    if user.role == "TEACHER" and session.teacher_id != user.id:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    if user.role == "STUDENT":
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    if session.recording_status == RecordingStatus.READY:
+        return JsonResponse({"status": "already_ready", "recording": _recording_to_dict(session)})
+
+    r2_key = session.recording_r2_key
+    if not r2_key:
+        return JsonResponse({"error": "No R2 key stored for this session — Egress may not have started."}, status=422)
+
+    # R2 credentials
+    account_id = getattr(settings, "CLOUDFLARE_R2_ACCOUNT_ID", "")
+    access_key = getattr(settings, "CLOUDFLARE_R2_ACCESS_KEY_ID", "")
+    secret_key = getattr(settings, "CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
+    bucket     = getattr(settings, "CLOUDFLARE_R2_BUCKET_NAME", "gyangrit-media")
+    public_url = getattr(settings, "CLOUDFLARE_R2_PUBLIC_URL", "").rstrip("/")
+
+    if not account_id or not access_key or not secret_key:
+        return JsonResponse({"error": "R2 credentials not configured on server."}, status=500)
+
+    s3_endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
+
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=s3_endpoint,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name="auto",
+        )
+        head = s3.head_object(Bucket=bucket, Key=r2_key)
+        size     = head.get("ContentLength", 0)
+        # Duration can't be determined from R2 head — leave as-is or 0
+        duration = session.recording_duration_seconds  # keep existing if any
+
+    except ClientError as exc:
+        code = exc.response["Error"]["Code"]
+        if code in ("404", "NoSuchKey"):
+            return JsonResponse({
+                "error": f"File not found in R2 at key: {r2_key}. "
+                         "Egress may still be uploading, or the key path is wrong. "
+                         "Check the bucket in the Cloudflare dashboard.",
+                "r2_key": r2_key,
+            }, status=404)
+        logger.error("R2 head_object error for session %s: %s", session.id, exc)
+        return JsonResponse({"error": f"R2 error: {exc}"}, status=500)
+    except Exception as exc:
+        logger.error("sync_recording unexpected error: %s", exc, exc_info=True)
+        return JsonResponse({"error": str(exc)}, status=500)
+
+    # File exists in R2 — mark ready
+    recording_url = f"{public_url}/{r2_key}" if public_url else ""
+    session.recording_status           = RecordingStatus.READY
+    session.recording_url              = recording_url
+    session.recording_size_bytes       = size or None
+    session.recording_duration_seconds = duration
+    session.save(update_fields=[
+        "recording_status",
+        "recording_url",
+        "recording_size_bytes",
+        "recording_duration_seconds",
+    ])
+
+    logger.info(
+        "sync_recording: manually marked ready — session=%s key=%s size=%s",
+        session.id, r2_key, size,
+    )
+    return JsonResponse({
+        "status": "synced",
+        "recording": _recording_to_dict(session),
+    })

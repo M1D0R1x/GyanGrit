@@ -340,30 +340,57 @@ def handle_recording_webhook(payload: dict) -> None:
     """
     Process a LiveKit Egress webhook payload.
 
-    Called from the /api/v1/live/recording-webhook/ endpoint.
-    Updates the LiveSession when Egress completes successfully.
+    LiveKit Cloud sends two payload shapes depending on SDK version:
 
-    Expected payload keys (from LiveKit Egress event):
-      event:       "egress_started" | "egress_updated" | "egress_ended"
-      egress_id:   string
-      status:      "EGRESS_ACTIVE" | "EGRESS_COMPLETE" | "EGRESS_FAILED" | ...
-      file_results: [{ filename, size, duration, location }]  (newer SDK)
-      file:        { filename, size, duration }               (older SDK)
+    Shape A (older / flat):
+      { "event": "egress_ended", "egress_id": "...", "status": "EGRESS_COMPLETE",
+        "file": { "filename": ..., "size": ..., "duration": ... } }
+
+    Shape B (current Cloud SDK — nested under egressInfo):
+      { "event": "egress_ended",
+        "egressInfo": { "egressId": "...", "status": "EGRESS_COMPLETE",
+                        "fileResults": [{ "filename": ..., "size": ..., "duration": ... }] } }
+
+    We support both.
     """
     from .models import LiveSession, RecordingStatus
 
-    event     = payload.get("event", "")
-    egress_id = payload.get("egress_id", "")
+    event = payload.get("event", "")
+    logger.info("Recording webhook raw event=%s payload_keys=%s", event, list(payload.keys()))
+    logger.debug("Recording webhook full payload: %s", payload)
 
     if event not in ("egress_ended", "egress_updated", "egress_started"):
         logger.debug("Recording webhook: ignored event=%s", event)
-        return  # ignore non-egress events
+        return
 
-    status_str = payload.get("status", "")
-    logger.info("Recording webhook: event=%s egress_id=%s status=%s", event, egress_id, status_str)
+    # ── Normalise both payload shapes ────────────────────────────────────────
+    egress_info = payload.get("egressInfo") or {}
+
+    # egress_id: flat takes priority, then egressInfo.egressId
+    egress_id = payload.get("egress_id") or egress_info.get("egressId", "")
+
+    # status: flat takes priority, then nested
+    status_str = payload.get("status") or egress_info.get("status", "")
+
+    # file info: flat file dict, or fileResults list, or nested file dict
+    file_info: dict = {}
+    if payload.get("file"):
+        file_info = payload["file"]
+    elif egress_info.get("fileResults"):
+        file_info = egress_info["fileResults"][0]
+    elif egress_info.get("file"):
+        file_info = egress_info["file"]
+    elif payload.get("file_results"):
+        results = payload["file_results"]
+        file_info = results[0] if results else {}
+
+    logger.info(
+        "Recording webhook: event=%s egress_id=%s status=%s",
+        event, egress_id, status_str,
+    )
 
     if not egress_id:
-        logger.warning("Recording webhook: missing egress_id in payload")
+        logger.warning("Recording webhook: missing egress_id in payload — cannot match session")
         return
 
     try:
@@ -373,16 +400,9 @@ def handle_recording_webhook(payload: dict) -> None:
         return
 
     if status_str == "EGRESS_COMPLETE":
-        # Support both legacy `file` and current `file_results` SDK shapes
-        file_info = {}
-        file_results = payload.get("file_results", [])
-        if file_results:
-            file_info = file_results[0]
-        else:
-            file_info = payload.get("file", {})
-
-        duration = file_info.get("duration")    # seconds (int or float)
-        size     = file_info.get("size")        # bytes
+        # size / duration: camelCase (newer SDK) or snake_case (older SDK)
+        duration = file_info.get("duration") or file_info.get("Duration")
+        size     = file_info.get("size")     or file_info.get("Size")
 
         public_url = getattr(settings, "CLOUDFLARE_R2_PUBLIC_URL", "").rstrip("/")
         recording_url = (
@@ -400,16 +420,20 @@ def handle_recording_webhook(payload: dict) -> None:
             "recording_size_bytes",
         ])
         logger.info(
-            "Recording ready: session=%s url=%s duration=%ss",
+            "Recording ready via webhook: session=%s url=%s duration=%ss",
             session.id, recording_url, duration,
         )
 
     elif status_str == "EGRESS_ACTIVE":
-        # Egress started successfully — just log
         logger.info("Recording active: session=%s egress_id=%s", session.id, egress_id)
 
     elif "FAIL" in status_str or "ABORT" in status_str:
         session.recording_status = RecordingStatus.FAILED
         session.save(update_fields=["recording_status"])
-        logger.error("Recording failed: session=%s egress_id=%s status=%s",
-                     session.id, egress_id, status_str)
+        logger.error(
+            "Recording failed: session=%s egress_id=%s status=%s",
+            session.id, egress_id, status_str,
+        )
+    else:
+        logger.debug("Recording webhook: unhandled status=%s for session=%s", status_str, session.id)
+

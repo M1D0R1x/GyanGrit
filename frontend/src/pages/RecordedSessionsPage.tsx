@@ -48,10 +48,35 @@ const STATUS_LABELS: Record<string, string> = {
   none:       "—",
 };
 
-function RecordingCard({ rec, baseUrl }: { rec: Recording; baseUrl: string }) {
+function RecordingCard({
+  rec, baseUrl, isTeacher, onSynced,
+}: {
+  rec: Recording;
+  baseUrl: string;
+  isTeacher: boolean;
+  onSynced: (updated: Recording) => void;
+}) {
   const isReady = rec.recording_status === "ready";
   const isProcessing = rec.recording_status === "processing";
   const isFailed = rec.recording_status === "failed";
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const handleSync = async (e: React.MouseEvent) => {
+    e.preventDefault(); // don't navigate via the Link
+    e.stopPropagation();
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await recordingsApi.syncFromR2(rec.id);
+      onSynced(res.recording);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sync failed";
+      setSyncError(msg.includes("not found") ? "File not in R2 yet — try again in a minute." : msg);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Link
@@ -154,20 +179,73 @@ function RecordingCard({ rec, baseUrl }: { rec: Recording; baseUrl: string }) {
             <span>💾 {formatBytes(rec.recording_size_bytes)}</span>
           )}
         </div>
+
+        {/* Processing state — with Sync button for teachers */}
         {isProcessing && (
-          <div style={{ marginTop: "var(--space-3)", fontSize: "var(--text-xs)", color: "var(--warning, #f59e0b)", background: "rgba(245,158,11,0.08)", borderRadius: "var(--radius-md)", padding: "var(--space-2) var(--space-3)", fontWeight: 500 }}>
-            ⏳ Recording is being processed — usually takes 2–5 minutes after class ends.
+          <div style={{ marginTop: "var(--space-3)", borderRadius: "var(--radius-md)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", padding: "var(--space-3)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--warning, #f59e0b)", fontWeight: 500, marginBottom: isTeacher ? "var(--space-2)" : 0 }}>
+              ⏳ Video is in R2 — waiting for status update. Usually resolves in 2–5 min.
+            </div>
+            {isTeacher && (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)",
+                  borderRadius: "var(--radius-md)", color: "#f59e0b",
+                  fontSize: "var(--text-xs)", fontWeight: 700,
+                  padding: "var(--space-2) var(--space-3)", cursor: syncing ? "wait" : "pointer",
+                  width: "100%", justifyContent: "center",
+                }}
+              >
+                {syncing
+                  ? <><div style={{ width: 12, height: 12, border: "2px solid rgba(245,158,11,0.3)", borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 1s linear infinite" }} /> Checking R2...</>
+                  : "🔄 Sync from R2 now"}
+              </button>
+            )}
+            {syncError && (
+              <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--error, #ef4444)", fontWeight: 500 }}>
+                ⚠️ {syncError}
+              </div>
+            )}
           </div>
         )}
-        {isFailed && (
-          <div style={{ marginTop: "var(--space-3)", fontSize: "var(--text-xs)", color: "var(--error, #ef4444)", background: "rgba(239,68,68,0.08)", borderRadius: "var(--radius-md)", padding: "var(--space-2) var(--space-3)", fontWeight: 500 }}>
-            ❌ Recording failed. Contact support if this persists.
+
+        {/* Failed state — also show sync as retry */}
+        {isFailed && isTeacher && (
+          <div style={{ marginTop: "var(--space-3)", borderRadius: "var(--radius-md)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: "var(--space-3)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--error, #ef4444)", fontWeight: 500, marginBottom: "var(--space-2)" }}>
+              ❌ Recording marked failed — but the file may still be in R2.
+            </div>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.4)",
+                borderRadius: "var(--radius-md)", color: "#ef4444",
+                fontSize: "var(--text-xs)", fontWeight: 700,
+                padding: "var(--space-2) var(--space-3)", cursor: syncing ? "wait" : "pointer",
+                width: "100%", justifyContent: "center",
+              }}
+            >
+              {syncing
+                ? <><div style={{ width: 12, height: 12, border: "2px solid rgba(239,68,68,0.3)", borderTopColor: "#ef4444", borderRadius: "50%", animation: "spin 1s linear infinite" }} /> Checking R2...</>
+                : "🔄 Try sync from R2"}
+            </button>
+            {syncError && (
+              <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--error, #ef4444)", fontWeight: 500 }}>
+                ⚠️ {syncError}
+              </div>
+            )}
           </div>
         )}
       </div>
     </Link>
   );
 }
+
 
 export default function RecordedSessionsPage() {
   const { user } = useAuth();
@@ -278,8 +356,17 @@ export default function RecordedSessionsPage() {
       ) : (
         <div style={{ display: "grid", gap: "var(--space-4)", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {recordings.map(rec => (
-            <RecordingCard key={rec.id} rec={rec} baseUrl={recordingsBase} />
+            <RecordingCard
+              key={rec.id}
+              rec={rec}
+              baseUrl={recordingsBase}
+              isTeacher={isTeacher}
+              onSynced={(updated) =>
+                setRecordings(prev => prev.map(r => r.id === updated.id ? updated : r))
+              }
+            />
           ))}
+
         </div>
       )}
     </div>

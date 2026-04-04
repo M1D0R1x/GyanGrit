@@ -1,4 +1,4 @@
-import { apiGet } from "./api";
+import { apiGet, apiPost } from "./api";
 
 export interface Recording {
   id: string;
@@ -25,10 +25,15 @@ export const recordingsApi = {
     if (params?.subject_id) urlParams.append("subject_id", params.subject_id.toString());
     if (params?.recording_status) urlParams.append("recording_status", params.recording_status);
     const query = urlParams.toString() ? `?${urlParams.toString()}` : "";
-    
+
     return await apiGet<Recording[]>(`/live/recordings/${query}`);
   },
   getOne: async (id: string): Promise<Recording> => {
     return await apiGet<Recording>(`/live/recordings/${id}/`);
-  }
+  },
+  /** Manual R2 sync — checks if the MP4 is in R2 and marks the recording ready */
+  syncFromR2: async (id: string): Promise<{ status: string; recording: Recording }> => {
+    return await apiPost(`/live/recordings/${id}/sync/`, {});
+  },
 };
+

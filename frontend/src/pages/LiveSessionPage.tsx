@@ -24,6 +24,7 @@ import {
 import { Track, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   listMySessions, createSession, startSession, endSession,
@@ -71,12 +72,56 @@ type SectionItem = { id: number; short_label: string; institution_id?: number; i
 function VideoLayout() {
   const tracks = useTracks([
     { source: Track.Source.Camera,      withPlaceholder: true  },
-    { source: Track.Source.ScreenShare, withPlaceholder: false },
+    // Do NOT include ScreenShare here — handled separately per role
   ]);
   return (
     <GridLayout tracks={tracks} style={{ height: "100%" }}>
       <ParticipantTile />
     </GridLayout>
+  );
+}
+
+// ── Student Screenshare-Fullscreen View ───────────────────────────────────────
+// When the teacher publishes the whiteboard canvas as a screenshare track,
+// students see it filling the whole video area with the teacher's camera as PiP.
+// When no screenshare exists, they fall back to the regular camera grid.
+// The PiP is fully draggable + resizable (same component the teacher uses).
+
+function StudentWhiteboardView({ teacherName }: { teacherName: string }) {
+  const screenTracks = useTracks([
+    { source: Track.Source.ScreenShare, withPlaceholder: false },
+  ]);
+  const cameraTracks = useTracks([
+    { source: Track.Source.Camera, withPlaceholder: true },
+  ]);
+
+  const screenTrack = screenTracks[0]; // teacher's canvas screenshare
+
+  // Teacher's camera for PiP — prefer a remote participant's camera
+  const teacherCamTrack = cameraTracks.find(t => !t.participant.isLocal) ?? cameraTracks[0];
+
+  if (!screenTrack) {
+    // No whiteboard screenshare — show regular grid
+    return (
+      <GridLayout tracks={cameraTracks} style={{ height: "100%" }}>
+        <ParticipantTile />
+      </GridLayout>
+    );
+  }
+
+  // Whiteboard fullscreen + draggable teacher camera PiP
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "#fff" }}>
+      {/* Fullscreen screenshare (whiteboard canvas) */}
+      <ParticipantTile
+        trackRef={screenTrack}
+        style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+      />
+      {/* Draggable PiP — same UX as teacher's PiP */}
+      {teacherCamTrack && (
+        <DraggablePiPBox trackRef={teacherCamTrack} label={`📹 ${teacherName}`} />
+      )}
+    </div>
   );
 }
 
@@ -366,37 +411,36 @@ function ParticipantsPanel({ teacherName }: { teacherName: string }) {
   );
 }
 
-// ── Draggable PiP Camera Box (Zoom-style) ──────────────────────────────────────────
-// Shows a draggable floating camera tile when the whiteboard is fullscreen.
-// Teacher: shows their own camera. Students: shows the teacher's camera.
+// ── DraggablePiPBox ──────────────────────────────────────────────────────
+// Shared draggable + resizable + minimizable PiP box.
+// Used by both the teacher (own camera) and students (teacher's camera).
 
-function PiPCamera() {
-  const tracks = useTracks([
-    { source: Track.Source.Camera, withPlaceholder: true },
-  ]);
+type DraggablePiPBoxProps = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trackRef: any;     // LiveKit TrackReferenceOrPlaceholder
+  label?: string;    // e.g. "📹 Camera" or "📹 Mr. Sharma"
+};
 
-  // Local camera for teacher, or first available track (teacher's feed) for students
-  const pipTrack = tracks.find(t => t.participant.isLocal) ?? tracks[0];
-
+function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: DraggablePiPBoxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging   = useRef(false);
   const dragOffset   = useRef({ x: 0, y: 0 });
   const [size, setSize] = useState({ w: 240, h: 135 }); // 16:9
   const [minimized, setMinimized] = useState(false);
-  // track actual CSS left/top for dragging
   const posRef = useRef<{ left: number; top: number } | null>(null);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
+    // Ignore clicks on buttons inside the box
+    if ((e.target as HTMLElement).closest("button")) return;
     e.preventDefault();
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    // switch to left/top for free dragging
     posRef.current = { left: rect.left, top: rect.top };
-    el.style.right = "auto";
+    el.style.right  = "auto";
     el.style.bottom = "auto";
-    el.style.left = `${rect.left}px`;
-    el.style.top  = `${rect.top}px`;
+    el.style.left   = `${rect.left}px`;
+    el.style.top    = `${rect.top}px`;
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     isDragging.current = true;
     document.body.style.userSelect = "none";
@@ -408,14 +452,10 @@ function PiPCamera() {
       const el = containerRef.current;
       const newLeft = e.clientX - dragOffset.current.x;
       const newTop  = e.clientY - dragOffset.current.y;
-      // Clamp within viewport
       const maxLeft = window.innerWidth  - el.offsetWidth;
       const maxTop  = window.innerHeight - el.offsetHeight;
-      const left = Math.max(0, Math.min(newLeft, maxLeft));
-      const top  = Math.max(0, Math.min(newTop,  maxTop));
-      el.style.left = `${left}px`;
-      el.style.top  = `${top}px`;
-      posRef.current = { left, top };
+      el.style.left = `${Math.max(0, Math.min(newLeft, maxLeft))}px`;
+      el.style.top  = `${Math.max(0, Math.min(newTop,  maxTop))}px`;
     };
     const onUp = () => {
       isDragging.current = false;
@@ -429,7 +469,7 @@ function PiPCamera() {
     };
   }, []);
 
-  // Corner resize
+  // Corner resize — maintains 16:9 ratio if shift is held
   const onResizeDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -438,7 +478,13 @@ function PiPCamera() {
     const onMove = (ev: MouseEvent) => {
       const dw = ev.clientX - startX;
       const dh = ev.clientY - startY;
-      setSize({ w: Math.max(160, startW + dw), h: Math.max(90, startH + dh) });
+      // Hold Shift to lock 16:9
+      if (ev.shiftKey) {
+        const w = Math.max(160, startW + dw);
+        setSize({ w, h: Math.round(w * 9 / 16) });
+      } else {
+        setSize({ w: Math.max(160, startW + dw), h: Math.max(90, startH + dh) });
+      }
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
@@ -448,7 +494,40 @@ function PiPCamera() {
     window.addEventListener("mouseup",   onUp);
   }, [size]);
 
-  if (!pipTrack) return null;
+  // Touch drag support (mobile / tablet)
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    posRef.current = { left: rect.left, top: rect.top };
+    el.style.right  = "auto";
+    el.style.bottom = "auto";
+    el.style.left   = `${rect.left}px`;
+    el.style.top    = `${rect.top}px`;
+    const t = e.touches[0];
+    dragOffset.current = { x: t.clientX - rect.left, y: t.clientY - rect.top };
+    isDragging.current = true;
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: TouchEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const el = containerRef.current;
+      const t  = e.touches[0];
+      const maxLeft = window.innerWidth  - el.offsetWidth;
+      const maxTop  = window.innerHeight - el.offsetHeight;
+      el.style.left = `${Math.max(0, Math.min(t.clientX - dragOffset.current.x, maxLeft))}px`;
+      el.style.top  = `${Math.max(0, Math.min(t.clientY - dragOffset.current.y, maxTop))}px`;
+    };
+    const onUp = () => { isDragging.current = false; };
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend",  onUp);
+    return () => {
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend",  onUp);
+    };
+  }, []);
 
   return (
     <div
@@ -464,11 +543,13 @@ function PiPCamera() {
         overflow: "hidden",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
         border: "2px solid rgba(255,255,255,0.18)",
-        cursor: "grab",
+        cursor: isDragging.current ? "grabbing" : "grab",
         transition: "width 0.18s ease, height 0.18s ease, border-radius 0.18s ease",
         userSelect: "none",
+        touchAction: "none",
       }}
       onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
     >
       {/* Camera tile */}
       <div style={{ width: "100%", height: "100%", background: "#111" }}>
@@ -479,38 +560,70 @@ function PiPCamera() {
           />
         )}
         {minimized && (
-          <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📹</div>
+          <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.7)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📹</div>
         )}
       </div>
 
-      {/* Top control bar — appears on hover */}
+      {/* Top control bar — visible on hover */}
       <div
         className="wb-pip-controls"
         style={{
           position: "absolute", top: 0, left: 0, right: 0,
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "4px 6px",
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)",
           opacity: 0, transition: "opacity 0.15s",
           zIndex: 2,
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
       >
-        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>📹 Camera</span>
-        <button
-          onMouseDown={e => e.stopPropagation()}
-          onClick={() => setMinimized(v => !v)}
-          style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 4, color: "#fff", fontSize: 11, padding: "2px 6px", cursor: "pointer" }}
-        >
-          {minimized ? "⬜" : "➖"}
-        </button>
+        <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 9, fontWeight: 700,
+          letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          {label}
+        </span>
+        <div style={{ display: "flex", gap: 3 }}>
+          {/* Snap-to-corner shortcuts */}
+          {!minimized && ([
+            ["↖", { top: "8px",  left: "8px"  }],
+            ["↗", { top: "8px",  right: "8px" }],
+            ["↙", { bottom: "80px", left: "8px"  }],
+            ["↘", { bottom: "80px", right: "8px" }],
+          ] as [string, Partial<CSSStyleDeclaration>][]).map(([arrow, pos]) => (
+            <button
+              key={arrow}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={() => {
+                const el = containerRef.current;
+                if (!el) return;
+                el.style.left = ""; el.style.top = "";
+                el.style.right = ""; el.style.bottom = "";
+                Object.assign(el.style, pos);
+              }}
+              title={`Snap ${arrow}`}
+              style={{ background: "rgba(255,255,255,0.15)", border: "none",
+                borderRadius: 3, color: "#fff", fontSize: 10,
+                padding: "1px 3px", cursor: "pointer", lineHeight: 1 }}
+            >{arrow}</button>
+          ))}
+          {/* Minimize / restore */}
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => setMinimized(v => !v)}
+            title={minimized ? "Restore" : "Minimize"}
+            style={{ background: "rgba(255,255,255,0.15)", border: "none",
+              borderRadius: 3, color: "#fff", fontSize: 11,
+              padding: "1px 5px", cursor: "pointer", lineHeight: 1 }}
+          >{minimized ? "⬜" : "➖"}</button>
+        </div>
       </div>
 
       {/* Resize handle (bottom-right corner) */}
       {!minimized && (
         <div
           onMouseDown={onResizeDown}
+          title="Drag to resize · hold Shift for 16:9"
           style={{
             position: "absolute", bottom: 4, right: 4,
             width: 14, height: 14, cursor: "se-resize",
@@ -524,6 +637,15 @@ function PiPCamera() {
   );
 }
 
+// ── PiPCamera (teacher-side wrapper) ─────────────────────────────────────────────
+// Picks the local camera track and renders DraggablePiPBox.
+
+function PiPCamera() {
+  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
+  const pipTrack = tracks.find(t => t.participant.isLocal) ?? tracks[0];
+  if (!pipTrack) return null;
+  return <DraggablePiPBox trackRef={pipTrack} label="\ud83d\udcf9 Camera" />;
+}
 // ── In-Room Controls ──────────────────────────────────────────────────────────
 
 function InRoomControls({ onToggleTab, activeTab, isTeacher, permissions, updatePermissions }: {
@@ -587,73 +709,68 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
   const { permissions, updatePermissions } = useRoomPermissions(isTeacher);
   const [activeTab, setActiveTab]       = useState<"chat" | "participants" | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
-  const autoOpenedRef = useRef(false);
 
-  // ── Canvas screen-share for recording ─────────────────────────────────────
-  // When teacher opens the whiteboard, capture the Excalidraw <canvas> as a
-  // MediaStream and publish it to LiveKit as a screenshare track. This makes
-  // Egress record the whiteboard content alongside the camera.
+
+  // ── Canvas captureStream for Egress recording ─────────────────────────────
+  // Strategy: Capture the canvas ONCE when the whiteboard first opens and keep
+  // the stream running for the ENTIRE session duration — even when teacher closes
+  // the whiteboard UI. This ensures Egress always has content to record.
+  // When whiteboard is "closed" we just switch the UI back to camera grid;
+  // the canvas track keeps publishing the last frame (still image of the board).
   const canvasStreamRef  = useRef<MediaStream | null>(null);
   const canvasTrackRef   = useRef<MediaStreamTrack | null>(null);
+  const canvasStartedRef = useRef(false); // only capture once per session
 
   useEffect(() => {
-    if (!isTeacher || !room) return;
+    if (!isTeacher || !room || !whiteboardOpen || canvasStartedRef.current) return;
 
-    if (whiteboardOpen) {
-      // Small delay to let Excalidraw render its canvas
-      const timer = setTimeout(() => {
-        try {
-          // Find Excalidraw's canvas element inside the whiteboard container
-          const canvas = document.querySelector<HTMLCanvasElement>(
-            ".whiteboard-container canvas.excalidraw__canvas"
-          ) ?? document.querySelector<HTMLCanvasElement>(".whiteboard-container canvas");
-          if (!canvas) return;
+    // First open — start capturing
+    const timer = setTimeout(() => {
+      try {
+        const canvas = document.querySelector<HTMLCanvasElement>(
+          ".whiteboard-container canvas.excalidraw__canvas"
+        ) ?? document.querySelector<HTMLCanvasElement>(".whiteboard-container canvas");
+        if (!canvas) { console.warn("[GyanGrit] canvas not found"); return; }
 
-          // captureStream is available on HTMLCanvasElement and needs no user prompt
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const stream: MediaStream = (canvas as any).captureStream(15); // 15 fps
-          const [videoTrack] = stream.getVideoTracks();
-          if (!videoTrack) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const stream: MediaStream = (canvas as any).captureStream(15);
+        const [videoTrack] = stream.getVideoTracks();
+        if (!videoTrack) return;
 
-          canvasStreamRef.current  = stream;
-          canvasTrackRef.current   = videoTrack;
+        canvasStreamRef.current  = stream;
+        canvasTrackRef.current   = videoTrack;
+        canvasStartedRef.current = true;
 
-          room.localParticipant.publishTrack(videoTrack, {
-            source: Track.Source.ScreenShare,
-            name:   "whiteboard-canvas",
-            simulcast: false,
-          }).then(() => {
-            console.info("[GyanGrit] Whiteboard canvas published as screenshare");
-          }).catch((err: unknown) => {
-            console.warn("[GyanGrit] Failed to publish canvas track:", err);
-          });
-        } catch (err) {
-          console.warn("[GyanGrit] captureStream error:", err);
-        }
-      }, 1200); // wait for Excalidraw's canvas to mount
-      return () => clearTimeout(timer);
-    } else {
-      // Whiteboard closed — unpublish the canvas track
-      if (canvasTrackRef.current) {
-        room.localParticipant.unpublishTrack(canvasTrackRef.current).catch(() => {});
-        canvasTrackRef.current.stop();
-        canvasTrackRef.current  = null;
-        canvasStreamRef.current = null;
-        console.info("[GyanGrit] Whiteboard canvas screenshare stopped");
+        room.localParticipant.publishTrack(videoTrack, {
+          source: Track.Source.ScreenShare,
+          name:   "whiteboard-canvas",
+          simulcast: false,
+        }).then(() => {
+          console.info("[GyanGrit] Whiteboard canvas screenshare started (keeps running)");
+        }).catch((err: unknown) => {
+          console.warn("[GyanGrit] Failed to publish canvas track:", err);
+        });
+      } catch (err) {
+        console.warn("[GyanGrit] captureStream error:", err);
       }
-    }
-    return undefined;
-  }, [isTeacher, whiteboardOpen, room]);
+    }, 800);
+    return () => clearTimeout(timer);
+    // Intentionally omit whiteboardOpen from deps after first run — we only trigger once
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeacher, room, whiteboardOpen]);
 
-  // Cleanup on unmount
+  // Stop only on full session unmount
   useEffect(() => {
     return () => {
       if (canvasTrackRef.current) {
+        try { room?.localParticipant.unpublishTrack(canvasTrackRef.current); } catch { /* ok */ }
         canvasTrackRef.current.stop();
         canvasTrackRef.current  = null;
         canvasStreamRef.current = null;
+        console.info("[GyanGrit] Whiteboard canvas screenshare stopped (session ended)");
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -667,14 +784,13 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
     return () => { room.off(RoomEvent.Disconnected, handleDisconnected); };
   }, [room, onLeave]);
 
-  // Students auto-open whiteboard when teacher starts drawing
+  // Students: auto-show whiteboard when teacher publishes screenshare OR data channel fires.
+  // No autoOpenedRef — we re-check every time remoteState changes so re-opens work too.
+  // (useEffect runs whenever remoteState changes, so every new broadcast triggers this.)
   useEffect(() => {
-    if (!isTeacher && remoteState && !autoOpenedRef.current) {
-      autoOpenedRef.current = true;
-      const id = requestAnimationFrame(() => setWhiteboardOpen(true));
-      return () => cancelAnimationFrame(id);
+    if (!isTeacher && remoteState) {
+      setWhiteboardOpen(true);
     }
-    return undefined;
   }, [isTeacher, remoteState]);
 
   return (
@@ -717,47 +833,66 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
         </div>
       </div>
 
-      <div className="live-room__body">
-        <div className="live-room__video" style={{ position: "relative" }}>
-          {whiteboardOpen ? (
-            <>
-              {/* Whiteboard fills entire area */}
-              <Suspense fallback={
-                <div className="whiteboard-loading">
-                  <div className="auth-loading__spinner" />
-                  <span>Loading whiteboard...</span>
+        <div className="live-room__body">
+          <div className="live-room__video" style={{ position: "relative" }}>
+            {isTeacher ? (
+              // ── TEACHER VIEW ──────────────────────────────────────────────
+              // Keep Whiteboard ALWAYS mounted (just hidden via CSS) so Excalidraw
+              // never loses its canvas state when teacher toggles the board.
+              // The canvas captureStream keeps streaming the hidden canvas to Egress.
+              <>
+                {/* Camera grid — visible when whiteboard is hidden */}
+                <div style={{ display: whiteboardOpen ? "none" : "flex", width: "100%", height: "100%" }}>
+                  <VideoLayout />
                 </div>
-              }>
-                <Whiteboard
-                  readOnly={!isTeacher}
-                  remoteState={remoteState}
-                  onBroadcast={isTeacher ? broadcastWhiteboard : undefined}
-                />
-              </Suspense>
-              {/* PiP floating camera — Zoom-style */}
-              <PiPCamera />
-            </>
-          ) : (
-            <VideoLayout />
-          )}
-          <InRoomControls
-            onToggleTab={(t) => setActiveTab(v => v === t ? null : t)}
-            activeTab={activeTab}
-            isTeacher={isTeacher}
-            permissions={permissions}
-            updatePermissions={updatePermissions}
-          />
-        </div>
-        <div className={`live-room__sidebar ${activeTab ? "live-room__sidebar--open" : ""}`}>
-          {isTeacher && <HandRaisePanel raisedHands={raisedHands} onAcknowledge={acknowledgeHand} />}
-          {activeTab === "participants" && <ParticipantsPanel teacherName={activeSession?.teacher_name || "Teacher"} />}
-          <div style={{ display: activeTab === "chat" ? "flex" : "none", flex: 1, minHeight: 0 }}>
-            <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+
+                {/* Whiteboard — always mounted, shown/hidden via display */}
+                <div style={{
+                  display: whiteboardOpen ? "flex" : "none",
+                  width: "100%", height: "100%",
+                  position: "absolute", inset: 0,
+                }}>
+                  <Suspense fallback={
+                    <div className="whiteboard-loading">
+                      <div className="auth-loading__spinner" />
+                      <span>Loading whiteboard...</span>
+                    </div>
+                  }>
+                    <Whiteboard
+                      readOnly={false}
+                      remoteState={remoteState}
+                      onBroadcast={broadcastWhiteboard}
+                    />
+                  </Suspense>
+                  {/* Draggable PiP camera overlay */}
+                  <PiPCamera />
+                </div>
+              </>
+            ) : (
+              // ── STUDENT VIEW ───────────────────────────────────────────────
+              // StudentWhiteboardView auto-detects the teacher's screenshare track.
+              // When present: fullscreen whiteboard + teacher PiP.
+              // When absent: normal camera grid.
+              <StudentWhiteboardView teacherName={activeSession?.teacher_name || "Teacher"} />
+            )}
+            <InRoomControls
+              onToggleTab={(t) => setActiveTab(v => v === t ? null : t)}
+              activeTab={activeTab}
+              isTeacher={isTeacher}
+              permissions={permissions}
+              updatePermissions={updatePermissions}
+            />
+          </div>
+          <div className={`live-room__sidebar ${activeTab ? "live-room__sidebar--open" : ""}`}>
+            {isTeacher && <HandRaisePanel raisedHands={raisedHands} onAcknowledge={acknowledgeHand} />}
+            {activeTab === "participants" && <ParticipantsPanel teacherName={activeSession?.teacher_name || "Teacher"} />}
+            <div style={{ display: activeTab === "chat" ? "flex" : "none", flex: 1, minHeight: 0 }}>
+              <ChatPanel messages={messages} onSend={sendMessage} userId={userId} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
 }
 
 // ── Session Card ──────────────────────────────────────────────────────────────
@@ -1036,6 +1171,16 @@ export default function LiveSessionPage() {
       setSessions(prev => [s, ...prev]);
       setShowCreate(false); setNewTitle(""); setNewDesc("");
       setNewSection(""); setNewSubject(""); setNewScheduledAt("");
+      // ✅ Success notification
+      const scheduledLabel = newScheduledAt
+        ? new Date(newScheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+        : "(no date set)";
+      toast.success(`✅ Live session "${s.title}" scheduled!`, {
+        description: `Scheduled for ${scheduledLabel}. Students will see it in their Upcoming Classes.`,
+        duration: 6000,
+      });
+    } catch {
+      toast.error("Failed to schedule session. Please try again.");
     } finally { setCreating(false); }
   }, [newTitle, newDesc, newSection, newSubject, newScheduledAt]);
 

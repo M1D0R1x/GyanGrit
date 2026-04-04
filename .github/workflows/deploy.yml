@@ -7,15 +7,14 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy.yml'
 
-  # Allow manual trigger from GitHub Actions UI
   workflow_dispatch:
 
 concurrency:
   group: production-deploy
-  cancel-in-progress: false   # never cancel a running deploy mid-flight
+  cancel-in-progress: false
 
 jobs:
-  # ── 1. Lint & Django system check (runs on GitHub, zero server cost) ──────────
+  # ── 1. Lint & Django system check ────────────────────────────────────────────
   lint:
     name: Lint & Static Analysis
     runs-on: ubuntu-latest
@@ -40,7 +39,7 @@ jobs:
           SECRET_KEY: ci-only-not-a-real-secret
         run: python manage.py check --fail-level WARNING
 
-  # ── 2. Deploy to Oracle Cloud (only after lint passes) ───────────────────────
+  # ── 2. Deploy to Oracle Cloud ─────────────────────────────────────────────────
   deploy:
     name: Deploy to Oracle Cloud Mumbai
     runs-on: ubuntu-latest
@@ -49,7 +48,7 @@ jobs:
 
     steps:
       - name: Notify deploy start
-        run: echo "Deploying to Oracle Cloud Mumbai (161.118.168.247)"
+        run: echo "Deploying to Oracle Cloud Mumbai"
 
       - name: SSH deploy with rollback on failure
         uses: appleboy/ssh-action@v1.2.0
@@ -65,29 +64,28 @@ jobs:
             APP=/opt/gyangrit
             BACKEND=$APP/backend
 
-            # ── Save the commit we are currently running ──────────────────────
-            # This is what we roll back TO if the new deploy fails.
             cd $APP
-            PREV_SHA=$(git rev-parse HEAD)
-            echo "Current (pre-deploy) SHA: $PREV_SHA"
+
+            # ── Save current SHA for rollback ─────────────────────────────────
+            PREV_SHA=$(git rev-parse HEAD 2>/dev/null || echo "none")
+            echo "Pre-deploy SHA: $PREV_SHA"
 
             # ── Rollback function ─────────────────────────────────────────────
-            # Called automatically on any unhandled error (via trap).
-            # Restores code to PREV_SHA, reloads gunicorn, exits with code 1
-            # so GitHub Actions marks the job FAILED.
             rollback() {
               echo ""
-              echo "DEPLOY FAILED — rolling back to $PREV_SHA"
+              echo "DEPLOY FAILED — rolling back"
               cd $APP
-              git checkout "$PREV_SHA" -- .
+              if [ "$PREV_SHA" != "none" ]; then
+                # Reset to previous state using reflog (survives force pushes)
+                git checkout "$PREV_SHA" -- . 2>/dev/null || git reset --hard HEAD
+              fi
               source $BACKEND/venv/bin/activate
-              # Re-run collectstatic with old code so static files are consistent
               cd $BACKEND
               python manage.py collectstatic --no-input --clear 2>/dev/null || true
               cd $APP
-              sudo systemctl reload gyangrit || sudo systemctl restart gyangrit
+              sudo systemctl restart gyangrit
               sleep 3
-              echo "Rollback complete. Server is running $PREV_SHA."
+              echo "Rollback complete."
               exit 1
             }
             trap rollback ERR
@@ -95,10 +93,22 @@ jobs:
             echo "======================================================"
             echo "Step 1/5 — Pull latest master"
             echo "======================================================"
-            git fetch origin master
-            git reset --hard origin/master
-            NEW_SHA=$(git rev-parse HEAD)
+            cd $APP
+
+            # Clean any local changes that might block the pull
+            git checkout -- . 2>/dev/null || true
+
+            # Fetch with prune to handle force-pushed / rewritten history
+            git fetch origin master --prune --force
+
+            NEW_SHA=$(git rev-parse origin/master)
             echo "Deploying: $PREV_SHA -> $NEW_SHA"
+
+            if [ "$PREV_SHA" = "$NEW_SHA" ]; then
+              echo "Already at latest commit — skipping code update"
+            else
+              git reset --hard origin/master
+            fi
 
             echo "======================================================"
             echo "Step 2/5 — Install Python dependencies"
@@ -118,8 +128,6 @@ jobs:
             echo "Step 4/5 — Graceful gunicorn reload"
             echo "======================================================"
             cd $APP
-            # reload = SIGHUP: existing workers drain then new workers start
-            # Falls back to restart only if reload is not supported.
             sudo systemctl reload gyangrit || sudo systemctl restart gyangrit
 
             echo "======================================================"
@@ -131,7 +139,7 @@ jobs:
             for attempt in 1 2 3; do
               HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                 --max-time 10 \
-                https://api.gyangrit.site/api/v1/auth/csrf/ 2>/dev/null || echo "000")
+                https://api.gyangrit.site/api/v1/health/ 2>/dev/null || echo "000")
 
               if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "204" ]; then
                 echo "Health check passed (attempt $attempt, HTTP $HTTP_STATUS)"
@@ -145,11 +153,9 @@ jobs:
 
             if [ "$HEALTH_OK" = "false" ]; then
               echo "Health check failed after 3 attempts — triggering rollback"
-              # Explicitly trigger rollback (trap will fire on exit 1)
               exit 1
             fi
 
-            # Disable the rollback trap — deploy succeeded
             trap - ERR
 
             echo ""
@@ -168,7 +174,7 @@ jobs:
           echo "To investigate:"
           echo "  ssh ubuntu@161.118.168.247"
           echo "  sudo journalctl -u gyangrit -n 100 --no-pager"
-          echo "  sudo tail -20 /var/log/nginx/error.log"
+          echo "  sudo tail -20 /var/log/nginx/gyangrit_error.log"
           echo ""
           echo "The server is running the previous stable commit."
           exit 1

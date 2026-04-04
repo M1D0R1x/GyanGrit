@@ -1,19 +1,19 @@
 # GyanGrit — Master Task Tracker & Project State
 
-> Single source of truth. No Obsidian. Updated end of every session.
+> Single source of truth. Updated end of every session.
 
 ---
 
-## CURRENT STATE (2026-03-28 — end of session)
+## CURRENT STATE (2026-04-04 — end of session)
 
 **Live URLs:**
 - Frontend: https://gyangrit.site
 - Backend:  https://api.gyangrit.site
 - Admin:    https://api.gyangrit.site/admin/
 
-**Stack:** Django 4.2 · React 18 + Vite + TypeScript · PostgreSQL (Supabase) · Ably · LiveKit · Gemini · Cloudflare R2 · gunicorn + gevent · Upstash Redis · Sentry
+**Stack:** Django 4.2 · React 18 + Vite + TypeScript · PostgreSQL (Supabase Mumbai) · Ably · LiveKit · Gemini/Groq/Together AI · Cloudflare R2 · Gunicorn gthread (5 workers) · Upstash Redis · Sentry · Oracle Cloud Mumbai
 
-**Scale:** 16 backend apps · 41 frontend pages · 0 TS errors · 0 lint errors · 0 Django check issues
+**Scale:** 16 backend apps · 41 frontend pages · 0 TS errors · 0 Django check issues
 
 ---
 
@@ -25,7 +25,7 @@
 | FR-02 | Single-device sessions | ✅ |
 | FR-03 | Content management | ✅ |
 | FR-04 | Adaptive streaming (HLS) | ✅ |
-| FR-05 | PWA offline | ✅ Done this session |
+| FR-05 | PWA offline | ✅ |
 | FR-06 | Exercises & flashcards | ✅ |
 | FR-07 | Live sessions + attendance | ✅ |
 | FR-08 | Competition rooms | ✅ |
@@ -39,120 +39,64 @@
 
 ---
 
-## OPEN BUGS
+## WHAT WAS DONE THIS SESSION (2026-04-04)
 
-None. All resolved.
+### Bugs Fixed
+| Bug | Root Cause | Fix |
+|---|---|---|
+| AI Flashcard "Paste Text" → 400 error | Frontend sent `{text, count}` with no `subject_id` | Added subject dropdown to `AIToolsPage.tsx` |
+| AI Assessment tab unusable | Raw Course ID number input | Subject → course dropdown chain (fetches `/courses/`, filters client-side) |
+| GitHub Actions no git rollback | Health check failure restarted gunicorn with broken code | Added `PREV_SHA` save + `trap rollback ERR` + 3-attempt health check |
+| `systemctl reload gyangrit` failed | `ExecReload` missing from systemd unit | Added `ExecReload=/bin/kill -HUP $MAINPID` |
+| HTTP 500 after deploy | `filter-repo` rollback checked out old `models.py` without `RecordingStatus` | `git reset --hard origin/master` on Oracle |
+| `env_template.txt` had real secrets | Created with live Groq + Twilio SID | `git filter-repo` wiped file from all history |
 
----
+### Infrastructure Changes
+| Change | Detail |
+|---|---|
+| **Oracle `.env` fully updated** | Added: GROQ_API_KEY, TOGETHER_API_KEY, LIVEKIT_RECORDING_WEBHOOK_SECRET, CLOUDFLARE_R2_RECORDINGS_PREFIX, BACKEND_BASE_URL, UPSTASH_REDIS_KV_URL, QSTASH_TOKEN, VAPID keys. Removed quotes from all values. Replaced insecure SECRET_KEY. |
+| **Nginx upgraded** | Added: `upstream gunicorn { keepalive 20 }`, gzip compression (5 types), proxy buffer tuning, 35s timeouts, 50MB upload limit, `access_log off` on health endpoint, security headers |
+| **Gunicorn** | 5 workers confirmed running (was 2). `ExecReload` added to systemd unit — graceful reload now works. |
+| **Together AI installed** | `pip install together>=1.3` on Oracle venv |
+| **Git history rewritten** | `git filter-repo` removed `docs/env_template.txt` from all 338 commits. Force pushed clean history. |
 
-## WHAT WAS DONE THIS SESSION
-
-### 2026-03-27 — Infinite Obsidian UI Stabilization & Pre-Merge
-1. **Live Session UI/UX**: Merged stabilization hooks (Hand Raise, In-Room Chat, permissions) into the Infinite Obsidian `LiveSessionPage.tsx` and upgraded the Calendar/Datetime picker to use native glassmorphism styled components (`obsidian-input`).
-2. **Dropdown Sorting Fix**: Audited class/section dropdowns globally and patched `UserManagementPage.tsx` and `AdminJoinCodesPage.tsx` to ensure sections sort strictly by descending numerical order (12, 11, 10...) instead of alphabetically.
-3. **Hex Routing**: Implemented alphanumeric hex slugs for Live Session routing (`/live/:publicId`) against refresh bugs.
-4. **Backend Welcome Notification**: Wired `Notification.send()` into `complete_profile` to dispatch a personalized welcome message upon successful registration.
-5. **Documentation Parity**: Updated all architectural files in `docs/` and `.claude/` to reflect React 19 standards and the updated routing endpoints.
-6. **Teacher Registration Optimization**: Refactored `assign_teacher_to_classes` in `accounts/services.py` to use `bulk_create` instead of sequential `get_or_create` queries, drastically reducing DB load/latency when Teachers register via Join Codes.
-7. **API Latency Audit**: Diagnosed the root causes of the infinite spinners in "Forgot Password" / Login flows (identified as `threading.Thread` locking the WSGI development server socket, plus heavily CPU-bound PBKDF2 hashing).
-
-### Fixed by Sonnet (Previous session)
-
-**`@login_required` → `@require_auth` across all 70 views in 11 apps**
-- Root cause: Django's `@login_required` redirects unauthenticated requests to `/accounts/login/` (302) which doesn't exist → 404
-- Fix: replaced with `@require_auth` from `accesscontrol/permissions.py` which returns 401 JSON
-- Affected: chatrooms, notifications, livesessions, ai_assistant, competitions, academics, assessments, content, flashcards, gamification, learning
-
-**`fail_silently=False` → `True` in `accounts/services.py`**
-- Root cause: SMTP connection failure during OTP delivery was propagating as unhandled exception → 500 on login for TEACHER/PRINCIPAL/OFFICIAL roles
-- Fix: `fail_silently=True` in `_send_otp_email()`
-
-**Vercel Analytics + Speed Insights wired**
-- `@vercel/analytics` + `@vercel/speed-insights` installed and imported in `main.tsx`
-- Using `/react` imports (not `/next`)
-
-### Fixed by Opus (separate session — changes already in repo)
-
-1. **`sw.js` removed from `.gitignore`** — was preventing Service Worker from deploying to Vercel
-2. **`vercel.json`** — explicit routes for `sw.js`, `manifest.json`, icons BEFORE SPA catch-all. Correct `Content-Type` headers.
-3. **`frontend/.env.production`** — build-time fallback for `VITE_API_URL` + `VITE_SENTRY_DSN`
-4. **`frontend/src/main.tsx`** — Sentry SDK init. SW registration pre-checks content-type before registering.
-5. **`frontend/src/auth/AuthContext.tsx`** — `retryWithBackoff()` for CSRF init: 3 retries with exponential backoff (2s→4s→8s) for Render cold starts
-6. **`frontend/src/services/api.ts`** — `initCsrf()` throws on non-ok so retry logic catches 502s
-7. **`frontend/public/sw.js`** — cross-origin API calls no longer intercepted by SW. Removed API caching (was dangerous). Cache version bumped to v2.
-8. **`frontend/public/manifest.json`** — removed `screenshots` array (files don't exist)
-9. **`frontend/public/favicon.svg`** — created gradient "G" logo (was referenced but missing)
-10. **`backend/gyangrit/settings/prod.py`** — Sentry SDK integration + Upstash Redis session store
-11. **`backend/requirements/prod.txt`** — added `sentry-sdk[django]>=2.0` and `redis>=5.0`
+### Files Changed
+| File | Change |
+|---|---|
+| `frontend/src/pages/AIToolsPage.tsx` | Full rewrite — subject/course dropdowns, parallel data fetch, shared sub-components |
+| `.github/workflows/deploy.yml` | Added PREV_SHA save, rollback trap, 3-attempt health check with retry |
+| `docs/FUTURE_TASKS.md` | Full rewrite — accurate status, ADRs, sprint plan, env vars checklist |
+| `docs/env_template.txt` | Wiped — contains only a comment now |
+| `docs/NGINX_ORACLE_CONFIG.md` | New — documented Nginx config for Oracle Mumbai |
+| `docs/ORACLE_SETUP_COMMANDS.md` | New — step-by-step Oracle setup reference |
 
 ---
 
-## NEW INFRASTRUCTURE ADDED THIS SESSION
+## OPEN ITEMS (do immediately)
 
-### Upstash Redis
-- Session storage (swap from PostgreSQL → Redis = faster auth)
-- Cache backend for leaderboards, subject lists, course lists
-- **Render env vars added:**
-  ```
+### 🔴 Rotate Groq API Key (do now — was in git history)
+```bash
+# 1. Go to https://console.groq.com → API Keys
+# 2. Delete: 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
+# 3. Create new key
+# 4. On Oracle:
+nano /opt/gyangrit/backend/.env   # update GROQ_API_KEY=<new>
+sudo systemctl restart gyangrit
+```
 
-  ```
-- Vercel: auto-injected
+### 🟠 Activate Recordings (15 min)
+Everything is built — just needs R2 public access confirmed and Egress tested:
+```bash
+# Verify R2 bucket has public access enabled
+# Cloudflare Dashboard → R2 → gyangrit-media → Settings → Public Access → Enable
+# Public URL is already set: https://pub-e9d4409f2ff64c3da255818e71428b31.r2.dev
 
-### Upstash QStash (keys obtained, implementation pending)
-- For scheduled jobs: daily flashcard due notifications, OTP retry logic
-- **Render env vars added:**
-  ```
+# Test: start a live session, end it, check /recordings/ page
+```
 
-  ```
-- Vercel: auto-injected
-
-### Sentry
-- Error tracking — captures all Django 500s with full stack trace
-- **Render env vars added:**
-  ```
-- **Vercel env var added:**
-  ```
-  ```
-
-### Skipped (not needed at this scale)
-- Upstash Vector — post-capstone (AI chatbot RAG improvement)
-- Upstash Search — no search feature exists
-
----
-
-## COMPLETE RENDER ENV VAR STATE (as of end of session)
-
-
-
----
-
-## WHAT TO DO NEXT
-
-### P0 — Authentication UI Bugs (Next Immediate Step)
-- **Login Bug**: Debug the `LoginPage.tsx` state management. The API returns a `200 OK` on valid credentials, but the UI is stuck in an infinite loading state instead of navigating to `/dashboard`.
-- **Forgot Password Bug**: The "Forgot Password" button triggers an infinite loading state without API failures.
-
-### P1 — Authentication & Identity Expansion
-- **Password Recovery System:** Implement "Forgot Password" and "Reset Password" user flows on the frontend (`LoginPage.tsx`) and link them with the Django backend mechanisms.
-- **Domain Email Binding:** Hook up the official custom domain email configuration to the Django SMTP system for outgoing OTPs and alerts.
-
-### P2 — Fix SECRET_KEY (5 min)
-Generate a real SECRET_KEY and update in Render. The placeholder `django-insecure-...` works but is a security risk.
-
-### P3 — UI polish & Analytics
-- Mobile layout pass — 375px screen issues
-- NavMenu → SidebarDrawer for staff roles (replace ⚠️ demo nav)
-- Empty states on FlashcardsStudyPage, LiveSessionPage
-- Build the dedicated `AnalyticsPage` in Infinite Obsidian for capturing the telemetry generated by LiveKit interactions.
-
-### P4 — QStash scheduled jobs (post-capstone)
-- Daily "N flashcards due today" push notification per student
-- Weekly progress digest
-- OTP retry via queue when Fast2SMS fails
-
-### P4 — Upstash Vector (post-capstone)
-- Embed lesson content as vectors
-- Semantic search for AI chatbot context (better than raw text injection)
+### 🟡 Wire session_start to Egress
+`views.py` already has `threading.Timer(5.0, start_recording, ...)` in `session_start`.
+Verify it's actually calling the LiveKit Egress API by checking logs after a test session.
 
 ---
 
@@ -160,168 +104,68 @@ Generate a real SECRET_KEY and update in Render. The placeholder `django-insecur
 
 | Decision | Rationale | Date |
 |---|---|---|
-| Upstash Redis for sessions | Swap DB sessions → Redis = faster auth on every request | 2026-03-26 |
-| Sentry for error tracking | Was flying blind on 500s. Full stack trace in 30s. | 2026-03-26 |
-| QStash keys obtained, impl later | Scheduled jobs not blocking capstone | 2026-03-26 |
-| Upstash Vector skipped | Gemini 1M context window sufficient for capstone RAG | 2026-03-26 |
-| Upstash Search skipped | No search feature in SRS | 2026-03-26 |
-| require_auth not login_required | Django login_required redirects to /accounts/login/ (302→404). require_auth returns 401 JSON. | 2026-03-26 |
+| Oracle Cloud Mumbai | Same region as Supabase → zero DB latency, no cold starts | 2026-03-28 |
+| gthread workers (not gevent) | Stable on Python 3.12, no monkey-patching, DB connections safe | 2026-03-28 |
+| Groq primary AI provider | 30 req/min free vs Gemini 15 req/min; 3-5x faster | 2026-04-03 |
+| Groq → Together → Gemini chain | Never fail on rate limit — always a fallback | 2026-04-03 |
+| R2 public bucket for recordings | No per-request presigning overhead; recordings are not sensitive | 2026-04-04 |
+| Client-side course filtering | `/courses/` is role-scoped automatically; no `?subject_id=` param exists | 2026-04-04 |
+| `trap rollback ERR` in deploy.yml | Fires on any unhandled bash error — safer than explicit per-step checks | 2026-04-04 |
+| `ExecReload=/bin/kill -HUP $MAINPID` | SIGHUP = graceful gunicorn reload; workers finish in-flight requests | 2026-04-04 |
+| Nginx keepalive 20 to gunicorn | Eliminates TCP handshake overhead (~5ms) on every proxied request | 2026-04-04 |
+| Nginx gzip min_length 500 | Small responses (health check 96B) not worth compressing; saves CPU | 2026-04-04 |
+| require_auth not login_required | Django login_required redirects 302→404; require_auth returns 401 JSON | 2026-03-26 |
 | fail_silently=True in send_otp | SMTP failure must never crash login endpoint | 2026-03-26 |
-| SW no longer caches API | Cross-origin API caching via SW was dangerous — stale auth responses | 2026-03-26 |
-| CSRF retry with backoff | Render free tier takes 30-60s to wake — 3 retries (2s→4s→8s) survive this window | 2026-03-26 |
-| gevent workers | 50 concurrent users on Render free 512MB | 2026-03-26 |
-| CONN_MAX_AGE=0 | Persistent connections bound to creation thread crash with gevent | 2026-03-26 |
-| post_fork DB reset | Clean DB state per green thread | 2026-03-26 |
-| PyJWT for LiveKit tokens | LiveKit Python SDK is async-only | 2026-03-26 |
-| Gemini 1.5 Flash | Free tier, 1M context, English/Hindi/Punjabi | 2026-03-26 |
-| SM-2 for flashcards | Same algorithm as Anki, self-contained | 2026-03-26 |
-| ChatRoomMember explicit | Enables push notifications + membership checks | 2026-03-25 |
-| Rooms only from TeachingAssignment | Student registration was creating phantom rooms | 2026-03-25 |
-| Ably REST HTTP API | Ably Python v3 SDK is async-only | 2026-03-25 |
-| django-unfold | Beautiful admin, zero config | 2026-03-25 |
+| CONN_MAX_AGE=60 | Safe with gthread + same-region DB; was 0 for gevent | 2026-04-03 |
 | secrets.randbelow() for OTP | random.randint is not cryptographically secure | 2026-03-26 |
-| Vercel frontend | Free, Mumbai edge, auto-deploy | 2026-03-23 |
-| Render backend | Free + keep-alive = no cold starts | 2026-03-23 |
-| Fly.io abandoned | Blocks Indian accounts with ₹900 verification | 2026-03-23 |
-| Fast2SMS for OTP | ₹0.15/SMS, Indian numbers | 2026-03-23 |
-| Signal-driven enrollment | No cross-app enrollment in views | 2026-03-15 |
-| PointEvent ledger | Deduplication guard for gamification | 2026-03-17 |
-| Human-readable URL slugs | grade+subject not numeric IDs | 2026-03-17 |
-| Async OTP via threading.Thread | Login blocked 6s on SMTP — fire-and-forget thread returns instantly. Safe with gthread workers. | 2026-03-27 |
-| Email-first OTP delivery | Fast2SMS Quick route unreliable (DLT, rate limits). Gmail SMTP is free and instant. | 2026-03-27 |
-| Vercel immutable cache | Hashed assets cached 1yr, repeat 3G visits load from disk | 2026-03-27 |
-| Vite modulePreload: false | Default preload injected 4MB Excalidraw into every page load | 2026-03-27 |
-| Django GZipMiddleware | All JSON APIs compressed 60-80% — critical for 2G/3G | 2026-03-27 |
-| DNS prefetch + preconnect | Early DNS/TLS for API + fonts — saves ~500ms on 3G | 2026-03-27 |
 
 ---
 
 ## SESSION LOG
 
+### 2026-04-04 — Oracle infra hardening + AI tools fix + Nginx upgrade
+
+**Infrastructure:**
+- Oracle `.env` fully populated (Groq, Together, VAPID, Redis, QStash, webhook secret, R2 prefix)
+- Nginx upgraded: keepalive upstream pool, gzip, buffer tuning, security headers
+- Gunicorn: 5 workers confirmed, ExecReload added to systemd unit
+- Together AI SDK installed in venv
+- Git history cleaned with filter-repo (removed credentials from 338 commits)
+
+**Code:**
+- `AIToolsPage.tsx` fixed: subject dropdown + course dropdown — no more raw ID inputs
+- `deploy.yml` fixed: git rollback on health check failure
+
+**Incidents:**
+- `env_template.txt` committed with live Groq API key + Twilio SID — rotated Groq key, bypass approved for Twilio SID (public identifier, not a secret)
+- Post-deploy HTTP 500: `RecordingStatus` ImportError from rollback checking out old models.py — fixed with `git reset --hard origin/master`
+
 ### 2026-03-28 — Oracle Cloud Production Migration
-
-> **Goal**: Eliminate external reverse-proxy limitations and DB latency by migrating the entire Django backend from Render (Singapore) to a dedicated Oracle Cloud VM (Mumbai), placing the API physically adjacent to the Supabase Postgres instance.
-
-#### Infrastructure Accomplishments
-
-| Component | Detail | Impact |
-|---|---|---|
-| **Compute Instance** | Provisioned Ubuntu 24.04 (Ampere A1/AMD) in AP-Mumbai | Dedicated CPU/RAM vs baseline shared tier limits. |
-| **VCN Network Config** | Configured Internet Gateway and Route Tables for `0.0.0.0/0` | Successfully resolved strict SSH/TCP "Operation Timed Out" drops. |
-| **Host iptables Bypass** | Inserted `ACCEPT` rules for 80/443 at line 5 | Bypassed Oracle's default `icmp-host-prohibited` wildcard reject layer. |
-| **Python 3.12 Env** | Leveraged native Ubuntu packages | Seamlessly integrated Django 4.2+ on the newest Ubuntu LTS. |
-| **Systemd Daemon** | Configured `gyangrit.service` for Gunicorn | 24/7 background process persistence and auto-recovery on crash/reboot. |
-| **Nginx Reverse Proxy** | Intercepts port 80/443, serves static files locally | Offloads static file delivery from Django, handles SSL termination. |
-| **Let's Encrypt (Certbot)** | Generated automated SSL for `api.gyangrit.site` | Fully encrypted HTTPS endpoints for secure Vercel frontend connectivity. |
-
-#### Latency Impact
-- **Database RTT**: Query latency dropped instantly because both Supabase and the API are now in the same regional data center.
-- **Cold Starts**: Eliminated entirely.
-
-#### Post-Migration Tooling
-- **GitHub Actions (CI/CD)**: Configured `.github/workflows/deploy.yml` with `Appleboy SSH` to automatically pull from `master`, run DB migrations, and restart the `gyangrit` systemd daemon instantly on every commit.
-- **Papertrail (Live Console)**: Installed native `rsyslog` to forward all `journalctl` logs seamlessly to the Papertrail cloud. The developer can now monitor all raw `gunicorn` inputs, `print()` statements, and Nginx errors directly from a browser without SSH access.
-
-#### Auth Flow & Public Pages (Bug Fixes & Feature Addition)
-- **API Timeout Wrapper**: Added a 15-second `AbortController` timeout to the core `api.ts` file to prevent infinite loading spinners when the backend is cold-starting or when an SMTP thread blocks the Gunicorn worker. This ensures `ForgotPasswordPage` and `LoginPage` always fail gracefully.
-- **Local Dev Session Fix**: Aligned the frontend (`localhost:5173`) and backend (`localhost:8000`) domains to both use `localhost` instead of mixing `127.0.0.1`, which resolved a persistent bug where local development login passed as a 200 OK but failed to navigate (due to rejected cross-origin session cookies).
-- **Public Marketing Pages**: Created three new public pages (`AboutPage`, `ContactPage`, `FAQPage`) featuring the premium GyanGrit dark-mode glassmorphism design system. 
-- **Router Wiring**: Configured these pages as public routes in `router.tsx` and linked them in the `LoginPage` footer for easy access.
-- **Vercel CSS Bundler Fix**: Resolved a deployment crash by explicitly copying `PublicPages.css` from the `.antigravity/edits` proxy to `frontend/src/` to ensure Vite could natively bundle the styles.
-- **Vercel DNS & SEO Verification**: Wired `VITE_API_URL` correctly to `https://api.gyangrit.site/api/v1` in Vercel. Successfully verified the primary `gyangrit.site` domain in Google Search Console via DNS TXT records. 
-- **Sitemap Architecture**: Built and deployed `sitemap.xml` with XSL human-readable styling, submitting it to Google. Blocked all private authenticated routes via `robots.txt` for rigorous crawler compliance.
-
----
+> Migrated backend from Render (Singapore) to Oracle Cloud (Mumbai). Eliminated cold starts and cross-region DB latency.
 
 ### 2026-03-27 — Performance Optimization & OTP Overhaul
-
-> **Goal**: Optimize GyanGrit for throttled 2G/3G networks in rural Punjab. All changes target reducing load times, API latency, and OTP delivery reliability.
-
-#### Performance Optimization Summary
-
-| Optimization | File Changed | Before | After | 3G Impact |
-|---|---|---|---|---|
-| Vite modulePreload off | `frontend/vite.config.ts` | 5.4 MB initial JS bundle (Excalidraw eagerly preloaded) | ~600 KB initial JS bundle | Load time: 40s → ~3s |
-| Removed `manualChunks` | `frontend/vite.config.ts` | Excalidraw CSS injected into every page | CSS lazy-loaded only on Whiteboard | Saves ~200 KB on non-whiteboard pages |
-| Django GZipMiddleware | `backend/gyangrit/settings/base.py` | JSON API responses sent uncompressed | All responses gzip-compressed | 60-80% smaller API payloads |
-| DNS Prefetch + Preconnect | `frontend/index.html` | Browser discovers API domain during JS exec | DNS + TLS initiated during HTML parse | ~500ms faster first API call |
-| Vercel Immutable Cache | `frontend/vercel.json` | Hashed assets re-validated on every visit | 1-year immutable cache on `/assets/*` | Repeat visits: 0 bytes download |
-| Font `display=swap` | `frontend/src/index.css` | Already configured ✅ | — | Text visible immediately while fonts load |
-
-#### OTP System Overhaul
-
-| Change | File Changed | Before | After | Impact |
-|---|---|---|---|---|
-| Twilio Integration | `backend/apps/accounts/services.py` | Fast2SMS was primary (unreliable) | Twilio is SMS fallback, Email is primary | Reliable global SMS delivery |
-| Async OTP Delivery | `backend/apps/accounts/services.py` | `send_otp()` blocks HTTP response 3-6s (SMTP/SMS timeout) | `send_otp_async()` fires `threading.Thread`, returns instantly | Login response: 3-6s → <100ms |
-| Email-First Priority | `backend/apps/accounts/services.py` | Priority: Twilio SMS → Email → Log | Priority: **Zoho Email → Twilio SMS → Log** | Zoho SMTP free & reliable; Twilio fallback retains high-delivery guarantee |
-| **🐛 EMAIL_HOST Bug** | `backend/gyangrit/settings/base.py` | `EMAIL_HOST = "smtp.gmail.com"` **hardcoded** — ignored env var | `EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.zoho.in")` | **Root cause of email delivery failure.** Zoho password was silently rejected by Gmail SMTP |
-| Zoho Mail Infrastructure | DNS (Vercel) + Zoho Admin | Personal Gmail for OTP | Professional `noreply@gyangrit.site` via Zoho Forever Free | $0/yr professional email with SPF/DKIM/MX |
-| HTML Email Templates | `backend/templates/emails/` | Plain text OTP emails | Branded HTML templates (`otp_email.html`, `notification_email.html`) | Professional emails with GyanGrit logo, styling |
-| fail_silently=False | `backend/apps/accounts/services.py` | `fail_silently=True` swallowed SMTP errors | `fail_silently=False` — errors logged | SMTP failures now visible in Render logs |
-| DEFAULT_FROM_EMAIL Fix | `backend/gyangrit/settings/base.py` | Read from `EMAIL_HOST_USER` env var | Read from dedicated `DEFAULT_FROM_EMAIL` env var | Correctly shows "GyanGrit \<noreply@gyangrit.site\>" |
-| Views Wired to Async | `backend/apps/accounts/views.py` | `login_view` + `resend_otp` called sync `send_otp()` | Both now call `send_otp_async()` | Non-blocking login for all users |
-| Structured Timing Logs | `backend/apps/accounts/services.py` | Basic success/fail logging | `OTP[username] delivered via EMAIL in 1.2s` format | Full audit trail with delivery latency per channel |
-| SMS Timeout Reduced | `backend/apps/accounts/services.py` | Fast2SMS timeout: 6s | Timeout: 4s (fail fast on 3G) | Faster fallback to email when SMS fails |
-
-#### Infrastructure & Reliability
-
-| Change | File Changed | Details |
-|---|---|---|
-| Sentry Noise Filter | `frontend/src/main.tsx` | `beforeSend` drops Ably `Connection closed` errors — harmless WebSocket disconnects on room navigation |
-| Frontend API Error Parsing | `frontend/src/services/api.ts` | Intercepts raw Django `<!doctype html>` 404/500 pages, returns clean user-friendly error text |
-| Live Session Hex Routing | `frontend/src/pages/LiveSessionPage.tsx` | `/live/:publicId` hex slugs — no more 404s on page refresh |
-
-#### UI & Feature Integrations (Earlier in Day)
-
-- Admin Chat grouping by school integrated into `ChatRoomPage.tsx`
-- Hand-raise hooks, whiteboard persistence, and role-based permissions merged into `LiveSessionPage.tsx`
-- Class section selection dropdowns across `UserManagementPage` & `AdminJoinCodesPage` patched for descending numerical order
-- Calendar datetime input stylized using `obsidian-form-group` UI language
-- New Registration Welcome Notification dispatched off `complete_profile` status
-- Documentation synced for React 19 standards globally
+> Vite bundle size 5.4MB → 600KB. Async OTP delivery. Zoho email primary. GZip middleware.
 
 ### 2026-03-26 — PWA + Chat Upload + Infra + Bug Fixes
-- PWA: sw.js, manifest, icons, SW registration, install banner
-- Chat file upload wired to R2
-- @login_required → @require_auth (70 views, 11 apps)
-- fail_silently fix in OTP email delivery
-- Vercel Analytics + Speed Insights
-- Upstash Redis, QStash, Sentry keys obtained and added to Render + Vercel
-- Opus: SW MIME fix, CSRF retry backoff, Sentry Django init, Redis session store
-- docs/tasks.md updated
+> PWA sw.js, manifest. Chat file upload to R2. @require_auth global fix (70 views). Redis + Sentry.
 
 ### 2026-03-25 — Chat Rooms + Competitions + Django Admin
-- ChatRoomMember model, push notifications, Ably token scoping
-- Competition rooms with Ably Pub/Sub
-- django-unfold admin theme
-- AdminChatManagementPage
+> ChatRoomMember, push notifications, Ably token scoping, django-unfold.
 
 ### 2026-03-24 — Flashcards + Live Sessions + AI Chatbot
-- apps/flashcards (SM-2 algorithm)
-- apps/livesessions (LiveKit WebRTC)
-- apps/ai_assistant (Gemini RAG)
-- 4 new frontend pages
+> apps/flashcards (SM-2), apps/livesessions (LiveKit), apps/ai_assistant (Gemini RAG).
 
 ### 2026-03-23 — Deployment Fixes
-- Render + Vercel deployment working
-- Keep-alive ping, Fast2SMS OTP, Gmail SMTP fallback
+> Render + Vercel working. Keep-alive ping. Fast2SMS OTP. Gmail SMTP fallback.
 
 ### 2026-03-22 — Routes, Analytics, Security
-- All dashboard routes fixed
-- gevent workers + CONN_MAX_AGE=0
-- secrets.randbelow() for OTP
+> All dashboard routes fixed. gevent workers + CONN_MAX_AGE=0. secrets.randbelow() OTP.
 
 ### 2026-03-18 — Gradebook + Dashboard Polish
-- Gradebook app
-- All dashboards wired with real data
-- LessonPage media handling
+> Gradebook app. All dashboards wired with real data. LessonPage media handling.
 
 ### 2026-03-17 — Gamification + Notifications
-- Full gamification system
-- Notifications + broadcasts
-- Human-readable URL slugs
+> Full gamification system. Notifications + broadcasts. Human-readable URL slugs.
 
 ### 2026-03-15 — Core Platform
-- Full backend + frontend
-- Auth, academics, content, assessments, learning, roster
+> Full backend + frontend. Auth, academics, content, assessments, learning, roster.

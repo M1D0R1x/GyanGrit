@@ -9,7 +9,12 @@ import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { startOfflineSync } from "./services/offlineSync";
 import "./index.css";
+
+// ── Offline sync engine ───────────────────────────────────────────────────────
+// Start background sync — processes queued offline actions when back online.
+startOfflineSync();
 
 // ── Sentry error tracking ─────────────────────────────────────────────────────
 // Only initializes in production when DSN is set.

@@ -307,6 +307,7 @@ export default function TopBar({ title, onMenuClick }: Props) {
                     <div style={{ padding: "var(--space-2)" }}>
                       {[
                         { label: "Profile",       path: "/profile",       d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+                        { label: "Downloads",     path: "/downloads",     d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" },
                         { label: "Notifications", path: "/notifications", d: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" },
                       ].map((item) => (
                         <button

@@ -5,6 +5,12 @@ import {
   listStudyDecks, getDueCards, submitReview,
   type FlashcardDeck, type Flashcard, type DueSession,
 } from "../services/flashcards";
+import {
+  getAllOfflineDecks,
+  getOfflineFlashcardDeck,
+  isOnline,
+  enqueueOfflineAction,
+} from "../services/offline";
 
 // ── Card flip component ───────────────────────────────────────────────────────
 function FlipCard({ card, onRate }: { card: Flashcard; onRate: (quality: number) => void }) {
@@ -125,11 +131,29 @@ export default function FlashcardsStudyPage() {
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
   const [done,      setDone]      = useState(false);
   const [error,     setError]     = useState<string | null>(null);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   useEffect(() => {
     listStudyDecks()
       .then(setDecks)
-      .catch(() => setError("Failed to load decks."))
+      .catch(async () => {
+        // Offline fallback: load saved decks from IndexedDB
+        try {
+          const offlineDecks = await getAllOfflineDecks();
+          if (offlineDecks.length > 0) {
+            const mapped: FlashcardDeck[] = offlineDecks.map(d => ({
+              id: d.deckId, title: d.title, description: "",
+              subject_id: d.subjectId, subject_name: "",
+              section_id: null, is_published: true,
+              card_count: d.cards.length, created_at: d.savedAt, created_by: "",
+            }));
+            setDecks(mapped);
+            setOfflineMode(true);
+            return;
+          }
+        } catch { /* IndexedDB also failed */ }
+        setError("Failed to load decks. You may be offline.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -137,20 +161,43 @@ export default function FlashcardsStudyPage() {
     setStudying(true);
     setError(null);
     try {
-      const s = await getDueCards(id);
-      if (s.total_due === 0) {
-        setError("No cards due today for this deck! Come back tomorrow.");
-        setStudying(false);
-        return;
+      if (offlineMode || !isOnline()) {
+        // Load from IndexedDB
+        const offDeck = await getOfflineFlashcardDeck(id);
+        if (!offDeck || offDeck.cards.length === 0) {
+          setError("No saved cards for this deck.");
+          setStudying(false);
+          return;
+        }
+        const offlineSession: DueSession = {
+          deck_id: offDeck.deckId,
+          deck_title: offDeck.title,
+          total_due: offDeck.cards.length,
+          cards: offDeck.cards.map(c => ({
+            id: c.id, front: c.front, back: c.back, hint: c.hint, order: 0,
+          })),
+        };
+        setSession(offlineSession);
+        setCardIndex(0);
+        setSessionStats({ correct: 0, total: 0 });
+        setDone(false);
+        setOfflineMode(true);
+      } else {
+        const s = await getDueCards(id);
+        if (s.total_due === 0) {
+          setError("No cards due today for this deck! Come back tomorrow.");
+          setStudying(false);
+          return;
+        }
+        setSession(s);
+        setCardIndex(0);
+        setSessionStats({ correct: 0, total: 0 });
+        setDone(false);
       }
-      setSession(s);
-      setCardIndex(0);
-      setSessionStats({ correct: 0, total: 0 });
-      setDone(false);
     } catch {
       setError("Failed to load cards.");
     } finally { setStudying(false); }
-  }, []);
+  }, [offlineMode]);
 
   // Auto-start if deckId in URL
   useEffect(() => {
@@ -161,7 +208,16 @@ export default function FlashcardsStudyPage() {
     if (!session) return;
     const card = session.cards[cardIndex];
     try {
-      await submitReview(session.deck_id, card.id, quality);
+      if (offlineMode || !isOnline()) {
+        // Queue review for sync when back online
+        await enqueueOfflineAction("flashcard_review", {
+          deckId: session.deck_id,
+          cardId: card.id,
+          quality,
+        });
+      } else {
+        await submitReview(session.deck_id, card.id, quality);
+      }
     } catch { /* silent — progress is best-effort */ }
 
     setSessionStats(prev => ({
@@ -174,7 +230,7 @@ export default function FlashcardsStudyPage() {
     } else {
       setCardIndex(i => i + 1);
     }
-  }, [session, cardIndex]);
+  }, [session, cardIndex, offlineMode]);
 
   const currentCard = session?.cards[cardIndex];
   const progress    = session ? Math.round(((cardIndex) / session.cards.length) * 100) : 0;
@@ -183,7 +239,20 @@ export default function FlashcardsStudyPage() {
   if (!session) return (
     <>
       <div style={{ marginBottom: "var(--space-4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>Study Decks</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-xl)", color: "var(--ink-primary)" }}>Study Decks</h2>
+          {offlineMode && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: "var(--radius-full)", padding: "2px 10px",
+              fontSize: 10, fontWeight: 800, color: "var(--error)",
+              letterSpacing: "0.05em",
+            }}>
+              OFFLINE
+            </span>
+          )}
+        </div>
       </div>
 
       {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }} onClick={() => setError(null)}>{error}</div>}

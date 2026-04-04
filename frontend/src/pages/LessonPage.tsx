@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getLessonDetail, type LessonDetail } from "../services/content";
 import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
-import { saveLessonOffline, isLessonSavedOffline, removeOfflineLesson, type OfflineLesson } from "../services/offline";
+import { getOfflineLesson, getOfflinePdf, getOfflineVideo, createPdfBlobUrl, createVideoBlobUrl, isOnline, enqueueOfflineAction } from "../services/offline";
+import DownloadManager from "../components/DownloadManager";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 
@@ -306,82 +307,7 @@ function VideoEmbed({
   );
 }
 
-// ── Save Offline button ──────────────────────────────────────────────────────
-
-function SaveOfflineButton({ lesson }: { lesson: LessonDetail }) {
-  const [saved, setSaved]     = useState(false);
-  const [saving, setSaving]   = useState(false);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    isLessonSavedOffline(lesson.id).then((v) => {
-      setSaved(v);
-      setChecked(true);
-    });
-  }, [lesson.id]);
-
-  if (!checked) return null;
-
-  const handleToggle = async () => {
-    setSaving(true);
-    try {
-      if (saved) {
-        await removeOfflineLesson(lesson.id);
-        setSaved(false);
-      } else {
-        const offlineData: OfflineLesson = {
-          id: lesson.id,
-          courseId: lesson.course?.id ?? 0,
-          title: lesson.title,
-          content: lesson.content ?? "",
-          pdfUrl: lesson.pdf_url ?? "",
-          order: 0,
-          savedAt: new Date().toISOString(),
-        };
-        await saveLessonOffline(offlineData);
-        setSaved(true);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={{
-      marginTop: "var(--space-6)",
-      padding: "var(--space-4)",
-      background: saved ? "rgba(16,185,129,0.06)" : "var(--bg-elevated)",
-      border: `1px solid ${saved ? "rgba(16,185,129,0.2)" : "var(--border-medium)"}`,
-      borderRadius: "var(--radius-lg)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "var(--space-3)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-        <span style={{ fontSize: 20 }}>{saved ? "\u2705" : "\uD83D\uDCE5"}</span>
-        <div>
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--ink-primary)" }}>
-            {saved ? "Saved for offline" : "Save for offline"}
-          </div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-            {saved ? "Available without internet" : "Read this lesson anytime"}
-          </div>
-        </div>
-      </div>
-      <button
-        className={`btn ${saved ? "btn--ghost" : "btn--secondary"}`}
-        onClick={handleToggle}
-        disabled={saving}
-        style={{ fontSize: "var(--text-xs)", padding: "var(--space-2) var(--space-3)" }}
-      >
-        {saving ? "Saving\u2026" : saved ? "Remove" : "Save"}
-      </button>
-    </div>
-  );
-}
+// SaveOfflineButton replaced by DownloadManager component (imported above)
 
 // ── PDF viewer ────────────────────────────────────────────────────────────────
 
@@ -486,20 +412,59 @@ export default function LessonPage() {
   const { lessonId } = useParams();
   const navigate     = useNavigate();
 
-  const [lesson, setLesson]   = useState<LessonDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [marking, setMarking] = useState(false);
-  const [marked, setMarked]   = useState(false);
+  const [lesson, setLesson]         = useState<LessonDetail | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [marking, setMarking]       = useState(false);
+  const [marked, setMarked]         = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   useEffect(() => {
     if (!lessonId) return;
-    getLessonDetail(Number(lessonId))
+    const id = Number(lessonId);
+
+    getLessonDetail(id)
       .then((data) => {
         setLesson(data);
         setMarked(data.completed);
       })
-      .catch(() => setError("Could not load this lesson."))
+      .catch(async () => {
+        // Offline fallback: try loading from IndexedDB
+        try {
+          const offlineLesson = await getOfflineLesson(id);
+          if (offlineLesson) {
+            const offlinePdf = await getOfflinePdf(id);
+            const offlineVideo = await getOfflineVideo(id);
+            const detail: LessonDetail = {
+              id: offlineLesson.id,
+              title: offlineLesson.title,
+              content: offlineLesson.content,
+              video_url: offlineVideo ? createVideoBlobUrl(offlineVideo) : null,
+              video_thumbnail_url: null,
+              video_duration: "",
+              hls_manifest_url: null,
+              pdf_url: offlinePdf ? createPdfBlobUrl(offlinePdf) : null,
+              thumbnail_url: null,
+              completed: false,
+              last_position: 0,
+              notes: [],
+              course: {
+                id: offlineLesson.courseId,
+                title: offlineLesson.courseTitle ?? "",
+                grade: offlineLesson.grade ?? 0,
+                subject: offlineLesson.subjectName ?? "",
+              },
+            };
+            setLesson(detail);
+            setMarked(false);
+            setIsOfflineMode(true);
+            return;
+          }
+        } catch {
+          // IndexedDB also failed
+        }
+        setError("Could not load this lesson. You may be offline.");
+      })
       .finally(() => setLoading(false));
   }, [lessonId]);
 
@@ -507,7 +472,12 @@ export default function LessonPage() {
     if (!lesson || marked) return;
     setMarking(true);
     try {
-      await apiPatch(`/lessons/${lesson.id}/progress/`, { completed: true });
+      if (isOnline()) {
+        await apiPatch(`/lessons/${lesson.id}/progress/`, { completed: true });
+      } else {
+        // Queue for sync when back online
+        await enqueueOfflineAction("lesson_complete", { lessonId: lesson.id });
+      }
       setMarked(true);
       setLesson((prev) => (prev ? { ...prev, completed: true } : null));
     } catch {
@@ -577,19 +547,28 @@ export default function LessonPage() {
               flexWrap: "wrap",
             }}
           >
+            {isOfflineMode && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                borderRadius: "var(--radius-full)", padding: "2px 10px",
+                fontSize: 10, fontWeight: 800, color: "var(--error)",
+                letterSpacing: "0.05em",
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                OFFLINE
+              </span>
+            )}
             {marked && (
               <span className="badge badge--success">
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ marginRight: 4 }}
-                >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ marginRight: 4 }}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 Completed
@@ -696,10 +675,8 @@ export default function LessonPage() {
           </div>
         )}
 
-        {/* Save for Offline button */}
-        {(lesson.content || lesson.pdf_url) && (
-          <SaveOfflineButton lesson={lesson} />
-        )}
+        {/* Download for Offline — full download manager */}
+        <DownloadManager lesson={lesson} />
 
         {/* Mark complete CTA */}
         <div

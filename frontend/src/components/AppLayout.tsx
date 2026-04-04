@@ -6,6 +6,7 @@ import { Drawer } from "vaul";
 import TopBar from "./TopBar";
 import SidebarContent from "./Sidebar";
 import BottomNav from "./BottomNav";
+import OfflineStatusBar from "./OfflineStatusBar";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
 import { usePageTracking } from "../utils/telemetry";
@@ -37,6 +38,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
   return (
     <div className="app-shell">
+      <OfflineStatusBar />
       <TopBar title={title} onMenuClick={handleMenuClick} />
 
       <main className="app-content" id="main-content" tabIndex={-1}>

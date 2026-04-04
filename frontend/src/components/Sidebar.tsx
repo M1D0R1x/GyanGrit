@@ -57,6 +57,7 @@ const HistoryIcon = () => <IcoP><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.7
 const InfoIcon    = () => <IcoP><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></IcoP>;
 const HelpIcon    = () => <IcoP><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></IcoP>;
 const MailIcon    = () => <IcoP><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></IcoP>;
+const DownloadIcon= () => <IcoP><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></IcoP>;
 
 // ── Role nav config ────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Dashboard",     path: "/dashboard",           icon: <HomeIcon />,    exact: true },
         { label: "Notifications", path: "/notifications",       icon: <BellIcon /> },
         { label: "Profile",       path: "/profile",             icon: <UserIcon /> },
+        { label: "Downloads",     path: "/downloads",           icon: <DownloadIcon /> },
         { label: "Leaderboard",   path: "/leaderboard",         icon: <ChartIcon /> },
       ]},
       { title: "Learning", items: [

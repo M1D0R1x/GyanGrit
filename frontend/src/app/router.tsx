@@ -101,8 +101,9 @@ const AdminAssessmentBuilderPage = lazyRetry(() => import("../pages/AdminAssessm
 const AdminJoinCodesPage         = lazyRetry(() => import("../pages/AdminJoinCodesPage"));
 const UserManagementPage         = lazyRetry(() => import("../pages/UserManagementPage"));
 
-// ── Shared ────────────────────────────────────────────────────────────────────
-const NotificationsPage    = lazyRetry(() => import("../pages/NotificationsPage"));
+// ── Shared ──────────────────────────────────────────────────────────────────────
+const NotificationsPage      = lazyRetry(() => import("../pages/NotificationsPage"));
+const OfflineDownloadsPage   = lazyRetry(() => import("../pages/OfflineDownloadsPage"));
 
 // ── Competition Rooms ─────────────────────────────────────────────────────────
 const CompetitionRoomPage  = lazyRetry(() => import("../pages/CompetitionRoomPage"));
@@ -177,6 +178,7 @@ export const router = createBrowserRouter([
   // ── Shared — all authenticated roles (rank ≥ STUDENT = everyone) ─────────
   { path: "/notifications", element: <Protected role="STUDENT"><NotificationsPage /></Protected> },
   { path: "/profile",       element: <Protected role="STUDENT"><ProfilePage /></Protected> },
+  { path: "/downloads",     element: <Protected role="STUDENT"><OfflineDownloadsPage /></Protected> },
 
   // ── Student ───────────────────────────────────────────────────────────────
   { path: "/dashboard",   element: <Protected role="STUDENT"><DashboardPage /></Protected> },

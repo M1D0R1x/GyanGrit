@@ -33,6 +33,7 @@ import {
 } from "../services/livesessions";
 import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
+import { isSlowConnection, getConnectionType } from "../services/offline";
 import type { WhiteboardState } from "../components/Whiteboard";
 
 const Whiteboard = lazy(() => import("../components/Whiteboard"));
@@ -712,6 +713,27 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   // Students track the teacher's board open/close state via data channel (not track presence)
   const [teacherBoardOpen, setTeacherBoardOpen] = useState(false);
+  // Audio-only mode — for slow connections (2G/slow-3G)
+  const [audioOnly, setAudioOnly] = useState(false);
+
+  // Auto-detect slow connection on mount — suggest audio-only
+  useEffect(() => {
+    if (isSlowConnection()) {
+      setAudioOnly(true);
+      toast.info("Slow connection detected — switched to audio-only mode", { duration: 4000 });
+    }
+    // Also listen for connection changes
+    const nav = navigator as Navigator & { connection?: EventTarget & { effectiveType?: string } };
+    const handleChange = () => {
+      if (isSlowConnection() && !audioOnly) {
+        setAudioOnly(true);
+        toast.info("Connection degraded — switching to audio-only", { duration: 3000 });
+      }
+    };
+    nav.connection?.addEventListener?.("change", handleChange);
+    return () => { nav.connection?.removeEventListener?.("change", handleChange); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   // ── Canvas captureStream for Egress recording ─────────────────────────────
@@ -885,6 +907,23 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
           <button className="btn btn--ghost"
             style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", borderColor: "var(--border-strong)" }}
             onClick={onLeave}>Leave</button>
+          {/* Audio-only toggle — always available for students, teachers too */}
+          <button
+            className={`btn ${audioOnly ? "btn--primary" : "btn--ghost"}`}
+            style={{
+              fontSize: "var(--text-xs)",
+              color: audioOnly ? "#fff" : "var(--text-primary)",
+              borderColor: audioOnly ? "transparent" : "var(--border-strong)",
+              background: audioOnly ? "var(--saffron)" : undefined,
+            }}
+            onClick={() => {
+              setAudioOnly(!audioOnly);
+              toast.info(audioOnly ? "Video enabled" : "Audio-only mode — saving bandwidth", { duration: 2000 });
+            }}
+            title={audioOnly ? "Enable video" : "Switch to audio-only"}
+          >
+            {audioOnly ? "🔇 Audio Only" : "🎧 Audio Only"}
+          </button>
         </div>
       </div>
 

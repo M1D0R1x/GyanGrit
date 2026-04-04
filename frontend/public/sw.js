@@ -16,7 +16,7 @@
  * force old caches to be replaced.
  */
 
-const CACHE_VERSION   = "v2";
+const CACHE_VERSION   = "v3";
 const SHELL_CACHE     = `gyangrit-shell-${CACHE_VERSION}`;
 const ASSET_CACHE     = `gyangrit-assets-${CACHE_VERSION}`;
 
@@ -186,8 +186,8 @@ function offlinePage() {
   <div>
     <div class="icon">📚</div>
     <h1>You're Offline</h1>
-    <p>GyanGrit needs an internet connection to load. Please check your WiFi or mobile data.</p>
-    <button onclick="window.location.reload()">Try Again</button>
+    <p>Some content may be available offline — check your downloaded lessons below.</p>
+    <button onclick="window.location.href='/dashboard'">View Downloads</button>
     <p class="hint">Previously opened pages may still work — try the back button.</p>
   </div>
 </body>
@@ -199,16 +199,21 @@ function offlinePage() {
   );
 }
 
-// ── Background sync placeholder ──────────────────────────────────────────────
+// ── Background sync ──────────────────────────────────────────────────────────
+// Triggered by SyncManager when connectivity is restored.
+// The actual queue processing lives in offlineSync.ts (client-side).
+// Here we just notify all clients to trigger their sync logic.
 self.addEventListener("sync", (event) => {
-  if (event.tag === "sync-progress") {
-    event.waitUntil(syncPendingProgress());
+  if (event.tag === "sync-progress" || event.tag === "sync-offline-queue") {
+    event.waitUntil(
+      self.clients.matchAll({ type: "window" }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: "SYNC_OFFLINE_QUEUE" });
+        });
+      })
+    );
   }
 });
-
-async function syncPendingProgress() {
-  console.log("[SW] Background sync: sync-progress");
-}
 
 // ── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener("push", (event) => {

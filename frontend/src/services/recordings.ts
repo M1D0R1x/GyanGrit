@@ -14,8 +14,10 @@ export interface Recording {
   recording_url: string;
   recording_duration_seconds: number | null;
   recording_size_bytes: number | null;
+  recording_r2_key?: string;   // admin debug: R2 object key
   attendance_count?: number;
 }
+
 
 export const recordingsApi = {
   list: async (params?: { subject_id?: number, recording_status?: string }): Promise<Recording[]> => {

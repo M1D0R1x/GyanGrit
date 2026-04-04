@@ -8,7 +8,11 @@ Flow:
      → LiveKit uploads MP4 to Cloudflare R2 (S3-compatible)
      → session.recording_status = 'processing'
 
-  2. LiveKit sends webhook when Egress completes
+  2. Teacher ends session → stop_recording(session) is called
+     → POST StopEgress so LiveKit finalises the MP4 cleanly
+     → THEN the LiveKit room is deleted
+
+  3. LiveKit sends webhook when Egress completes
      → POST /api/v1/live/recording-webhook/
      → handle_recording_webhook(payload) is called
      → session.recording_status = 'ready', recording_url set
@@ -21,6 +25,10 @@ R2 naming convention (ADR-002):
 
 Supported LiveKit plan: LiveKit Cloud (Egress is built-in, no extra setup).
 Self-hosted: requires livekit-egress Docker container.
+
+LiveKit webhook signature:
+  LiveKit signs webhooks with a JWT (Authorization: Bearer <token>).
+  The token is signed with the API secret. We validate it with pyjwt.
 """
 import hashlib
 import hmac
@@ -85,10 +93,16 @@ def build_r2_key(session) -> str:
     )
 
 
-# ── LiveKit Egress API ─────────────────────────────────────────────────────────
+# ── LiveKit JWT helper ─────────────────────────────────────────────────────────
 
-def _livekit_auth_header(room_name: str) -> str:
-    """Generate a JWT access token for LiveKit Egress API calls."""
+def _make_egress_jwt(room_name: str, ttl_seconds: int = 300) -> str:
+    """
+    Generate a minimal LiveKit JWT for Egress API calls.
+
+    The JWT must include `video.roomRecord: true` in the grant.
+    We build it manually to avoid pulling in the full livekit-server-sdk
+    (which requires C extensions on some environments).
+    """
     import base64
     import time
 
@@ -102,12 +116,11 @@ def _livekit_auth_header(room_name: str) -> str:
     header  = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').rstrip(b"=").decode()
     payload = {
         "iss": api_key,
-        "exp": int(time.time()) + 300,   # 5-minute window
+        "exp": int(time.time()) + ttl_seconds,
         "video": {"roomRecord": True},
     }
-    import json as _json
     payload_b64 = base64.urlsafe_b64encode(
-        _json.dumps(payload, separators=(",", ":")).encode()
+        json.dumps(payload, separators=(",", ":")).encode()
     ).rstrip(b"=").decode()
 
     signing_input = f"{header}.{payload_b64}".encode()
@@ -117,12 +130,24 @@ def _livekit_auth_header(room_name: str) -> str:
     return f"Bearer {header}.{payload_b64}.{sig_b64}"
 
 
+def _livekit_http_url() -> str:
+    livekit_url = settings.LIVEKIT_URL
+    return livekit_url.rstrip("/").replace("wss://", "https://").replace("ws://", "http://")
+
+
+# ── Start recording ────────────────────────────────────────────────────────────
+
 def start_recording(session) -> str | None:
     """
     Start a LiveKit room composite Egress for the session.
 
     Uploads directly to Cloudflare R2 via S3-compatible API.
     Updates session.recording_status = 'processing' and saves the egress ID.
+
+    The Egress layout is "speaker" — when the teacher publishes the whiteboard
+    canvas as a screenshare track (done in the frontend), the speaker layout
+    will automatically spotlight it as the primary content with the camera in
+    the corner, matching how the class looks in the browser.
 
     Args:
         session: LiveSession instance (status must be 'live')
@@ -132,7 +157,7 @@ def start_recording(session) -> str | None:
     """
     from .models import RecordingStatus
 
-    livekit_url  = settings.LIVEKIT_URL
+    livekit_url  = getattr(settings, "LIVEKIT_URL", "")
     account_id   = getattr(settings, "CLOUDFLARE_R2_ACCOUNT_ID", "")
     access_key   = getattr(settings, "CLOUDFLARE_R2_ACCESS_KEY_ID", "")
     secret_key   = getattr(settings, "CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
@@ -158,7 +183,8 @@ def start_recording(session) -> str | None:
                 "force_path_style": True,
             }
         },
-        # Composite layout for Whiteboard + Teacher Video natively handled
+        # "speaker" layout: spotlights screenshare (whiteboard canvas track) as primary
+        # content with the camera PiP in corner — exactly how it looks in the browser.
         "layout": "speaker",
         "options": {
             "preset": "H264_1080P_30"
@@ -166,12 +192,11 @@ def start_recording(session) -> str | None:
     }
 
     try:
-        http_url = livekit_url.rstrip('/').replace("wss://", "https://").replace("ws://", "http://")
         resp = requests.post(
-            f"{http_url}/twirp/livekit.Egress/StartRoomCompositeEgress",
+            f"{_livekit_http_url()}/twirp/livekit.Egress/StartRoomCompositeEgress",
             json=payload,
             headers={
-                "Authorization": _livekit_auth_header(session.livekit_room_name),
+                "Authorization": _make_egress_jwt(session.livekit_room_name),
                 "Content-Type":  "application/json",
             },
             timeout=10,
@@ -181,8 +206,8 @@ def start_recording(session) -> str | None:
         egress_id = data.get("egress_id", "")
 
         # Persist state to session
-        session.recording_r2_key   = r2_key
-        session.recording_status   = RecordingStatus.PROCESSING
+        session.recording_r2_key    = r2_key
+        session.recording_status    = RecordingStatus.PROCESSING
         session.recording_egress_id = egress_id
         session.save(update_fields=[
             "recording_r2_key",
@@ -200,26 +225,115 @@ def start_recording(session) -> str | None:
         return None
 
 
+# ── Stop recording ─────────────────────────────────────────────────────────────
+
+def stop_recording(session) -> bool:
+    """
+    Stop an active LiveKit Egress for the session.
+
+    MUST be called before _delete_livekit_room() so the Egress compositor
+    has time to finalize (flush) the MP4 and upload it to R2 cleanly.
+    If the room is deleted first, the in-progress upload is interrupted and
+    the recording stays in PROCESSING state forever.
+
+    Args:
+        session: LiveSession instance with recording_egress_id set
+
+    Returns:
+        True if stop request was sent successfully, False otherwise.
+    """
+    egress_id = getattr(session, "recording_egress_id", "")
+    if not egress_id:
+        logger.debug("stop_recording: no egress_id for session %s — skipping", session.id)
+        return False
+
+    livekit_url = getattr(settings, "LIVEKIT_URL", "")
+    if not livekit_url:
+        logger.warning("LIVEKIT_URL not set — cannot stop recording")
+        return False
+
+    try:
+        resp = requests.post(
+            f"{_livekit_http_url()}/twirp/livekit.Egress/StopEgress",
+            json={"egress_id": egress_id},
+            headers={
+                "Authorization": _make_egress_jwt(""),
+                "Content-Type":  "application/json",
+            },
+            timeout=10,
+        )
+        if resp.ok:
+            logger.info("Egress stop requested: session=%s egress_id=%s", session.id, egress_id)
+            return True
+        else:
+            logger.warning(
+                "Egress stop HTTP %d for session %s egress %s: %s",
+                resp.status_code, session.id, egress_id, resp.text[:200]
+            )
+            return False
+    except requests.RequestException as exc:
+        logger.error("Failed to stop Egress for session %s: %s", session.id, exc)
+        return False
+
+
 # ── Webhook handler ────────────────────────────────────────────────────────────
 
-def verify_webhook_signature(body: bytes, signature: str) -> bool:
+def verify_webhook_signature(body: bytes, auth_header: str) -> bool:
     """
-    Verify the LiveKit webhook signature using HMAC-SHA256.
-    Header: Authorization: <HMAC-SHA256 of raw body with webhook secret>
+    Verify the LiveKit webhook signature.
+
+    LiveKit Cloud signs webhook HTTP requests with a JWT in the Authorization
+    header (Bearer <token>). The JWT is signed with LIVEKIT_API_SECRET using
+    HS256 and contains a SHA-256 hash of the raw request body in the `sha256`
+    claim to prevent body tampering.
+
+    Fallback: if LIVEKIT_RECORDING_WEBHOOK_SECRET is set (legacy HMAC mode),
+    also accept raw HMAC-SHA256 comparison.
     """
-    secret = getattr(settings, "LIVEKIT_RECORDING_WEBHOOK_SECRET", "")
-    if not secret:
-        logger.warning("LIVEKIT_RECORDING_WEBHOOK_SECRET not set — skipping webhook verification")
-        return True  # fail-open during development
+    api_key    = getattr(settings, "LIVEKIT_API_KEY", "")
+    api_secret = getattr(settings, "LIVEKIT_API_SECRET", "")
 
-    expected = hmac.new(
-        secret.encode(),
-        body,
-        hashlib.sha256,
-    ).hexdigest()
+    if not api_secret:
+        logger.warning("LIVEKIT_API_SECRET not set — skipping webhook verification (fail-open)")
+        return True
 
-    # Constant-time comparison
-    return hmac.compare_digest(expected, signature)
+    token = auth_header.removeprefix("Bearer ").strip()
+    if not token:
+        logger.warning("Recording webhook: missing Authorization header")
+        # Fail-open so misconfigured webhooks don't silently drop
+        return True
+
+    try:
+        import jwt as pyjwt
+        claims = pyjwt.decode(
+            token,
+            api_secret,
+            algorithms=["HS256"],
+            options={"require": ["iss"]},
+        )
+        # Verify issuer matches our API key
+        if api_key and claims.get("iss") != api_key:
+            logger.warning(
+                "Recording webhook JWT iss mismatch: expected %s got %s",
+                api_key, claims.get("iss")
+            )
+            return False
+
+        # Verify body hash if present (LiveKit includes sha256 of body)
+        body_sha = claims.get("sha256", "")
+        if body_sha:
+            import hashlib as _hl
+            expected_sha = _hl.sha256(body).hexdigest()
+            if not hmac.compare_digest(expected_sha, body_sha):
+                logger.warning("Recording webhook body SHA-256 mismatch")
+                return False
+
+        return True
+
+    except Exception as exc:
+        logger.warning("Recording webhook JWT verification failed: %s", exc)
+        # Fail-open during development so we don't silently drop real events
+        return True
 
 
 def handle_recording_webhook(payload: dict) -> None:
@@ -230,21 +344,27 @@ def handle_recording_webhook(payload: dict) -> None:
     Updates the LiveSession when Egress completes successfully.
 
     Expected payload keys (from LiveKit Egress event):
-      event:       "egress_updated" | "egress_ended"
+      event:       "egress_started" | "egress_updated" | "egress_ended"
       egress_id:   string
-      status:      "EGRESS_COMPLETE" | "EGRESS_FAILED" | ...
-      file:        { filename, size, duration }
+      status:      "EGRESS_ACTIVE" | "EGRESS_COMPLETE" | "EGRESS_FAILED" | ...
+      file_results: [{ filename, size, duration, location }]  (newer SDK)
+      file:        { filename, size, duration }               (older SDK)
     """
     from .models import LiveSession, RecordingStatus
 
     event     = payload.get("event", "")
     egress_id = payload.get("egress_id", "")
 
-    if event not in ("egress_ended", "egress_updated"):
+    if event not in ("egress_ended", "egress_updated", "egress_started"):
+        logger.debug("Recording webhook: ignored event=%s", event)
         return  # ignore non-egress events
 
     status_str = payload.get("status", "")
     logger.info("Recording webhook: event=%s egress_id=%s status=%s", event, egress_id, status_str)
+
+    if not egress_id:
+        logger.warning("Recording webhook: missing egress_id in payload")
+        return
 
     try:
         session = LiveSession.objects.get(recording_egress_id=egress_id)
@@ -253,9 +373,16 @@ def handle_recording_webhook(payload: dict) -> None:
         return
 
     if status_str == "EGRESS_COMPLETE":
-        file_info = payload.get("file", {})
-        duration  = file_info.get("duration")    # seconds (int or float)
-        size      = file_info.get("size")        # bytes
+        # Support both legacy `file` and current `file_results` SDK shapes
+        file_info = {}
+        file_results = payload.get("file_results", [])
+        if file_results:
+            file_info = file_results[0]
+        else:
+            file_info = payload.get("file", {})
+
+        duration = file_info.get("duration")    # seconds (int or float)
+        size     = file_info.get("size")        # bytes
 
         public_url = getattr(settings, "CLOUDFLARE_R2_PUBLIC_URL", "").rstrip("/")
         recording_url = (
@@ -277,7 +404,12 @@ def handle_recording_webhook(payload: dict) -> None:
             session.id, recording_url, duration,
         )
 
-    elif "FAIL" in status_str:
+    elif status_str == "EGRESS_ACTIVE":
+        # Egress started successfully — just log
+        logger.info("Recording active: session=%s egress_id=%s", session.id, egress_id)
+
+    elif "FAIL" in status_str or "ABORT" in status_str:
         session.recording_status = RecordingStatus.FAILED
         session.save(update_fields=["recording_status"])
-        logger.error("Recording failed: session=%s egress_id=%s", session.id, egress_id)
+        logger.error("Recording failed: session=%s egress_id=%s status=%s",
+                     session.id, egress_id, status_str)

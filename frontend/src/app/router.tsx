@@ -276,8 +276,17 @@ export const router = createBrowserRouter([
   { path: "/admin/live/:sessionId",   element: <Protected role="ADMIN"><LiveSessionPage /></Protected> },
 
   // ── Recordings ───────────────────────────────────────────────────────────────
+  // Students: only see READY recordings for their section
   { path: "/recordings",              element: <Protected role="STUDENT"><RecordedSessionsPage /></Protected> },
   { path: "/recordings/:sessionId",   element: <Protected role="STUDENT"><RecordingPlayerPage /></Protected> },
+  // Teachers: see all statuses for their own sessions
+  { path: "/teacher/recordings",              element: <Protected role="TEACHER"><RecordedSessionsPage /></Protected> },
+  { path: "/teacher/recordings/:sessionId",   element: <Protected role="TEACHER"><RecordingPlayerPage /></Protected> },
+  // Principal / Admin: full visibility
+  { path: "/principal/recordings",            element: <Protected role="PRINCIPAL"><RecordedSessionsPage /></Protected> },
+  { path: "/principal/recordings/:sessionId", element: <Protected role="PRINCIPAL"><RecordingPlayerPage /></Protected> },
+  { path: "/admin/recordings",                element: <Protected role="ADMIN"><RecordedSessionsPage /></Protected> },
+  { path: "/admin/recordings/:sessionId",     element: <Protected role="ADMIN"><RecordingPlayerPage /></Protected> },
 
   // ── AI Chatbot ───────────────────────────────────────────────────────────────
   { path: "/ai-tutor",                element: <Protected role="STUDENT"><AIChatPage /></Protected> },

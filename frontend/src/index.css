@@ -3023,3 +3023,33 @@ textarea.form-input {
   min-height: 0;
   background: #fff;
 }
+
+/* ── Whiteboard PiP Camera (Zoom-style) ───────────────────────── */
+
+.wb-pip-container {
+  /* Base styles set inline for dragging; these are fallback/animation */
+  will-change: transform;
+}
+
+/* Show control bar on hover via CSS fallback */
+.wb-pip-container:hover .wb-pip-controls {
+  opacity: 1 !important;
+}
+
+/* Grab cursor while dragging */
+.wb-pip-container:active {
+  cursor: grabbing;
+}
+
+/* ── Animations (shared: live session + recordings) ──────────── */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+

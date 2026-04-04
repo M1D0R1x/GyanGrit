@@ -219,17 +219,45 @@ function useWhiteboard(isTeacher: boolean, sessionId?: string) {
     return null;
   });
 
+  // Track the most recent state in a ref so we can re-broadcast to late joiners
+  const latestStateRef = useRef<WhiteboardState | null>(remoteState);
+
   useEffect(() => {
     if (!room) return;
     const handleData = (payload: Uint8Array) => {
       try {
         const msg = JSON.parse(new TextDecoder().decode(payload));
-        if (msg.type === "whiteboard") setRemoteState(msg as WhiteboardState);
+        if (msg.type === "whiteboard") {
+          setRemoteState(msg as WhiteboardState);
+          latestStateRef.current = msg as WhiteboardState;
+        }
       } catch { /* ignore */ }
     };
     room.on(RoomEvent.DataReceived, handleData);
     return () => { room.off(RoomEvent.DataReceived, handleData); };
   }, [room]);
+
+  // NEW: Teacher re-broadcasts current state when a new participant joins.
+  // This ensures students who join mid-session immediately see the whiteboard.
+  useEffect(() => {
+    if (!room || !isTeacher) return;
+    const handleParticipantConnected = () => {
+      const current = latestStateRef.current;
+      if (current) {
+        // Small delay so the new participant's data channel subscription is ready
+        setTimeout(() => {
+          if (latestStateRef.current && room.localParticipant) {
+            room.localParticipant.publishData(
+              new TextEncoder().encode(JSON.stringify(latestStateRef.current)),
+              { reliable: true }
+            );
+          }
+        }, 800);
+      }
+    };
+    room.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
+    return () => { room.off(RoomEvent.ParticipantConnected, handleParticipantConnected); };
+  }, [room, isTeacher]);
 
   const broadcastWhiteboard = useCallback((state: WhiteboardState) => {
     if (!room) return;
@@ -237,13 +265,14 @@ function useWhiteboard(isTeacher: boolean, sessionId?: string) {
     if (isTeacher && sessionId) {
       localStorage.setItem(`gyangrit_wb_${sessionId}`, JSON.stringify(state));
     }
+    latestStateRef.current = state;
     setRemoteState(state);
     room.localParticipant.publishData(
       new TextEncoder().encode(JSON.stringify(state)), { reliable: true }
     );
   }, [room, isTeacher, sessionId]);
 
-  return { remoteState, broadcastWhiteboard };
+  return { remoteState, broadcastWhiteboard, latestStateRef };
 }
 
 // ── Chat Panel ────────────────────────────────────────────────────────────────
@@ -337,6 +366,164 @@ function ParticipantsPanel({ teacherName }: { teacherName: string }) {
   );
 }
 
+// ── Draggable PiP Camera Box (Zoom-style) ──────────────────────────────────────────
+// Shows a draggable floating camera tile when the whiteboard is fullscreen.
+// Teacher: shows their own camera. Students: shows the teacher's camera.
+
+function PiPCamera() {
+  const tracks = useTracks([
+    { source: Track.Source.Camera, withPlaceholder: true },
+  ]);
+
+  // Local camera for teacher, or first available track (teacher's feed) for students
+  const pipTrack = tracks.find(t => t.participant.isLocal) ?? tracks[0];
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging   = useRef(false);
+  const dragOffset   = useRef({ x: 0, y: 0 });
+  const [size, setSize] = useState({ w: 240, h: 135 }); // 16:9
+  const [minimized, setMinimized] = useState(false);
+  // track actual CSS left/top for dragging
+  const posRef = useRef<{ left: number; top: number } | null>(null);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // switch to left/top for free dragging
+    posRef.current = { left: rect.left, top: rect.top };
+    el.style.right = "auto";
+    el.style.bottom = "auto";
+    el.style.left = `${rect.left}px`;
+    el.style.top  = `${rect.top}px`;
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    isDragging.current = true;
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const el = containerRef.current;
+      const newLeft = e.clientX - dragOffset.current.x;
+      const newTop  = e.clientY - dragOffset.current.y;
+      // Clamp within viewport
+      const maxLeft = window.innerWidth  - el.offsetWidth;
+      const maxTop  = window.innerHeight - el.offsetHeight;
+      const left = Math.max(0, Math.min(newLeft, maxLeft));
+      const top  = Math.max(0, Math.min(newTop,  maxTop));
+      el.style.left = `${left}px`;
+      el.style.top  = `${top}px`;
+      posRef.current = { left, top };
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    };
+  }, []);
+
+  // Corner resize
+  const onResizeDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const startW = size.w, startH = size.h;
+    const onMove = (ev: MouseEvent) => {
+      const dw = ev.clientX - startX;
+      const dh = ev.clientY - startY;
+      setSize({ w: Math.max(160, startW + dw), h: Math.max(90, startH + dh) });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }, [size]);
+
+  if (!pipTrack) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="wb-pip-container"
+      style={{
+        position: "fixed",
+        right: 16, bottom: 80,
+        width:  minimized ? 48 : size.w,
+        height: minimized ? 48 : size.h,
+        zIndex: 10001,
+        borderRadius: minimized ? "50%" : "var(--radius-lg)",
+        overflow: "hidden",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
+        border: "2px solid rgba(255,255,255,0.18)",
+        cursor: "grab",
+        transition: "width 0.18s ease, height 0.18s ease, border-radius 0.18s ease",
+        userSelect: "none",
+      }}
+      onMouseDown={onMouseDown}
+    >
+      {/* Camera tile */}
+      <div style={{ width: "100%", height: "100%", background: "#111" }}>
+        {!minimized && (
+          <ParticipantTile
+            trackRef={pipTrack}
+            style={{ width: "100%", height: "100%" }}
+          />
+        )}
+        {minimized && (
+          <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📹</div>
+        )}
+      </div>
+
+      {/* Top control bar — appears on hover */}
+      <div
+        className="wb-pip-controls"
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "4px 6px",
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
+          opacity: 0, transition: "opacity 0.15s",
+          zIndex: 2,
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
+      >
+        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>📹 Camera</span>
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={() => setMinimized(v => !v)}
+          style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 4, color: "#fff", fontSize: 11, padding: "2px 6px", cursor: "pointer" }}
+        >
+          {minimized ? "⬜" : "➖"}
+        </button>
+      </div>
+
+      {/* Resize handle (bottom-right corner) */}
+      {!minimized && (
+        <div
+          onMouseDown={onResizeDown}
+          style={{
+            position: "absolute", bottom: 4, right: 4,
+            width: 14, height: 14, cursor: "se-resize",
+            background: "rgba(255,255,255,0.35)",
+            borderRadius: "3px 0 3px 0",
+            zIndex: 3,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── In-Room Controls ──────────────────────────────────────────────────────────
 
 function InRoomControls({ onToggleTab, activeTab, isTeacher, permissions, updatePermissions }: {
@@ -402,14 +589,80 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const autoOpenedRef = useRef(false);
 
+  // ── Canvas screen-share for recording ─────────────────────────────────────
+  // When teacher opens the whiteboard, capture the Excalidraw <canvas> as a
+  // MediaStream and publish it to LiveKit as a screenshare track. This makes
+  // Egress record the whiteboard content alongside the camera.
+  const canvasStreamRef  = useRef<MediaStream | null>(null);
+  const canvasTrackRef   = useRef<MediaStreamTrack | null>(null);
+
+  useEffect(() => {
+    if (!isTeacher || !room) return;
+
+    if (whiteboardOpen) {
+      // Small delay to let Excalidraw render its canvas
+      const timer = setTimeout(() => {
+        try {
+          // Find Excalidraw's canvas element inside the whiteboard container
+          const canvas = document.querySelector<HTMLCanvasElement>(
+            ".whiteboard-container canvas.excalidraw__canvas"
+          ) ?? document.querySelector<HTMLCanvasElement>(".whiteboard-container canvas");
+          if (!canvas) return;
+
+          // captureStream is available on HTMLCanvasElement and needs no user prompt
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const stream: MediaStream = (canvas as any).captureStream(15); // 15 fps
+          const [videoTrack] = stream.getVideoTracks();
+          if (!videoTrack) return;
+
+          canvasStreamRef.current  = stream;
+          canvasTrackRef.current   = videoTrack;
+
+          room.localParticipant.publishTrack(videoTrack, {
+            source: Track.Source.ScreenShare,
+            name:   "whiteboard-canvas",
+            simulcast: false,
+          }).then(() => {
+            console.info("[GyanGrit] Whiteboard canvas published as screenshare");
+          }).catch((err: unknown) => {
+            console.warn("[GyanGrit] Failed to publish canvas track:", err);
+          });
+        } catch (err) {
+          console.warn("[GyanGrit] captureStream error:", err);
+        }
+      }, 1200); // wait for Excalidraw's canvas to mount
+      return () => clearTimeout(timer);
+    } else {
+      // Whiteboard closed — unpublish the canvas track
+      if (canvasTrackRef.current) {
+        room.localParticipant.unpublishTrack(canvasTrackRef.current).catch(() => {});
+        canvasTrackRef.current.stop();
+        canvasTrackRef.current  = null;
+        canvasStreamRef.current = null;
+        console.info("[GyanGrit] Whiteboard canvas screenshare stopped");
+      }
+    }
+    return undefined;
+  }, [isTeacher, whiteboardOpen, room]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasTrackRef.current) {
+        canvasTrackRef.current.stop();
+        canvasTrackRef.current  = null;
+        canvasStreamRef.current = null;
+      }
+    };
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
+
   // FIX 2: Listen for RoomEvent.Disconnected — fired when the LiveKit room is
   // deleted by the teacher (session_end calls _delete_livekit_room).
   // Without this, students stay frozen in the room UI after the teacher ends.
   useEffect(() => {
     if (!room) return;
-    const handleDisconnected = () => {
-      onLeave();
-    };
+    const handleDisconnected = () => { onLeave(); };
     room.on(RoomEvent.Disconnected, handleDisconnected);
     return () => { room.off(RoomEvent.Disconnected, handleDisconnected); };
   }, [room, onLeave]);
@@ -465,20 +718,25 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
       </div>
 
       <div className="live-room__body">
-        <div className="live-room__video">
+        <div className="live-room__video" style={{ position: "relative" }}>
           {whiteboardOpen ? (
-            <Suspense fallback={
-              <div className="whiteboard-loading">
-                <div className="auth-loading__spinner" />
-                <span>Loading whiteboard...</span>
-              </div>
-            }>
-              <Whiteboard
-                readOnly={!isTeacher}
-                remoteState={remoteState}
-                onBroadcast={isTeacher ? broadcastWhiteboard : undefined}
-              />
-            </Suspense>
+            <>
+              {/* Whiteboard fills entire area */}
+              <Suspense fallback={
+                <div className="whiteboard-loading">
+                  <div className="auth-loading__spinner" />
+                  <span>Loading whiteboard...</span>
+                </div>
+              }>
+                <Whiteboard
+                  readOnly={!isTeacher}
+                  remoteState={remoteState}
+                  onBroadcast={isTeacher ? broadcastWhiteboard : undefined}
+                />
+              </Suspense>
+              {/* PiP floating camera — Zoom-style */}
+              <PiPCamera />
+            </>
           ) : (
             <VideoLayout />
           )}

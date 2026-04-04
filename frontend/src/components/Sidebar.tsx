@@ -101,7 +101,7 @@ function getNavSections(role: Role): NavSection[] {
       { title: "Teaching", items: [
         { label: "My Classes",      path: "/teacher",                icon: <SchoolIcon /> },
         { label: "Live Classes",    path: "/teacher/live",           icon: <VideoIcon /> },
-        { label: "Recordings",      path: "/recordings",             icon: <VideoIcon /> },
+        { label: "Recordings",      path: "/teacher/recordings",     icon: <HistoryIcon /> },
         { label: "Flashcard Decks", path: "/teacher/flashcards",     icon: <CardIcon /> },
         { label: "AI Tools",        path: "/teacher/ai-tools",       icon: <BotIcon /> },
       ]},
@@ -127,8 +127,8 @@ function getNavSections(role: Role): NavSection[] {
       ]},
       { title: "School", items: [
         { label: "All Classes", path: "/principal",       icon: <SchoolIcon /> },
-        { label: "Live Classes", path: "/principal/live", icon: <VideoIcon /> },
-        { label: "Recordings",   path: "/recordings",     icon: <VideoIcon /> },
+        { label: "Live Classes", path: "/principal/live",         icon: <VideoIcon /> },
+        { label: "Recordings",   path: "/principal/recordings",   icon: <HistoryIcon /> },
       ]},
       { title: "Staff & Codes", items: [
         { label: "Join Codes", path: "/principal/users", icon: <KeyIcon /> },
@@ -179,7 +179,7 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Chat Management", path: "/admin/chat-management", icon: <EditIcon /> },
         { label: "Competitions",    path: "/admin/competitions",    icon: <TrophyIcon /> },
         { label: "Live Classes",    path: "/admin/live",            icon: <VideoIcon /> },
-        { label: "Recordings",      path: "/recordings",            icon: <VideoIcon /> },
+        { label: "Recordings",      path: "/admin/recordings",      icon: <HistoryIcon /> },
         { label: "Flashcards",      path: "/admin/flashcards",      icon: <CardIcon /> },
         { label: "AI Tutor",        path: "/admin/ai-tutor",        icon: <BotIcon /> },
         { label: "AI Tools",        path: "/admin/ai-tools",        icon: <BotIcon /> },

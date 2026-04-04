@@ -367,14 +367,26 @@ def session_end(request, session_id):
     except Exception as exc:
         logger.warning("Ably notify failed: %s", exc)
 
-    # BUG FIX: Delete the LiveKit room so ALL participants receive a Disconnected
-    # event in the browser and are automatically removed from the call.
-    # Previously students had to click Leave manually after the teacher ended.
-    try:
-        _delete_livekit_room(session.livekit_room_name)
-    except Exception as exc:
-        logger.warning("LiveKit room delete failed for session %s: %s",
-                       session.public_id, exc)
+    # RECORDING FIX: Stop the Egress BEFORE deleting the LiveKit room.
+    # If the room is deleted first, the in-progress Egress is killed mid-stream
+    # and the MP4 never gets finalised/uploaded to R2 — stays PROCESSING forever.
+    # We stop Egress first, wait 3 s for it to flush, then delete the room.
+    def _stop_then_delete(sess):
+        import time as _t
+        try:
+            from .recording import stop_recording
+            stop_recording(sess)
+        except Exception as exc:
+            logger.warning("Egress stop failed for session %s: %s", sess.public_id, exc)
+        _t.sleep(3)  # give Egress time to flush/finalize the MP4
+        try:
+            _delete_livekit_room(sess.livekit_room_name)
+        except Exception as exc:
+            logger.warning("LiveKit room delete failed for session %s: %s",
+                           sess.public_id, exc)
+
+    import threading
+    threading.Thread(target=_stop_then_delete, args=[session], daemon=True).start()
 
     return JsonResponse(_session_to_dict(session))
 
@@ -633,6 +645,7 @@ def _recording_to_dict(session: LiveSession) -> dict:
         "recording_url":              session.recording_url,
         "recording_duration_seconds": session.recording_duration_seconds,
         "recording_size_bytes":       session.recording_size_bytes,
+        "recording_r2_key":           session.recording_r2_key,  # for admin debug
     }
 
 
@@ -663,8 +676,19 @@ def recording_webhook(request):
 @require_auth
 @require_http_methods(["GET"])
 def recordings_list(request):
-    user     = request.user
-    base_qs  = (
+    """
+    List recordings accessible to the current user.
+
+    - STUDENT:           only section recordings that are READY
+    - TEACHER:           all their own session recordings (any status)
+    - PRINCIPAL / ADMIN: all recordings (any status) for oversight/debugging
+
+    Query params:
+      subject_id       — filter by subject
+      recording_status — filter by status (none/processing/ready/failed)
+    """
+    user    = request.user
+    base_qs = (
         LiveSession.objects
         .exclude(recording_status=RecordingStatus.NONE)
         .select_related("subject", "teacher", "section")
@@ -675,10 +699,14 @@ def recordings_list(request):
         section = getattr(user, "section", None)
         if not section:
             return JsonResponse([], safe=False)
+        # Students only see finished, playable recordings for their section
         qs = base_qs.filter(section=section, recording_status=RecordingStatus.READY)
     elif user.role == "TEACHER":
+        # Teachers see ALL statuses for their own sessions so they can
+        # track processing progress and debug failed recordings
         qs = base_qs.filter(teacher=user)
     else:
+        # PRINCIPAL / ADMIN — full visibility
         qs = base_qs
 
     subject_id    = request.GET.get("subject_id")

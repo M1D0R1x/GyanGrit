@@ -232,29 +232,57 @@ def learning_path_progress(request, path_id):
 @require_auth
 @require_http_methods(["POST"])
 def enroll_learning_path(request, path_id):
+    from django.db.models import Q
     path = get_object_or_404(LearningPath, id=path_id)
 
-    path_courses = (
+    path_courses = list(
         LearningPathCourse.objects
         .filter(learning_path=path)
         .select_related("course", "course__subject")
     )
+    total_courses = len(path_courses)
 
-    enrolled_count = 0
-    for item in path_courses:
-        if can_access_course(request.user, item.course):
-            _, created = Enrollment.objects.get_or_create(
-                user=request.user,
-                course=item.course,
-                defaults={"status": "enrolled"},
-            )
-            if created:
-                enrolled_count += 1
+    user = request.user
+    course_list = [item.course for item in path_courses]
+
+    # Determine accessible courses in 1 query per role instead of 1 per course
+    if user.is_superuser or user.role == "ADMIN":
+        accessible_ids = {c.id for c in course_list}
+    elif user.role == "STUDENT":
+        enrolled_subject_ids = set(
+            StudentSubject.objects
+            .filter(student=user)
+            .values_list("subject_id", flat=True)
+        )
+        accessible_ids = {c.id for c in course_list if c.subject_id in enrolled_subject_ids}
+    elif user.role == "TEACHER":
+        teaching_subject_ids = set(
+            user.teaching_assignments.values_list("subject_id", flat=True)
+        )
+        accessible_ids = {c.id for c in course_list if c.subject_id in teaching_subject_ids}
+    else:
+        accessible_ids = set()  # PRINCIPAL / OFFICIAL cannot self-enroll
+
+    # Bulk-create missing enrollments — ignore existing rows
+    accessible_courses = [c for c in course_list if c.id in accessible_ids]
+    existing_ids = set(
+        Enrollment.objects
+        .filter(user=user, course_id__in=accessible_ids)
+        .values_list("course_id", flat=True)
+    )
+    new_enrollments = [
+        Enrollment(user=user, course=c, status="enrolled")
+        for c in accessible_courses
+        if c.id not in existing_ids
+    ]
+    if new_enrollments:
+        Enrollment.objects.bulk_create(new_enrollments, ignore_conflicts=True)
+    enrolled_count = len(new_enrollments)
 
     return JsonResponse({
-        "path_id": path.id,
+        "path_id":         path.id,
         "enrolled_courses": enrolled_count,
-        "total_courses": path_courses.count(),
+        "total_courses":   total_courses,
     })
 
 

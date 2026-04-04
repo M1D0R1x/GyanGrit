@@ -43,13 +43,21 @@ MAX_CONTEXT = 3000  # max characters of curriculum context to inject
 def _build_curriculum_context(student, subject_id: int | None) -> str:
     """
     Fetch lesson titles + descriptions for the student's subject.
-    Returned as a plain text block injected into the Gemini prompt.
+    Returned as a plain text block injected into the AI prompt.
+    Cached 5 minutes per student+subject to avoid repeated DB hits.
     """
+    from django.core.cache import cache
+    _cache_key = f"ai_ctx:s{getattr(student, 'id', 0)}:sub{subject_id or 0}"
+    cached = cache.get(_cache_key)
+    if cached is not None:
+        return cached
+
     from apps.content.models import Course, Lesson
     from apps.academics.models import TeachingAssignment
 
     section = getattr(student, "section", None)
     if not section:
+        cache.set(_cache_key, "", timeout=300)
         return ""
 
     subject_ids = (
@@ -74,8 +82,9 @@ def _build_curriculum_context(student, subject_id: int | None) -> str:
             if hasattr(lesson, "description") and lesson.description:
                 lines.append(f"    {lesson.description[:150]}")
 
-    context = "\n".join(lines)
-    return context[:MAX_CONTEXT]
+    context = "\n".join(lines)[:MAX_CONTEXT]
+    cache.set(_cache_key, context, timeout=300)  # 5 minute TTL
+    return context
 
 
 
@@ -84,18 +93,23 @@ def _build_curriculum_context(student, subject_id: int | None) -> str:
 @require_auth
 @require_http_methods(["GET"])
 def list_conversations(request):
-    convs = ChatConversation.objects.filter(
-        student=request.user
-    ).select_related("subject").order_by("-updated_at")[:20]
+    from django.db.models import Count
+    convs = (
+        ChatConversation.objects
+        .filter(student=request.user)
+        .select_related("subject")
+        .annotate(message_count=Count("messages"))
+        .order_by("-updated_at")[:20]
+    )
 
     return JsonResponse([
         {
-            "id":           c.id,
-            "subject_id":   c.subject_id,
-            "subject_name": c.subject.name if c.subject else "General",
-            "started_at":   c.started_at.isoformat(),
-            "updated_at":   c.updated_at.isoformat(),
-            "message_count": c.messages.count(),
+            "id":            c.id,
+            "subject_id":    c.subject_id,
+            "subject_name":  c.subject.name if c.subject else "General",
+            "started_at":    c.started_at.isoformat(),
+            "updated_at":    c.updated_at.isoformat(),
+            "message_count": c.message_count,  # from annotation — no extra query
         }
         for c in convs
     ], safe=False)

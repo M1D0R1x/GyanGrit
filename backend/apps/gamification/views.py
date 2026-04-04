@@ -2,6 +2,7 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.db.models import F
 from django.http import JsonResponse
@@ -16,6 +17,8 @@ from apps.gamification.models import (
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+_LEADERBOARD_TTL = 5 * 60   # 5 min — recompute when points change
 
 # Badge display metadata — label + emoji for frontend rendering
 BADGE_META: dict[str, dict] = {
@@ -194,6 +197,12 @@ def leaderboard_class(request):
 
     qs = StudentPoints.objects.filter(user_id__in=student_ids)
 
+    # Cache per classroom + requesting user (user affects is_me flag)
+    cache_key = f"leaderboard:class:{classroom.id}:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
     if user.role == "STUDENT":
         entries = _build_leaderboard(qs, user)
     else:
@@ -211,11 +220,13 @@ def leaderboard_class(request):
             e["rank"] = i
             e["is_me"] = False
 
-    return JsonResponse({
+    payload = {
         "class_id":   classroom.id,
         "class_name": classroom.name,
         "entries":    entries,
-    })
+    }
+    cache.set(cache_key, payload, timeout=_LEADERBOARD_TTL)
+    return JsonResponse(payload)
 
 
 @require_auth

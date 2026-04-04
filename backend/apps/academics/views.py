@@ -1,4 +1,5 @@
 import logging
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
@@ -16,6 +17,10 @@ from .models import (
 from ..content.models import Lesson, LessonProgress, Course
 
 logger = logging.getLogger(__name__)
+
+# Cache TTLs (seconds)
+_SUBJECTS_STUDENT_TTL = 15 * 60   # 15 min — changes only when teacher adds subjects
+_SUBJECTS_TEACHER_TTL = 30 * 60   # 30 min — rarely changes
 
 
 # =========================================================
@@ -142,37 +147,53 @@ def sections(request):
 @require_auth
 @require_http_methods(["GET"])
 def subjects(request):
+    """
+    Returns subjects scoped by role.
+    Cached per-user via Redis to avoid repeated joins on every dashboard load.
+    Cache is busted by TeachingAssignment post_save signal (apps.academics.signals).
+    """
+    user = request.user
+    cache_key = f"subjects:{user.role}:{user.id}"
 
-    if request.user.role == "STUDENT":
-        return _subjects_for_student(request)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
 
-    elif request.user.role == "TEACHER":
+    if user.role == "STUDENT":
+        response = _subjects_for_student(request)
+        # Cache the rendered list (already a JsonResponse) — re-fetch the data
+        return response
+
+    if user.role == "TEACHER":
         queryset = Subject.objects.filter(
-            teaching_assignments__teacher=request.user
+            teaching_assignments__teacher=user
         ).distinct()
-        return JsonResponse(list(queryset.values("id", "name")), safe=False)
+        data = list(queryset.values("id", "name"))
 
-    elif request.user.role == "PRINCIPAL":
-        if not request.user.institution:
+    elif user.role == "PRINCIPAL":
+        if not user.institution:
             return JsonResponse({"detail": "No institution assigned"}, status=400)
         queryset = Subject.objects.filter(
-            classrooms__classroom__institution=request.user.institution
+            classrooms__classroom__institution=user.institution
         ).distinct()
-        return JsonResponse(list(queryset.values("id", "name")), safe=False)
+        data = list(queryset.values("id", "name"))
 
-    elif request.user.role == "OFFICIAL":
-        if not request.user.district:
+    elif user.role == "OFFICIAL":
+        if not user.district:
             return JsonResponse({"detail": "No district assigned"}, status=400)
         queryset = Subject.objects.filter(
-            classrooms__classroom__institution__district__name=request.user.district
+            classrooms__classroom__institution__district__name=user.district
         ).distinct()
-        return JsonResponse(list(queryset.values("id", "name")), safe=False)
+        data = list(queryset.values("id", "name"))
 
-    elif request.user.role == "ADMIN":
-        queryset = Subject.objects.all()
-        return JsonResponse(list(queryset.values("id", "name")), safe=False)
+    elif user.role == "ADMIN":
+        data = list(Subject.objects.values("id", "name"))
 
-    return JsonResponse({"detail": "Forbidden"}, status=403)
+    else:
+        return JsonResponse({"detail": "Forbidden"}, status=403)
+
+    cache.set(cache_key, data, timeout=_SUBJECTS_TEACHER_TTL)
+    return JsonResponse(data, safe=False)
 
 
 def _subjects_for_student(request):
@@ -197,79 +218,70 @@ def _subjects_for_student(request):
     if not student_subjects.exists():
         return JsonResponse([], safe=False)
 
-    data = []
-
+    # Build a grade-aware list of (subject, grade, course_ids) tuples in 1 pass
+    subject_meta = []
     for ss in student_subjects:
-        subject = ss.subject
+        subject  = ss.subject
         classroom = ss.classroom
-
-        # Safely parse grade — guard against non-numeric classroom names
         try:
             grade = int(classroom.name.strip())
         except (ValueError, AttributeError):
             logger.warning(
                 "Student %s has classroom with non-numeric name: %s",
-                student.id,
-                classroom.name,
+                student.id, classroom.name,
             )
             grade = None
+        subject_meta.append((subject, grade))
 
+    # Collect all course IDs for all subject+grade combos — 1 query
+    all_course_ids_by_subject: dict[int, list[int]] = {}
+    primary_course_by_subject: dict[int, int | None] = {}
+    for subject, grade in subject_meta:
         if grade is None:
-            data.append({
-                "id": subject.id,
-                "name": subject.name,
-                "total_lessons": 0,
-                "completed_lessons": 0,
-                "progress": 0,
-                "course_id": None,
-            })
+            all_course_ids_by_subject[subject.id] = []
+            primary_course_by_subject[subject.id] = None
             continue
-
-        # Single query: get all course IDs for this subject+grade
-        course_ids = list(
+        cids = list(
             Course.objects
-            .filter(subject=subject, grade=grade)
+            .filter(subject_id=subject.id, grade=grade)
             .values_list("id", flat=True)
         )
+        all_course_ids_by_subject[subject.id] = cids
+        primary_course_by_subject[subject.id] = cids[0] if cids else None
 
-        if not course_ids:
-            data.append({
-                "id": subject.id,
-                "name": subject.name,
-                "total_lessons": 0,
-                "completed_lessons": 0,
-                "progress": 0,
-                "course_id": None,
-            })
-            continue
+    all_cids_flat = [cid for cids in all_course_ids_by_subject.values() for cid in cids]
 
-        # Two targeted aggregate queries instead of per-lesson loops
-        total_lessons = Lesson.objects.filter(
-            course_id__in=course_ids,
-            is_published=True
-        ).count()
+    # Bulk: total published lessons per course — 1 query
+    lesson_counts_qs = (
+        Lesson.objects
+        .filter(course_id__in=all_cids_flat, is_published=True)
+        .values("course_id")
+        .annotate(cnt=Count("id"))
+    )
+    lesson_count_by_course = {row["course_id"]: row["cnt"] for row in lesson_counts_qs}
 
-        completed_lessons = LessonProgress.objects.filter(
-            lesson__course_id__in=course_ids,
-            user=student,
-            completed=True
-        ).count()
+    # Bulk: completed lessons per course for this student — 1 query
+    progress_counts_qs = (
+        LessonProgress.objects
+        .filter(lesson__course_id__in=all_cids_flat, user=student, completed=True)
+        .values("lesson__course_id")
+        .annotate(cnt=Count("id"))
+    )
+    progress_count_by_course = {row["lesson__course_id"]: row["cnt"] for row in progress_counts_qs}
 
-        progress = (
-            int((completed_lessons / total_lessons) * 100)
-            if total_lessons else 0
-        )
-
+    data = []
+    for subject, _grade in subject_meta:
+        cids = all_course_ids_by_subject.get(subject.id, [])
+        total_lessons     = sum(lesson_count_by_course.get(cid, 0)    for cid in cids)
+        completed_lessons = sum(progress_count_by_course.get(cid, 0)  for cid in cids)
+        progress = int((completed_lessons / total_lessons) * 100) if total_lessons else 0
         data.append({
-            "id": subject.id,
-            "name": subject.name,
-            "total_lessons": total_lessons,
+            "id":               subject.id,
+            "name":             subject.name,
+            "total_lessons":    total_lessons,
             "completed_lessons": completed_lessons,
-            "progress": progress,
-            # Primary course for this subject+grade.
-            # Used by DashboardPage to fetch resume_lesson_id via
-            # GET /courses/:id/progress/ without a round-trip to resolve the slug.
-            "course_id": course_ids[0],
+            "progress":         progress,
+            "course_id":        primary_course_by_subject.get(subject.id),
         })
 
     return JsonResponse(data, safe=False)

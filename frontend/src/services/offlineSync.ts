@@ -25,6 +25,11 @@ import {
   onNetworkChange,
   isOnline,
   type OfflineQueueItem,
+  getStorageEstimate,
+  getAllOfflineLessons,
+  removeOfflineLesson,
+  getAllOfflineDecks,
+  removeOfflineFlashcardDeck,
 } from "./offline";
 
 const MAX_RETRIES = 3;
@@ -159,9 +164,66 @@ export async function processOfflineQueue(): Promise<{
   }
 }
 
+// ── Storage auto-cleanup ─────────────────────────────────────────────────────
+
+const CLEANUP_THRESHOLD = 80;  // trigger cleanup above 80%
+const CLEANUP_TARGET    = 75;  // stop cleanup when usage drops below 75%
+
+/**
+ * Checks storage quota and removes oldest offline content when >80% full.
+ * Removes oldest lessons first, then oldest decks, until usage < 75%.
+ * Dispatches "offline:storage-cleaned" event so UI can show a toast.
+ */
+export async function checkStorageAndCleanup(): Promise<void> {
+  try {
+    const { percentUsed } = await getStorageEstimate();
+    if (percentUsed < CLEANUP_THRESHOLD) return;
+
+    console.warn(`[OfflineSync] Storage ${percentUsed}% full — running auto-cleanup...`);
+    let removed = 0;
+
+    // Phase 1: Remove oldest lessons
+    const lessons = await getAllOfflineLessons();
+    const sortedLessons = [...lessons].sort(
+      (a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime()
+    );
+    for (const lesson of sortedLessons) {
+      const { percentUsed: pct } = await getStorageEstimate();
+      if (pct < CLEANUP_TARGET) break;
+      await removeOfflineLesson(lesson.id);
+      removed++;
+      console.log(`[OfflineSync] Removed lesson "${lesson.title}" (${lesson.id})`);
+    }
+
+    // Phase 2: Remove oldest flashcard decks if still over target
+    const decks = await getAllOfflineDecks();
+    const sortedDecks = [...decks].sort(
+      (a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime()
+    );
+    for (const deck of sortedDecks) {
+      const { percentUsed: pct } = await getStorageEstimate();
+      if (pct < CLEANUP_TARGET) break;
+      await removeOfflineFlashcardDeck(deck.deckId);
+      removed++;
+      console.log(`[OfflineSync] Removed deck "${deck.title}" (${deck.deckId})`);
+    }
+
+    if (removed > 0) {
+      window.dispatchEvent(
+        new CustomEvent("offline:storage-cleaned", { detail: { removed } })
+      );
+      console.log(`[OfflineSync] Auto-cleanup complete: ${removed} items removed`);
+    }
+  } catch (err) {
+    console.warn("[OfflineSync] Storage cleanup error:", err);
+  }
+}
+
+
 // ── Auto-sync on reconnect ───────────────────────────────────────────────────
 
 let cleanupNetworkListener: (() => void) | null = null;
+let storageCheckInterval:   ReturnType<typeof setInterval> | null = null;
 
 export function startOfflineSync(): void {
   if (cleanupNetworkListener) return; // already started
@@ -170,6 +232,14 @@ export function startOfflineSync(): void {
   if (isOnline()) {
     processOfflineQueue();
   }
+
+  // Check storage quota on startup and clean up if >80%
+  checkStorageAndCleanup();
+
+  // Periodic storage check every 30 minutes
+  storageCheckInterval = setInterval(() => {
+    checkStorageAndCleanup();
+  }, 30 * 60 * 1000);
 
   // Listen for reconnection
   cleanupNetworkListener = onNetworkChange((online) => {
@@ -213,4 +283,8 @@ export function startOfflineSync(): void {
 export function stopOfflineSync(): void {
   cleanupNetworkListener?.();
   cleanupNetworkListener = null;
+  if (storageCheckInterval != null) {
+    clearInterval(storageCheckInterval);
+    storageCheckInterval = null;
+  }
 }

@@ -249,22 +249,109 @@ self.addEventListener("notificationclick", (event) => {
   if (event.action === "dismiss") return;
 
   const path = event.notification.data?.url || "/dashboard";
-  // Build full URL from SW origin (works in both browser and PWA)
   const fullUrl = new URL(path, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      // Try to focus an existing window/tab
       for (const client of clientList) {
         if ("focus" in client) {
           client.focus();
-          // Navigate the existing window to the notification URL
           client.navigate(fullUrl);
           return client;
         }
       }
-      // No existing window — open a new one
       return clients.openWindow(fullUrl);
     })
   );
 });
+
+// ── Background Fetch ────────────────────────────────────────────────────────────────────────
+// Downloads survive navigation, tab close, and browser restart.
+// The SW wakes up when download finishes and stores bytes to IndexedDB.
+// fetch ID format: "gyangrit-video-{lessonId}" or "gyangrit-pdf-{lessonId}"
+
+self.addEventListener("backgroundfetchsuccess", (event) => {
+  const bgFetch = event.registration;
+  event.waitUntil(handleBgFetchComplete(bgFetch, "success"));
+});
+
+self.addEventListener("backgroundfetchfail", (event) => {
+  const bgFetch = event.registration;
+  notifyClients({ type: "BG_FETCH_FAIL", fetchId: bgFetch.id });
+});
+
+self.addEventListener("backgroundfetchabort", (event) => {
+  const bgFetch = event.registration;
+  notifyClients({ type: "BG_FETCH_ABORT", fetchId: bgFetch.id });
+});
+
+async function handleBgFetchComplete(bgFetch, status) {
+  const [record] = await bgFetch.matchAll();
+  if (!record) {
+    notifyClients({ type: "BG_FETCH_FAIL", fetchId: bgFetch.id });
+    return;
+  }
+
+  const response = await record.responseReady;
+  if (!response.ok) {
+    notifyClients({ type: "BG_FETCH_FAIL", fetchId: bgFetch.id, error: response.status });
+    return;
+  }
+
+  // Parse the fetch ID to figure out what to store
+  // Format: "gyangrit-video-{lessonId}" or "gyangrit-pdf-{lessonId}"
+  const id = bgFetch.id;  // e.g. "gyangrit-video-42"
+  const parts = id.split("-");  // ["gyangrit", "video", "42"]
+  const mediaType = parts[1];   // "video" or "pdf"
+  const lessonId  = parseInt(parts[2], 10);
+
+  if (!lessonId || !mediaType) {
+    notifyClients({ type: "BG_FETCH_FAIL", fetchId: id, error: "bad-id" });
+    return;
+  }
+
+  const data = await response.arrayBuffer();
+  const contentType = response.headers.get("Content-Type") || "application/octet-stream";
+  const url = record.request.url;
+  const fileName = url.split("/").pop() || `lesson_${lessonId}`;
+
+  // Write to IndexedDB directly from the SW
+  const storeName = mediaType === "video" ? "videos" : "pdfs";
+  const key = mediaType === "video" ? `vid_${lessonId}` : `pdf_${lessonId}`;
+  const item = mediaType === "video"
+    ? { id: key, lessonId, fileName, data, size: data.byteLength, mimeType: contentType, savedAt: new Date().toISOString() }
+    : { id: key, lessonId, fileName, data, size: data.byteLength, savedAt: new Date().toISOString() };
+
+  await idbPut("gyangrit-offline", 2, storeName, item);
+
+  // Show a notification so user knows it's done
+  await self.registration.showNotification("GyanGrit", {
+    body: `Download complete — ${mediaType === "video" ? "Video" : "PDF"} saved offline`,
+    icon: "/icons/icon-192.png",
+    tag: `dl-complete-${id}`,
+    data: { url: "/downloads" },
+  });
+
+  notifyClients({ type: "BG_FETCH_SUCCESS", fetchId: id, lessonId, mediaType });
+}
+
+function notifyClients(msg) {
+  self.clients.matchAll({ type: "window" }).then((clients) => {
+    clients.forEach((client) => client.postMessage(msg));
+  });
+}
+
+// Minimal IndexedDB put from inside the SW (no external imports)
+function idbPut(dbName, version, storeName, item) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(dbName, version);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).put(item);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror   = () => { db.close(); reject(tx.error); };
+    };
+    req.onerror = () => reject(req.error);
+  });
+}

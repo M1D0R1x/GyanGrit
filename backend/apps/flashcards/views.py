@@ -246,24 +246,41 @@ def study_list(request):
             models.Q(section=section) | models.Q(section__isnull=True)
         ).select_related("subject", "created_by")
 
-    # Annotate with student's due count
+    # Annotate with student's due count — single batch query across all decks
     today = datetime.date.today()
     result = []
-    for deck in qs:
-        due = 0
-        if user.role == "STUDENT":
-            card_ids = list(deck.cards.values_list("id", flat=True))
-            # Due = cards with progress due today + new cards (no progress yet)
-            reviewed_ids = set(
-                FlashcardProgress.objects.filter(
-                    student=user, card_id__in=card_ids, next_review__gt=today,
-                ).values_list("card_id", flat=True)
-            )
-            due = len([c for c in card_ids if c not in reviewed_ids])
 
-        d = _deck_to_dict(deck)
-        d["due_count"] = due
-        result.append(d)
+    if user.role == "STUDENT":
+        # Fetch ALL card IDs for these decks + NOT-due progress in 2 queries total
+        deck_list = list(qs)
+        all_card_ids_by_deck: dict[int, list[int]] = {}
+        for deck in deck_list:
+            all_card_ids_by_deck[deck.id] = []
+        from django.db.models import Q as _Q
+        all_card_rows = Flashcard.objects.filter(
+            deck__in=deck_list
+        ).values("id", "deck_id")
+        for row in all_card_rows:
+            all_card_ids_by_deck[row["deck_id"]].append(row["id"])
+
+        not_due_set: set[int] = set(
+            FlashcardProgress.objects.filter(
+                student=user,
+                card__deck__in=deck_list,
+                next_review__gt=today,
+            ).values_list("card_id", flat=True)
+        )
+
+        for deck in deck_list:
+            card_ids = all_card_ids_by_deck[deck.id]
+            d = _deck_to_dict(deck)
+            d["due_count"] = len([c for c in card_ids if c not in not_due_set])
+            result.append(d)
+    else:
+        for deck in qs:
+            d = _deck_to_dict(deck)
+            d["due_count"] = 0
+            result.append(d)
 
     return JsonResponse(result, safe=False)
 
@@ -369,20 +386,30 @@ def study_stats(request, deck_id):
     all_cards = list(deck.cards.values_list("id", flat=True))
     progress  = FlashcardProgress.objects.filter(student=user, card__deck=deck)
 
-    reviewed  = progress.count()
-    mastered  = progress.filter(repetitions__gte=3).count()
-    due_today = sum(1 for c in all_cards if not progress.filter(
-        card_id=c, next_review__gt=today
-    ).exists())
-    total_reviews = sum(p.total_reviews for p in progress)
+    # Aggregate in a single query
+    from django.db.models import Count as _Count, Sum as _Sum
+    agg = progress.aggregate(
+        reviewed=_Count("id"),
+        mastered=_Count("id", filter=models.Q(repetitions__gte=3)),
+        total_reviews_sum=_Sum("total_reviews"),
+    )
+    reviewed      = agg["reviewed"] or 0
+    mastered      = agg["mastered"] or 0
+    total_reviews = agg["total_reviews_sum"] or 0
+
+    # Cards not-yet-due = have progress AND next_review > today
+    not_due_ids = set(
+        progress.filter(next_review__gt=today).values_list("card_id", flat=True)
+    )
+    due_today = len([c for c in all_cards if c not in not_due_ids])
 
     return JsonResponse({
-        "deck_id":      deck.id,
-        "total_cards":  len(all_cards),
-        "reviewed":     reviewed,
-        "new":          len(all_cards) - reviewed,
-        "mastered":     mastered,
-        "due_today":    due_today,
+        "deck_id":       deck.id,
+        "total_cards":   len(all_cards),
+        "reviewed":      reviewed,
+        "new":           len(all_cards) - reviewed,
+        "mastered":      mastered,
+        "due_today":     due_today,
         "total_reviews": total_reviews,
     })
 

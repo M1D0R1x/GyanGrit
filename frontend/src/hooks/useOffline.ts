@@ -8,6 +8,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { API_BASE_URL } from "../services/api";
 import {
   isOnline,
   onNetworkChange,
@@ -101,6 +103,9 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
   // Save lesson text content to IndexedDB
   const saveText = useCallback(async () => {
     if (!lesson) return;
+    if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
+    const existing = await isLessonSavedOffline(lesson.id).catch(() => false);
+    if (existing) { toast.warning("Lesson already downloaded"); setState((s) => ({ ...s, textSaved: true })); return; }
     setState((s) => ({ ...s, downloading: true, downloadType: "text", error: null }));
     try {
       const offlineData: OfflineLesson = {
@@ -118,7 +123,9 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
       };
       await saveLessonOffline(offlineData);
       setState((s) => ({ ...s, textSaved: true, downloading: false, downloadType: null }));
+      toast.success("Lesson saved offline");
     } catch (err) {
+      toast.error("Download failed");
       setState((s) => ({
         ...s,
         downloading: false,
@@ -128,26 +135,119 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
     }
   }, [lesson]);
 
-  // Save PDF blob to IndexedDB
+  // Save PDF blob to IndexedDB — uses Background Fetch when available
   const savePdf = useCallback(async () => {
     if (!lesson?.pdf_url) return;
+    if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
+    const existing = await isPdfSavedOffline(lesson.id).catch(() => false);
+    if (existing) { toast.warning("PDF already downloaded"); setState((s) => ({ ...s, pdfSaved: true })); return; }
+
+    const proxyUrl = `${API_BASE_URL}/media-proxy/?url=${encodeURIComponent(lesson.pdf_url)}`;
+    const bgFetchId = `gyangrit-pdf-${lesson.id}`;
+
+    // Try Background Fetch API (Chrome — survives navigation)
+    const swReg = navigator.serviceWorker?.controller
+      ? await navigator.serviceWorker.ready.catch(() => null)
+      : null;
+    const supportsBgFetch = swReg && "backgroundFetch" in swReg;
+
+    if (supportsBgFetch) {
+      try {
+        const bf = await (swReg as any).backgroundFetch.fetch(
+          bgFetchId,
+          [proxyUrl],
+          { title: `Downloading PDF — ${lesson.title}`, icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }], downloadTotal: 0 },
+        );
+        toast.success("Downloading in background — you can navigate away");
+        setState((s) => ({ ...s, downloading: true, downloadType: "pdf", progress: 0 }));
+        // Poll progress
+        const poll = setInterval(async () => {
+          const pct = bf.downloadTotal > 0 ? Math.round((bf.downloaded / bf.downloadTotal) * 100) : 0;
+          setState((s) => ({ ...s, progress: pct }));
+          if (bf.result !== "") clearInterval(poll);
+        }, 800);
+        return;
+      } catch { /* fall through to regular fetch */ }
+    }
+
+    // Fallback: streaming proxy fetch
     setState((s) => ({ ...s, downloading: true, downloadType: "pdf", error: null }));
     try {
       await savePdfOffline(lesson.id, lesson.pdf_url);
       setState((s) => ({ ...s, pdfSaved: true, downloading: false, downloadType: null }));
+      toast.success("PDF saved offline");
     } catch (err) {
-      setState((s) => ({
-        ...s,
-        downloading: false,
-        downloadType: null,
-        error: err instanceof Error ? err.message : "Failed to save PDF",
-      }));
+      toast.error("Download failed");
+      setState((s) => ({ ...s, downloading: false, downloadType: null, error: err instanceof Error ? err.message : "Failed" }));
     }
   }, [lesson]);
 
-  // Save video blob to IndexedDB with progress tracking
+  // Save video — uses Background Fetch API (survives navigation) with streaming proxy fallback
   const saveVideo = useCallback(async () => {
     if (!lesson?.video_url) return;
+    if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
+    const existing = await isVideoSavedOffline(lesson.id).catch(() => false);
+    if (existing) { toast.warning("Video already downloaded"); setState((s) => ({ ...s, videoSaved: true })); return; }
+
+    const proxyUrl = `${API_BASE_URL}/media-proxy/?url=${encodeURIComponent(lesson.video_url)}`;
+    const bgFetchId = `gyangrit-video-${lesson.id}`;
+
+    // Try Background Fetch API
+    const swReg = navigator.serviceWorker?.controller
+      ? await navigator.serviceWorker.ready.catch(() => null)
+      : null;
+    const supportsBgFetch = swReg && "backgroundFetch" in swReg;
+
+    if (supportsBgFetch) {
+      try {
+        // Cancel any existing fetch for this lesson
+        const existing = await (swReg as any).backgroundFetch.get(bgFetchId);
+        if (existing) await existing.abort();
+
+        const bf = await (swReg as any).backgroundFetch.fetch(
+          bgFetchId,
+          [proxyUrl],
+          { title: `Downloading video — ${lesson.title}`, icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }], downloadTotal: 0 },
+        );
+
+        toast.success("Downloading in background — you can navigate away");
+        setState((s) => ({ ...s, downloading: true, downloadType: "video", progress: 0 }));
+
+        // Poll progress every second
+        const poll = setInterval(() => {
+          const pct = bf.downloadTotal > 0 ? Math.round((bf.downloaded / bf.downloadTotal) * 100) : 0;
+          setState((s) => ({ ...s, progress: pct }));
+          if (bf.result !== "") {
+            clearInterval(poll);
+            if (bf.result === "success") {
+              setState((s) => ({ ...s, videoSaved: true, downloading: false, downloadType: null, progress: 100 }));
+            } else {
+              setState((s) => ({ ...s, downloading: false, downloadType: null }));
+              toast.error("Background download failed — try again");
+            }
+          }
+        }, 1000);
+
+        // Listen for SW message
+        const handler = (e: MessageEvent) => {
+          if (e.data?.type === "BG_FETCH_SUCCESS" && e.data.lessonId === lesson.id && e.data.mediaType === "video") {
+            clearInterval(poll);
+            setState((s) => ({ ...s, videoSaved: true, downloading: false, downloadType: null, progress: 100 }));
+            navigator.serviceWorker.removeEventListener("message", handler);
+          }
+          if ((e.data?.type === "BG_FETCH_FAIL" || e.data?.type === "BG_FETCH_ABORT") && e.data.fetchId === bgFetchId) {
+            clearInterval(poll);
+            setState((s) => ({ ...s, downloading: false, downloadType: null }));
+            toast.error("Download failed — try again");
+            navigator.serviceWorker.removeEventListener("message", handler);
+          }
+        };
+        navigator.serviceWorker.addEventListener("message", handler);
+        return;
+      } catch { /* fall through to regular fetch */ }
+    }
+
+    // Fallback: streaming proxy with in-page progress
     setState((s) => ({ ...s, downloading: true, downloadType: "video", progress: 0, error: null }));
     try {
       await saveVideoOffline(lesson.id, lesson.video_url, (downloaded, total) => {
@@ -155,14 +255,10 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
         setState((s) => ({ ...s, progress: pct }));
       });
       setState((s) => ({ ...s, videoSaved: true, downloading: false, downloadType: null, progress: 100 }));
+      toast.success("Video saved offline");
     } catch (err) {
-      setState((s) => ({
-        ...s,
-        downloading: false,
-        downloadType: null,
-        progress: 0,
-        error: err instanceof Error ? err.message : "Failed to save video",
-      }));
+      toast.error("Download failed");
+      setState((s) => ({ ...s, downloading: false, downloadType: null, progress: 0, error: err instanceof Error ? err.message : "Failed" }));
     }
   }, [lesson]);
 
@@ -263,4 +359,20 @@ export function useStorageUsage() {
   }, [refresh]);
 
   return { usage, quota, loading, refresh };
+}
+
+// ── useStorageCleaned ────────────────────────────────────────────────────────
+// Listens for auto-cleanup events (fired when storage >80%) and provides
+// the count of removed items for toast notifications.
+
+export function useStorageCleaned(onCleaned?: (removed: number) => void): void {
+  useEffect(() => {
+    if (!onCleaned) return;
+    const handler = (e: Event) => {
+      const { removed } = (e as CustomEvent).detail as { removed: number };
+      onCleaned(removed);
+    };
+    window.addEventListener("offline:storage-cleaned", handler);
+    return () => window.removeEventListener("offline:storage-cleaned", handler);
+  }, [onCleaned]);
 }

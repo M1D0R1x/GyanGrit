@@ -62,7 +62,9 @@ def _room_to_dict(room: CompetitionRoom, include_participants: bool = False) -> 
         "started_at":   room.started_at.isoformat()   if room.started_at   else None,
         "finished_at":  room.finished_at.isoformat()  if room.finished_at  else None,
         "created_at":   room.created_at.isoformat(),
-        "participant_count": room.participants.count(),
+        "participant_count": getattr(room, "participant_count_annotated", None)
+            if hasattr(room, "participant_count_annotated")
+            else room.participants.count(),
     }
     if include_participants:
         d["participants"] = [
@@ -193,7 +195,10 @@ def list_rooms(request):
             return JsonResponse([], safe=False)
         qs = CompetitionRoom.objects.filter(section=section).exclude(status=RoomStatus.DRAFT)
 
-    qs = qs.select_related("host", "section", "assessment").order_by("-created_at")
+    from django.db.models import Count as _Count
+    qs = qs.select_related("host", "section", "assessment").annotate(
+        participant_count_annotated=_Count("participants")
+    ).order_by("-created_at")
     return JsonResponse([_room_to_dict(r) for r in qs], safe=False)
 
 

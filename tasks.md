@@ -4,7 +4,145 @@
 
 ---
 
-## CURRENT STATE (2026-04-04 — end of session)
+## CURRENT STATE (2026-04-05 — N+1 Elimination Sprint Complete)
+
+**Live URLs:**
+- Frontend: https://gyangrit.site
+- Backend:  https://api.gyangrit.site
+- Admin:    https://api.gyangrit.site/admin/
+
+**Stack:** Django 4.2 · React 18 + Vite · PostgreSQL · Ably · LiveKit · Groq/Together/Gemini · Cloudflare R2 · Gunicorn gthread (5 workers) · Upstash Redis · Sentry · Oracle Cloud Mumbai
+
+---
+
+## WHAT WAS DONE THIS SESSION (2026-04-05 #4)
+
+### Downloads Page — Video & PDF sections
+| Item | Detail |
+|---|---|
+| `getAllOfflineVideos()` + `getAllOfflinePdfs()` | New public exports from `offline.ts` |
+| `removeOfflineVideo(id)` + `removeOfflinePdf(id)` | New public exports — typed, no `any` |
+| `OfflineDownloadsPage.tsx` | Added Videos + PDFs sections (card list with size + delete); stat pills now show 📹 Videos and 📄 PDFs counts; `isEmpty` updated to include blobs |
+| `BlobRow` component | Reusable blob list item with hover state, size label, animated trash |
+
+### Notification Unread Count — Redis Cache (30s TTL)
+| Item | Detail |
+|---|---|
+| `list_notifications` | `notif_unread:{user_id}` cached 30s in Redis — eliminates `COUNT(*)` on every bell poll |
+| `mark_read` + `mark_all_read` | Both bust `notif_unread:{user_id}` immediately — badge stays accurate after clicking |
+| Impact | At 200 concurrent users polling every 30s → ~200 DB queries/min → ~0 (99% cache hit) |
+
+### Files Changed
+| File | Change |
+|---|---|
+| `frontend/src/services/offline.ts` | `getAllOfflineVideos`, `removeOfflineVideo`, `getAllOfflinePdfs`, `removeOfflinePdf` exported |
+| `frontend/src/pages/OfflineDownloadsPage.tsx` | Video + PDF sections, `BlobRow`, updated stats pills + `isEmpty` |
+| `backend/apps/notifications/views.py` | Redis caching for unread count; cache-bust on mark_read + mark_all_read |
+
+---
+
+
+
+## WHAT WAS DONE THIS SESSION (2026-04-05 #5 — N+1 Elimination)
+
+### Backend N+1 Fixes
+
+| File | Before | After | Savings |
+|---|---|---|---|
+| `assessments/views.py` → `my_assessments` | 2 queries/assessment | 1 bulk annotate + 60s Redis | O(N)→O(1) |
+| `assessments/views.py` → `teacher_class_analytics` | N student + N attempt | 3 total queries | O(N)→O(1) |
+| `analytics/signals.py` → failed count | iterate all attempts | `aggregate(failed=Count)` | O(N)→O(1) |
+| `analytics/signals.py` → teacher notifs | `Notification.send()` per teacher | `bulk_create` | N→1 INSERT |
+| `chatrooms/signals.py` → enrollment | `get_or_create` per student | `bulk_create(ignore_conflicts=True)` | N→1 INSERT |
+| `livesessions/views.py` → session list | `.count()` per session | `annotate(attendance_count_annotated)` | O(N)→O(1) |
+| `academics/views.py` → student subjects | 2N count queries | 4 flat aggregate queries | 2N→4 |
+| `notifications/views.py` → history unread | fresh `.count()` every request | shared 30s Redis cache | N→0 (cached) |
+| `notifications/views.py` → broadcast_detail | extra `.count()` | `aggregate(read=Count)` | 2→1 query |
+| `learning/views.py` → enroll_learning_path | N `get_or_create` + `.count()` | batch check + `bulk_create` | N+1→4 flat |
+| `competitions/views.py` → room list | `.count()` per room | `annotate(participant_count_annotated)` | O(N)→O(1) |
+| `accounts/views.py` → system_stats | 6 separate `.count()` calls | 1 GROUP BY annotate + 60s Redis | 6→1+cached |
+
+### `python manage.py check` → `System check identified no issues (0 silenced).`
+
+### Sprint 2 — Redis Caching on Hot Endpoints
+| Endpoint | Cache Key | TTL | Detail |
+|---|---|---|---|
+| `GET /academics/subjects/` | `subjects:{role}:{user_id}` | 15–30 min | Per-user, avoids repeated joins on every dashboard load. STUDENTs bypass to use student-specific path |
+| `GET /analytics/class-summary/` | `analytics:class:{section_id}:{days}` | 5 min | Short TTL since heartbeats accumulate live |
+| `GET /gamification/leaderboard/class/` | `leaderboard:class:{classroom_id}:{user_id}` | 5 min | Per-user (is_me flag differs per requesting user) |
+
+### Sprint 4 Partial — Risk Score API + Student Dashboard Widget
+| Feature | Detail |
+|---|---|
+| `GET /api/v1/analytics/my-risk/` | New endpoint — returns `{risk_level, score, factors}` for the requesting student. Cached 1 hour. |
+| Cache invalidation | `signals.py` busts `analytics:risk:{student_id}` immediately after each risk recalculation |
+| `DashboardPage.tsx` risk banner | Shows amber (MEDIUM) or red (HIGH) banner below greeting with human-readable factors and score. Zero-cost when LOW. |
+| `analytics.ts` | Added `RiskData` type + `getMyRisk()` function |
+
+### Files Changed (this session)
+| File | Change |
+|---|---|
+| `backend/apps/academics/views.py` | Cache subjects endpoint per-user (15–30 min) |
+| `backend/apps/analytics/views.py` | Cache class_summary (5 min) + new `my_risk` view |
+| `backend/apps/analytics/signals.py` | Bust `analytics:risk:` cache key after each risk update |
+| `backend/apps/analytics/api/v1/urls.py` | Wire `my-risk/` endpoint |
+| `backend/apps/gamification/views.py` | Cache `leaderboard_class` per classroom+user (5 min) |
+| `frontend/src/services/analytics.ts` | Add `RiskData` type + `getMyRisk()` |
+| `frontend/src/pages/DashboardPage.tsx` | Risk banner widget (amber/red, human-readable factors) |
+
+---
+
+
+**Live URLs:**
+- Frontend: https://gyangrit.site
+- Backend:  https://api.gyangrit.site
+- Admin:    https://api.gyangrit.site/admin/
+
+**Stack:** Django 4.2 · React 18 + Vite + TypeScript · PostgreSQL (Supabase Mumbai) · Ably · LiveKit · Gemini/Groq/Together AI · Cloudflare R2 · Gunicorn gthread (5 workers) · Upstash Redis · Sentry · Oracle Cloud Mumbai
+
+**Scale:** 16 backend apps · 41 frontend pages · 0 TS errors · 0 Django check issues
+
+---
+
+## WHAT WAS DONE THIS SESSION (2026-04-04 evening)
+
+### UI Fixes
+| Fix | Detail |
+|---|---|
+| `/downloads` empty state layout | Changed to flexbox column with gap — no more overflowing "Browse lessons" button |
+| LessonsPage "Done" → Download | Replaced "Done" button with ⬇ download icon per lesson row; saves to IndexedDB inline |
+| CourseAssessmentsPage | Added ⬇ download icon per assessment card; fetches full questions + saves offline |
+
+### Offline Phase 1 — Completed
+| Feature | Detail |
+|---|---|
+| `checkStorageAndCleanup()` in `offlineSync.ts` | Auto-removes oldest lessons then decks when storage >80%; stops at 75% |
+| Periodic cleanup | Runs on `startOfflineSync()` boot and every 30 min |
+| `useStorageCleaned` hook | Listens for `offline:storage-cleaned` custom event |
+| AppLayout toast | Global Sonner warning when auto-cleanup fires |
+
+### Live Session — Audio-Only Mode
+| Feature | Detail |
+|---|---|
+| Auto-detection | `isSlowConnection()` on join → auto-disables camera, shows toast |
+| Network change listener | Re-checks on `navigator.connection` change event |
+| Manual toggle | "🎧 Audio Only" button in live room header; amber when active |
+| LiveKit wire | `room.localParticipant.setCameraEnabled(!audioOnly)` on state change |
+
+### Files Changed
+| File | Change |
+|---|---|
+| `frontend/src/pages/LessonsPage.tsx` | Full rewrite — download button per row, no "Done" button |
+| `frontend/src/pages/CourseAssessmentsPage.tsx` | Download button per assessment (fetches full questions) |
+| `frontend/src/pages/OfflineDownloadsPage.tsx` | Empty state layout fix |
+| `frontend/src/services/offlineSync.ts` | Added `checkStorageAndCleanup()`, periodic 30min check, `stopOfflineSync` clears interval |
+| `frontend/src/hooks/useOffline.ts` | Added `useStorageCleaned` hook |
+| `frontend/src/components/AppLayout.tsx` | Wired `useStorageCleaned` + toast |
+| `frontend/src/pages/LiveSessionPage.tsx` | Audio-only mode: auto-detect + manual toggle + camera wiring |
+
+---
+
+
 
 **Live URLs:**
 - Frontend: https://gyangrit.site

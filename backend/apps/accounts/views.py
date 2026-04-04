@@ -1200,27 +1200,40 @@ def bulk_create_join_codes(request):
 @require_roles(["ADMIN"])
 @require_http_methods(["GET"])
 def system_stats(request):
+    from django.core.cache import cache as _cache
+    from django.db.models import Count as _Count, Q as _Q
     from django.utils import timezone
     from apps.content.models import Course, Lesson, LessonProgress
     from apps.assessments.models import Assessment, AssessmentAttempt
     from apps.notifications.models import Broadcast
     from apps.accounts.models import DeviceSession
 
+    _KEY = "admin:system_stats"
+    cached = _cache.get(_KEY)
+    if cached is not None:
+        return JsonResponse(cached)
+
     User = get_user_model()
     today = timezone.now().date()
 
-    all_users = User.objects.all()
-    user_counts = {
-        "total":      all_users.count(),
-        "students":   all_users.filter(role="STUDENT").count(),
-        "teachers":   all_users.filter(role="TEACHER").count(),
-        "principals": all_users.filter(role="PRINCIPAL").count(),
-        "officials":  all_users.filter(role="OFFICIAL").count(),
-        "admins":     all_users.filter(role="ADMIN").count(),
-    }
+    # 1 query instead of 6 — GROUP BY role
+    role_rows = (
+        User.objects
+        .values("role")
+        .annotate(cnt=_Count("id"))
+    )
+    role_map = {r["role"]: r["cnt"] for r in role_rows}
+    total_users = sum(role_map.values())
 
-    return JsonResponse({
-        "users":           user_counts,
+    payload = {
+        "users": {
+            "total":      total_users,
+            "students":   role_map.get("STUDENT",   0),
+            "teachers":   role_map.get("TEACHER",   0),
+            "principals": role_map.get("PRINCIPAL", 0),
+            "officials":  role_map.get("OFFICIAL",  0),
+            "admins":     role_map.get("ADMIN",     0),
+        },
         "active_sessions": DeviceSession.objects.count(),
         "content": {
             "courses":               Course.objects.count(),
@@ -1232,7 +1245,10 @@ def system_stats(request):
             "assessments_submitted_today": AssessmentAttempt.objects.filter(submitted_at__date=today).count(),
             "notifications_sent_today":    Broadcast.objects.filter(sent_at__date=today).count(),
         },
-    })
+    }
+
+    _cache.set(_KEY, payload, timeout=60)
+    return JsonResponse(payload)
 
 
 # =========================================================

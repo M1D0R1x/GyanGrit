@@ -92,8 +92,16 @@ def handle_teaching_assignment(sender, instance, created, **kwargs):
         room = get_or_create_subject_room(instance.section, instance.subject)
         _enroll(room, instance.teacher)
 
-        for student in User.objects.filter(role="STUDENT", section=instance.section):
-            _enroll(room, student)
+        # Bulk-enroll all existing students — 1 INSERT instead of N get_or_create calls
+        student_ids = list(
+            User.objects.filter(role="STUDENT", section=instance.section)
+            .values_list("id", flat=True)
+        )
+        if student_ids:
+            ChatRoomMember.objects.bulk_create(
+                [ChatRoomMember(room=room, user_id=uid) for uid in student_ids],
+                ignore_conflicts=True,
+            )
 
         enroll_admin_in_room(room)
 

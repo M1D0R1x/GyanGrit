@@ -1,4 +1,5 @@
 // pages.CourseAssessmentsPage
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getCourseAssessments, getAssessment, type AssessmentListItem } from "../services/assessments";
@@ -14,26 +15,31 @@ import {
 
 function AssessmentDownloadBtn({
   assessmentId,
+  forceSaved,
 }: {
   assessmentId: number;
+  forceSaved?: boolean;
 }) {
   const [saved, setSaved]   = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (forceSaved) { setSaved(true); return; }
     getOfflineAssessment(assessmentId).then((a) => setSaved(!!a)).catch(() => {});
-  }, [assessmentId]);
+  }, [assessmentId, forceSaved]);
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (saved || saving || !isOnline()) return;
+    if (saving) return;
+    if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
     setSaving(true);
     try {
-      // Fetch full questions so the offline take works
+      const existing = await getOfflineAssessment(assessmentId);
+      if (existing) { toast.warning("Assessment already downloaded"); setSaved(true); return; }
       const full = await getAssessment(assessmentId);
       await saveAssessmentOffline({
         id:         full.id,
-        courseId:   0, // not available in list, OK — we store by id
+        courseId:   0,
         title:      full.title,
         totalMarks: full.total_marks,
         passMarks:  full.pass_marks,
@@ -47,8 +53,9 @@ function AssessmentDownloadBtn({
         savedAt: new Date().toISOString(),
       });
       setSaved(true);
+      toast.success("Assessment saved offline");
     } catch {
-      // silent
+      toast.error("Download failed");
     } finally {
       setSaving(false);
     }
@@ -57,7 +64,7 @@ function AssessmentDownloadBtn({
   return (
     <button
       onClick={handleSave}
-      disabled={saving || saved}
+      disabled={saving}
       title={saved ? "Saved for offline" : "Save assessment for offline"}
       aria-label={saved ? "Assessment saved offline" : "Download assessment for offline"}
       style={{
@@ -124,6 +131,8 @@ export default function CourseAssessmentsPage() {
   const [assessments, setAssessments] = useState<AssessmentListItem[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
+  const [bulkDling, setBulkDling]     = useState(false);
+  const [savedIds, setSavedIds]       = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!grade || !subjectSlug) {
@@ -140,6 +149,46 @@ export default function CourseAssessmentsPage() {
       .catch(() => setError("Failed to load assessments."))
       .finally(() => setLoading(false));
   }, [grade, subjectSlug]);
+
+  const bulkDownloadAll = async () => {
+    if (bulkDling || !assessments.length) return;
+    setBulkDling(true);
+    const tid = toast.loading(`Downloading 0 / ${assessments.length} assessments...`);
+    let saved = 0, skipped = 0;
+    const newSaved = new Set(savedIds);
+    for (const a of assessments) {
+      const existing = await getOfflineAssessment(a.id).catch(() => null);
+      if (existing) {
+        skipped++;
+        newSaved.add(a.id);
+        setSavedIds(new Set(newSaved));
+      } else {
+        try {
+          const full = await getAssessment(a.id);
+          await saveAssessmentOffline({
+            id: full.id, courseId: 0,
+            title: full.title, totalMarks: full.total_marks, passMarks: full.pass_marks,
+            questions: full.questions.map((q) => ({
+              id: q.id, text: q.text, marks: q.marks, order: q.order, options: q.options,
+            })),
+            savedAt: new Date().toISOString(),
+          });
+          newSaved.add(a.id);
+          setSavedIds(new Set(newSaved));
+          saved++;
+        } catch { /* skip failed */ }
+      }
+      toast.loading(`Downloading ${saved + skipped} / ${assessments.length} assessments...`, { id: tid });
+    }
+    if (saved === 0 && skipped > 0) {
+      toast.warning(`All ${skipped} assessments already downloaded`, { id: tid });
+    } else if (skipped > 0) {
+      toast.success(`${saved} saved, ${skipped} already downloaded`, { id: tid });
+    } else {
+      toast.success(`${saved} assessments saved offline`, { id: tid });
+    }
+    setBulkDling(false);
+  };
 
   return (
     <>
@@ -162,6 +211,25 @@ export default function CourseAssessmentsPage() {
               Complete all assessments to finish this course
             </p>
           </div>
+          {!loading && assessments.length > 0 && (
+            <button
+              className="btn btn--ghost"
+              onClick={bulkDownloadAll}
+              disabled={bulkDling}
+              title="Download all assessments for offline"
+              style={{ fontSize: "var(--text-xs)", display: "flex", alignItems: "center", gap: 4 }}
+            >
+              {bulkDling ? <span className="btn__spinner" style={{ width: 10, height: 10 }} /> : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              )}
+              Download All
+            </button>
+          )}
         </div>
 
         {error && <div className="alert alert--error">{error}</div>}
@@ -215,6 +283,7 @@ export default function CourseAssessmentsPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "var(--space-4)", flexShrink: 0 }}>
                     <AssessmentDownloadBtn
                       assessmentId={a.id}
+                      forceSaved={savedIds.has(a.id)}
                     />
                     <button
                       className="btn btn--primary"

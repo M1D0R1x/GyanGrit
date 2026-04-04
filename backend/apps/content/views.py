@@ -874,16 +874,28 @@ def teacher_lesson_analytics(request):
         return JsonResponse({"error": "course_id is required"}, status=400)
 
     course  = get_scoped_object_or_403(request.user, Course.objects.all(), id=course_id)
-    lessons = Lesson.objects.filter(course=course).order_by("order")
-    data    = [
+
+    # Single query: annotate views + completions for all lessons at once
+    from django.db.models import Count as _Count
+    lessons = (
+        Lesson.objects
+        .filter(course=course)
+        .annotate(
+            view_count=_Count("lessonprogress"),
+            completed_count=_Count("lessonprogress", filter=Q(lessonprogress__completed=True)),
+        )
+        .order_by("order")
+    )
+    data = [
         {
             "id": l.id, "title": l.title, "order": l.order,
-            "views":     LessonProgress.objects.filter(lesson=l).count(),
-            "completed": LessonProgress.objects.filter(lesson=l, completed=True).count(),
+            "views":     l.view_count,
+            "completed": l.completed_count,
         }
         for l in lessons
     ]
     return JsonResponse(data, safe=False)
+
 
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -949,32 +961,45 @@ def teacher_class_analytics(request):
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
     classroom = get_object_or_404(ClassRoom, id=class_id)
-    students  = User.objects.filter(role="STUDENT", section__classroom=classroom)
-    
+    students  = list(User.objects.filter(role="STUDENT", section__classroom=classroom))
+
     # Fetch risk scores
     try:
         from apps.analytics.models import StudentRiskScore
         student_ids = [s.id for s in students]
         risk_map = {
-            r.student_id: {"risk_level": r.risk_level, "risk_score": r.risk_score}
-            for r in StudentRiskScore.objects.filter(student_id__in=student_ids)
+            r["user_id"]: {"risk_level": r["risk_level"], "risk_score": r["score"]}
+            for r in StudentRiskScore.objects.filter(user_id__in=student_ids)
+                .values("user_id", "risk_level", "score")
         }
     except Exception:
         risk_map = {}
+
+
+    # Bulk-aggregate lesson progress — 2 queries total instead of 2N
+    from django.db.models import Count as _Count
+    progress_qs = (
+        LessonProgress.objects
+        .filter(user__in=students)
+        .values("user_id")
+        .annotate(total=_Count("id"), completed=_Count("id", filter=Q(completed=True)))
+    )
+    progress_map = {row["user_id"]: row for row in progress_qs}
 
     data = [
         {
             "id":                s.id,
             "username":          s.username,
             "display_name":      s.display_name,
-            "total_lessons":     LessonProgress.objects.filter(user=s).count(),
-            "completed_lessons": LessonProgress.objects.filter(user=s, completed=True).count(),
+            "total_lessons":     progress_map.get(s.id, {}).get("total", 0),
+            "completed_lessons": progress_map.get(s.id, {}).get("completed", 0),
             "risk_level":        risk_map.get(s.id, {}).get("risk_level", "LOW"),
             "risk_score":        risk_map.get(s.id, {}).get("risk_score", 0),
         }
         for s in students
     ]
     return JsonResponse(data, safe=False)
+
 
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -1056,3 +1081,61 @@ def teacher_student_assessments(request, class_id, student_id):
             for a in attempts
         ],
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MEDIA PROXY
+# Streams R2 / Cloudflare media through the backend so the browser can fetch
+# it without hitting CORS restrictions on the R2 bucket.
+# Only authenticated users can use it; URL must be from the configured R2 domain.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_auth
+@require_http_methods(["GET"])
+def media_proxy(request):
+    """
+    GET /api/v1/media-proxy/?url=https://pub-…r2.dev/videos/xxx.mp4
+
+    Streams R2 content to the browser using chunked transfer.
+    Django never buffers the full file — bytes flow straight through.
+    Survives large videos without memory pressure.
+    """
+    import urllib.request as _urllib
+    import os
+    from django.http import StreamingHttpResponse
+
+    url = request.GET.get("url", "").strip()
+    if not url:
+        return JsonResponse({"error": "url param required"}, status=400)
+
+    r2_base = os.environ.get("CLOUDFLARE_R2_PUBLIC_URL", "")
+    if not (url.startswith(r2_base) or ".r2.dev/" in url):
+        return JsonResponse({"error": "Forbidden URL"}, status=403)
+
+    try:
+        req = _urllib.Request(url, headers={"User-Agent": "GyanGrit-MediaProxy/1.0"})
+        upstream = _urllib.urlopen(req, timeout=120)
+    except Exception as exc:
+        logger.warning("media_proxy open failed for %s: %s", url, exc)
+        return JsonResponse({"error": "Failed to fetch media"}, status=502)
+
+    content_type = upstream.headers.get("Content-Type", "application/octet-stream")
+    content_length = upstream.headers.get("Content-Length", "")
+
+    def _stream(conn):
+        try:
+            while True:
+                chunk = conn.read(256 * 1024)  # 256 KB chunks
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            conn.close()
+
+    response = StreamingHttpResponse(_stream(upstream), content_type=content_type)
+    if content_length:
+        response["Content-Length"] = content_length
+    response["Cache-Control"]               = "private, max-age=3600"
+    response["Access-Control-Allow-Origin"] = "*"
+    return response
+

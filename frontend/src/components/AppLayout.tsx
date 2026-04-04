@@ -3,6 +3,7 @@
 // nav item click closes. All via controlled open state + toggle.
 import { useState, useEffect, useCallback } from "react";
 import { Drawer } from "vaul";
+import { toast } from "sonner";
 import TopBar from "./TopBar";
 import SidebarContent from "./Sidebar";
 import BottomNav from "./BottomNav";
@@ -10,6 +11,7 @@ import OfflineStatusBar from "./OfflineStatusBar";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
 import { usePageTracking } from "../utils/telemetry";
+import { useStorageCleaned } from "../hooks/useOffline";
 
 interface AppLayoutProps {
   children:  React.ReactNode;
@@ -21,6 +23,14 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auth = useAuth();
+
+  // Notify user when auto-cleanup removes stale downloads
+  useStorageCleaned((removed) => {
+    toast.warning(
+      `Storage was getting full — ${removed} old download${removed !== 1 ? "s" : ""} removed automatically.`,
+      { duration: 5000 }
+    );
+  });
 
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : "";

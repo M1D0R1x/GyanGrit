@@ -380,13 +380,21 @@ def list_notifications(request):
     if request.GET.get("unread_only") == "1":
         qs = qs.filter(is_read=False)
 
-    notifications = qs[:20]
-    unread_count  = Notification.objects.filter(user=request.user, is_read=False).count()
+    notifications = qs.order_by("-created_at")[:20]
+
+    # Cache unread count (30s) — busted immediately by mark_read / mark_all_read
+    _unread_cache_key = f"notif_unread:{request.user.id}"
+    from django.core.cache import cache as _cache
+    unread_count = _cache.get(_unread_cache_key)
+    if unread_count is None:
+        unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
+        _cache.set(_unread_cache_key, unread_count, timeout=30)
 
     return JsonResponse({
         "unread":        unread_count,
         "notifications": [_serialize_notification(n, truncate_message=True) for n in notifications],
     })
+
 
 
 @require_auth
@@ -430,8 +438,13 @@ def notification_history(request):
     if request.GET.get("unread_only") == "1":
         qs = qs.filter(is_read=False)
 
-    # Total unread count is always the global count, not filtered count
-    total_unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    # Total unread count — use same cache key as the panel (30s TTL)
+    from django.core.cache import cache as _cache
+    _unread_key = f"notif_unread:{request.user.id}"
+    total_unread = _cache.get(_unread_key)
+    if total_unread is None:
+        total_unread = Notification.objects.filter(user=request.user, is_read=False).count()
+        _cache.set(_unread_key, total_unread, timeout=30)
 
     page, page_size = _parse_page_params(request)
     total  = qs.count()
@@ -460,6 +473,10 @@ def mark_read(request, notification_id):
     if not updated:
         return JsonResponse({"error": "Not found"}, status=404)
 
+    # Bust the unread badge cache immediately
+    from django.core.cache import cache as _cache
+    _cache.delete(f"notif_unread:{request.user.id}")
+
     return JsonResponse({"success": True})
 
 
@@ -473,6 +490,11 @@ def mark_all_read(request):
     ).update(is_read=True)
 
     logger.info("User %s marked %d notifications as read.", request.user.id, count)
+
+    # Bust the unread badge cache immediately
+    from django.core.cache import cache as _cache
+    _cache.delete(f"notif_unread:{request.user.id}")
+
     return JsonResponse({"success": True, "marked": count})
 
 
@@ -707,7 +729,12 @@ def broadcast_detail(request, broadcast_id):
         .order_by("user__username")[:50]
     )
 
-    read_count   = broadcast.notifications.filter(is_read=True).count()
+    # Use annotated aggregate — avoids a second DB round-trip for read_count
+    from django.db.models import Count as _Count, Q as _Q
+    agg = broadcast.notifications.aggregate(
+        read=_Count("id", filter=_Q(is_read=True))
+    )
+    read_count   = agg["read"] or 0
     unread_count = broadcast.recipient_count - read_count
 
     return JsonResponse({

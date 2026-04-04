@@ -19,14 +19,21 @@ import {
   getAllOfflineDecks,
   removeOfflineFlashcardDeck,
   clearAllOfflineData,
+  getAllOfflineVideos,
+  removeOfflineVideo,
+  getAllOfflinePdfs,
+  removeOfflinePdf,
   type OfflineLesson,
   type OfflineFlashcardDeck,
+  type OfflineVideo,
+  type OfflinePdf,
 } from "../services/offline";
 import {
   useStorageUsage,
   usePendingSync,
   useOnlineStatus,
 } from "../hooks/useOffline";
+
 
 // ── Storage bar ──────────────────────────────────────────────────────────────
 
@@ -103,8 +110,8 @@ function StorageBar({ usedMB, quotaMB, percentUsed }: {
 
 // ── Stat pills row ───────────────────────────────────────────────────────────
 
-function OfflineStats({ lessons, decks, pendingCount }: {
-  lessons: number; decks: number; pendingCount: number;
+function OfflineStats({ lessons, decks, videos, pdfs, pendingCount }: {
+  lessons: number; decks: number; videos: number; pdfs: number; pendingCount: number;
 }) {
   return (
     <div style={{
@@ -113,14 +120,16 @@ function OfflineStats({ lessons, decks, pendingCount }: {
       scrollbarWidth: "none",
     }}>
       {[
-        { icon: "📖", value: lessons, label: "Lessons", color: "#3b82f6" },
-        { icon: "🃏", value: decks,   label: "Decks",   color: "#8b5cf6" },
+        { icon: "📖", value: lessons,      label: "Lessons",     color: "#3b82f6" },
+        { icon: "🃏", value: decks,        label: "Decks",       color: "#8b5cf6" },
+        { icon: "🎬", value: videos,       label: "Videos",      color: "#ef4444" },
+        { icon: "📄", value: pdfs,         label: "PDFs",        color: "#10b981" },
         { icon: "⏳", value: pendingCount, label: "Pending sync", color: pendingCount > 0 ? "#f59e0b" : "#10b981" },
       ].map((s) => (
         <div
           key={s.label}
           style={{
-            flex: "0 0 auto", minWidth: 130,
+            flex: "0 0 auto", minWidth: 110,
             display: "flex", alignItems: "center", gap: "var(--space-3)",
             padding: "var(--space-4) var(--space-5)",
             background: "var(--glass-fill)",
@@ -177,15 +186,18 @@ function DownloadedLessonRow({ lesson, onRemove }: {
   })();
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => navigate(`/lessons/${lesson.id}`)}
+      onKeyDown={(e) => e.key === "Enter" && navigate(`/lessons/${lesson.id}`)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: "flex", gap: 12, width: "100%",
         padding: "12px 16px",
         background: hov ? "var(--bg-elevated)" : "transparent",
-        border: "none", borderBottom: "1px solid var(--border-light)",
+        borderBottom: "1px solid var(--border-light)",
         cursor: "pointer", textAlign: "left",
         transition: "all 150ms ease",
         transform: hov ? "translateX(2px)" : "translateX(0)",
@@ -264,7 +276,7 @@ function DownloadedLessonRow({ lesson, onRemove }: {
           </svg>
         )}
       </button>
-    </button>
+    </div>
   );
 }
 
@@ -359,6 +371,67 @@ function DownloadedDeckRow({ deck, onRemove }: {
   );
 }
 
+// ── Blob row (Video or PDF) ───────────────────────────────────────────────────
+
+function BlobRow({ icon, color, name, sizeMB, onRemove }: {
+  icon: React.ReactNode; color: string; name: string; sizeMB: number; onRemove: () => Promise<void>;
+}) {
+  const [hov, setHov] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", gap: 12, width: "100%",
+        padding: "12px 16px",
+        background: hov ? "var(--bg-elevated)" : "transparent",
+        borderBottom: "1px solid var(--border-light)",
+        transition: "background 150ms ease",
+        alignItems: "center",
+      }}
+    >
+      <div style={{
+        width: 36, height: 36, borderRadius: "50%",
+        background: color + "18", color,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      }}>{icon}</div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: "var(--text-sm)", fontWeight: 700,
+          color: "var(--ink-primary)", marginBottom: 1,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{name}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+          {sizeMB.toFixed(1)} MB
+        </div>
+      </div>
+
+      <button
+        onClick={async () => { setRemoving(true); await onRemove(); }}
+        disabled={removing}
+        style={{
+          background: "transparent", border: "1px solid var(--glass-stroke)",
+          borderRadius: "var(--radius-sm)", width: 28, height: 28,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", color: "var(--ink-muted)", flexShrink: 0,
+          transition: "all 150ms ease",
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--error)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--error)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-muted)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--glass-stroke)"; }}
+        aria-label={`Remove ${name}`}
+      >
+        {removing ? <span className="btn__spinner" style={{ width: 12, height: 12 }} /> : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function OfflineDownloadsPage() {
@@ -367,19 +440,25 @@ export default function OfflineDownloadsPage() {
   const { pendingCount } = usePendingSync();
   const { quota, loading: storageLoading, refresh } = useStorageUsage();
 
-  const [lessons, setLessons] = useState<OfflineLesson[]>([]);
-  const [decks, setDecks]     = useState<OfflineFlashcardDeck[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lessons,  setLessons]  = useState<OfflineLesson[]>([]);
+  const [decks,    setDecks]    = useState<OfflineFlashcardDeck[]>([]);
+  const [videos,   setVideos]   = useState<OfflineVideo[]>([]);
+  const [pdfs,     setPdfs]     = useState<OfflinePdf[]>([]);
+  const [loading,  setLoading]  = useState(true);
   const [clearing, setClearing] = useState(false);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
-    const [l, d] = await Promise.all([
+    const [l, d, v, p] = await Promise.all([
       getAllOfflineLessons(),
       getAllOfflineDecks(),
+      getAllOfflineVideos(),
+      getAllOfflinePdfs(),
     ]);
     setLessons(l);
     setDecks(d);
+    setVideos(v);
+    setPdfs(p);
     setLoading(false);
   }, []);
 
@@ -389,23 +468,17 @@ export default function OfflineDownloadsPage() {
     if (!confirm("Remove all downloaded content? This cannot be undone.")) return;
     setClearing(true);
     await clearAllOfflineData();
-    setLessons([]);
-    setDecks([]);
+    setLessons([]); setDecks([]); setVideos([]); setPdfs([]);
     await refresh();
     setClearing(false);
   };
 
-  const handleLessonRemoved = (id: number) => {
-    setLessons((prev) => prev.filter((l) => l.id !== id));
-    refresh();
-  };
+  const handleLessonRemoved = (id: number) => { setLessons((prev) => prev.filter((l) => l.id !== id)); refresh(); };
+  const handleDeckRemoved   = (id: number) => { setDecks((prev) => prev.filter((d) => d.deckId !== id)); refresh(); };
+  const handleVideoRemoved  = (id: string) => { setVideos((prev) => prev.filter((v) => v.id !== id)); refresh(); };
+  const handlePdfRemoved    = (id: string) => { setPdfs((prev) => prev.filter((p) => p.id !== id)); refresh(); };
 
-  const handleDeckRemoved = (id: number) => {
-    setDecks((prev) => prev.filter((d) => d.deckId !== id));
-    refresh();
-  };
-
-  const isEmpty = lessons.length === 0 && decks.length === 0;
+  const isEmpty = lessons.length === 0 && decks.length === 0 && videos.length === 0 && pdfs.length === 0;
 
   return (
     <div style={{ width: "100%" }}>
@@ -483,6 +556,8 @@ export default function OfflineDownloadsPage() {
         <OfflineStats
           lessons={lessons.length}
           decks={decks.length}
+          videos={videos.length}
+          pdfs={pdfs.length}
           pendingCount={pendingCount}
         />
       )}
@@ -542,6 +617,64 @@ export default function OfflineDownloadsPage() {
         </div>
       ) : (
         <>
+          {/* ── Downloaded Videos ────────────────────────────────────────── */}
+          {videos.length > 0 && (
+            <div style={{ marginBottom: "var(--space-8)" }}>
+              <div className="section-header">
+                <div>
+                  <h2 className="section-header__title">Videos</h2>
+                  <p className="section-header__subtitle">{videos.length} saved · {(videos.reduce((a, v) => a + v.size, 0) / (1024 * 1024)).toFixed(1)} MB</p>
+                </div>
+              </div>
+              <div style={{
+                background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)",
+                borderRadius: "var(--radius-xl)", overflow: "hidden",
+                boxShadow: "var(--shadow-card)",
+                backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+              }}>
+                {videos.map((v) => (
+                  <BlobRow
+                    key={v.id}
+                    icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>}
+                    color="#ef4444"
+                    name={v.fileName}
+                    sizeMB={v.size / (1024 * 1024)}
+                    onRemove={async () => { await removeOfflineVideo(v.id); handleVideoRemoved(v.id); }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Downloaded PDFs ──────────────────────────────────────────── */}
+          {pdfs.length > 0 && (
+            <div style={{ marginBottom: "var(--space-8)" }}>
+              <div className="section-header">
+                <div>
+                  <h2 className="section-header__title">PDFs</h2>
+                  <p className="section-header__subtitle">{pdfs.length} saved · {(pdfs.reduce((a, p) => a + p.size, 0) / (1024 * 1024)).toFixed(1)} MB</p>
+                </div>
+              </div>
+              <div style={{
+                background: "var(--glass-fill)", border: "1px solid var(--glass-stroke)",
+                borderRadius: "var(--radius-xl)", overflow: "hidden",
+                boxShadow: "var(--shadow-card)",
+                backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+              }}>
+                {pdfs.map((p) => (
+                  <BlobRow
+                    key={p.id}
+                    icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>}
+                    color="#10b981"
+                    name={p.fileName}
+                    sizeMB={p.size / (1024 * 1024)}
+                    onRemove={async () => { await removeOfflinePdf(p.id); handlePdfRemoved(p.id); }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── Downloaded lessons ──────────────────────────────────────── */}
           {lessons.length > 0 && (
             <div style={{ marginBottom: "var(--space-8)" }}>

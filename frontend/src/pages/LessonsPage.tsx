@@ -1,4 +1,5 @@
 // pages.LessonsPage — Glassmorphism 2.0
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
@@ -41,26 +42,33 @@ function LessonDownloadBtn({
   courseName,
   subjectName,
   grade,
+  forceSaved,
 }: {
   lesson: LessonItem;
   courseId: number;
   courseName: string;
   subjectName: string;
   grade: number;
+  forceSaved?: boolean;
 }) {
   const [saved, setSaved]     = useState(false);
   const [saving, setSaving]   = useState(false);
 
-  // Check if already saved on mount
+  // Check if already saved on mount, or if parent marks it done
   useEffect(() => {
+    if (forceSaved) { setSaved(true); return; }
     isLessonSavedOffline(lesson.id).then(setSaved).catch(() => {});
-  }, [lesson.id]);
+  }, [lesson.id, forceSaved]);
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (saved || saving || !isOnline()) return;
+    e.preventDefault();
+    if (saving) return;
+    if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
     setSaving(true);
     try {
+      const alreadySaved = await isLessonSavedOffline(lesson.id);
+      if (alreadySaved) { toast.warning("Lesson already downloaded"); setSaved(true); return; }
       await saveLessonOffline({
         id:          lesson.id,
         courseId,
@@ -68,15 +76,16 @@ function LessonDownloadBtn({
         subjectName,
         grade,
         title:       lesson.title,
-        content:     "",   // full content loaded on lesson page
+        content:     "",
         pdfUrl:      "",
         videoUrl:    "",
         order:       lesson.order,
         savedAt:     new Date().toISOString(),
       });
       setSaved(true);
+      toast.success("Lesson saved offline");
     } catch {
-      // silent — user can retry from the lesson detail page
+      toast.error("Download failed");
     } finally {
       setSaving(false);
     }
@@ -85,7 +94,7 @@ function LessonDownloadBtn({
   return (
     <button
       onClick={handleSave}
-      disabled={saving || saved}
+      disabled={saving}
       title={saved ? "Saved for offline" : "Save for offline"}
       aria-label={saved ? "Saved for offline" : "Download for offline"}
       style={{
@@ -138,7 +147,7 @@ function LessonDownloadBtn({
 // ── Lesson row ────────────────────────────────────────────────────────────────
 
 function LessonRow({
-  lesson, onSelect, courseId, courseName, subjectName, grade,
+  lesson, onSelect, courseId, courseName, subjectName, grade, forceSaved,
 }: {
   lesson: LessonItem;
   onSelect: () => void;
@@ -146,6 +155,7 @@ function LessonRow({
   courseName: string;
   subjectName: string;
   grade: number;
+  forceSaved?: boolean;
 }) {
   const isSection = lesson.type === "section";
 
@@ -237,6 +247,7 @@ function LessonRow({
           courseName={courseName}
           subjectName={subjectName}
           grade={grade}
+          forceSaved={forceSaved}
         />
       )}
 
@@ -258,6 +269,8 @@ export default function LessonsPage() {
   const [lessons,    setLessons]    = useState<LessonItem[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
+  const [bulkDling,  setBulkDling]  = useState(false);
+  const [savedIds,   setSavedIds]   = useState<Set<number>>(new Set());
 
   const grade        = gradeParam ? Number(gradeParam) : null;
   const subjectLabel = subjectSlug ? fromSlug(subjectSlug) : "";
@@ -279,6 +292,42 @@ export default function LessonsPage() {
 
   const handleSelect = (lesson: LessonItem) => {
     navigate(lesson.type === "section" ? `/lessons/section/${lesson.id}` : `/lessons/${lesson.id}`);
+  };
+
+  const bulkDownloadAll = async () => {
+    if (bulkDling || !courseId) return;
+    const toSave = lessons.filter((l) => l.type === "global");
+    if (!toSave.length) return;
+    setBulkDling(true);
+    const tid = toast.loading(`Downloading 0 / ${toSave.length} lessons...`);
+    let saved = 0, skipped = 0;
+    const newSaved = new Set(savedIds);
+    for (const lesson of toSave) {
+      const already = await isLessonSavedOffline(lesson.id).catch(() => false);
+      if (already) {
+        skipped++;
+      } else {
+        await saveLessonOffline({
+          id: lesson.id, courseId: courseId ?? 0,
+          courseTitle: courseName, subjectName: subjectLabel,
+          grade: grade ?? 0, title: lesson.title,
+          content: "", pdfUrl: "", videoUrl: "",
+          order: lesson.order, savedAt: new Date().toISOString(),
+        }).catch(() => {});
+        saved++;
+      }
+      newSaved.add(lesson.id);
+      setSavedIds(new Set(newSaved));
+      toast.loading(`Downloading ${saved + skipped} / ${toSave.length} lessons...`, { id: tid });
+    }
+    if (saved === 0 && skipped > 0) {
+      toast.warning(`All ${skipped} lessons already downloaded`, { id: tid });
+    } else if (skipped > 0) {
+      toast.success(`${saved} saved, ${skipped} already downloaded`, { id: tid });
+    } else {
+      toast.success(`${saved} lessons saved offline`, { id: tid });
+    }
+    setBulkDling(false);
   };
 
   const globalLessons  = lessons.filter((l) => l.type === "global");
@@ -337,11 +386,32 @@ export default function LessonsPage() {
         {!error && (
           <div className="section-header">
             <h2 className="section-header__title">Lessons</h2>
-            {!loading && sectionLessons.length > 0 && (
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 700 }}>
-                +{sectionLessons.length} teacher
-              </span>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              {!loading && sectionLessons.length > 0 && (
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 700 }}>
+                  +{sectionLessons.length} teacher
+                </span>
+              )}
+              {!loading && globalLessons.length > 0 && (
+                <button
+                  className="btn btn--ghost"
+                  onClick={bulkDownloadAll}
+                  disabled={bulkDling}
+                  title="Download all lessons for offline"
+                  style={{ fontSize: "var(--text-xs)", display: "flex", alignItems: "center", gap: 4 }}
+                >
+                  {bulkDling ? <span className="btn__spinner" style={{ width: 10, height: 10 }} /> : (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  )}
+                  Download All
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -363,6 +433,7 @@ export default function LessonsPage() {
                   courseName={courseName}
                   subjectName={subjectLabel}
                   grade={grade ?? 0}
+                  forceSaved={savedIds.has(lesson.id)}
                 />
               </div>
             ))}

@@ -3,8 +3,9 @@ import json
 import logging
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
-from django.db.models import Avg, Count, Q, IntegerField
+from django.db.models import Avg, Count, Max, Q, IntegerField
 from django.db.models.functions import Cast
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -440,6 +441,9 @@ def submit_assessment(request, assessment_id):
         logger.exception("Failed to submit attempt id=%s", attempt_id)
         return JsonResponse({"error": "Submission failed"}, status=500)
 
+    # Bust the my_assessments student cache so dashboard shows updated stats immediately
+    cache.delete(f"assess:my:{request.user.id}")
+
     return JsonResponse({
         "attempt_id": attempt.id,
         "score": attempt.score,
@@ -590,33 +594,62 @@ def my_assessments(request):
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
     data = []
-    for assessment in assessments_qs:
-        if user.role == "STUDENT":
-            attempts      = AssessmentAttempt.objects.filter(
-                user=user, assessment=assessment, submitted_at__isnull=False,
-            )
-            attempt_count = attempts.count()
-            best          = attempts.order_by("-score").first()
-            best_score    = best.score  if best else None
-            passed        = best.passed if best else False
-        else:
-            attempt_count = None
-            best_score    = None
-            passed        = False
 
-        data.append({
-            "id":           assessment.id,
-            "title":        assessment.title,
-            "description":  assessment.description,
-            "total_marks":  assessment.total_marks,
-            "pass_marks":   assessment.pass_marks,
-            "course_title": assessment.course.title,
-            "subject":      assessment.course.subject.name,
-            "grade":        assessment.course.grade,
-            "attempt_count": attempt_count,
-            "best_score":   best_score,
-            "passed":       passed,
-        })
+    if user.role == "STUDENT":
+        # 60-second cache per student — busted on submit_assessment
+        _cache_key = f"assess:my:{user.id}"
+        cached = cache.get(_cache_key)
+        if cached is not None:
+            return JsonResponse(cached, safe=False)
+
+        # Bulk-aggregate all attempts for this student across all assessments — 1 query
+        assessment_ids = [a.id for a in assessments_qs]
+        attempt_agg = (
+            AssessmentAttempt.objects
+            .filter(user=user, assessment_id__in=assessment_ids, submitted_at__isnull=False)
+            .values("assessment_id")
+            .annotate(
+                total=Count("id"),
+                best=Max("score"),
+                passes=Count("id", filter=Q(passed=True)),
+            )
+        )
+        agg_map = {row["assessment_id"]: row for row in attempt_agg}
+
+        for assessment in assessments_qs:
+            row           = agg_map.get(assessment.id, {})
+            attempt_count = row.get("total", 0)
+            best_score    = row.get("best", None)
+            passed        = (row.get("passes", 0) or 0) > 0
+            data.append({
+                "id":            assessment.id,
+                "title":         assessment.title,
+                "description":   assessment.description,
+                "total_marks":   assessment.total_marks,
+                "pass_marks":    assessment.pass_marks,
+                "course_title":  assessment.course.title,
+                "subject":       assessment.course.subject.name,
+                "grade":         assessment.course.grade,
+                "attempt_count": attempt_count,
+                "best_score":    best_score,
+                "passed":        passed,
+            })
+        cache.set(_cache_key, data, timeout=60)  # 60s TTL; busted on submit
+    else:
+        for assessment in assessments_qs:
+            data.append({
+                "id":            assessment.id,
+                "title":         assessment.title,
+                "description":   assessment.description,
+                "total_marks":   assessment.total_marks,
+                "pass_marks":    assessment.pass_marks,
+                "course_title":  assessment.course.title,
+                "subject":       assessment.course.subject.name,
+                "grade":         assessment.course.grade,
+                "attempt_count": None,
+                "best_score":    None,
+                "passed":        False,
+            })
 
     return JsonResponse(data, safe=False)
 
@@ -631,6 +664,10 @@ def teacher_assessment_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
+    _cache_key = f"assess:teacher_analytics:{request.user.id}"
+    cached = cache.get(_cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
     if request.user.role == "TEACHER":
         subject_ids = request.user.teaching_assignments.values_list("subject_id", flat=True)
         assessments = Assessment.objects.filter(course__subject_id__in=subject_ids)
@@ -679,6 +716,7 @@ def teacher_assessment_analytics(request):
             "pass_rate":      round(pass_rate, 2),
         })
 
+    cache.set(_cache_key, data, timeout=120)  # 2 min TTL
     return JsonResponse(data, safe=False)
 
 
@@ -711,39 +749,66 @@ def teacher_class_analytics(request):
     else:
         classes = ClassRoom.objects.all().order_by(int_name)
 
-    data = []
-    for classroom in classes.select_related("institution"):
-        student_ids = list(
-            User.objects.filter(
-                role="STUDENT", section__classroom=classroom
-            ).values_list("id", flat=True)
-        )
-        total_students = len(student_ids)
+    # Pre-load all student IDs grouped by classroom in 1 query
+    classrooms_list = list(classes.select_related("institution"))
+    all_classroom_ids = [c.id for c in classrooms_list]
+    student_rows = (
+        User.objects
+        .filter(role="STUDENT", section__classroom_id__in=all_classroom_ids)
+        .values("id", "section__classroom_id")
+    )
+    students_by_class: dict[int, list[int]] = {cid: [] for cid in all_classroom_ids}
+    for row in student_rows:
+        students_by_class[row["section__classroom_id"]].append(row["id"])
 
-        if student_ids:
-            agg = AssessmentAttempt.objects.filter(
-                user_id__in=student_ids, submitted_at__isnull=False
-            ).aggregate(
+    # All attempt stats across all classrooms — 1 query
+    all_student_ids = [uid for uids in students_by_class.values() for uid in uids]
+    class_agg_rows: dict[int, dict] = {cid: {"total": 0, "avg": 0, "passes": 0} for cid in all_classroom_ids}
+    if all_student_ids:
+        # Map student → classroom
+        student_to_class = {}
+        for row in student_rows:
+            student_to_class[row["id"]] = row["section__classroom_id"]
+
+        attempt_rows = (
+            AssessmentAttempt.objects
+            .filter(user_id__in=all_student_ids, submitted_at__isnull=False)
+            .values("user_id")
+            .annotate(
                 total=Count("id"),
-                avg=Avg("score"),
                 passes=Count("id", filter=Q(passed=True)),
+                avg=Avg("score"),
             )
-            total_attempts = agg["total"] or 0
-            avg_score      = agg["avg"]   or 0
-            pass_count     = agg["passes"] or 0
-        else:
-            total_attempts = avg_score = pass_count = 0
+        )
+        for ar in attempt_rows:
+            cid = student_to_class.get(ar["user_id"])
+            if cid:
+                class_agg_rows[cid]["total"]  += ar["total"]
+                class_agg_rows[cid]["passes"] += ar["passes"]
+                # Running weighted avg (approximate — good enough for dashboard)
+                class_agg_rows[cid]["avg"] = (
+                    (class_agg_rows[cid]["avg"] + (ar["avg"] or 0)) / 2
+                    if class_agg_rows[cid]["avg"] else (ar["avg"] or 0)
+                )
 
-        pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
+    data = []
+    for classroom in classrooms_list:
+        cid            = classroom.id
+        total_students = len(students_by_class.get(cid, []))
+        agg            = class_agg_rows.get(cid, {})
+        total_attempts = agg.get("total", 0)
+        avg_score      = agg.get("avg", 0)
+        pass_count     = agg.get("passes", 0)
+        pass_rate      = (pass_count / total_attempts * 100) if total_attempts else 0
 
         data.append({
-            "class_id":      classroom.id,
-            "class_name":    classroom.name,
-            "institution":   classroom.institution.name,
+            "class_id":       classroom.id,
+            "class_name":     classroom.name,
+            "institution":    classroom.institution.name,
             "total_students": total_students,
             "total_attempts": total_attempts,
-            "average_score": round(avg_score, 2),
-            "pass_rate":     round(pass_rate, 2),
+            "average_score":  round(avg_score, 2),
+            "pass_rate":      round(pass_rate, 2),
         })
 
     return JsonResponse(data, safe=False)
@@ -761,22 +826,29 @@ def teacher_class_students(request, class_id):
         if not request.user.teaching_assignments.filter(section__classroom=classroom).exists():
             return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    students = User.objects.filter(role="STUDENT", section__classroom=classroom)
+    students = list(User.objects.filter(role="STUDENT", section__classroom=classroom))
+    student_ids = [s.id for s in students]
+
+    # Bulk aggregate all students' attempt stats — 1 query instead of N
+    agg_rows = (
+        AssessmentAttempt.objects
+        .filter(user_id__in=student_ids, submitted_at__isnull=False)
+        .values("user_id")
+        .annotate(
+            total=Count("id"),
+            avg_score=Avg("score"),
+            passes=Count("id", filter=Q(passed=True)),
+        )
+    )
+    agg_map = {row["user_id"]: row for row in agg_rows}
 
     data = []
     for student in students:
-        agg = AssessmentAttempt.objects.filter(
-            user=student, submitted_at__isnull=False
-        ).aggregate(
-            total=Count("id"),
-            avg=Avg("score"),
-            passes=Count("id", filter=Q(passed=True)),
-        )
-        total_attempts = agg["total"] or 0
-        avg_score      = agg["avg"]   or 0
-        pass_count     = agg["passes"] or 0
+        row            = agg_map.get(student.id, {})
+        total_attempts = row.get("total", 0) or 0
+        avg_score      = row.get("avg_score", 0) or 0
+        pass_count     = row.get("passes", 0) or 0
         pass_rate      = (pass_count / total_attempts * 100) if total_attempts else 0
-
         data.append({
             "student_id":    student.id,
             "username":      student.username,

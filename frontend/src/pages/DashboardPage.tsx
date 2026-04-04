@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiGet } from "../services/api";
 import { getMySummary, type MySummary } from "../services/gamification";
+import { getMyEngagement, getMyRisk, type DailySummary, type RiskData } from "../services/analytics";
 import { type AssessmentWithStatus } from "../services/assessments";
 import { getCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
@@ -21,7 +22,119 @@ type StudentSubject = {
 
 type ResumeMap = Record<number, number | null>;
 
-// ── Skeletons ─────────────────────────────────────────────────────
+// ── Weekly engagement strip ────────────────────────────────────────
+
+function WeeklyEngagementCard({ summary }: { summary: DailySummary[] }) {
+  // sum across last 7 days
+  const totals = summary.reduce(
+    (acc, d) => ({
+      lesson:     acc.lesson     + d.lesson_min,
+      live:       acc.live       + d.live_min,
+      assessment: acc.assessment + d.assessment_min,
+      flashcard:  acc.flashcard  + d.flashcard_min,
+      ai:         acc.ai         + d.ai_messages,
+    }),
+    { lesson: 0, live: 0, assessment: 0, flashcard: 0, ai: 0 },
+  );
+
+  const total = totals.lesson + totals.live + totals.assessment + totals.flashcard;
+  if (total === 0 && totals.ai === 0) return null;
+
+  const items = [
+    { icon: "📖", label: "Lessons",     value: `${totals.lesson}m`,     show: totals.lesson > 0 },
+    { icon: "🎓", label: "Live",        value: `${totals.live}m`,       show: totals.live > 0 },
+    { icon: "📝", label: "Assessments", value: `${totals.assessment}m`, show: totals.assessment > 0 },
+    { icon: "🃏", label: "Flashcards",  value: `${totals.flashcard}m`,  show: totals.flashcard > 0 },
+    { icon: "🤖", label: "AI Chats",    value: `${totals.ai}`,         show: totals.ai > 0 },
+  ].filter(i => i.show);
+
+  return (
+    <div style={{
+      background: "var(--glass-fill)",
+      border: "1px solid var(--glass-stroke)",
+      borderRadius: "var(--radius-xl)",
+      padding: "var(--space-4) var(--space-6)",
+      marginBottom: "var(--space-8)",
+      display: "flex",
+      alignItems: "center",
+      gap: "var(--space-6)",
+      overflowX: "auto",
+      scrollbarWidth: "none",
+    }}>
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-muted)", marginBottom: 2 }}>This week</div>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}>{total}m</div>
+      </div>
+      <div style={{ width: 1, height: 32, background: "var(--border-light)", flexShrink: 0 }} />
+      {items.map(item => (
+        <div key={item.label} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: 16 }}>{item.icon}</span>
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)", lineHeight: 1 }}>{item.value}</div>
+            <div style={{ fontSize: 9, color: "var(--ink-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{item.label}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Risk level banner (MEDIUM / HIGH only) ────────────────────────────────────
+
+function RiskBannerCard({ risk }: { risk: RiskData }) {
+  if (risk.risk_level === "low") return null;
+
+  const isHigh   = risk.risk_level === "high";
+  const color    = isHigh ? "var(--error)"   : "var(--warning)";
+  const bg       = isHigh ? "rgba(239,68,68,0.06)" : "rgba(245,158,11,0.06)";
+  const border   = isHigh ? "rgba(239,68,68,0.22)" : "rgba(245,158,11,0.22)";
+  const icon     = isHigh ? "⚠️" : "📊";
+  const label    = isHigh ? "High Risk" : "Needs Attention";
+
+  // Human-readable factor reasons
+  const reasons: string[] = [];
+  const f = risk.factors as Record<string, unknown>;
+  if (f.streak_broken)     reasons.push("missed 3+ days");
+  if (f.engagement_drop)   reasons.push("engagement dropped recently");
+  if (f.recent_failures && Number(f.recent_failures) > 0)
+    reasons.push(`${f.recent_failures} recent assessment failure${Number(f.recent_failures) > 1 ? "s" : ""}`);
+
+  const reasonText = reasons.length > 0 ? reasons.join(" · ") : "review your activity";
+
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${border}`,
+      borderLeft: `3px solid ${color}`,
+      borderRadius: "var(--radius-lg)",
+      padding: "var(--space-3) var(--space-5)",
+      marginBottom: "var(--space-6)",
+      display: "flex",
+      alignItems: "center",
+      gap: "var(--space-3)",
+      backdropFilter: "blur(8px)",
+      WebkitBackdropFilter: "blur(8px)",
+    }}>
+      <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)", color, marginBottom: 2 }}>
+          {label}
+        </div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+          Your engagement suggests attention needed — {reasonText}. Keep pushing!
+        </div>
+      </div>
+      <div style={{
+        flexShrink: 0, fontSize: "var(--text-xs)", fontWeight: 800,
+        fontFamily: "var(--font-display)", color, opacity: 0.8,
+      }}>
+        {Math.round(risk.score)}/100
+      </div>
+    </div>
+  );
+}
+
+
 
 function SubjectCardSkeleton() {
   return (
@@ -135,7 +248,9 @@ function SubjectCard({ subject, resumeLessonId }: {
       style={{
         padding:       "var(--space-6)",
         background:    "var(--glass-fill)",
-        border:        `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--glass-stroke)"}`,
+        borderTop:     `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--glass-stroke)"}`,
+        borderRight:   `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--glass-stroke)"}`,
+        borderBottom:  `1px solid ${hov ? "rgba(245,158,11,0.4)" : "var(--glass-stroke)"}`,
         borderLeft:    `4px solid ${progressColor}`,
         borderRadius:  "var(--radius-lg)",
         cursor:        "pointer",
@@ -306,34 +421,13 @@ function StreakCard({ gamification, onNavigate }: { gamification: MySummary; onN
           onClick={() => onNavigate("/profile")}
         />
       )}
-      <button
+      <StatPill
+        icon="🏆"
+        value="Rank"
+        label="Leaderboard"
+        color="var(--saffron-dark)"
         onClick={() => onNavigate("/leaderboard")}
-        style={{
-          flex: "0 0 auto", display: "flex", alignItems: "center",
-          gap: "var(--space-2)", padding: "var(--space-3) var(--space-5)",
-          background: "var(--bg-surface)", border: "1.5px dashed var(--border-medium)",
-          borderRadius: "var(--radius-xl)", cursor: "pointer", color: "var(--ink-secondary)",
-          fontSize: "var(--text-sm)", fontWeight: 600, whiteSpace: "nowrap",
-          transition: "all 0.15s ease", fontFamily: "var(--font-body)",
-        }}
-        onMouseEnter={(e) => {
-          const b = e.currentTarget as HTMLButtonElement;
-          b.style.borderColor = "var(--saffron)";
-          b.style.color = "var(--saffron-dark)";
-          b.style.background = "var(--saffron-glow)";
-        }}
-        onMouseLeave={(e) => {
-          const b = e.currentTarget as HTMLButtonElement;
-          b.style.borderColor = "var(--glass-stroke)";
-          b.style.color = "var(--ink-secondary)";
-          b.style.background = "var(--glass-fill)";
-        }}
-      >
-        🏆 Leaderboard
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
+      />
     </div>
   );
 }
@@ -348,6 +442,8 @@ export default function DashboardPage() {
   const [assessments,   setAssessments]   = useState<AssessmentWithStatus[]>([]);
   const [gamification,  setGamification]  = useState<MySummary | null>(null);
   const [resumeMap,     setResumeMap]     = useState<ResumeMap>({});
+  const [engagement,    setEngagement]    = useState<DailySummary[]>([]);
+  const [risk,          setRisk]          = useState<RiskData | null>(null);
   const [loadingSubj,   setLoadingSubj]   = useState(true);
   const [loadingAssess, setLoadingAssess] = useState(true);
   const [assessError,   setAssessError]   = useState(false);
@@ -372,6 +468,10 @@ export default function DashboardPage() {
         if (gData.status === "fulfilled") setGamification(gData.value);
         if (assessData.status === "fulfilled") setAssessments(assessData.value ?? []);
         else setAssessError(true);
+        // Engagement summary (non-critical — fail silently)
+        getMyEngagement(7).then(r => { if (!cancelled) setEngagement(r.summary ?? []); }).catch(() => {});
+        // Risk score (non-critical — fail silently)
+        getMyRisk().then(r => { if (!cancelled) setRisk(r); }).catch(() => {});
       } finally {
         if (!cancelled) { setLoadingSubj(false); setLoadingAssess(false); }
       }
@@ -424,10 +524,16 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        {/* ── Risk banner (only shown when MEDIUM or HIGH) ── */}
+        {risk && <RiskBannerCard risk={risk} />}
+
         {/* ── Gamification strip ── */}
         {gamification && (
           <StreakCard gamification={gamification} onNavigate={navigate} />
         )}
+
+        {/* ── Weekly engagement ── */}
+        <WeeklyEngagementCard summary={engagement} />
 
         {/* ── Assessments ── */}
         <div style={{ marginBottom: "var(--space-12)" }}>

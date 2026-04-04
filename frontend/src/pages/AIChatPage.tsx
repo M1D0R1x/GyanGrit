@@ -11,6 +11,7 @@ import {
   type Conversation, type AIMessage, type ConversationDetail,
 } from "../services/aiAssistant";
 import { apiGet } from "../services/api";
+import { logEvent } from "../services/analytics";
 
 type Subject = { id: number; name: string };
 
@@ -125,6 +126,8 @@ export default function AIChatPage() {
           messages: [...msgs, tempMsg, res.message],
         };
       });
+      // Log AI chat engagement
+      logEvent("ai_chat", res.conversation_id, 0, activeConv?.subject_name ?? "General").catch(() => {});
 
       // Update conversation list
       setConversations(prev => {
@@ -227,7 +230,7 @@ export default function AIChatPage() {
                   <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>
                     {activeConv.subject_name || "General"} Tutor
                   </div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Powered by Gemini · Curriculum-aligned</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>Powered by Groq · Curriculum-aligned</div>
                 </div>
                 <button className="btn btn--ghost" style={{ fontSize: "var(--text-xs)" }} onClick={() => setActiveConv(null)}>← Back</button>
               </div>

@@ -14,6 +14,9 @@ from django.urls import path
 from apps.content import views
 
 urlpatterns = [
+    # ── Media proxy (CORS bypass for offline downloads) ───────────────────────
+    path("media-proxy/",                          views.media_proxy),
+
     # ── Health ────────────────────────────────────────────────────────────────
     path("health/", views.health),
 

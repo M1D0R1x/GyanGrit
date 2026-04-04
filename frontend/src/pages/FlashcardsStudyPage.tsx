@@ -1,5 +1,5 @@
 // pages.FlashcardsStudyPage — Student: flip cards and rate them (SM-2)
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   listStudyDecks, getDueCards, submitReview,
@@ -11,6 +11,7 @@ import {
   isOnline,
   enqueueOfflineAction,
 } from "../services/offline";
+import { sendHeartbeat } from "../services/analytics";
 
 // ── Card flip component ───────────────────────────────────────────────────────
 function FlipCard({ card, onRate }: { card: Flashcard; onRate: (quality: number) => void }) {
@@ -129,6 +130,21 @@ export default function FlashcardsStudyPage() {
   const [cardIndex, setCardIndex] = useState(0);
   const [studying,  setStudying]  = useState(false);
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Engagement heartbeat — fires every 30s while studying
+  useEffect(() => {
+    if (!session || !studying) {
+      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+      return;
+    }
+    heartbeatRef.current = setInterval(() => {
+      sendHeartbeat("flashcard_study", session.deck_id).catch(() => {});
+    }, 30_000);
+    return () => {
+      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
+    };
+  }, [session?.deck_id, studying]);
   const [done,      setDone]      = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(false);

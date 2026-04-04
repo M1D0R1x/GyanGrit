@@ -99,7 +99,11 @@ def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> 
         "recording_status":   session.recording_status,
     }
     if include_attendance:
-        d["attendance_count"] = session.attendance.filter(is_present=True).count()
+        # Use pre-annotated value if available (avoids N+1 in list views)
+        if hasattr(session, "attendance_count_annotated"):
+            d["attendance_count"] = session.attendance_count_annotated
+        else:
+            d["attendance_count"] = session.attendance.filter(is_present=True).count()
     return d
 
 
@@ -236,6 +240,12 @@ def session_list_create(request):
             qs = LiveSession.objects.filter(
                 teacher=user
             ).select_related("section", "subject", "teacher").order_by("-scheduled_at")[:50]
+        from django.db.models import Count as _Count, Q as _Q
+        qs = qs.annotate(
+            attendance_count_annotated=_Count(
+                "attendance", filter=_Q(attendance__is_present=True)
+            )
+        )
         return JsonResponse([_session_to_dict(s, include_attendance=True) for s in qs], safe=False)
 
     try:

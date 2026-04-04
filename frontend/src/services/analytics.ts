@@ -84,3 +84,16 @@ export const getClassEngagement = (sectionId: number, days = 7) =>
   apiGet<{ section_id: number; days: number; students: StudentEngagement[] }>(
     `/analytics/class-summary/?section_id=${sectionId}&days=${days}`,
   );
+
+// ── Risk score ────────────────────────────────────────────────────────────────
+
+export type RiskLevel = "low" | "medium" | "high";
+
+export type RiskData = {
+  risk_level: RiskLevel;
+  score: number;
+  factors: Record<string, unknown>;
+};
+
+export const getMyRisk = () =>
+  apiGet<RiskData>("/analytics/my-risk/");

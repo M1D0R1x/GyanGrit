@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getLessonDetail, type LessonDetail } from "../services/content";
+import { getLessonDetail, getCourseLessons, type LessonDetail, type LessonItem } from "../services/content";
 import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
 import { getOfflineLesson, getOfflinePdf, getOfflineVideo, createPdfBlobUrl, createVideoBlobUrl, isOnline, enqueueOfflineAction } from "../services/offline";
+import { sendHeartbeat } from "../services/analytics";
 import DownloadManager from "../components/DownloadManager";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
@@ -418,6 +419,19 @@ export default function LessonPage() {
   const [marking, setMarking]       = useState(false);
   const [marked, setMarked]         = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [courseLessons, setCourseLessons] = useState<LessonItem[]>([]);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Engagement heartbeat — fires every 30s while lesson is open
+  useEffect(() => {
+    if (!lesson || isOfflineMode) return;
+    heartbeatRef.current = setInterval(() => {
+      sendHeartbeat("lesson_view", lesson.id, lesson.title).catch(() => {});
+    }, 30_000);
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    };
+  }, [lesson?.id, isOfflineMode]);
 
   useEffect(() => {
     if (!lessonId) return;
@@ -427,6 +441,12 @@ export default function LessonPage() {
       .then((data) => {
         setLesson(data);
         setMarked(data.completed);
+        // Fetch course lesson list for prev/next navigation
+        if (data.course?.id) {
+          getCourseLessons(data.course.id)
+            .then(lessons => setCourseLessons(lessons.sort((a, b) => a.order - b.order)))
+            .catch(() => {});
+        }
       })
       .catch(async () => {
         // Offline fallback: try loading from IndexedDB
@@ -516,25 +536,61 @@ export default function LessonPage() {
   const ctaBg     = marked ? "rgba(16,185,129,0.06)" : "var(--bg-elevated)";
   const ctaBorder = marked ? "rgba(16,185,129,0.2)"  : "var(--border-medium)";
 
+  // Prev / Next navigation
+  const currentIdx = courseLessons.findIndex(l => l.id === lesson.id);
+  const prevLesson = currentIdx > 0 ? courseLessons[currentIdx - 1] : null;
+  const nextLesson = currentIdx >= 0 && currentIdx < courseLessons.length - 1 ? courseLessons[currentIdx + 1] : null;
+
+  const navBarStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "var(--space-3)",
+    marginBottom: "var(--space-4)",
+  };
+  const navBtnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "var(--space-2) var(--space-4)",
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border-medium)",
+    borderRadius: "var(--radius-lg)",
+    fontSize: "var(--text-xs)",
+    fontWeight: 600,
+    color: "var(--ink-secondary)",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+    fontFamily: "var(--font-body)",
+    maxWidth: "45%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
   return (
     <div style={{ maxWidth: "var(--content-max-narrow)", margin: "0 auto" }}>
 
-        <button className="back-btn" onClick={() => navigate(-1)}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back
-        </button>
+        {/* ── Top nav row: Back + Prev/Next ── */}
+        <div style={navBarStyle}>
+          <button className="back-btn" onClick={() => navigate(-1)} style={{ margin: 0, flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+            Back
+          </button>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+            {prevLesson && (
+              <button style={navBtnStyle} onClick={() => navigate(`/lessons/${prevLesson.id}`)} title={prevLesson.title}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Prev
+              </button>
+            )}
+            {nextLesson && (
+              <button style={navBtnStyle} onClick={() => navigate(`/lessons/${nextLesson.id}`)} title={nextLesson.title}>
+                Next
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Title + badges */}
         <div style={{ marginBottom: "var(--space-6)" }}>
@@ -710,6 +766,11 @@ export default function LessonPage() {
               <button className="btn btn--secondary" onClick={() => navigate(-1)}>
                 ← Back to lessons
               </button>
+              {nextLesson && (
+                <button className="btn btn--primary" onClick={() => navigate(`/lessons/${nextLesson.id}`)}>
+                  Next lesson →
+                </button>
+              )}
             </div>
           ) : (
             <div>

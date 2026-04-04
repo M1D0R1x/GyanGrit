@@ -6,6 +6,7 @@ Endpoints:
   POST /api/v1/analytics/heartbeat/            — student sends a heartbeat (lesson/session view)
   POST /api/v1/analytics/event/                — log a one-shot event (assessment, ai_chat)
   GET  /api/v1/analytics/my-summary/           — student's own daily summaries
+  GET  /api/v1/analytics/my-risk/              — student's own risk score
   GET  /api/v1/analytics/class-summary/        — teacher/admin: class-level aggregation
 """
 import json
@@ -13,6 +14,7 @@ import logging
 from datetime import date, timedelta
 
 from apps.accesscontrol.permissions import require_auth, require_roles
+from django.core.cache import cache
 from django.db.models import Sum, Count, F
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
@@ -25,6 +27,8 @@ from .models import EngagementEvent, DailyEngagementSummary, EventType
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_SECONDS = 30  # each heartbeat represents 30s of active viewing
+_CLASS_SUMMARY_TTL = 5 * 60   # 5 min — short because heartbeats update it live
+_RISK_TTL          = 60 * 60  # 1 hour — updated on each assessment submit via signal
 
 
 # ── Heartbeat (student sends every 30s while viewing lesson / in live session) ─
@@ -204,6 +208,7 @@ def class_summary(request):
 
     Aggregated engagement per student for a section over the last N days.
     Teachers see only their assigned sections. Admin sees all.
+    Cached per section+days for 5 minutes (short TTL since heartbeats update it live).
     """
     from apps.accounts.models import User
 
@@ -216,13 +221,18 @@ def class_summary(request):
     except (ValueError, TypeError):
         days = 7
 
-    since = timezone.now().date() - timedelta(days=days)
-
     # Scope check: teacher can only see their assigned sections
     user = request.user
     if user.role == "TEACHER":
         if not user.teaching_assignments.filter(section_id=section_id).exists():
             return JsonResponse({"error": "You are not assigned to this section"}, status=403)
+
+    cache_key = f"analytics:class:{section_id}:{days}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    since = timezone.now().date() - timedelta(days=days)
 
     students = User.objects.filter(role="STUDENT", section_id=section_id).values("id", "username", "first_name", "last_name")
 
@@ -271,8 +281,122 @@ def class_summary(request):
 
     results = sorted(student_map.values(), key=lambda x: -x["total_min"])
 
-    return JsonResponse({
+    payload = {
         "section_id": int(section_id),
         "days": days,
         "students": results,
+    }
+    cache.set(cache_key, payload, timeout=_CLASS_SUMMARY_TTL)
+    return JsonResponse(payload)
+
+
+# ── Student: my own risk score ─────────────────────────────────────────────────
+
+@require_auth
+@require_http_methods(["GET"])
+def my_risk(request):
+    """
+    GET /api/v1/analytics/my-risk/
+
+    Returns the requesting student's risk score and level.
+    Cached per-user for 1 hour (risk score updates on each assessment submission via signal).
+    Students only — teachers/admins use class-summary.
+    """
+    user = request.user
+    if user.role != "STUDENT":
+        return JsonResponse({"error": "Students only"}, status=403)
+
+    cache_key = f"analytics:risk:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    from .models import StudentRiskScore
+    try:
+        risk = StudentRiskScore.objects.get(user=user)
+        data = {
+            "risk_level": risk.risk_level,
+            "score":      round(risk.score, 1),
+            "factors":    risk.factors,
+        }
+    except StudentRiskScore.DoesNotExist:
+        data = {
+            "risk_level": StudentRiskScore.RiskLevel.LOW,
+            "score":      0.0,
+            "factors":    {},
+        }
+
+    cache.set(cache_key, data, timeout=_RISK_TTL)
+    return JsonResponse(data)
+
+
+# ── Nightly risk recompute — called by QStash cron (0 2 * * *) ────────────────
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def nightly_recompute(request):
+    """
+    POST /api/v1/analytics/nightly-recompute/
+
+    Triggered nightly at 2 AM IST via QStash schedule (scd_6J2Lypd946oDhWQFW6EoU87hS8T3).
+    Recalculates StudentRiskScore for every active student and sends
+    At-Risk notifications for students who newly cross into HIGH.
+
+    No auth required — this endpoint only triggers read + upsert computation.
+    It is rate-limited by QStash schedule frequency (once/day).
+    """
+    from django.contrib.auth import get_user_model
+    from .models import StudentRiskScore
+    from .signals import _recalculate_risk, _notify_teachers_high_risk
+
+    # ── Recompute ─────────────────────────────────────────────────────────────
+    User = get_user_model()
+    students = (
+        User.objects
+        .filter(role="STUDENT", is_active=True)
+        .only("id", "username", "first_name", "last_name", "section_id")
+    )
+
+    updated = 0
+    newly_high = 0
+    errors = 0
+
+    for student in students:
+        try:
+            score, risk_level, factors = _recalculate_risk(student)
+
+            prev = StudentRiskScore.objects.filter(user=student).first()
+            prev_level = prev.risk_level if prev else StudentRiskScore.RiskLevel.LOW
+
+            StudentRiskScore.objects.update_or_create(
+                user=student,
+                defaults={"score": score, "risk_level": risk_level, "factors": factors},
+            )
+
+            # Bust the cached risk for this student
+            cache.delete(f"analytics:risk:{student.id}")
+
+            updated += 1
+
+            # Notify only on transition INTO high — avoid daily spam for chronic high-risk
+            if (
+                risk_level == StudentRiskScore.RiskLevel.HIGH
+                and prev_level != StudentRiskScore.RiskLevel.HIGH
+            ):
+                _notify_teachers_high_risk(student, factors)
+                newly_high += 1
+
+        except Exception as exc:
+            logger.warning("nightly_recompute: failed for student %s: %s", student.id, exc)
+            errors += 1
+
+    logger.info(
+        "nightly_recompute complete: updated=%d newly_high=%d errors=%d",
+        updated, newly_high, errors,
+    )
+    return JsonResponse({
+        "ok":         True,
+        "updated":    updated,
+        "newly_high": newly_high,
+        "errors":     errors,
     })

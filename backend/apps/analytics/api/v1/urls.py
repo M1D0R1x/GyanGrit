@@ -6,8 +6,10 @@ from django.urls import path
 from apps.analytics import views
 
 urlpatterns = [
-    path("heartbeat/",      views.heartbeat),
-    path("event/",          views.log_event),
-    path("my-summary/",     views.my_summary),
-    path("class-summary/",  views.class_summary),
+    path("heartbeat/",           views.heartbeat),
+    path("event/",               views.log_event),
+    path("my-summary/",          views.my_summary),
+    path("my-risk/",             views.my_risk),
+    path("class-summary/",       views.class_summary),
+    path("nightly-recompute/",   views.nightly_recompute),
 ]

@@ -10,18 +10,11 @@
  *   - Assessment data (questions + options, no answers)
  *   - Offline action queue (completed lessons, flashcard reviews, etc.)
  *
- * Security:
- *   - Content tied to user session
- *   - Single-session enforcement still applies
- *   - Offline writes are queued and synced when back online
- *
- * Storage:
- *   - Text content: ~2-5KB per lesson
- *   - Flashcard decks: ~1-3KB per deck
- *   - PDFs: ~200KB-2MB each
- *   - Videos: 5-50MB each (low-res only)
- *   - Storage API quota check before large downloads
+ * CORS FIX:
+ *   R2 videos/PDFs are fetched through /api/v1/media-proxy/?url=... so the
+ *   browser never attempts a cross-origin fetch directly to r2.dev.
  */
+import { API_BASE_URL } from "./api";
 
 const DB_NAME = "gyangrit-offline";
 const DB_VERSION = 2; // bumped from v1 — adds new stores
@@ -255,10 +248,17 @@ export async function isLessonSavedOffline(lessonId: number): Promise<boolean> {
   return lesson !== undefined;
 }
 
+// ── Media proxy URL builder ──────────────────────────────────────────────────
+// Routes R2 fetches through the backend to bypass CORS.
+function toProxyUrl(mediaUrl: string): string {
+  return `${API_BASE_URL}/media-proxy/?url=${encodeURIComponent(mediaUrl)}`;
+}
+
 // ── Public API: PDFs ─────────────────────────────────────────────────────────
 
 export async function savePdfOffline(lessonId: number, url: string): Promise<void> {
-  const response = await fetch(url);
+  const proxyUrl = toProxyUrl(url);
+  const response = await fetch(proxyUrl, { credentials: "include", cache: "no-store" });
   if (!response.ok) throw new Error(`Failed to download PDF: ${response.status}`);
   const data = await response.arrayBuffer();
   const fileName = url.split("/").pop() || `lesson_${lessonId}.pdf`;
@@ -281,6 +281,14 @@ export async function isPdfSavedOffline(lessonId: number): Promise<boolean> {
   return pdf !== undefined;
 }
 
+export async function getAllOfflinePdfs(): Promise<OfflinePdf[]> {
+  return getAll<OfflinePdf>(PDF_STORE);
+}
+
+export async function removeOfflinePdf(id: string): Promise<void> {
+  return deleteItem(PDF_STORE, id);
+}
+
 export function createPdfBlobUrl(pdf: OfflinePdf): string {
   const blob = new Blob([pdf.data], { type: "application/pdf" });
   return URL.createObjectURL(blob);
@@ -299,7 +307,9 @@ export async function saveVideoOffline(
     throw new Error("Storage almost full. Please remove some downloaded content first.");
   }
 
-  const response = await fetch(url);
+  // Route through backend proxy to avoid R2 CORS block
+  const proxyUrl = toProxyUrl(url);
+  const response = await fetch(proxyUrl, { credentials: "include", cache: "no-store" });
   if (!response.ok) throw new Error(`Failed to download video: ${response.status}`);
 
   const contentLength = Number(response.headers.get("content-length") || 0);
@@ -347,6 +357,14 @@ export async function getOfflineVideo(lessonId: number): Promise<OfflineVideo | 
 export async function isVideoSavedOffline(lessonId: number): Promise<boolean> {
   const video = await getItem<OfflineVideo>(VIDEO_STORE, `vid_${lessonId}`);
   return video !== undefined;
+}
+
+export async function getAllOfflineVideos(): Promise<OfflineVideo[]> {
+  return getAll<OfflineVideo>(VIDEO_STORE);
+}
+
+export async function removeOfflineVideo(id: string): Promise<void> {
+  return deleteItem(VIDEO_STORE, id);
 }
 
 export function createVideoBlobUrl(video: OfflineVideo): string {

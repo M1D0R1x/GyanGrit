@@ -98,17 +98,28 @@ createRoot(document.getElementById("root")!).render(
         <ThemeProvider>
           <RouterProvider router={router} />
           <Toaster
-            position="bottom-center"
+            position="bottom-right"
+            gap={8}
             toastOptions={{
               style: {
                 fontFamily:           "var(--font-body)",
-                background:           "var(--glass-fill)",
+                fontSize:             "14px",
+                fontWeight:           "500",
+                lineHeight:           "22px",
+                // Neefe glassmorphism recipe: gradient fill + 1px stroke + blur(12px)
+                background:           "linear-gradient(-20.95deg, rgba(255,255,255,0.06) 40.13%, rgba(255,255,255,0.1) 97.02%)",
                 color:                "var(--ink-primary)",
-                border:               "1px solid var(--glass-stroke)",
-                borderRadius:         "var(--radius-lg)",
-                boxShadow:            "var(--shadow-xl)",
-                backdropFilter:       "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
+                border:               "1px solid rgba(255,255,255,0.08)",
+                borderRadius:         "12px",
+                boxShadow:            "0 8px 32px rgba(0,0,0,0.32), 0 1px 2px rgba(0,0,0,0.16)",
+                backdropFilter:       "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                // Correct icon + text flex alignment
+                display:              "flex",
+                alignItems:           "center",
+                gap:                  "8px",
+                padding:              "12px 16px",
+                minHeight:            "56px",
               },
             }}
             closeButton

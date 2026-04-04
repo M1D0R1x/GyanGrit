@@ -9,6 +9,7 @@ import {
   type AssessmentQuestion,
 } from "../services/assessments";
 import { getOfflineAssessment, enqueueOfflineAction, isOnline } from "../services/offline";
+import { sendHeartbeat, logEvent } from "../services/analytics";
 
 const DURATION_MINUTES = 30;
 const DURATION_SECONDS = DURATION_MINUTES * 60;
@@ -232,9 +233,19 @@ export default function AssessmentTakePage() {
   const attemptRef    = useRef(attemptId);
   const assessRef     = useRef(assessment);
   const submittingRef = useRef(false);
+  const startedAtRef  = useRef<number>(Date.now());
   answersRef.current  = answers;
   attemptRef.current  = attemptId;
   assessRef.current   = assessment;
+
+  // Engagement heartbeat — fires every 30s while taking assessment
+  useEffect(() => {
+    if (!assessment) return;
+    const interval = setInterval(() => {
+      sendHeartbeat("assessment", assessment.id, assessment.title).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [assessment?.id]);
 
   const storageKey = `gg_q_${assessmentId ?? ""}`;
 
@@ -331,6 +342,9 @@ export default function AssessmentTakePage() {
         attempt_id:       id!,
         selected_options: finalAnswers,
       });
+      // Log engagement event on submit
+      const elapsed = Math.round((Date.now() - startedAtRef.current) / 1000);
+      logEvent("assessment", a.id, elapsed, a.title).catch(() => {});
       // Pass grade + subject slug in result state so AssessmentResultPage
       // can build the correct history URL
       navigate("/assessment-result", {

@@ -34,6 +34,7 @@ import {
 import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 import { isSlowConnection } from "../services/offline";
+import { sendHeartbeat } from "../services/analytics";
 import type { WhiteboardState } from "../components/Whiteboard";
 
 const Whiteboard = lazy(() => import("../components/Whiteboard"));
@@ -735,6 +736,12 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Wire audioOnly → actual LiveKit camera track
+  useEffect(() => {
+    if (!room) return;
+    room.localParticipant.setCameraEnabled(!audioOnly).catch(() => {});
+  }, [room, audioOnly]);
+
 
   // ── Canvas captureStream for Egress recording ─────────────────────────────
   // Strategy: Capture the canvas ONCE when the whiteboard first opens and keep
@@ -1201,6 +1208,18 @@ export default function LiveSessionPage() {
     if (sessionId && !inRoom && !authLoading) handleJoin(sessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, authLoading]);
+
+  // Engagement heartbeat — fires every 30s while in live room
+  useEffect(() => {
+    if (!inRoom || !sessionId) return;
+    // Use a stable numeric hash of the sessionId string (public_id is UUID-like)
+    const resourceId = sessionId.split("").reduce((acc, c) => ((acc * 31 + c.charCodeAt(0)) & 0x7fffffff), 1) || 1;
+    const interval = setInterval(() => {
+      const s = sessions.find(x => x.id === sessionId);
+      sendHeartbeat("live_session", resourceId, s?.title ?? sessionId).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [inRoom, sessionId, sessions]);
 
   const handleJoin = useCallback(async (id: string) => {
     setError(null);

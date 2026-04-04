@@ -37,6 +37,9 @@ export default function DownloadManager({ lesson }: Props) {
     ? "var(--success, #10b981)"
     : "var(--saffron)";
 
+  const typeCount = [hasText, hasPdf, hasVideo].filter(Boolean).length;
+  const showRowSave = typeCount > 1;
+
   return (
     <div
       style={{
@@ -121,6 +124,7 @@ export default function DownloadManager({ lesson }: Props) {
             downloading={downloading && downloadType === "text"}
             onSave={saveText}
             disabled={!online && !textSaved}
+            showSaveBtn={showRowSave}
           />
         )}
         {hasPdf && (
@@ -133,6 +137,7 @@ export default function DownloadManager({ lesson }: Props) {
             onSave={savePdf}
             disabled={!online && !pdfSaved}
             iconColor="#ef4444"
+            showSaveBtn={showRowSave}
           />
         )}
         {hasVideo && (
@@ -147,6 +152,7 @@ export default function DownloadManager({ lesson }: Props) {
             disabled={!online && !videoSaved}
             iconColor="#8b5cf6"
             warning={slow ? "Slow connection — download may take a while" : undefined}
+            showSaveBtn={showRowSave}
           />
         )}
       </div>
@@ -263,6 +269,7 @@ function ContentRow({
   disabled,
   iconColor,
   warning,
+  showSaveBtn = true,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -274,6 +281,7 @@ function ContentRow({
   disabled: boolean;
   iconColor?: string;
   warning?: string;
+  showSaveBtn?: boolean;
 }) {
   const color = iconColor ?? "#3b82f6";
 
@@ -340,8 +348,8 @@ function ContentRow({
         </div>
       </div>
 
-      {/* Action button */}
-      {!saved && (
+      {/* Action button — only when multiple content types (showSaveBtn) */}
+      {!saved && showSaveBtn && (
         <button
           className="btn btn--secondary"
           onClick={onSave}

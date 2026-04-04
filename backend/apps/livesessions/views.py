@@ -82,6 +82,20 @@ def _make_livekit_token(room_name: str, identity: str, name: str,
     return pyjwt.encode(payload, api_secret, algorithm="HS256")
 
 
+def _to_iso(val) -> str | None:
+    """Safely convert a datetime or ISO string to isoformat string."""
+    if val is None:
+        return None
+    if isinstance(val, str):
+        # DB returned a string (migration edge case) — parse it first
+        from dateutil.parser import parse as _parse_dt
+        try:
+            return _parse_dt(val).isoformat()
+        except Exception:
+            return val
+    return val.isoformat()
+
+
 def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> dict:
     d = {
         "id":                 session.public_id,
@@ -92,9 +106,9 @@ def _session_to_dict(session: LiveSession, include_attendance: bool = False) -> 
         "subject_name":       session.subject.name if session.subject else None,
         "teacher_name":       session.teacher.get_full_name() or session.teacher.username,
         "livekit_room_name":  session.livekit_room_name,
-        "scheduled_at":       session.scheduled_at.isoformat(),
-        "started_at":         session.started_at.isoformat() if session.started_at else None,
-        "ended_at":           session.ended_at.isoformat()   if session.ended_at   else None,
+        "scheduled_at":       _to_iso(session.scheduled_at),
+        "started_at":         _to_iso(session.started_at),
+        "ended_at":           _to_iso(session.ended_at),
         "description":        session.description,
         "recording_status":   session.recording_status,
     }

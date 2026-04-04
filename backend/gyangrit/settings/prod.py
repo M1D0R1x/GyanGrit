@@ -47,7 +47,9 @@ def _parse_origins(raw: str) -> list[str]:
 
 DEBUG = False
 SECRET_KEY = os.environ["SECRET_KEY"]
-ALLOWED_HOSTS = _parse_hosts(os.environ.get("ALLOWED_HOSTS", ""))
+_env_hosts = _parse_hosts(os.environ.get("ALLOWED_HOSTS", ""))
+# Always allow internal health checks (QStash / nginx / gunicorn pings locally)
+ALLOWED_HOSTS = _env_hosts + ["127.0.0.1", "localhost"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Password hashing — Argon2 is 3-5x faster than PBKDF2 at equal security.
@@ -143,7 +145,7 @@ if UPSTASH_REDIS_URL:
 # ─────────────────────────────────────────────────────────────────────────────
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = "gyangrit.storage.RelaxedManifestStaticFilesStorage"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CORS

@@ -6,7 +6,7 @@ import { apiGet } from "../services/api";
 import { getMySummary, type MySummary } from "../services/gamification";
 import { getMyEngagement, getMyRisk, type DailySummary, type RiskData } from "../services/analytics";
 import { type AssessmentWithStatus } from "../services/assessments";
-import { getCourseProgress } from "../services/content";
+import { getBatchCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -486,16 +486,17 @@ export default function DashboardPage() {
     if (coursed.length === 0) return;
     let cancelled = false;
     async function loadResume() {
-      const results = await Promise.allSettled(coursed.map((s) => getCourseProgress(s.course_id!)));
+      // Single batch request instead of N individual calls (fixes BRONZE-7)
+      const batchMap = await getBatchCourseProgress(coursed.map((s) => s.course_id!));
       if (cancelled) return;
       const map: ResumeMap = {};
-      results.forEach((result, idx) => {
-        const courseId = coursed[idx].course_id!;
-        if (result.status === "fulfilled") map[courseId] = result.value.resume_lesson_id;
-      });
+      for (const s of coursed) {
+        const entry = batchMap[String(s.course_id!)];
+        if (entry) map[s.course_id!] = entry.resume_lesson_id;
+      }
       setResumeMap(map);
     }
-    void loadResume();
+    void loadResume().catch(() => {});
     return () => { cancelled = true; };
   }, [subjects]);
 

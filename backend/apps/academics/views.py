@@ -233,21 +233,40 @@ def _subjects_for_student(request):
             grade = None
         subject_meta.append((subject, grade))
 
-    # Collect all course IDs for all subject+grade combos — 1 query
+    # Collect all course IDs for all subject+grade combos — 1 bulk query (fixes N+1)
     all_course_ids_by_subject: dict[int, list[int]] = {}
     primary_course_by_subject: dict[int, int | None] = {}
+
+    # Build filter: OR of (subject_id=X AND grade=Y) per subject
+    from django.db.models import Q
+    grade_filter = Q()
+    valid_pairs = [(subj, g) for subj, g in subject_meta if g is not None]
+    for subject, grade in valid_pairs:
+        grade_filter |= Q(subject_id=subject.id, grade=grade)
+
+    if grade_filter:
+        courses_qs = (
+            Course.objects
+            .filter(grade_filter)
+            .values("id", "subject_id", "grade")
+            .order_by("subject_id", "grade", "title")
+        )
+        # Group by (subject_id, grade)
+        from collections import defaultdict
+        _courses_by_pair: dict[tuple, list[int]] = defaultdict(list)
+        for c in courses_qs:
+            _courses_by_pair[(c["subject_id"], c["grade"])].append(c["id"])
+    else:
+        _courses_by_pair = defaultdict(list)
+
     for subject, grade in subject_meta:
         if grade is None:
             all_course_ids_by_subject[subject.id] = []
             primary_course_by_subject[subject.id] = None
-            continue
-        cids = list(
-            Course.objects
-            .filter(subject_id=subject.id, grade=grade)
-            .values_list("id", flat=True)
-        )
-        all_course_ids_by_subject[subject.id] = cids
-        primary_course_by_subject[subject.id] = cids[0] if cids else None
+        else:
+            cids = _courses_by_pair.get((subject.id, grade), [])
+            all_course_ids_by_subject[subject.id] = cids
+            primary_course_by_subject[subject.id] = cids[0] if cids else None
 
     all_cids_flat = [cid for cids in all_course_ids_by_subject.values() for cid in cids]
 

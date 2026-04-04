@@ -189,3 +189,16 @@ export type CourseProgress = {
 
 export const getCourseProgress = (courseId: number) =>
   apiGet<CourseProgress>(`/courses/${courseId}/progress/`);
+
+/**
+ * Batch progress — resolves N courses in 2 DB queries instead of 2×N.
+ * Fixes SENTRY-BRONZE-GARDEN-7 (dashboard N+1 API calls).
+ * Returns a map keyed by course_id (as string).
+ */
+export const getBatchCourseProgress = (courseIds: number[]) => {
+  if (courseIds.length === 0)
+    return Promise.resolve({} as Record<string, CourseProgress>);
+  return apiGet<Record<string, CourseProgress>>(
+    `/courses/progress/batch/?ids=${courseIds.join(",")}`
+  );
+};

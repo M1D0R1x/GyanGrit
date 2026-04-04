@@ -50,8 +50,8 @@ def send_push_to_user(user_id: int, title: str, body: str, url: str = "/notifica
     if not private_key:
         return 0
 
-    subscriptions = PushSubscription.objects.filter(user_id=user_id)
-    if not subscriptions.exists():
+    subscriptions = list(PushSubscription.objects.filter(user_id=user_id))
+    if not subscriptions:
         return 0
 
     payload = json.dumps({

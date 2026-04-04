@@ -51,7 +51,9 @@ urlpatterns = [
     path("lessons/section/<int:lesson_id>/delete/",   views.delete_section_lesson),
 
     # ── Course progress ───────────────────────────────────────────────────────
-    path("courses/<int:course_id>/progress/",         views.course_progress),
+    # MUST be before <int:course_id>/progress/ so static segment "batch" wins
+    path("courses/progress/batch/",          views.batch_course_progress),
+    path("courses/<int:course_id>/progress/", views.course_progress),
 
     # ── Teacher analytics ─────────────────────────────────────────────────────
     path("teacher/analytics/courses/",     views.teacher_course_analytics),

@@ -755,6 +755,96 @@ def add_lesson_note(request, lesson_id):
 
 @require_auth
 @require_http_methods(["GET"])
+def batch_course_progress(request):
+    """
+    GET /api/v1/courses/progress/batch/?ids=1,2,3
+
+    Fixes SENTRY-BRONZE-GARDEN-7: dashboard made N individual /courses/{id}/progress/
+    calls (one per subject). This endpoint resolves all in 2 DB queries:
+      1. All lessons for the requested courses (bulk filter)
+      2. All user progress records for those lessons (bulk filter)
+
+    Returns a map keyed by course_id.
+    """
+    ids_param = request.GET.get("ids", "").strip()
+    if not ids_param:
+        return JsonResponse({}, status=200)
+
+    try:
+        course_ids = [int(x) for x in ids_param.split(",") if x.strip()]
+    except ValueError:
+        return JsonResponse({"detail": "ids must be comma-separated integers"}, status=400)
+
+    # Cap to avoid abuse
+    course_ids = course_ids[:50]
+
+    # Access check — only return courses the user actually has access to
+    accessible_ids = []
+    for cid in course_ids:
+        try:
+            course = Course.objects.get(id=cid)
+            if has_access_to_course(request.user, course):
+                accessible_ids.append(cid)
+        except Course.DoesNotExist:
+            pass
+
+    if not accessible_ids:
+        return JsonResponse({}, status=200)
+
+    # ── Query 1: all published lessons for these courses ──────────────────────
+    lessons_qs = (
+        Lesson.objects
+        .filter(course_id__in=accessible_ids, is_published=True)
+        .order_by("course_id", "order")
+        .values("id", "course_id")
+    )
+    # Group lessons by course_id
+    from collections import defaultdict
+    lessons_by_course: dict[int, list[dict]] = defaultdict(list)
+    all_lesson_ids = []
+    for row in lessons_qs:
+        lessons_by_course[row["course_id"]].append(row)
+        all_lesson_ids.append(row["id"])
+
+    # ── Query 2: all progress records for current user ────────────────────────
+    completed_lesson_ids: set[int] = set(
+        LessonProgress.objects.filter(
+            user=request.user,
+            lesson_id__in=all_lesson_ids,
+            completed=True,
+        ).values_list("lesson_id", flat=True)
+    )
+
+    # ── Build response map ────────────────────────────────────────────────────
+    result: dict[str, dict] = {}
+    for cid in accessible_ids:
+        lessons = lessons_by_course.get(cid, [])
+        total = len(lessons)
+        if total == 0:
+            result[str(cid)] = {
+                "course_id":         cid,
+                "total_lessons":     0,
+                "completed_lessons": 0,
+                "percentage":        0,
+                "resume_lesson_id":  None,
+            }
+            continue
+        completed = sum(1 for l in lessons if l["id"] in completed_lesson_ids)
+        resume = next((l["id"] for l in lessons if l["id"] not in completed_lesson_ids), None)
+        result[str(cid)] = {
+            "course_id":         cid,
+            "total_lessons":     total,
+            "completed_lessons": completed,
+            "percentage":        round((completed / total) * 100),
+            "resume_lesson_id":  resume,
+        }
+
+    return JsonResponse(result)
+
+
+
+@require_auth
+@require_http_methods(["GET"])
 def course_progress(request, course_id):
     """
     GET /api/v1/courses/<id>/progress/

@@ -740,10 +740,11 @@ def recording_detail(request, session_id):
     data["attendance_count"] = session.attendance.filter(is_present=True).count()
     return JsonResponse(data)
 
-
+@csrf_exempt
 @require_auth
 @require_http_methods(["POST"])
 def sync_recording(request, session_id):
+
     """
     Manual R2 sync — checks if the recorded MP4 exists in Cloudflare R2 and
     marks the session as READY without requiring the LiveKit webhook.

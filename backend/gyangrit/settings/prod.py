@@ -1,20 +1,8 @@
 """
-gyangrit/settings/prod.py — Production settings for Render deployment.
+gyangrit/settings/prod.py — Production settings for Oracle Cloud Mumbai.
 
 All sensitive values come from environment variables.
 Never hardcode secrets or domain names here.
-
-Required env vars (set these in Render dashboard → Environment):
-  SECRET_KEY             → random 50-char string
-  DATABASE_URL           → postgresql://user:pass@host:port/db?sslmode=require
-  ALLOWED_HOSTS          → gyangrit.onrender.com
-  CORS_ALLOWED_ORIGINS   → https://gyan-grit.vercel.app
-  DJANGO_SETTINGS_MODULE → gyangrit.settings.prod
-  DEBUG                  → False
-
-Optional env vars:
-  SENTRY_DSN             → https://xxx@xxx.ingest.sentry.io/xxx
-  UPSTASH_REDIS_KV_URL   → rediss://default:xxx@xxx.upstash.io:6379
 """
 import os
 import logging
@@ -27,11 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 def _strip_quotes(val: str) -> str:
-    """
-    Strip surrounding double or single quotes from env var values.
-    Render dashboard sometimes wraps values in quotes, which breaks URL parsers.
-    e.g. '"postgres://..."' → 'postgres://...'
-    """
     if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
         return val[1:-1]
     return val
@@ -63,16 +46,25 @@ def _parse_origins(raw: str) -> list[str]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 DEBUG = False
-
 SECRET_KEY = os.environ["SECRET_KEY"]
-
 ALLOWED_HOSTS = _parse_hosts(os.environ.get("ALLOWED_HOSTS", ""))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Sentry — error tracking + performance monitoring
+# Password hashing — Argon2 is 3-5x faster than PBKDF2 at equal security.
 #
-# Import is conditional — if sentry-sdk is not installed (first deploy before
-# pip install runs with new requirements), we skip gracefully.
+# PBKDF2 (Django default): ~130ms per login on Oracle A1 ARM CPU
+# Argon2id:                ~30-40ms per login — same security, less CPU
+#
+# Requires: pip install argon2-cffi (already in prod.txt via django[argon2])
+# Django docs: https://docs.djangoproject.com/en/4.2/topics/auth/passwords/
+# ─────────────────────────────────────────────────────────────────────────────
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",  # primary — fast
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",  # fallback for old hashes
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sentry
 # ─────────────────────────────────────────────────────────────────────────────
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
@@ -104,14 +96,8 @@ if SENTRY_DSN:
         logger.warning("sentry-sdk not installed — skipping Sentry init.")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Database — Supabase PostgreSQL via dj-database-url
-#
-# IMPORTANT: _strip_quotes() is critical here. Render dashboard can wrap
-# DATABASE_URL in double quotes, which breaks dj_database_url.
-# e.g. env has: DATABASE_URL="postgres://..." (with literal quotes)
-# Without stripping: dj_database_url tries to parse '"postgres://...'
-# and fails silently → conn_max_age is set but engine is wrong → 500 on
-# any view that hits the DB.
+# Database — Supabase PostgreSQL (Mumbai region, same as Oracle backend)
+# conn_max_age=60: persistent connections — safe with gthread + same-region DB
 # ─────────────────────────────────────────────────────────────────────────────
 
 _raw_db_url = os.environ.get("DATABASE_URL", "")
@@ -120,7 +106,7 @@ _db_url = _strip_quotes(_raw_db_url)
 DATABASES = {
     "default": dj_database_url.config(
         default=_db_url,
-        conn_max_age=60,    # 60s persistent connections — safe with gthread + same-region DB (Mumbai)
+        conn_max_age=60,
         conn_health_checks=True,
     )
 }
@@ -128,9 +114,6 @@ DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Upstash Redis — session store + cache backend
-#
-# Conditional import: if redis package isn't installed yet, fall back to
-# default DB sessions. This makes the first deploy resilient.
 # ─────────────────────────────────────────────────────────────────────────────
 
 _raw_redis_url = os.environ.get("UPSTASH_REDIS_KV_URL", "")
@@ -138,7 +121,7 @@ UPSTASH_REDIS_URL = _strip_quotes(_raw_redis_url)
 
 if UPSTASH_REDIS_URL:
     try:
-        import redis  # noqa: F401 — just check it's importable
+        import redis  # noqa: F401
         CACHES = {
             "default": {
                 "BACKEND": "django.core.cache.backends.redis.RedisCache",
@@ -146,6 +129,7 @@ if UPSTASH_REDIS_URL:
                 "OPTIONS": {
                     "ssl_cert_reqs": None,
                 },
+                "TIMEOUT": 300,  # default 5 min TTL
             }
         }
         SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -167,18 +151,16 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 CORS_ALLOWED_ORIGINS = _parse_origins(os.environ.get("CORS_ALLOWED_ORIGINS", ""))
 CORS_ALLOW_CREDENTIALS = True
-
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS[:]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cookies — SameSite=None required for cross-origin Vercel → Render sessions
+# Cookies — SameSite=None for cross-origin Vercel → Oracle requests
 # ─────────────────────────────────────────────────────────────────────────────
 
 SESSION_COOKIE_SECURE   = True
 SESSION_COOKIE_SAMESITE = "None"
-
-CSRF_COOKIE_SECURE   = True
-CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE      = True
+CSRF_COOKIE_SAMESITE    = "None"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HTTPS / Security headers
@@ -193,14 +175,14 @@ SECURE_CONTENT_TYPE_NOSNIFF    = True
 SECURE_PROXY_SSL_HEADER        = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Logging — streams to Render log viewer
+# Logging
 # ─────────────────────────────────────────────────────────────────────────────
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "render": {
+        "oracle": {
             "format": "{levelname} {asctime} {name} {message}",
             "style": "{",
         },
@@ -208,7 +190,7 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "render",
+            "formatter": "oracle",
         },
     },
     "root": {
@@ -216,8 +198,8 @@ LOGGING = {
         "level": "WARNING",
     },
     "loggers": {
-        "django":  {"handlers": ["console"], "level": "WARNING", "propagate": False},
-        "apps":    {"handlers": ["console"], "level": "INFO",    "propagate": False},
-        "gyangrit": {"handlers": ["console"], "level": "INFO",   "propagate": False},
+        "django":   {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "apps":     {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        "gyangrit": {"handlers": ["console"], "level": "INFO",    "propagate": False},
     },
 }

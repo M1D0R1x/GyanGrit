@@ -10,8 +10,4 @@ sentry-sdk[django]>=2.0         # Error tracking + performance monitoring (Sentr
 redis>=5.0                      # Redis client for Upstash session store + cache
 pywebpush>=2.0                  # Web Push notifications (VAPID)
 together>=1.3                   # Together AI SDK (Llama-4-Maverick fallback for AI chatbot)
-
-# NOTE: gevent removed — gthread workers don't need it.
-# gevent's ssl monkey-patching crashes on Python 3.14 (Render's default).
-# gthread with 2 workers × 4 threads = 8 concurrent requests, sufficient
-# for the school app's scale.
+argon2-cffi>=23.1               # Argon2 password hasher — 3-5x faster than PBKDF2 at equal security

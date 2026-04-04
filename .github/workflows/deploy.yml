@@ -93,19 +93,10 @@ jobs:
             echo "Step 1/5 — Pull latest master"
             echo "======================================================"
             cd $APP
-
-            # Clean local changes that might block pull
             git checkout -- . 2>/dev/null || true
-
-            # --prune removes stale remote refs, --force handles rewritten history
             git fetch origin master --prune --force
-
             NEW_SHA=$(git rev-parse origin/master)
             echo "Deploying: $PREV_SHA -> $NEW_SHA"
-
-            if [ "$PREV_SHA" = "$NEW_SHA" ]; then
-              echo "Already at latest commit — still running migrations + reload"
-            fi
             git reset --hard origin/master
 
             echo "======================================================"
@@ -130,14 +121,17 @@ jobs:
             sleep 4
 
             echo "======================================================"
-            echo "Step 5/5 — Health check (hit Gunicorn directly, bypass Nginx)"
+            echo "Step 5/5 — Health check"
             echo "======================================================"
-            # Hit port 8000 directly — avoids Nginx HTTP→HTTPS 301 redirect
-            # /api/v1/health/ always returns 200, no auth required
+            # Hit Gunicorn directly on port 8000.
+            # Pass Host + X-Forwarded-Proto so Django's ALLOWED_HOSTS check
+            # and SECURE_SSL_REDIRECT both pass without 400/301 responses.
             HEALTH_OK=false
             for attempt in 1 2 3; do
               HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                 --max-time 10 \
+                -H "Host: api.gyangrit.site" \
+                -H "X-Forwarded-Proto: https" \
                 http://127.0.0.1:8000/api/v1/health/ 2>/dev/null || echo "000")
 
               if [ "$HTTP_STATUS" = "200" ]; then

@@ -1529,7 +1529,7 @@ textarea.form-input {
 .modal-overlay {
   position:        fixed;
   inset:           0;
-  background:      var(--bg-overlay);
+  background:      transparent;
   z-index:         var(--z-overlay);
   display:         flex;
   align-items:     center;
@@ -1539,10 +1539,12 @@ textarea.form-input {
 }
 
 .modal {
-  background:    var(--bg-canvas);
+  background:    var(--glass-fill);
   border:        1px solid var(--glass-stroke);
   border-radius: var(--radius-xl);
   box-shadow:    var(--shadow-xl);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   width:         100%;
   max-width:     560px;
   max-height:    90vh;
@@ -2430,7 +2432,7 @@ textarea.form-input {
 .faq-item__answer p { padding: var(--space-5) var(--space-8) var(--space-7); font-size: var(--text-base); color: var(--ink-secondary); line-height: 1.85; border-top: 1px solid rgba(255,255,255,0.06); margin: 0; text-align: left; }
 
 /* ── Contact ─────────── */
-.contact-layout { display: grid; grid-template-columns: 1fr 340px; gap: var(--space-6); align-items: stretch; padding-bottom: var(--space-8); }
+.contact-layout { display: grid; grid-template-columns: 1fr 340px; gap: var(--space-6); align-items: stretch; padding-bottom: var(--space-16); margin-bottom: var(--space-8); }
 @media (max-width: 900px) { .contact-layout { grid-template-columns: 1fr; } }
 .contact-form-wrapper {
   background: linear-gradient(-20.95deg, rgba(255,255,255,0.06) 40.13%, rgba(255,255,255,0.1) 97.02%);

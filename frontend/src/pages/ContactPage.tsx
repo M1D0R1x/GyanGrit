@@ -3,10 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { apiPost } from "../services/api";
+import { useAuth } from "../auth/AuthContext";
 import "./PublicPages.css";
 
 export default function ContactPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const isLoggedIn = !!auth.user;
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sending, setSending] = useState(false);
 
@@ -45,7 +48,11 @@ export default function ContactPage() {
           <button onClick={() => navigate("/about")} className="public-nav__link">About</button>
           <button onClick={() => navigate("/contact")} className="public-nav__link public-nav__link--active">Contact</button>
           <button onClick={() => navigate("/faq")} className="public-nav__link">FAQ</button>
-          <button onClick={() => navigate("/login")} className="btn btn--primary">Sign In</button>
+          {isLoggedIn ? (
+            <button onClick={() => navigate("/dashboard")} className="btn btn--primary">Dashboard</button>
+          ) : (
+            <button onClick={() => navigate("/login")} className="btn btn--primary">Sign In</button>
+          )}
         </div>
       </nav>
 

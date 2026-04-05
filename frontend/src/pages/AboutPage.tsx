@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
+import { useAuth } from "../auth/AuthContext";
 import "./PublicPages.css";
 
 export default function AboutPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const isLoggedIn = !!auth.user;
 
   return (
     <div className="public-page">
@@ -19,7 +22,11 @@ export default function AboutPage() {
           <button onClick={() => navigate("/about")} className="public-nav__link public-nav__link--active">About</button>
           <button onClick={() => navigate("/contact")} className="public-nav__link">Contact</button>
           <button onClick={() => navigate("/faq")} className="public-nav__link">FAQ</button>
-          <button onClick={() => navigate("/login")} className="btn btn--primary">Sign In</button>
+          {isLoggedIn ? (
+            <button onClick={() => navigate("/dashboard")} className="btn btn--primary">Dashboard</button>
+          ) : (
+            <button onClick={() => navigate("/login")} className="btn btn--primary">Sign In</button>
+          )}
         </div>
       </nav>
 

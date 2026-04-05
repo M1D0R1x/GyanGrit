@@ -41,9 +41,21 @@ def handle_user_save(sender, instance, **kwargs):
                 room_type=RoomType.SUBJECT,
                 section_id=instance.section_id,
             )
-            for room in existing_rooms:
-                _enroll(room, instance)
-                enroll_admin_in_room(room)
+            room_ids = list(existing_rooms.values_list("id", flat=True))
+            if room_ids:
+                # Bulk-enroll student — 1 INSERT instead of N get_or_create
+                ChatRoomMember.objects.bulk_create(
+                    [ChatRoomMember(room_id=rid, user=instance) for rid in room_ids],
+                    ignore_conflicts=True,
+                )
+                # Bulk-enroll admins — 1 query for admins, 1 INSERT
+                admin_ids = list(User.objects.filter(role="ADMIN").values_list("id", flat=True))
+                if admin_ids:
+                    ChatRoomMember.objects.bulk_create(
+                        [ChatRoomMember(room_id=rid, user_id=aid)
+                         for rid in room_ids for aid in admin_ids],
+                        ignore_conflicts=True,
+                    )
 
         elif instance.role == "TEACHER" and getattr(instance, "institution_id", None):
             staff_room = get_or_create_staff_room(instance.institution)

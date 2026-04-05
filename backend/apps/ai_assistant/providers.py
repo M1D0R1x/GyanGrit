@@ -54,6 +54,7 @@ def _build_system_prompt(curriculum_context: str) -> str:
 
 # ── Provider implementations ───────────────────────────────────────────────────
 
+
 def _call_groq(messages: list[dict], system_prompt: str) -> str:
     """
     Call Groq API (OpenAI-compatible) with llama-3.3-70b-versatile.

@@ -80,10 +80,12 @@ export const getMyEngagement = (days = 7) =>
     `/analytics/my-summary/?days=${days}`,
   );
 
-export const getClassEngagement = (sectionId: number, days = 7) =>
-  apiGet<{ section_id: number; days: number; students: StudentEngagement[] }>(
-    `/analytics/class-summary/?section_id=${sectionId}&days=${days}`,
+export const getClassEngagement = (sectionId?: number, days = 7, classId?: number) => {
+  const query = classId ? `class_id=${classId}` : `section_id=${sectionId}`;
+  return apiGet<{ section_id?: number; class_id?: number; days: number; students: StudentEngagement[] }>(
+    `/analytics/class-summary/?${query}&days=${days}`,
   );
+};
 
 // ── Risk score ────────────────────────────────────────────────────────────────
 

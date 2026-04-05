@@ -336,21 +336,9 @@ def session_start(request, session_id):
     session.started_at = timezone.now()
     session.save(update_fields=["status", "started_at"])
 
-    # Start LiveKit Egress recording after 5s (room needs time to initialise)
-    try:
-        from .recording import start_recording
-        import threading
-
-        def _delayed_recording(session_ref):
-            try:
-                start_recording(session_ref)
-            except Exception as exc:
-                logger.warning("Delayed recording start failed: %s", exc)
-
-        threading.Timer(5.0, _delayed_recording, args=[session]).start()
-    except Exception as exc:
-        logger.warning("Recording thread init failed for session %s: %s",
-                       session.public_id, exc)
+    import threading
+    from .recording import start_recording
+    threading.Thread(target=start_recording, args=(session,), daemon=True).start()
 
     try:
         _notify_session_event(session, "session:started")

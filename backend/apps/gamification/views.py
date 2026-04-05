@@ -268,11 +268,18 @@ def leaderboard_school(request):
             role="STUDENT", institution__name=institution
         ).values_list("id", flat=True)
         institution_name = institution
+        inst_key = institution
     else:
         student_ids = User.objects.filter(
             role="STUDENT", institution=institution
         ).values_list("id", flat=True)
         institution_name = institution.name
+        inst_key = str(institution.id)
+
+    cache_key = f"leaderboard:school:{inst_key}:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
 
     qs = StudentPoints.objects.filter(user_id__in=student_ids)
 
@@ -294,7 +301,9 @@ def leaderboard_school(request):
             for i, sp in enumerate(raw)
         ]
 
-    return JsonResponse({
+    payload = {
         "institution_name": institution_name,
         "entries":          entries,
-    })
+    }
+    cache.set(cache_key, payload, timeout=300)
+    return JsonResponse(payload)

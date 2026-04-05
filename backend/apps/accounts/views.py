@@ -404,9 +404,15 @@ def me(request):
 
     user = (
         User.objects
-        .select_related("institution", "section")
+        .select_related("institution", "section", "section__classroom")
         .get(id=request.user.id)
     )
+
+    institution_name = user.institution.name if user.institution else None
+    district_name = user.district if user.district else None
+    
+    if institution_name and district_name and institution_name.endswith(district_name):
+        institution_name = institution_name[:-len(district_name)].strip()
 
     return JsonResponse({
         "authenticated":    True,
@@ -422,11 +428,11 @@ def me(request):
         "mobile_primary":   user.mobile_primary,
         "mobile_secondary": user.mobile_secondary,
         "profile_complete": user.profile_complete,
-        "institution":      user.institution.name if user.institution else None,
+        "institution":      institution_name,
         "institution_id":   user.institution.id  if user.institution else None,
-        "section":          user.section.name    if user.section     else None,
+        "section":          f"Class {user.section.classroom.name}-{user.section.name}" if user.section and hasattr(user.section, 'classroom') else (user.section.name if user.section else None),
         "section_id":       user.section.id      if user.section     else None,
-        "district":         user.district        if user.district    else None,
+        "district":         district_name,
     })
 
 
@@ -517,14 +523,18 @@ def users(request):
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])
 @require_http_methods(["GET"])
 def institutions_list(request):
+    cache_key = f"institutions_list:{request.user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     queryset = scope_queryset(
         request.user,
         Institution.objects.select_related("district").order_by("name"),
     )
-    return JsonResponse(
-        list(queryset.values("id", "name", "district__name")),
-        safe=False,
-    )
+    data = list(queryset.values("id", "name", "district__name"))
+    cache.set(cache_key, data, timeout=600)
+    return JsonResponse(data, safe=False)
 
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
@@ -538,6 +548,11 @@ def sections_list(request):
     Now returns `short_label` ("Class 8-A") and `label`
     ("Class 8-A — School Name") so the frontend can show meaningful options.
     """
+    cache_key = f"sections_list:{request.user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     queryset = scope_queryset(
         request.user,
         Section.objects.select_related(
@@ -565,14 +580,22 @@ def sections_list(request):
             "label":       full_label,
         })
 
+    cache.set(cache_key, data, timeout=600)
     return JsonResponse(data, safe=False)
 
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL", "TEACHER"])
 @require_http_methods(["GET"])
 def subjects_list(request):
+    cache_key = f"subjects_list:{request.user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     queryset = scope_queryset(request.user, Subject.objects.all())
-    return JsonResponse(list(queryset.values("id", "name")), safe=False)
+    data = list(queryset.values("id", "name"))
+    cache.set(cache_key, data, timeout=600)
+    return JsonResponse(data, safe=False)
 
 
 @require_roles(["ADMIN", "OFFICIAL", "PRINCIPAL"])

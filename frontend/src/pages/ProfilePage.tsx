@@ -51,6 +51,7 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
         color:     value ? "var(--ink-primary)" : "var(--ink-muted)",
         fontWeight: value ? 500 : 400,
         fontStyle:  value ? "normal" : "italic",
+        textAlign:  "right",
       }}>
         {value ?? "—"}
       </span>

@@ -60,6 +60,7 @@ export default function TeacherDashboardPage() {
   const [loadingClasses,     setLoadingClasses]     = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
 
+
   useEffect(() => {
     getTeacherCourseAnalytics()
       .then((d) => setCourses(d ?? []))
@@ -77,7 +78,9 @@ export default function TeacherDashboardPage() {
       .finally(() => setLoadingClasses(false));
 
     apiGet<MyAssignment[]>("/academics/my-assignments/")
-      .then((d) => setAssignments(d ?? []))
+      .then((d) => {
+        setAssignments(d ?? []);
+      })
       .catch(() => {})
       .finally(() => setLoadingAssignments(false));
   }, []);
@@ -153,10 +156,79 @@ export default function TeacherDashboardPage() {
           )}
         </SectionBlock>
 
-        {/* Class Performance */}
+        {/* ── At-Risk Students Alert ──────────────────────────────────── */}
+        {!loadingClasses && classes.some((c) => (c.high_risk_count ?? 0) > 0) && (
+          <SectionBlock
+            title="⚠️ At-Risk Students"
+            subtitle="Students flagged HIGH risk by the nightly analytics engine"
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {classes
+                .filter((c) => (c.high_risk_count ?? 0) > 0)
+                .map((c) => (
+                  <div
+                    key={c.class_id}
+                    className="card"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "rgba(239,68,68,0.04)",
+                      borderColor: "rgba(239,68,68,0.2)",
+                      gap: "var(--space-4)",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{
+                        fontFamily: "var(--font-display)", fontWeight: 700,
+                        color: "var(--ink-primary)", fontSize: "var(--text-base)",
+                      }}>
+                        Class {c.class_name}
+                        {c.institution && (
+                          <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 400, marginLeft: "var(--space-2)" }}>
+                            · {c.institution}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)", flexWrap: "wrap" }}>
+                        {(c.high_risk_count ?? 0) > 0 && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+                            background: "rgba(239,68,68,0.15)", color: "#dc2626",
+                            border: "1px solid rgba(239,68,68,0.3)",
+                          }}>
+                            🔴 {c.high_risk_count} High Risk
+                          </span>
+                        )}
+                        {(c.medium_risk_count ?? 0) > 0 && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+                            background: "rgba(245,158,11,0.15)", color: "#d97706",
+                            border: "1px solid rgba(245,158,11,0.3)",
+                          }}>
+                            🟡 {c.medium_risk_count} Medium Risk
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn--secondary"
+                      onClick={() => navigate(`/teacher/classes/${c.class_id}`)}
+                      style={{ flexShrink: 0 }}
+                    >
+                      View Class →
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </SectionBlock>
+        )}
+
+        {/* Class Performance & Engagement */}
         <SectionBlock
-          title="Class Performance"
-          subtitle="Click a class to see individual student breakdowns"
+          title="Classes & Engagement Analytics"
+          subtitle="Click a class to see weekly engagement stats and individual student breakdowns"
         >
           {loadingClasses ? <GridSkeleton count={4} height={130} />
           : classes.length === 0 ? (

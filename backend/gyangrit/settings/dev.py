@@ -43,3 +43,36 @@ CSRF_COOKIE_NAME = "gyangrit_csrftoken"
 # ─────────────────────────────────────────────────────────────────────────────
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dev Caching
+# ─────────────────────────────────────────────────────────────────────────────
+
+import os
+_raw_redis_url = os.environ.get("UPSTASH_REDIS_KV_URL", "")
+UPSTASH_REDIS_URL = _raw_redis_url[1:-1] if len(_raw_redis_url) >= 2 and _raw_redis_url[0] == _raw_redis_url[-1] and _raw_redis_url[0] in ('"', "'") else _raw_redis_url
+
+if UPSTASH_REDIS_URL:
+    try:
+        import redis
+        CACHES = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": UPSTASH_REDIS_URL,
+                "OPTIONS": {
+                    "ssl_cert_reqs": None,
+                },
+                "TIMEOUT": 300,
+            }
+        }
+        SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+        SESSION_CACHE_ALIAS = "default"
+    except ImportError:
+        pass
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "gyangrit-local-dev",
+        }
+    }

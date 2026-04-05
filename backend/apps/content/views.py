@@ -175,7 +175,14 @@ def _get_student_grade(user):
 @require_auth
 @require_http_methods(["GET"])
 def courses(request):
+    from django.core.cache import cache
     user    = request.user
+    cache_key = f"courses:{user.role}:{user.id}"
+    
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+        
     base_qs = Course.objects.select_related("subject").order_by("grade", "subject__name")
 
     if user.role == "STUDENT":
@@ -206,6 +213,7 @@ def courses(request):
         }
         for c in qs
     ]
+    cache.set(cache_key, data, timeout=1800)
     return JsonResponse(data, safe=False)
 
 
@@ -914,6 +922,11 @@ def teacher_course_analytics(request):
     PRINCIPAL / OFFICIAL / ADMIN keep institution/district scoping via scope_queryset.
     """
     user = request.user
+    cache_key = f"teacher_course_analytics:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     if user.role == "TEACHER":
         subject_ids = (
             user.teaching_assignments
@@ -953,6 +966,7 @@ def teacher_course_analytics(request):
             "enrolled_students":  enrolled_students,
             "completed_students": completed_students,
         })
+    cache.set(cache_key, data, timeout=300)
     return JsonResponse(data, safe=False)
 
 
@@ -963,7 +977,13 @@ def teacher_lesson_analytics(request):
     if not course_id:
         return JsonResponse({"error": "course_id is required"}, status=400)
 
-    course  = get_scoped_object_or_403(request.user, Course.objects.all(), id=course_id)
+    user = request.user
+    cache_key = f"teacher_lesson_analytics:{user.id}:{course_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
+    course  = get_scoped_object_or_403(user, Course.objects.all(), id=course_id)
 
     # Single query: annotate views + completions for all lessons at once
     from django.db.models import Count as _Count
@@ -984,6 +1004,7 @@ def teacher_lesson_analytics(request):
         }
         for l in lessons
     ]
+    cache.set(cache_key, data, timeout=300)
     return JsonResponse(data, safe=False)
 
 
@@ -992,6 +1013,11 @@ def teacher_lesson_analytics(request):
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
     user = request.user
+    cache_key = f"teacher_class_analytics:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     if user.role == "TEACHER":
         classroom_ids = (
             user.teaching_assignments
@@ -1027,7 +1053,7 @@ def teacher_class_analytics(request):
         
         if has_risk_models and total_students > 0:
             student_ids = students_qs.values_list("id", flat=True)
-            risks = StudentRiskScore.objects.filter(student_id__in=student_ids)
+            risks = StudentRiskScore.objects.filter(user_id__in=student_ids)
             for r in risks:
                 if r.risk_level == "HIGH":
                     high_risk_count += 1
@@ -1044,6 +1070,7 @@ def teacher_class_analytics(request):
             "high_risk_count": high_risk_count,
             "medium_risk_count": medium_risk_count,
         })
+    cache.set(cache_key, data, timeout=300)
     return JsonResponse(data, safe=False)
 
 
@@ -1067,7 +1094,7 @@ def teacher_class_students(request, class_id):
 
 
     # Bulk-aggregate lesson progress — 2 queries total instead of 2N
-    from django.db.models import Count as _Count
+    from django.db.models import Count as _Count, Q
     progress_qs = (
         LessonProgress.objects
         .filter(user__in=students)
@@ -1096,6 +1123,11 @@ def teacher_class_students(request, class_id):
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
     user = request.user
+    cache_key = f"teacher_assessment_analytics:{user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     if user.role == "TEACHER":
         subject_ids = (
             user.teaching_assignments.values_list("subject_id", flat=True).distinct()
@@ -1138,6 +1170,7 @@ def teacher_assessment_analytics(request):
             "pass_rate":       pass_rate,
             "average_score":   avg_score,
         })
+    cache.set(cache_key, data, timeout=300)
     return JsonResponse(data, safe=False)
 
 

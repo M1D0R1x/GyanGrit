@@ -37,6 +37,11 @@ type AssessmentAnalytics = {
   pass_rate: number;
 };
 
+type ClassAnalyticsWithRisk = ClassAnalytics & {
+  high_risk_count?: number;
+  medium_risk_count?: number;
+};
+
 const COURSE_PREVIEW     = 6;
 const ASSESSMENT_PREVIEW = 5;
 
@@ -86,7 +91,7 @@ export default function OfficialDashboardPage() {
 
   // Single loading flag — avoids multiple setState calls that cause cascading renders
   const [loading, setLoading]         = useState(true);
-  const [classes, setClasses]         = useState<ClassAnalytics[]>([]);
+  const [classes, setClasses]         = useState<ClassAnalyticsWithRisk[]>([]);
   const [courses, setCourses]         = useState<CourseAnalytics[]>([]);
   const [assessments, setAssessments] = useState<AssessmentAnalytics[]>([]);
 
@@ -107,7 +112,7 @@ export default function OfficialDashboardPage() {
 
       if (cancelled) return;
 
-      if (classRes.status === "fulfilled")      setClasses(classRes.value ?? []);
+      if (classRes.status === "fulfilled")      setClasses((classRes.value ?? []) as ClassAnalyticsWithRisk[]);
       if (courseRes.status === "fulfilled")     setCourses(courseRes.value ?? []);
       if (assessmentRes.status === "fulfilled") setAssessments(assessmentRes.value ?? []);
       setLoading(false);
@@ -231,6 +236,59 @@ export default function OfficialDashboardPage() {
             <StatCard label="Active Courses" value={courses.length}  accent="var(--saffron)" />
           </div>
         )}
+        {/* ── Risk Tier Distribution ─────────────────────────────────────── */}
+        {!loading && classes.some((c) => (c.high_risk_count ?? 0) + (c.medium_risk_count ?? 0) > 0) && (() => {
+          const instRisk: Record<string, { high: number; medium: number; total: number }> = {};
+          for (const c of classes) {
+            const k = c.institution ?? "Unknown";
+            if (!instRisk[k]) instRisk[k] = { high: 0, medium: 0, total: 0 };
+            instRisk[k].high   += c.high_risk_count   ?? 0;
+            instRisk[k].medium += c.medium_risk_count ?? 0;
+            instRisk[k].total  += c.total_students;
+          }
+          const rows = Object.entries(instRisk)
+            .filter(([, v]) => v.high + v.medium > 0)
+            .sort((a, b) => b[1].high - a[1].high);
+          if (rows.length === 0) return null;
+          return (
+            <>
+              <SectionHeader title="Student Risk Distribution" subtitle="High and medium risk students by school · from nightly analytics" />
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginBottom: "var(--space-10)" }}>
+                {rows.map(([inst, v]) => {
+                  const lowCount = Math.max(0, v.total - v.high - v.medium);
+                  const highPct  = v.total > 0 ? (v.high   / v.total) * 100 : 0;
+                  const medPct   = v.total > 0 ? (v.medium / v.total) * 100 : 0;
+                  const lowPct   = v.total > 0 ? (lowCount / v.total) * 100 : 0;
+                  return (
+                    <div key={inst} className="card" style={{ padding: "var(--space-4) var(--space-5)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                        <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)" }}>{inst}</div>
+                        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+                          {v.high > 0 && (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 8, background: "rgba(239,68,68,0.12)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.25)" }}>
+                              {v.high} High
+                            </span>
+                          )}
+                          {v.medium > 0 && (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 8, background: "rgba(245,158,11,0.12)", color: "#d97706", border: "1px solid rgba(245,158,11,0.25)" }}>
+                              {v.medium} Medium
+                            </span>
+                          )}
+                          <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>{v.total} total</span>
+                        </div>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 4, overflow: "hidden", background: "var(--bg-elevated)", display: "flex" }}>
+                        {highPct > 0 && <div style={{ width: `${highPct}%`, background: "#dc2626", transition: "width 0.5s" }} />}
+                        {medPct  > 0 && <div style={{ width: `${medPct}%`,  background: "#d97706", transition: "width 0.5s" }} />}
+                        {lowPct  > 0 && <div style={{ width: `${lowPct}%`,  background: "var(--success)", transition: "width 0.5s" }} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
 
         {/* ── Class Performance ─────────────────────────────────────────── */}
         <div className="section-header">

@@ -330,6 +330,7 @@ UNFOLD = {
 LIVEKIT_URL        = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_API_KEY    = os.environ.get("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
+LIVEKIT_RECORDING_WEBHOOK_SECRET = os.environ.get("LIVEKIT_RECORDING_WEBHOOK_SECRET", "")
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

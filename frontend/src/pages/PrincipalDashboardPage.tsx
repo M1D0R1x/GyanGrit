@@ -298,6 +298,62 @@ export default function PrincipalDashboardPage() {
                 Load more ({classes.length - visibleClasses} remaining)
               </button>
             )}
+
+            {/* ── Cross-Class Performance Comparison ────────────────────────── */}
+            {classes.length > 1 && (
+              <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: "var(--space-8)", marginBottom: "var(--space-8)" }}>
+                <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", background: "var(--bg-surface)" }}>
+                  <h3 style={{ fontSize: "var(--text-base)", fontWeight: 700, color: "var(--ink-primary)", marginBottom: "var(--space-1)" }}>
+                    Cross-Class Comparison
+                  </h3>
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+                    Compare overall assessment performance across all classes
+                  </p>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: 140 }}>Class</th>
+                        <th style={{ textAlign: "right" }}>Students</th>
+                        <th style={{ textAlign: "right" }}>Attempts</th>
+                        <th style={{ minWidth: 200 }}>Pass Rate Comparison</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...classes].sort((a, b) => b.pass_rate - a.pass_rate).map((c) => {
+                        const passColor = c.pass_rate >= 70 ? "var(--success)" : c.pass_rate >= 40 ? "var(--warning)" : "var(--error)";
+                        return (
+                          <tr key={c.class_id}>
+                            <td>
+                              <div style={{ fontWeight: 600, color: "var(--ink-primary)", fontSize: "var(--text-sm)" }}>
+                                {c.class_name}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: "right", color: "var(--ink-secondary)", fontSize: "var(--text-sm)" }}>
+                              {c.total_students}
+                            </td>
+                            <td style={{ textAlign: "right", color: "var(--ink-secondary)", fontSize: "var(--text-sm)" }}>
+                              {c.total_attempts}
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                                <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--bg-elevated)", overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${c.pass_rate}%`, background: passColor, transition: "width 0.5s" }} />
+                                </div>
+                                <div style={{ width: 40, textAlign: "right", fontSize: "var(--text-sm)", fontWeight: 700, color: passColor }}>
+                                  {c.pass_rate}%
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
 

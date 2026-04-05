@@ -7,6 +7,10 @@ import {
   getTeacherClassStudents,
   type TeacherClassStudent,
 } from "../services/teacherAnalytics";
+import {
+  getClassEngagement,
+  type StudentEngagement,
+} from "../services/analytics";
 
 // ── Progress pill ──────────────────────────────────────────────────────────
 
@@ -48,12 +52,30 @@ export default function TeacherClassDetailPage() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
 
+  const [heatmapStudents, setHeatmapStudents] = useState<StudentEngagement[]>([]);
+  const [loadingHeatmap, setLoadingHeatmap] = useState(true);
+
   useEffect(() => {
     if (!classId) return;
     getTeacherClassStudents(Number(classId))
       .then(setStudents)
       .catch(() => setError("Failed to load student data."))
       .finally(() => setLoading(false));
+
+    setLoadingHeatmap(true);
+    getClassEngagement(undefined, 7, Number(classId))
+      .then((data) => {
+        const riskVal = { high: 3, medium: 2, low: 1 };
+        const sorted = (data.students || []).sort((a, b) => {
+          const rA = riskVal[a.risk_level as keyof typeof riskVal] ?? 0;
+          const rB = riskVal[b.risk_level as keyof typeof riskVal] ?? 0;
+          if (rA !== rB) return rB - rA;
+          return b.total_min - a.total_min;
+        });
+        setHeatmapStudents(sorted);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingHeatmap(false));
   }, [classId]);
 
   const totalStudents  = students.length;
@@ -118,6 +140,99 @@ export default function TeacherClassDetailPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Engagement Heatmap ─────────────────────────────────────── */}
+        <div className="section-header">
+          <div>
+            <h2 className="section-header__title">Weekly Engagement stats</h2>
+            <p className="section-header__subtitle">7-day activity per student — minutes spent this week</p>
+          </div>
+        </div>
+
+        {loadingHeatmap ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-8)" }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: 40, borderRadius: "var(--radius-md)" }} />
+            ))}
+          </div>
+        ) : heatmapStudents.length === 0 ? (
+          <div className="empty-state" style={{ marginBottom: "var(--space-8)" }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", fontStyle: "italic" }}>
+              No engagement data for this class yet.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            background: "var(--bg-elevated)",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid var(--border-light)",
+            overflow: "hidden",
+            marginBottom: "var(--space-8)"
+          }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr repeat(5, 80px)",
+              gap: 0,
+              padding: "var(--space-3) var(--space-4)",
+              borderBottom: "1px solid var(--border-light)",
+              background: "var(--bg-surface)",
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Student</div>
+              {["Lessons", "Live", "Quiz", "AI", "Total"].map((col) => (
+                <div key={col} style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>{col}</div>
+              ))}
+            </div>
+            {heatmapStudents.map((s, i) => {
+              const maxMin = Math.max(...heatmapStudents.map((x) => x.total_min), 1);
+              const intensity = Math.min(s.total_min / maxMin, 1);
+              const riskColor =
+                s.risk_level === "high"   ? "#dc2626" :
+                s.risk_level === "medium" ? "#d97706" : "var(--success)";
+              return (
+                <div
+                  key={s.user_id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr repeat(5, 80px)",
+                    gap: 0,
+                    padding: "var(--space-3) var(--space-4)",
+                    borderBottom: i < heatmapStudents.length - 1 ? "1px solid var(--border-light)" : "none",
+                    background: `rgba(99,102,241,${intensity * 0.08})`,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
+                    {s.risk_level && s.risk_level !== "low" && (
+                      <div style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: riskColor, flexShrink: 0,
+                      }} />
+                    )}
+                    <span style={{
+                      fontSize: "var(--text-sm)", fontWeight: 500,
+                      color: "var(--ink-primary)", overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {s.name || s.username}
+                    </span>
+                  </div>
+                  {[s.lesson_min, s.live_min, s.assessment_min, s.ai_messages, s.total_min].map((val, ci) => (
+                    <div key={ci} style={{
+                      textAlign: "center",
+                      fontSize: "var(--text-sm)",
+                      fontWeight: ci === 4 ? 700 : 400,
+                      color: ci === 4
+                        ? (s.total_min >= 30 ? "var(--success)" : s.total_min >= 10 ? "var(--warning)" : "var(--error)")
+                        : "var(--ink-secondary)",
+                    }}>
+                      {ci === 3 ? (val > 0 ? val : "—") : val > 0 ? `${val}m` : "—"}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 

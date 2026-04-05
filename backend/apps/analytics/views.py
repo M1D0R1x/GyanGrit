@@ -213,28 +213,34 @@ def class_summary(request):
     from apps.accounts.models import User
 
     section_id = request.GET.get("section_id")
-    if not section_id:
-        return JsonResponse({"error": "section_id is required"}, status=400)
+    class_id = request.GET.get("class_id")
+    if not section_id and not class_id:
+        return JsonResponse({"error": "section_id or class_id is required"}, status=400)
 
     try:
         days = min(90, max(1, int(request.GET.get("days", 7))))
     except (ValueError, TypeError):
         days = 7
 
-    # Scope check: teacher can only see their assigned sections
+    # Scope check: teacher can only see their assigned sections/classes
     user = request.user
     if user.role == "TEACHER":
-        if not user.teaching_assignments.filter(section_id=section_id).exists():
+        if section_id and not user.teaching_assignments.filter(section_id=section_id).exists():
             return JsonResponse({"error": "You are not assigned to this section"}, status=403)
+        if class_id and not user.teaching_assignments.filter(section__classroom_id=class_id).exists():
+             return JsonResponse({"error": "You are not assigned to this class"}, status=403)
 
-    cache_key = f"analytics:class:{section_id}:{days}"
+    cache_key = f"analytics:class_summary:{class_id or section_id}:{days}"
     cached = cache.get(cache_key)
     if cached is not None:
         return JsonResponse(cached)
 
     since = timezone.now().date() - timedelta(days=days)
 
-    students = User.objects.filter(role="STUDENT", section_id=section_id).values("id", "username", "first_name", "last_name")
+    if section_id:
+        students = User.objects.filter(role="STUDENT", section_id=section_id).values("id", "username", "first_name", "last_name")
+    else:
+        students = User.objects.filter(role="STUDENT", section__classroom_id=class_id).values("id", "username", "first_name", "last_name")
 
     student_ids = [s["id"] for s in students]
 
@@ -282,7 +288,8 @@ def class_summary(request):
     results = sorted(student_map.values(), key=lambda x: -x["total_min"])
 
     payload = {
-        "section_id": int(section_id),
+        "section_id": int(section_id) if section_id else None,
+        "class_id": int(class_id) if class_id else None,
         "days": days,
         "students": results,
     }

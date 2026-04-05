@@ -1449,3 +1449,83 @@ def change_password(request):
     logger.info("Password changed successfully for user id=%s", request.user.id)
     return JsonResponse({"success": True, "message": "Password updated successfully."})
 
+
+# =========================================================
+# PUBLIC CONTACT FORM
+# =========================================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def contact_form(request):
+    """
+    POST /api/v1/accounts/contact/
+
+    Public (unauthenticated) endpoint.
+    Accepts {name, email, message} and sends an email to admin@gyangrit.site.
+    Rate-limited to 3 submissions per IP per hour via Redis.
+    """
+    import threading
+    import re
+    from django.core.mail import send_mail
+    from django.core.cache import cache as _cache
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    name    = (body.get("name") or "").strip()
+    email   = (body.get("email") or "").strip()
+    message = (body.get("message") or "").strip()
+
+    if not name or not email or not message:
+        return JsonResponse({"error": "name, email, and message are required."}, status=400)
+
+    # Basic email format check
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return JsonResponse({"error": "Invalid email address."}, status=400)
+
+    if len(message) > 5000:
+        return JsonResponse({"error": "Message too long (max 5000 characters)."}, status=400)
+
+    # Rate limit: 3 per IP per hour
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "unknown"))
+    if "," in ip:
+        ip = ip.split(",")[0].strip()
+    rate_key = f"contact_rate:{ip}"
+    count = _cache.get(rate_key, 0)
+    if count >= 3:
+        return JsonResponse({"error": "Too many messages. Please try again later."}, status=429)
+    _cache.set(rate_key, count + 1, timeout=3600)
+
+    # Build email
+    subject = f"[GyanGrit Contact] Message from {name}"
+    body_text = (
+        f"Name: {name}\n"
+        f"Email: {email}\n"
+        f"---\n\n"
+        f"{message}\n\n"
+        f"---\n"
+        f"Sent from: {request.META.get('HTTP_ORIGIN', 'Unknown')}\n"
+        f"IP: {ip}\n"
+    )
+
+    ADMIN_EMAIL = "admin@gyangrit.site"
+
+    def _send():
+        try:
+            send_mail(
+                subject=subject,
+                message=body_text,
+                from_email=None,           # uses DEFAULT_FROM_EMAIL (noreply@gyangrit.site)
+                recipient_list=[ADMIN_EMAIL],
+                fail_silently=True,
+            )
+            logger.info("Contact form email sent from %s <%s>", name, email)
+        except Exception:
+            logger.exception("Failed to send contact form email from %s <%s>", name, email)
+
+    threading.Thread(target=_send, daemon=True).start()
+
+    return JsonResponse({"success": True, "message": "Your message has been sent!"})
+

@@ -4,16 +4,59 @@
 
 ---
 
-## CURRENT STATE (2026-04-05 — N+1 Elimination Sprint Complete)
+## CURRENT STATE (2026-04-05 — Sentry Stabilization + Glassmorphism Polish)
 
 **Live URLs:**
 - Frontend: https://gyangrit.site
 - Backend:  https://api.gyangrit.site
 - Admin:    https://api.gyangrit.site/admin/
 
-**Stack:** Django 4.2 · React 18 + Vite · PostgreSQL · Ably · LiveKit · Groq/Together/Gemini · Cloudflare R2 · Gunicorn gthread (5 workers) · Upstash Redis · Sentry · Oracle Cloud Mumbai
+**Stack:** Django 4.2 · React 18 + Vite · PostgreSQL · Ably · LiveKit · Groq/Together/Gemini · Cloudflare R2 · Gunicorn gthread (3 workers × 6 threads) · Upstash Redis · Sentry · Oracle Cloud Mumbai
 
 ---
+
+## WHAT WAS DONE THIS SESSION (2026-04-05 #6 — Sentry + UI)
+
+### Sentry Issue Resolution
+| Issue | Type | Fix |
+|---|---|---|
+| BRONZE-GARDEN-7 | N+1 API Call `/dashboard` | Already fixed (batch endpoint); mark resolved |
+| BRONZE-GARDEN-T | DisallowedHost | `before_send` hook in Sentry drops these; `NullHandler` logger |
+| BRONZE-GARDEN-R | Worker Timeout | Gunicorn `timeout` 30→60s |
+| BRONZE-GARDEN-S | SIGKILL/OOM | Workers 5→3, threads 4→6, max_requests 500→300 |
+
+### Bug Fixes
+| Bug | Fix |
+|---|---|
+| `NameError: cache not defined` in 3 teacher analytics endpoints | Added `from django.core.cache import cache` to top-level imports in `content/views.py` |
+| `pyjwt` unresolved reference in `livesessions/views.py` | Fixed import statement |
+
+### Gradebook Glassmorphism Polish
+| Element | Before | After |
+|---|---|---|
+| Student rows | Raw `div` + inline border | `.card` class (glass fill + stroke + backdrop blur) |
+| Modal popup | `className="card"` (see-through) | `.modal-overlay` + `.modal` classes (opaque `--bg-canvas` base) |
+| Term Totals | `--bg-elevated` inline | `.nefee-glass` class |
+| Pass/Fail badges | Inline hardcoded colors | `.badge--success` / `.badge--error` classes |
+| Avatar | `--bg-surface` (invisible in light) | Saffron gradient + white text |
+
+### CSS Design System
+| Change | Detail |
+|---|---|
+| `.modal` class | Background changed from `var(--bg-surface)` (transparent glass) to `var(--bg-canvas)` (opaque); border changed to `var(--glass-stroke)` |
+
+### Files Changed
+| File | Change |
+|---|---|
+| `backend/apps/content/views.py` | Added `from django.core.cache import cache` top-level import |
+| `backend/gunicorn.conf.py` | Workers 5→3, threads 4→6, timeout 30→60, max_requests 500→300 |
+| `backend/gyangrit/settings/prod.py` | Sentry `before_send` hook + DisallowedHost logger suppression |
+| `frontend/src/pages/GradebookPage.tsx` | Full glassmorphism refactor: `.card`, `.nefee-glass`, `.modal-overlay`+`.modal` |
+| `frontend/src/index.css` | `.modal` background fix: `--bg-surface` → `--bg-canvas` |
+
+---
+
+
 
 ## WHAT WAS DONE THIS SESSION (2026-04-05 #4)
 

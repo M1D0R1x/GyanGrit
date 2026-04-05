@@ -1,16 +1,34 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
+import { toast } from "sonner";
+import { apiPost } from "../services/api";
 import "./PublicPages.css";
 
 export default function ContactPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
-  const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSending(true);
+
+    // Minimum 1.5s for tactile UX feel
+    const minDelay = new Promise((r) => setTimeout(r, 1500));
+
+    try {
+      const [res] = await Promise.all([apiPost("/accounts/contact/", form), minDelay]) as [{ success?: boolean; error?: string }, unknown];
+      if (res?.error) throw new Error(res.error);
+
+      toast.success("Message sent! We'll get back to you within 24 hours.", { duration: 5000 });
+      setForm({ name: "", email: "", message: "" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send message. Please try again.";
+      toast.error(msg, { duration: 5000 });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -46,63 +64,52 @@ export default function ContactPage() {
         <div className="contact-layout">
           {/* Contact Form */}
           <div className="contact-form-wrapper">
-            {submitted ? (
-              <div className="contact-success page-enter">
-                <div className="contact-success__icon">✉️</div>
-                <h3 className="contact-success__title">Message Received!</h3>
-                <p className="contact-success__desc">
-                  Thank you for reaching out. We'll get back to you within 24 hours.
-                </p>
-                <button
-                  className="btn btn--secondary"
-                  onClick={() => { setSubmitted(false); setForm({ name: "", email: "", message: "" }); }}
-                >
-                  Send Another Message
-                </button>
+            <form className="contact-form" onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="contact-name">Your Name</label>
+                <input
+                  id="contact-name"
+                  className="form-input"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                  disabled={sending}
+                />
               </div>
-            ) : (
-              <form className="contact-form" onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="contact-name">Your Name</label>
-                  <input
-                    id="contact-name"
-                    className="form-input"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="contact-email">Email Address</label>
-                  <input
-                    id="contact-email"
-                    className="form-input"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="contact-message">Message</label>
-                  <textarea
-                    id="contact-message"
-                    className="form-input form-input--textarea"
-                    placeholder="Tell us how we can help..."
-                    value={form.message}
-                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    required
-                    rows={5}
-                  />
-                </div>
-                <button type="submit" className="btn btn--primary btn--full btn--lg">
-                  Send Message
-                </button>
-              </form>
-            )}
+              <div className="form-group">
+                <label className="form-label" htmlFor="contact-email">Email Address</label>
+                <input
+                  id="contact-email"
+                  className="form-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                  disabled={sending}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="contact-message">Message</label>
+                <textarea
+                  id="contact-message"
+                  className="form-input form-input--textarea"
+                  placeholder="Tell us how we can help..."
+                  value={form.message}
+                  onChange={(e) => setForm({ ...form, message: e.target.value })}
+                  required
+                  rows={5}
+                  disabled={sending}
+                />
+              </div>
+              <button type="submit" className="btn btn--primary btn--full btn--lg" disabled={sending}>
+                {sending ? (
+                  <><span className="btn__spinner" aria-hidden="true" /> Sending…</>
+                ) : "Send Message"}
+              </button>
+            </form>
           </div>
 
           {/* Contact Info Sidebar */}

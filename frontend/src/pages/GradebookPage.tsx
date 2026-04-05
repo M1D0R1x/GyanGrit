@@ -10,6 +10,7 @@
  * - Edit / delete existing entries
  */
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getClassGrades,
@@ -92,135 +93,129 @@ function EntryForm({
   }
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0,
-        background: "rgba(0,0,0,0.65)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        zIndex: 1000, padding: "var(--space-4)",
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="card page-enter" style={{ width: "100%", maxWidth: 460 }}>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal page-enter" style={{ maxWidth: 460 }}>
         {/* Header */}
-        <div className="section-header" style={{ marginBottom: "var(--space-5)" }}>
+        <div className="modal__header">
           <div>
-            <h2 className="section-header__title">
+            <h2 className="modal__title">
               {existing ? "Edit Mark" : "Add Mark"}
             </h2>
-            <p className="section-header__subtitle">{studentName}</p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginTop: 2 }}>{studentName}</p>
           </div>
-          <button className="btn btn--ghost" onClick={onClose}>✕</button>
+          <button className="btn btn--ghost" onClick={onClose} style={{ padding: "var(--space-2)" }}>✕</button>
         </div>
 
-        {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>{error}</div>}
+        <div className="modal__body">
+          {error && <div className="alert alert--error" style={{ marginBottom: "var(--space-4)" }}>{error}</div>}
 
-        {/* Subject */}
-        {!existing && (
-          <div className="form-group">
-            <label className="form-label">Subject *</label>
-            <select
-              className="form-input"
-              value={subjectId}
-              onChange={(e) => setSubjectId(Number(e.target.value))}
-            >
-              <option value="">Select subject…</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+          {/* Subject */}
+          {!existing && (
+            <div className="form-group">
+              <label className="form-label">Subject *</label>
+              <select
+                className="form-input"
+                value={subjectId}
+                onChange={(e) => setSubjectId(Number(e.target.value))}
+              >
+                <option value="">Select subject…</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Term + Category row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-          <div className="form-group">
-            <label className="form-label">Term</label>
-            <select className="form-input" value={term} onChange={(e) => setTerm(e.target.value as GradeTerm)}>
-              {choices.terms.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
+          {/* Term + Category row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+            <div className="form-group">
+              <label className="form-label">Term</label>
+              <select className="form-input" value={term} onChange={(e) => setTerm(e.target.value as GradeTerm)}>
+                {choices.terms.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select className="form-input" value={category} onChange={(e) => setCategory(e.target.value as GradeCategory)}>
+                {choices.categories.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Category</label>
-            <select className="form-input" value={category} onChange={(e) => setCategory(e.target.value as GradeCategory)}>
-              {choices.categories.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        {/* Marks row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-          <div className="form-group">
-            <label className="form-label">Marks Obtained *</label>
-            <input
-              className="form-input"
-              type="number"
-              min={0}
-              step="0.5"
-              placeholder="e.g. 18"
-              value={marks}
-              onChange={(e) => setMarks(e.target.value)}
-            />
+          {/* Marks row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+            <div className="form-group">
+              <label className="form-label">Marks Obtained *</label>
+              <input
+                className="form-input"
+                type="number"
+                min={0}
+                step="0.5"
+                placeholder="e.g. 18"
+                value={marks}
+                onChange={(e) => setMarks(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Out Of *</label>
+              <input
+                className="form-input"
+                type="number"
+                min={1}
+                step="0.5"
+                placeholder="e.g. 25"
+                value={totalMarks}
+                onChange={(e) => setTotalMarks(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Out Of *</label>
-            <input
-              className="form-input"
-              type="number"
-              min={1}
-              step="0.5"
-              placeholder="e.g. 25"
-              value={totalMarks}
-              onChange={(e) => setTotalMarks(e.target.value)}
-            />
-          </div>
-        </div>
 
-        {/* Live percentage preview */}
-        {marks && totalMarks && !isNaN(parseFloat(marks)) && parseFloat(totalMarks) > 0 && (
-          <div style={{
-            padding: "var(--space-3) var(--space-4)",
-            background: "var(--bg-elevated)",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "var(--space-4)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}>
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>Score</span>
-            <span style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 800,
-              fontSize: "var(--text-xl)",
-              color: pctColor(Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100)),
+          {/* Live percentage preview */}
+          {marks && totalMarks && !isNaN(parseFloat(marks)) && parseFloat(totalMarks) > 0 && (
+            <div style={{
+              padding: "var(--space-3) var(--space-4)",
+              background: "var(--bg-elevated)",
+              borderRadius: "var(--radius-md)",
+              marginBottom: "var(--space-4)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}>
-              {Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100)}%
-            </span>
-          </div>
-        )}
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>Score</span>
+              <span style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                fontSize: "var(--text-xl)",
+                color: pctColor(Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100)),
+              }}>
+                {Math.round(parseFloat(marks) / parseFloat(totalMarks) * 100)}%
+              </span>
+            </div>
+          )}
 
-        {/* Notes */}
-        <div className="form-group">
-          <label className="form-label">Notes (optional)</label>
-          <textarea
-            className="form-input"
-            rows={2}
-            placeholder="Any remarks about this mark…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{ resize: "vertical" }}
-          />
+          {/* Notes */}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Notes (optional)</label>
+            <textarea
+              className="form-input"
+              rows={2}
+              placeholder="Any remarks about this mark…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              style={{ resize: "vertical" }}
+            />
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+        <div className="modal__footer">
+          <button className="btn btn--secondary" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="btn btn--primary" onClick={() => void handleSubmit()} disabled={saving}>
             {saving ? <><span className="btn__spinner" aria-hidden="true" /> Saving…</> : (existing ? "Save Changes" : "Add Mark")}
           </button>
-          <button className="btn btn--secondary" onClick={onClose} disabled={saving}>Cancel</button>
         </div>
       </div>
     </div>
@@ -266,9 +261,8 @@ function StudentRow({
   }
 
   return (
-    <div style={{
-      border: "1px solid var(--border-light)",
-      borderRadius: "var(--radius-lg)",
+    <div className="card" style={{
+      padding: 0,
       overflow: "hidden",
       marginBottom: "var(--space-3)",
     }}>
@@ -279,7 +273,6 @@ function StudentRow({
           alignItems: "center",
           gap: "var(--space-4)",
           padding: "var(--space-4) var(--space-5)",
-          background: "var(--bg-elevated)",
           cursor: "pointer",
           userSelect: "none",
         }}
@@ -288,11 +281,10 @@ function StudentRow({
         {/* Avatar */}
         <div style={{
           width: 32, height: 32, borderRadius: "50%",
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-light)",
+          background: "linear-gradient(135deg, var(--saffron), var(--terracotta, var(--saffron-dark)))",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "var(--font-display)", fontWeight: 800,
-          fontSize: "var(--text-xs)", color: "var(--ink-secondary)",
+          fontSize: "var(--text-xs)", color: "#fff",
           flexShrink: 0,
         }}>
           {student.student.slice(0, 2).toUpperCase()}
@@ -343,7 +335,7 @@ function StudentRow({
 
       {/* Entry list */}
       {expanded && (
-        <div style={{ padding: "var(--space-4) var(--space-5)", background: "var(--bg-surface)" }}>
+        <div style={{ padding: "var(--space-4) var(--space-5)", borderTop: "1px solid var(--glass-stroke)" }}>
           {student.entries.length === 0 ? (
             <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", textAlign: "center", padding: "var(--space-4) 0" }}>
               No marks entered yet.
@@ -417,12 +409,9 @@ function StudentRow({
                 const terms = Object.entries(termMap);
                 if (terms.length === 0) return null;
                 return (
-                  <div style={{
+                  <div className="nefee-glass" style={{
                     marginTop: "var(--space-4)",
-                    padding: "var(--space-3) var(--space-4)",
-                    background: "var(--bg-elevated)",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-light)",
+                    padding: "var(--space-4) var(--space-5)",
                   }}>
                     <div style={{
                       fontSize: 11, fontWeight: 700, textTransform: "uppercase",
@@ -437,12 +426,14 @@ function StudentRow({
                         return (
                           <div key={term} style={{
                             display: "flex", alignItems: "center", gap: "var(--space-3)",
-                            padding: "var(--space-2) var(--space-3)",
-                            borderRadius: "var(--radius-sm)",
-                            background: "var(--bg-surface)",
-                            border: "1px solid var(--border-light)",
+                            padding: "var(--space-2) var(--space-4)",
+                            borderRadius: "var(--radius-md)",
+                            background: "var(--bg-elevated)",
+                            border: "1px solid var(--glass-stroke)",
+                            backdropFilter: "blur(8px)",
+                            WebkitBackdropFilter: "blur(8px)",
                           }}>
-                            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 500 }}>
+                            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 600 }}>
                               {term.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                             </span>
                             <span style={{
@@ -457,13 +448,7 @@ function StudentRow({
                             }}>
                               {pct}%
                             </span>
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, padding: "2px 6px",
-                              borderRadius: 8,
-                              background: pass ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-                              color: pass ? "#16a34a" : "#dc2626",
-                              border: `1px solid ${pass ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
-                            }}>
+                            <span className={pass ? "badge badge--success" : "badge badge--error"}>
                               {pass ? "Pass" : "Fail"}
                             </span>
                           </div>
@@ -479,7 +464,7 @@ function StudentRow({
       )}
 
       {/* Add mark modal */}
-      {showForm && (
+      {showForm && createPortal(
         <EntryForm
           studentId={student.student_id}
           studentName={student.student}
@@ -487,11 +472,12 @@ function StudentRow({
           choices={choices}
           onSave={(entry) => { onEntryAdded(student.student_id, entry); setShowForm(false); }}
           onClose={() => setShowForm(false)}
-        />
+        />,
+        document.body,
       )}
 
       {/* Edit mark modal */}
-      {editEntry && (
+      {editEntry && createPortal(
         <EntryForm
           studentId={student.student_id}
           studentName={student.student}
@@ -500,7 +486,8 @@ function StudentRow({
           existing={editEntry}
           onSave={(entry) => { onEntryUpdated(entry); setEditEntry(null); }}
           onClose={() => setEditEntry(null)}
-        />
+        />,
+        document.body,
       )}
     </div>
   );

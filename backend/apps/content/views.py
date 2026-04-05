@@ -38,6 +38,7 @@ import re
 
 from django.contrib.auth import get_user_model
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
+from django.core.cache import cache
 from django.db.models import Avg
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404

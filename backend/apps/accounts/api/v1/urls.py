@@ -41,4 +41,7 @@ urlpatterns = [
 
     # Admin system overview
     path("system-stats/",       views.system_stats),
+
+    # Public
+    path("contact/",            views.contact_form),
 ]

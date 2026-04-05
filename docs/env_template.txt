@@ -1,4 +1,0 @@
-# This file intentionally left empty.
-# Never commit real credentials to the repository.
-# All secrets live exclusively on the server at /opt/gyangrit/backend/.env
-# which is gitignored and never committed.

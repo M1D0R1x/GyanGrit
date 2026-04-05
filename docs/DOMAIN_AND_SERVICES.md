@@ -1,149 +1,248 @@
-# GyanGrit — Domain & Services Guide
+# GyanGrit — Domain, Services & External APIs
 
-**Date:** 2026-03-25
-
----
-
-## Domain Recommendation
-
-### My pick: `gyangrit.site`
-
-Here's why, comparing your three options:
-
-| Domain | Year 1 | Renewal/yr | Verdict |
-|---|---|---|---|
-| `gyangrit.site` | ~$0.98 | ~$31.98 | **Best choice** — short, clean, "site" is intuitive |
-| `gyangrit.space` | ~$0.98 | ~$32.48 | OK but "space" feels vague for an ed-tech platform |
-| `gyangrit.online` | ~$0.98 | ~$34.98 | Longest URL, highest renewal, "online" is generic |
-
-All three are dirt cheap year 1 (~$1) but renewals are $30-35/yr. That's the Namecheap game — cheap hook, real cost is year 2+.
-
-**Why `.site` wins:**
-- Shortest and most natural: "go to gyangrit.site"
-- Intuitive for a web platform — it IS a site
-- Lower renewal than `.online` and `.space`
-- Easy to say aloud to rural teachers/students who aren't tech-savvy
-
-**Alternative worth considering:** If you ever want to look more "official" for government schools, consider `gyangrit.in` (~$8/yr register, ~$10/yr renewal). The `.in` TLD signals India and government institutions respect it more.
+> **Last updated:** April 2026
 
 ---
 
-## What to Buy on Namecheap
+## Production URLs
 
-### Must buy:
-1. **Domain: `gyangrit.site`** — ~$0.98 first year
-   - Enable **WhoisGuard** (free with Namecheap, auto-enabled)
-   - Set auto-renew ON immediately
-
-### Do NOT buy from Namecheap:
-- **Hosting** — You already have Render (backend) + Vercel (frontend). No hosting needed.
-- **SSL certificate** — Vercel provides free SSL. If you move backend to EC2, use Let's Encrypt (free).
-- **Website builder** — You built the frontend already.
-- **VPN** — Not relevant.
-
-### Optional but recommended:
-2. **Private Email** — $11.88/year for Namecheap email
-   - Gets you `admin@gyangrit.site`, `support@gyangrit.site`
-   - Looks professional for capstone demo
-   - Alternative: Use Zoho Mail free tier (up to 5 users) — costs $0
+| Endpoint | URL |
+|---|---|
+| Frontend | https://www.gyangrit.site |
+| Backend API | https://api.gyangrit.site/api/v1/ |
+| Admin Panel | https://api.gyangrit.site/admin/ |
+| Health Check | https://api.gyangrit.site/api/v1/health/ |
 
 ---
 
-## DNS Setup After Purchase
+## Domain Setup
 
-### Step 1: Point domain to Vercel (frontend)
-In Namecheap dashboard → Domain List → `gyangrit.site` → Advanced DNS:
+**Registrar:** Namecheap  
+**Domain:** `gyangrit.site`
+
+### DNS Records (managed in Vercel)
 
 ```
-Type    Host    Value                           TTL
-A       @       76.76.21.21                     Automatic
-CNAME   www     cname.vercel-dns.com            Automatic
-```
-
-### Step 2: Configure Vercel
-In Vercel dashboard → Project → Settings → Domains:
-- Add `gyangrit.site`
-- Add `www.gyangrit.site`
-- Vercel auto-provisions SSL
-
-### Step 3: Backend subdomain (if migrating off Render)
-If you move backend to EC2:
-```
-Type    Host    Value                           TTL
-A       api     <EC2-elastic-IP>                Automatic
-```
-Then `api.gyangrit.site` → your Django backend.
-
-If staying on Render:
-```
-Type    Host    Value                           TTL
-CNAME   api     gyangrit.onrender.com           Automatic
-```
-
-### Step 4: Update frontend env
-In Vercel → Environment Variables:
-```
-VITE_API_URL=https://api.gyangrit.site/api/v1
-```
-
-### Step 5: Update Django ALLOWED_HOSTS + CORS
-In Render env vars (or EC2 .env):
-```
-ALLOWED_HOSTS=api.gyangrit.site,gyangrit.onrender.com
-CORS_ALLOWED_ORIGINS=https://gyangrit.site,https://www.gyangrit.site
+Type    Host    Value                           Purpose
+A       @       76.76.21.21                     Frontend (Vercel)
+CNAME   www     cname.vercel-dns.com            Frontend www
+A       api     161.118.168.247                 Backend (Oracle Cloud)
+MX      @       mx.zoho.in          (pri 10)    Email
+MX      @       mx2.zoho.in         (pri 20)    Email
+MX      @       mx3.zoho.in         (pri 50)    Email
+TXT     @       v=spf1 include:zoho.in ~all     SPF (email auth)
+TXT     @       zoho-verification=...           Zoho domain verify
 ```
 
 ---
 
-## Email Options (cheapest to most professional)
+## Email (Zoho Mail)
 
-| Option | Cost | Mailboxes | Notes |
-|---|---|---|---|
-| **Zoho Mail Free** | $0/yr | 5 users | Best free option. `admin@gyangrit.site`. MX records in DNS. |
-| **Namecheap Private Email** | $11.88/yr | 1 mailbox | Simple. Bundled with domain purchase. |
-| **Google Workspace** | $84/yr | 1 user | Overkill for a capstone project. |
-| **Forward-only** | $0 | N/A | Set up email forwarding in Namecheap to your Gmail. No send capability. |
+**Provider:** Zoho Mail Forever Free (5 mailboxes)  
+**SMTP host:** `smtp.zoho.in:587` (TLS)  
+**From address:** `noreply@gyangrit.site`
 
-**Current Setup:** We use the **Zoho Mail Forever Free** tier. It provides professional boxes like `noreply@gyangrit.site` and `support@gyangrit.site` for $0/yr.
+**Purpose:** Password reset, OTP delivery fallback, teacher notifications
 
-### Zoho Mail Architecture
-- **DNS Host:** Vercel (where `gyangrit.site` nameservers point)
-- **Django Integration:** Uses a 16-character App Password generated from the `noreply` account to bypass 2FA and send emails via `smtp.zoho.in`.
-- **Records Configured:** MX (10, 20, 50), SPF (TXT), DKIM (TXT), and Zoho Verification (TXT).
+**Django config:**
+```env
+EMAIL_HOST=smtp.zoho.in
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=noreply@gyangrit.site
+EMAIL_HOST_PASSWORD=<16-char app password from Zoho>
+DEFAULT_FROM_EMAIL=GyanGrit <noreply@gyangrit.site>
 ```
-Type    Host    Value                       Priority    TTL
-MX      @       mx.zoho.in                 10          Automatic
-MX      @       mx2.zoho.in                20          Automatic
-MX      @       mx3.zoho.in                50          Automatic
-TXT     @       v=spf1 include:zoho.in ~all            Automatic
+
+---
+
+## SMS OTP — Fast2SMS
+
+**Provider:** Fast2SMS (India)  
+**Purpose:** SMS OTP delivery for TEACHER / PRINCIPAL / OFFICIAL logins  
+**Requirement:** DLT website verification must be completed for OTP API (status_code 996 = not verified)  
+**Fallback:** Email OTP if Fast2SMS fails
+
+```env
+FAST2SMS_API_KEY=<key>
 ```
-4. Create mailboxes: `admin@gyangrit.site`, `support@gyangrit.site`
+
+---
+
+## Database — Supabase PostgreSQL
+
+**Provider:** Supabase (AWS ap-south-1)  
+**Plan:** Free (500MB, pauses after 1 week inactive — upgrade if needed)  
+**Shared:** Same database used in dev and prod
+
+```env
+DATABASE_URL=postgres://postgres.<project>:<password>@<host>.supabase.com:5432/postgres?sslmode=require
+```
+
+**Backup:**
+```bash
+pg_dump -h aws-0-ap-south-1.pooler.supabase.com -U postgres.<project> -d postgres -Fc > backup.dump
+```
+
+---
+
+## Cache & Sessions — Upstash Redis
+
+**Provider:** Upstash (serverless Redis, Mumbai region)  
+**Plan:** Free (10K commands/day)  
+**Uses:**
+- Django session storage (`SESSION_ENGINE=redis`)
+- AI rate limiting (10 req/min per user)
+- System stats cache (60s TTL)
+
+```env
+UPSTASH_REDIS_KV_URL=rediss://default:<password>@<host>.upstash.io:6379
+```
+
+---
+
+## Cron Jobs — Upstash QStash
+
+**Provider:** Upstash QStash  
+**Plan:** Free (500 messages/day)  
+**Auth:** QStash sends `Authorization: Bearer <QSTASH_TOKEN>` on every request
+
+| Schedule | Endpoint | Purpose |
+|---|---|---|
+| Every 5 min | `/api/v1/health/` | Keep-alive (prevents cold start) |
+| Daily 2 AM UTC | `/api/v1/analytics/nightly-recompute/` | Student risk recompute + teacher alerts |
+
+```env
+QSTASH_TOKEN=<token>
+```
+
+---
+
+## Live Classes — LiveKit Cloud
+
+**Provider:** LiveKit Cloud (Mumbai region)  
+**Plan:** Free tier  
+**Features used:** WebRTC rooms, Egress → Cloudflare R2 recording
+
+```env
+LIVEKIT_URL=wss://gyangrit-ld2s7sp2.livekit.cloud
+LIVEKIT_API_KEY=<key>
+LIVEKIT_API_SECRET=<secret>
+LIVEKIT_RECORDING_WEBHOOK_SECRET=<secret>  # for webhook auth (openssl rand -hex 32)
+```
+
+---
+
+## Media Storage — Cloudflare R2
+
+**Provider:** Cloudflare R2  
+**Plan:** Free (10GB storage, 1M Class A ops/month)  
+**Bucket:** `gyangrit-media`  
+**Uses:** Lesson videos, PDFs, thumbnails, live session recordings
+
+```env
+CLOUDFLARE_R2_ACCESS_KEY_ID=<key>
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=<secret>
+CLOUDFLARE_R2_ACCOUNT_ID=<id>
+CLOUDFLARE_R2_BUCKET_NAME=gyangrit-media
+CLOUDFLARE_R2_PUBLIC_URL=https://pub-<hash>.r2.dev   # public CDN URL
+CLOUDFLARE_R2_RECORDINGS_PREFIX=recordings/
+```
+
+---
+
+## Real-time Chat — Ably
+
+**Provider:** Ably  
+**Plan:** Free (6M messages/month)  
+**Uses:** Subject chat rooms, staff channels, official channels  
+**Frontend SDK:** `@ably/react`
+
+```env
+ABLY_API_KEY=<key>
+```
+
+---
+
+## AI — Multi-Provider Fallback Chain
+
+| Priority | Provider | Model | Limit | Cost |
+|---|---|---|---|---|
+| 1 (primary) | Groq | `llama-3.3-70b-versatile` | 30 req/min free | Free |
+| 2 (fallback) | Together AI | `Llama-4-Maverick-17B` | Rate-limited | $25 free credit |
+| 3 (last resort) | Google Gemini | `gemini-2.0-flash` | 15 req/min | Free |
+
+Redis rate limiting: 10 req/min per user (prevents shared quota exhaustion)
+
+```env
+GROQ_API_KEY=gsk_<key>
+TOGETHER_API_KEY=<key>
+GEMINI_API_KEY=AIza<key>
+```
+
+---
+
+## Push Notifications — pywebpush + VAPID
+
+**Library:** `pywebpush`  
+**Implementation:** VAPID key pair stored in env vars  
+
+```bash
+# Generate VAPID keys (one-time setup)
+python manage.py generate_vapid_keys
+```
+
+```env
+VAPID_PUBLIC_KEY=<base64url-key>
+VAPID_PRIVATE_KEY=<base64url-key>
+VAPID_CLAIMS_EMAIL=mailto:admin@gyangrit.site
+```
+
+---
+
+## Error Tracking — Sentry
+
+**Provider:** Sentry  
+**Plan:** Free (5K events/month)  
+**Integration:** Python SDK (backend) + JavaScript SDK (frontend)  
+**Release tracking:** Git SHA injected at deploy time
+
+```env
+SENTRY_DSN=https://<key>@sentry.io/<project-id>
+```
+
+**Sentry project:** `bronze-garden`  
+**42 errors resolved** (all logged in `SENTRY_ERRORS.md`)
+
+---
+
+## Frontend Hosting — Vercel
+
+**Provider:** Vercel  
+**Plan:** Hobby (free)  
+**Build:** `npm run build` (Vite)  
+**Environment variable:** `VITE_API_URL=https://api.gyangrit.site/api/v1`
+
+Deployments triggered on every push to `master` (frontend changes).
 
 ---
 
 ## Total Cost Summary
 
-| Item | Year 1 | Year 2+ |
-|---|---|---|
-| Domain `gyangrit.site` | ~$0.98 | ~$31.98 |
-| Email (Zoho free) | $0 | $0 |
-| Backend (Render free) | $0 | $0 |
-| Frontend (Vercel free) | $0 | $0 |
-| SSL (Vercel + Let's Encrypt) | $0 | $0 |
-| **Total** | **~$1** | **~$32/yr** |
-
----
-
-## Buy Now Checklist
-
-1. Go to https://www.namecheap.com
-2. Search `gyangrit.site`
-3. Add to cart → Checkout
-4. WhoisGuard: ON (free)
-5. Auto-renew: ON
-6. **Skip all upsells** (hosting, SSL, email, VPN — you don't need any of these)
-7. Pay (~$0.98 + $0.20 ICANN fee = ~$1.18)
-8. Go to Domain List → Advanced DNS → add the Vercel records above
-9. Go to Vercel → add `gyangrit.site` domain
-10. Wait 5-30 minutes for DNS propagation
-11. Test: `https://gyangrit.site` should load your app
+| Service | Monthly Cost |
+|---|---|
+| Oracle Cloud VM (A1.Flex ARM64) | $0 (Always Free) |
+| Vercel (frontend) | $0 |
+| Supabase (PostgreSQL) | $0 |
+| Upstash Redis | $0 |
+| Upstash QStash | $0 |
+| Cloudflare R2 (media) | $0 |
+| LiveKit Cloud | $0 |
+| Ably (chat) | $0 |
+| Groq AI | $0 |
+| Gemini AI | $0 |
+| Together AI | $0 (credit) |
+| Zoho Mail | $0 |
+| Sentry | $0 |
+| Domain `gyangrit.site` | ~$2.67/mo (year 2: $32/yr) |
+| **Total** | **~$2.67/mo** |

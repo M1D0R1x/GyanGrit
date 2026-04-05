@@ -78,6 +78,8 @@ backend
 │   │   │   ├── 0001_initial.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── providers.py
+│   │   ├── ratelimit.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   ├── analytics
@@ -89,10 +91,17 @@ backend
 │   │   │       ├── __init__.py
 │   │   │       └── urls.py
 │   │   ├── apps.py
+│   │   ├── management
+│   │   │   ├── __init__.py
+│   │   │   └── commands
+│   │   │       ├── __init__.py
+│   │   │       └── calculate_risk_scores.py
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_alter_engagementevent_event_type_studentriskscore.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── signals.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   ├── assessments
@@ -106,6 +115,7 @@ backend
 │   │   ├── apps.py
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_assessment_ai_generated_assessment_source_lesson_and_more.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── signals.py
@@ -178,6 +188,7 @@ backend
 │   │   ├── apps.py
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_flashcarddeck_ai_generated_and_more.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── tests.py
@@ -242,8 +253,10 @@ backend
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
 │   │   │   ├── 0002_livesession_public_id.py
+│   │   │   ├── 0003_livesession_recording_duration_seconds_and_more.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
+│   │   ├── recording.py
 │   │   ├── tests.py
 │   │   └── views.py
 │   ├── media
@@ -306,6 +319,7 @@ backend
 │   │   ├── base.py
 │   │   ├── dev.py
 │   │   └── prod.py
+│   ├── storage.py
 │   ├── urls.py
 │   └── wsgi.py
 ├── gyangrit_backup.dump
@@ -526,11 +540,14 @@ backend
 │   ├── dev.txt
 │   └── prod.txt
 ├── runtime.txt
-└── templates
-    └── emails
-        ├── notification_email.html
-        ├── otp_email.html
-        └── password_reset_email.html
+├── templates
+│   └── emails
+│       ├── notification_email.html
+│       ├── otp_email.html
+│       └── password_reset_email.html
+└── tmp_scripts
+    ├── test_egress.py
+    └── test_egress2.py
 frontend
 ├── eslint.config.js
 ├── index.html
@@ -559,19 +576,26 @@ frontend
 │   │   ├── AppLayout.tsx
 │   │   ├── BottomNav.tsx
 │   │   ├── ChunkErrorBoundary.tsx
+│   │   ├── DownloadManager.tsx
 │   │   ├── LessonItem.tsx
 │   │   ├── Logo.tsx
 │   │   ├── LogoutButton.tsx
 │   │   ├── NavMenu.tsx
 │   │   ├── NotificationDetailModal.tsx
 │   │   ├── NotificationPanel.tsx
+│   │   ├── OfflineStatusBar.tsx
 │   │   ├── Sidebar.tsx
+│   │   ├── ThemeProvider.tsx
+│   │   ├── ThemeToggle.tsx
 │   │   ├── TopBar.tsx
 │   │   └── Whiteboard.tsx
+│   ├── hooks
+│   │   └── useOffline.ts
 │   ├── index.css
 │   ├── main.tsx
 │   ├── pages
 │   │   ├── AIChatPage.tsx
+│   │   ├── AIToolsPage.tsx
 │   │   ├── AboutPage.tsx
 │   │   ├── AdminAssessmentBuilderPage.tsx
 │   │   ├── AdminChatManagementPage.tsx
@@ -605,9 +629,12 @@ frontend
 │   │   ├── LoginPage.tsx
 │   │   ├── NotificationsPage.tsx
 │   │   ├── OfficialDashboardPage.tsx
+│   │   ├── OfflineDownloadsPage.tsx
 │   │   ├── PrincipalDashboardPage.tsx
 │   │   ├── ProfilePage.tsx
 │   │   ├── PublicPages.css
+│   │   ├── RecordedSessionsPage.tsx
+│   │   ├── RecordingPlayerPage.tsx
 │   │   ├── RegisterPage.tsx
 │   │   ├── ResetPasswordPage.tsx
 │   │   ├── SectionLessonPage.tsx
@@ -626,6 +653,7 @@ frontend
 │   │   └── favicon.svg
 │   ├── services
 │   │   ├── aiAssistant.ts
+│   │   ├── aiTools.ts
 │   │   ├── analytics.ts
 │   │   ├── api.ts
 │   │   ├── assessments.ts
@@ -642,13 +670,16 @@ frontend
 │   │   ├── media.ts
 │   │   ├── notifications.ts
 │   │   ├── offline.ts
+│   │   ├── offlineSync.ts
 │   │   ├── progress.ts
 │   │   ├── push.ts
+│   │   ├── recordings.ts
 │   │   └── teacherAnalytics.ts
 │   ├── types
 │   │   └── excalidraw.d.ts
 │   └── utils
-│       └── slugs.ts
+│       ├── slugs.ts
+│       └── telemetry.ts
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
@@ -667,16 +698,19 @@ docs
 ├── GAMIFICATION.md
 ├── LEARNING_LOOP.md
 ├── LOCAL_SERVER_DEPLOYMENT.md
+├── NGINX_ORACLE_CONFIG.md
 ├── ORACLE_DEPLOYMENT.md
+├── ORACLE_SETUP_COMMANDS.md
 ├── SESSION_HANDOFF.md
 ├── SIGNAL_CHAIN.md
 ├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
 ├── UI_REDESIGN_V4.md
 ├── UI_V4_TRACKING.md
 ├── UPDATE_PROJECT_KNOWLEDGE.md
+├── env_template.txt
 ├── seo
 │   ├── LINK_SHEET.md
 │   └── SEO_STRATEGY.md
 └── tasks_opus4.6.md
 
-100 directories, 580 files
+104 directories, 610 files

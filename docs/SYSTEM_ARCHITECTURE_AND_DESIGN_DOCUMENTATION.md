@@ -1,32 +1,49 @@
 # GyanGrit — System Architecture & Design Documentation
 
+> **Last updated:** April 2026  
+> **Backend:** Oracle Cloud Mumbai (A1 ARM64) · **Frontend:** Vercel  
+> **Production:** https://www.gyangrit.site · https://api.gyangrit.site
+
 ---
 
 ## 1. Introduction
 
-GyanGrit is a role-based digital learning platform for rural government schools in Punjab, India. It delivers structured educational content, tracks learner progress, provides analytics for teachers, principals, and district officials, and motivates students through a gamification layer.
+GyanGrit is a role-based digital learning platform for rural government schools in Punjab, India. It delivers structured educational content, tracks learner progress, provides analytics for teachers and administrators, and motivates students through a gamification layer.
 
-The system is built as a modular web application:
-- **Backend:** Django 4.2 with PostgreSQL (Supabase) in all environments
-- **Frontend:** React 19 + Vite + TypeScript
-- **Authentication:** Django session-based with single-device enforcement
-- **API:** REST under `/api/v1/`
+**Core stack:**
+- **Backend:** Django 4.2 + Python 3.12 on Oracle Cloud Mumbai (ARM64)
+- **Frontend:** React 19 + Vite + TypeScript, deployed on Vercel
+- **Database:** PostgreSQL via Supabase (shared across all environments)
+- **Cache/Sessions:** Upstash Redis (serverless, Mumbai region)
+- **Auth:** Django session-based with single-device enforcement
 
 ---
 
 ## 2. High-Level Architecture
 
 ```
-Browser (React + Vite)
-        ↓  HTTPS + Session Cookie + CSRF Token
-REST API (/api/v1/)
-        ↓
-Django Backend (17 modular apps)
-        ↓
-PostgreSQL (Supabase — all environments)
+Browser (React SPA + PWA)
+        │
+        │ HTTPS + Session Cookie + CSRF Token
+        ▼
+  Cloudflare (DNS + Proxy)
+        │
+        ▼
+  Nginx (Oracle VM, port 443) ← Let's Encrypt SSL
+        │
+        ▼
+  Gunicorn (5 gthread workers, port 8000)
+        │
+        ▼
+  Django Backend (18 apps, /api/v1/)
+        │
+        ├── PostgreSQL (Supabase — Mumbai region)
+        ├── Redis (Upstash — sessions, rate limiting, caching)
+        ├── Cloudflare R2 (media, recordings)
+        └── External APIs (LiveKit, Ably, Groq, Fast2SMS, Zoho)
 ```
 
-The frontend and backend are deployed independently. The frontend is a SPA that communicates exclusively through the versioned REST API. Django templates are used only for the admin panel.
+The frontend is a SPA that communicates exclusively through the versioned REST API. Django templates are used only for the admin panel (`/admin/`).
 
 ---
 
@@ -34,463 +51,301 @@ The frontend and backend are deployed independently. The frontend is a SPA that 
 
 ### 3.1 App Structure
 
-The backend is divided into 17 independent Django apps under `backend/apps/`:
+The backend is divided into 18 independent Django apps under `backend/apps/`:
 
 | App | Responsibility |
 |---|---|
-| `accounts` | Users, authentication, OTP, join codes, device sessions |
+| `accounts` | Users, authentication, OTP, join codes, device sessions, audit log |
 | `academics` | Districts, institutions, classrooms, sections, subjects, teaching assignments |
 | `accesscontrol` | Role-based permission decorators and queryset scoping |
-| `content` | Courses, lessons, section lessons, lesson progress, teacher analytics |
-| `learning` | Enrollments, learning paths, student dashboard |
-| `assessments` | Assessments, questions, options, attempts, scoring, assessment builder |
+| `content` | Courses, lessons, section lessons, lesson progress, batch progress, teacher analytics |
+| `learning` | Enrollments, learning paths |
+| `assessments` | Assessments, questions, options, attempts, scoring, AI generator |
 | `roster` | Bulk student pre-registration via Excel upload |
 | `gamification` | Points, badges, streaks, leaderboard |
-| `notifications` | In-app + browser push notification delivery |
-| `media` | Cloudflare R2 media management (presigned upload/delete URLs) |
-| `ai_assistant` | Gemini 2.0 Flash powered curriculum AI tutor |
+| `notifications` | In-app + browser push notification delivery (VAPID/pywebpush) |
+| `media` | Cloudflare R2 presigned upload/delete URL management |
+| `ai_assistant` | Multi-provider AI tutor (Groq → Together → Gemini) |
 | `chatrooms` | Real-time messaging via Ably (subject, staff, officials rooms) |
 | `competitions` | Live quiz competition rooms with real-time scoring |
-| `flashcards` | Spaced-repetition flashcard decks (SM-2 algorithm) |
+| `flashcards` | Spaced-repetition flashcard decks (SM-2 algorithm), AI generator |
 | `gradebook` | Term-based marks, categories (oral/practical/test), class-level reporting |
-| `livesessions` | LiveKit WebRTC live class sessions with attendance tracking |
+| `livesessions` | LiveKit WebRTC live class sessions, attendance, Egress recording |
+| `analytics` | Student risk scores, engagement events, nightly recompute, teacher alerts |
 
 Each app owns its domain completely. Cross-app access goes through model relationships and signals — never through direct view imports.
 
 ---
 
-### 3.2 Accounts App
-
-**Models:**
-- `User` — extends `AbstractUser` with `role`, `institution`, `section`, `district`, `public_id`
-- Extended name fields: `first_name`, `middle_name`, `last_name` (all required except middle)
-- Contact fields: `email` (required), `mobile_primary` (required), `mobile_secondary` (optional)
-- `JoinCode` — pre-generated codes that lock role and institution on registration
-- `OTPVerification` — 6-digit codes for non-student login verification
-- `DeviceSession` — stores session key to enforce single-device policy
-- `StudentRegistrationRecord` — pre-loaded student records for self-registration
-- `AuditLog` — tracks sensitive operations
-
-**Role hierarchy:**
-```
-ADMIN (5) > OFFICIAL (4) > PRINCIPAL (3) > TEACHER (2) > STUDENT (1)
-```
+### 3.2 Authentication & Session Management
 
 **Login flows:**
-- STUDENT / ADMIN: direct session login, no OTP
-- TEACHER / PRINCIPAL / OFFICIAL: OTP verification required after credentials
+- `STUDENT` / `ADMIN`: direct session login, no OTP
+- `TEACHER` / `PRINCIPAL` / `OFFICIAL`: password → OTP (email or SMS via Fast2SMS)
 
 **Single-device enforcement:**
-`SingleActiveSessionMiddleware` runs on every authenticated request. It compares the current session key against the stored `DeviceSession`. If they differ, the old session is terminated.
+`SingleActiveSessionMiddleware` compares the current session key against the stored `DeviceSession` on every authenticated request. A new login from another device terminates the previous session immediately.
+
+**Session storage:** Redis (Upstash) via `django-redis`. All sessions are stored server-side and can be revoked instantly.
+
+**CSRF:** Every frontend POST/PATCH/DELETE sends an `X-CSRFToken` header read from the `gyangrit_csrftoken` cookie. The `GET /api/v1/accounts/csrf/` endpoint seeds the cookie on app mount.
 
 ---
 
-### 3.3 Academics App
+### 3.3 Permission System
 
-**Models:**
-- `District` → `Institution` → `ClassRoom` → `Section` (hierarchy)
-- `Subject` (global — not institution-scoped)
-- `ClassSubject` — which subjects are taught in which classroom
-- `StudentSubject` — which subjects a student is enrolled in
-- `TeachingAssignment` — teacher × subject × section
-
-**Seeding:**
-All 23 Punjab districts, ~46 government schools, and 12 subjects are seeded automatically via a `post_migrate` signal in `AcademicsConfig.ready()`.
-
-The `seed_punjab` management command creates classrooms and sections on top of the seeded base data.
-
----
-
-### 3.4 AccessControl App
-
-Two components:
-
-**`permissions.py`** — view-level decorators:
-- `@require_auth` — blocks unauthenticated requests (401)
-- `@require_roles(["TEACHER", "ADMIN"])` — blocks insufficient roles (403)
-
-**`scoped_service.py`** — queryset-level data scoping:
-- `scope_queryset(user, queryset)` — filters queryset to user's visible scope
-- `get_scoped_object_or_403(user, queryset, **lookup)` — scoped single object fetch
-
-Scoping rules:
-- ADMIN / superuser → unrestricted
-- OFFICIAL → district scope (via `DISTRICT_SCOPE_MAP`)
-- PRINCIPAL / TEACHER / STUDENT → institution scope (via `INSTITUTION_SCOPE_MAP`)
-
-The scope maps use explicit ORM traversal strings (e.g., `"classroom__institution"`) rather than field introspection, to avoid silent data leakage on models with nested FK chains.
-
-This is a **pure library app** — no endpoints, no URL mount. Only imported by other apps.
-
----
-
-### 3.5 Content App
-
-**Models:**
-- `Course` — belongs to a Subject and grade. One course per (subject, grade) — 60 total.
-- `Lesson` — ordered within a course, supports text + video + HLS + PDF
-- `LessonProgress` — tracks completion and last position per user per lesson
-- `SectionLesson` — teacher-added supplementary lessons, linked to a course and section
-
-**Design decisions:**
-- Course-level progress is **derived**, not stored. Computed from `LessonProgress` counts at request time.
-- `lesson_detail` returns `completed` and `last_position` inline — no separate progress GET endpoint needed by frontend.
-- `mark_opened()` is called on lesson open to enable resume logic.
-- `SectionLesson` allows TEACHER and PRINCIPAL to add content within their scope without touching the curriculum. Displayed merged with curriculum lessons in the lesson list.
-
-**Slug resolution endpoint:**
-`GET /api/v1/courses/by-slug/?grade=10&subject=punjabi` resolves human-readable URL slugs back to a course ID. Used by the frontend when navigating to `/courses/:grade/:subject`.
-
----
-
-### 3.6 Assessments App
-
-**Models:**
-- `Assessment` — belongs to a Course; has `total_marks` (auto-computed from questions)
-- `Question` — ordered within an assessment, has mark weight
-- `QuestionOption` — one correct option per question (enforced by `clean()`)
-- `AssessmentAttempt` — tracks selected options, score, and pass/fail
-
-**Scoring:**
-`calculate_score_and_pass()` fetches all selected options in a single query and sums marks for correct ones. This is a set-based query — no N+1.
-
-`total_marks` is kept up-to-date via `post_save` and `post_delete` signals on `Question`.
-
-**Security:** `is_correct` is never sent to the frontend in any student-facing API response. The builder endpoint (`/admin/`) returns it exclusively for TEACHER, PRINCIPAL, and ADMIN.
-
-**Role access:** TEACHER and PRINCIPAL can create and manage assessments for courses within their subject scope.
-
----
-
-### 3.7 Learning App
-
-**Models:**
-- `Enrollment` — user × course, with status (`enrolled`, `completed`, `dropped`)
-- `LearningPath` — named collection of courses
-- `LearningPathCourse` — ordered course within a path
-
-**Auto-enrollment:** Handled by signals. See Section 4.
-
----
-
-### 3.8 Roster App
-
-Service-based architecture. No models — uses `StudentRegistrationRecord` from accounts.
-
-- `process_roster_upload()` — parses Excel, validates rows, creates registration records
-- `list_registration_records()` — scoped record listing
-- `regenerate_student_code()` — generates new code for unregistered student
-
-Returns per-row skip reasons so teachers can diagnose upload failures.
-
----
-
-### 3.9 Gamification App
-
-**Models:**
-- `PointEvent` — immutable append-only ledger of every point award. Never updated — only inserted.
-- `StudentPoints` — denormalized running total per student. Updated atomically by signals using `select_for_update`.
-- `StudentBadge` — earned badge per student. Unique per `(user, badge_code)`.
-- `StudentStreak` — daily activity streak tracking (`current_streak`, `longest_streak`, `last_activity_date`).
-
-**Design decisions:**
-- `PointEvent` is a ledger, not a counter. This gives a full audit trail and prevents double-awarding. Before awarding, signals check if a `PointEvent` already exists for the same `(user, reason, lesson_id/assessment_id)` combination.
-- `StudentPoints.total_points` is a denormalized cache. Updated atomically with `select_for_update` to prevent race conditions on the same row.
-- All signal handlers are wrapped in `try/except` — a gamification failure **never blocks lesson completion or assessment submission**.
-- Streak uses `date` (not `datetime`) to prevent timezone-related double-counting within a single day.
-
-**Points awarded:**
-| Reason | Points |
-|---|---|
-| `lesson_complete` | 10 |
-| `assessment_attempt` | 5 |
-| `assessment_pass` | 25 |
-| `perfect_score` | 50 |
-| `streak_3` | 15 |
-| `streak_7` | 50 |
-
-**Badges:** `first_lesson`, `lesson_10`, `lesson_50`, `first_pass`, `perfect_score`, `streak_3`, `streak_7`, `points_100`, `points_500`.
-
----
-
-### 3.10 Notifications App
-
-**Models:**
-- `Broadcast` — the send event: sender, subject, message, audience_type, audience_label, attachment_url, attachment_name, recipient_count, sent_at
-- `Notification` — one row per recipient per broadcast. Tracks `is_read` per user.
-
-**Design (fanout-on-write):** One broadcast creates N notification rows — one per recipient. Each user's read state is tracked independently. This is the correct pattern at GyanGrit's scale.
-
-**Audience types:** CLASS_STUDENTS, CLASS_TEACHERS, CLASS_ALL, SCHOOL_STUDENTS, SCHOOL_TEACHERS, SCHOOL_ALL, DISTRICT_STUDENTS, DISTRICT_TEACHERS, DISTRICT_PRINCIPALS, DISTRICT_ALL, SYSTEM.
-
-**SYSTEM broadcasts** include the sender — admin receives their own system announcements.
-
-**Delivered via polling** (30s interval + visibilitychange). No WebSocket required at this scale.
-
-**Attachments:** Files uploaded to Cloudflare R2 under `notification-files/` folder with sanitised name + 6-char hex suffix. PDFs viewed via Google Docs viewer (bypasses `Content-Disposition: attachment`). Markdown rendered via `marked` + `DOMPurify`.
-
----
-
-### 3.11 Media App
-
-Handles Cloudflare R2 presigned upload and delete URLs. No database models — purely a pass-through service between the frontend and R2.
-
-- `r2.py` — generates presigned PUT and DELETE URLs using `boto3` with an R2-compatible endpoint.
-- `sanitize_filename()` — unicode→ASCII, lowercase, hyphens, 6-char hex collision guard.
-- `FOLDER_NOTIFICATIONS = "notification-files"` — dedicated folder for notification attachments.
-
----
-
-## 4. Signal Architecture
-
-Signals handle automatic assignment, enrollment, and gamification. Each app owns its domain:
-
-```
-User.post_save (new STUDENT)
-    → academics/signals.py: auto_assign_subjects()
-        creates StudentSubject for each ClassSubject in classroom
-            → learning/signals.py: auto_enroll_core_courses()
-                creates Enrollment for each is_core=True Course
-
-ClassSubject.post_save (new subject added to classroom)
-    → academics/signals.py: auto_assign_students_for_new_class_subject()
-        creates StudentSubject for existing students
-            → learning/signals.py: auto_enroll_core_courses()
-                creates Enrollment for each is_core=True Course
-
-Question.post_save / Question.post_delete
-    → assessments/signals.py: update_total_marks_on_save/delete()
-        calls assessment.recalculate_total_marks()
-
-LessonProgress.post_save (completed = True, first time)
-    → gamification/signals.py: on_lesson_progress_save()
-        awards +10 pts, updates streak, checks streak bonuses, checks badges
-
-AssessmentAttempt.post_save (submitted_at just set)
-    → gamification/signals.py: on_assessment_attempt_save()
-        awards +5 attempt, +25 pass (if passed), +50 perfect (if 100%)
-        updates streak, checks streak bonuses, checks badges
-```
-
-See `docs/SIGNAL_CHAIN.md` for the complete diagram including guards and deduplication logic.
-
----
-
-## 5. Frontend Architecture
-
-### 5.1 Technology Stack
-
-- React 19 with TypeScript
-- Vite for build and dev server
-- React Router v6 for client-side routing
-- CSS custom properties (design system in `src/index.css`)
-- No UI component library — all components are custom
-
-### 5.2 Design System
-
-All visual tokens are defined as CSS custom properties in `src/index.css` (~1600 lines):
-
-- **Colors:** `--bg-base`, `--bg-surface`, `--bg-elevated`, `--text-primary`, `--brand-primary`, etc.
-- **Role colors:** `--role-student` (blue), `--role-teacher` (emerald), `--role-principal` (amber), `--role-official` (violet), `--role-admin` (rose)
-- **Typography:** `Sora` (display/headings) + `DM Sans` (body)
-- **Spacing scale:** `--space-1` through `--space-16`
-- **Animations:** `shimmer` (skeleton loading), `fadeInUp` (page entry), `spin` (loaders)
-
-The design system is extended, never replaced. No Tailwind, no styled-components, no CSS modules.
-
-### 5.3 Authentication Flow
-
-```
-App mount
-    → initCsrf() — seeds gyangrit_csrftoken cookie
-    → apiGet("/accounts/me/") — checks session
-    → AuthContext stores UserProfile (id, username, role, institution, section, district, ...)
-
-Route access
-    → RequireRole checks auth.loading, auth.authenticated, roleRank
-    → Redirects to /login or shows 403 screen
-    → RoleBasedRedirect routes authenticated users to role-appropriate dashboard
-```
-
-`AuthContext` stores the full `UserProfile` object. Pages read `auth.user.institution`, `auth.user.district` etc directly — no extra API calls needed per page.
-
-### 5.4 URL Slug System
-
-Student-facing course and assessment URLs use human-readable slugs instead of numeric IDs.
-
-**Course detail:** `/courses/:grade/:subject` e.g. `/courses/10/punjabi`, `/courses/8/social-studies`
-**Assessment detail:** `/assessments/:grade/:subject/:id` e.g. `/assessments/10/punjabi/5`
-
-The slug helper lives in `src/utils/slugs.ts`:
-- `toSlug(name)` — normalises a subject name to a URL slug (lowercase, hyphens, strip non-alphanumeric)
-- `courseDetailPath(grade, subjectName)` — builds the course URL
-- `assessmentPath(grade, subjectName, id)` — builds the assessment URL
-
-The backend `course_by_slug` endpoint resolves grade+slug → courseId when a page loads.
-
-### 5.5 Component Architecture
-
-```
-src/
-├── auth/
-│   ├── AuthContext.tsx       — UserProfile state, refresh()
-│   ├── authTypes.ts          — Role, UserProfile, AuthState, ROLE_PATHS
-│   ├── RequireRole.tsx       — Auth + role guard with loading/403 screens
-│   └── RoleBasedRedirect.tsx — Post-login role routing
-├── components/
-│   ├── BottomNav.tsx         — Mobile bottom navigation (student-only, 5 tabs)
-│   ├── LessonItem.tsx        — Accessible lesson row with completion state
-│   ├── Logo.tsx              — GyanGrit wordmark
-│   ├── LogoutButton.tsx      — Calls logout endpoint then navigates
-│   ├── NotificationPanel.tsx — Slide-in notification panel (bell dropdown)
-│   ├── NotificationDetailModal.tsx — Full notification view with Markdown + attachment
-│   └── TopBar.tsx            — Sticky nav with user avatar, role badge, notification bell
-├── pages/                    — One file per route (38 pages)
-├── services/                 — One file per API domain (19 files)
-├── utils/
-│   └── slugs.ts              — URL slug helpers
-└── app/
-    └── router.tsx            — All routes with Protected() wrapper + lazy loading
-```
-
-### 5.6 Route Protection
-
-All non-public routes use the `Protected` wrapper:
-
-```tsx
-function Protected({ role, children }) {
-  return (
-    <RequireRole role={role}>
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
-    </RequireRole>
-  );
-}
-```
-
-This combines auth enforcement + lazy loading + consistent loading UI in one place.
-
-### 5.7 API Layer
-
-All API calls go through `src/services/api.ts`:
-- `apiGet<T>(path)` — GET with session cookie
-- `apiPost<T>(path, body)` — POST with CSRF token
-- `apiPatch<T>(path, body)` — PATCH with CSRF token
-- `apiDelete<T>(path)` — DELETE with CSRF token
-- `initCsrf()` — seeds CSRF cookie on mount
-
-CSRF token is read from `gyangrit_csrftoken` cookie (renamed from Django's default to avoid collision with the admin panel cookie).
-
-### 5.8 Bottom Navigation (Student-only)
-
-Students have a 5-tab bottom navigation bar on mobile:
-
-| Tab | Route | Icon |
-|---|---|---|
-| Home | `/dashboard` | House |
-| Courses | `/courses` (also active for `/lessons`, `/learning`) | Book |
-| Tests | `/assessments` (also active for `/assessment-result`) | Checkmark |
-| Ranks | `/leaderboard` | Bar chart |
-| Profile | `/profile` | Person |
-
-Hidden on screens wider than 640px (`@media (min-width: 641px)`). Pages using BottomNav add `has-bottom-nav` to `<main>` to add bottom padding.
-
----
-
-## 6. Data Scoping Architecture
-
-Data visibility is enforced at two layers:
-
-**Layer 1 — View decorators** (`accesscontrol/permissions.py`)
-Answers: "Can this user access this endpoint?"
-
-**Layer 2 — Queryset scoping** (`accesscontrol/scoped_service.py`)
-Answers: "What data can this user see?"
-
-The scope maps define ORM traversal paths for every model:
+`apps/accesscontrol/permissions.py` provides decorator-based guards:
 
 ```python
-INSTITUTION_SCOPE_MAP = {
-    "Course": "subject__classrooms__classroom__institution",
-    "Lesson": "course__subject__classrooms__classroom__institution",
-    "Section": "classroom__institution",
-    # ...
-}
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_http_methods(["POST"])
+def create_lesson(request, course_id):
+    ...
 ```
 
-Any model not in the map is treated as globally readable (e.g. `Subject`, `District`).
+`scope_queryset(request.user, queryset)` applies ORM-level filters based on role:
+- `STUDENT` → only their section's content
+- `TEACHER` → only their assigned classrooms/subjects
+- `PRINCIPAL` → only their institution
+- `OFFICIAL` → only their district
+- `ADMIN` → no filter (full access)
 
 ---
 
-## 7. Security
-
-| Concern | Implementation |
-|---|---|
-| Authentication | Django session cookies (HttpOnly) |
-| CSRF | Custom cookie name `gyangrit_csrftoken`, verified on all POST/PATCH/DELETE |
-| Single device | `SingleActiveSessionMiddleware` + `DeviceSession` model |
-| Role enforcement | `@require_roles()` decorator on all protected views |
-| Data scoping | `scope_queryset()` on all list endpoints |
-| OTP brute force | 5-attempt limit, 10-minute expiry |
-| Correct answers | `is_correct` never sent in any student-facing API response |
-| Session age | `SESSION_COOKIE_AGE = 3600` (1 hour), extended on every request |
-| Gamification | Point deduplication via `PointEvent` ledger — double-awarding is impossible |
-| Attachment names | `os.path.basename()` + null-byte strip + 100-char cap server-side |
-
----
-
-## 8. Settings Structure
+### 3.4 Settings Architecture
 
 ```
 backend/gyangrit/settings/
-├── base.py    — shared config, database URL parsing, middleware stack
-├── dev.py     — DEBUG=True, localhost CORS, renamed cookies, 1hr session
-└── prod.py    — HTTPS flags, locked CORS, Supabase PostgreSQL, WhiteNoise
+├── base.py    # Shared — DB, cache, installed apps, Sentry, email, LiveKit
+├── dev.py     # Local — DEBUG=True, no SSL, SQLite fallback disabled
+└── prod.py    # Oracle — HTTPS redirect, HSTS, RelaxedManifest, ALLOWED_HOSTS
 ```
 
-Cookie names are renamed to prevent collision between the Django admin session and the GyanGrit frontend session:
+**`gyangrit/storage.py`** — Custom storage class:
 ```python
-SESSION_COOKIE_NAME = "gyangrit_sessionid"
-CSRF_COOKIE_NAME    = "gyangrit_csrftoken"
+class RelaxedManifestStaticFilesStorage(CompressedManifestStaticFilesStorage):
+    manifest_strict = False  # Prevents 500 on missing unfold statics between deploys
 ```
 
 ---
 
-## 9. Database
+### 3.5 Gunicorn Configuration
 
-**All environments:** PostgreSQL via Supabase.
-
-`DATABASE_URL` is always read from environment variables — never hardcoded.
-
-Production-specific requirements:
-- `DISABLE_SERVER_SIDE_CURSORS = True` — required for pgBouncer transaction-mode pooling (Supabase pooler)
-- `sslmode=require` on all connections
-- Standard `psycopg2` + Django ORM only — no Supabase-specific client libraries
+`backend/gunicorn.conf.py`:
+- **Workers:** 5 (`gthread` worker class)
+- **Threads:** 2 per worker
+- **`max_requests=500` + `max_requests_jitter=50`** — Workers recycle after 500 requests to prevent memory leaks
+- **`timeout=60`** — Prevents zombie workers on slow DB queries
+- **`bind=127.0.0.1:8000`** — Only accessible through Nginx
 
 ---
 
-## 10. Deployment Notes
+### 3.6 AI Provider Chain
 
-See `docs/DEPLOYMENT.md` for full setup instructions.
+`apps/ai_assistant/views.py` uses a cascading fallback:
 
-Quick summary:
-- Backend: `DJANGO_SETTINGS_MODULE=gyangrit.settings.prod`, served via `gunicorn`
-- Frontend: `npm run build` → serve `dist/` via CDN or static host (Vercel/Netlify/Cloudflare Pages)
-- Database: Supabase PostgreSQL (managed)
-- Static files: WhiteNoise middleware (`collectstatic` required before deploy)
-- Environment: `SECRET_KEY`, `DATABASE_URL` in environment variables — never in code
+```
+Request → Groq (llama-3.3-70b, 30 req/min free)
+            ↓ 429 / timeout
+        → Together AI (Llama-4-Maverick-17B, $25 free credit)
+            ↓ 429 / timeout
+        → Gemini 2.0 Flash (15 req/min free, last resort)
+            ↓ exhausted
+        → Error response (user informed)
+```
+
+Redis rate limiting (10 req/min per user) prevents one student from exhausting the shared Groq quota.
 
 ---
 
-## 11. Design Principles
+### 3.7 Analytics App
 
-- **Separation of concerns** — each app owns its domain completely
-- **Single source of truth** — progress is derived, not duplicated; gamification points are ledger-based
-- **Explicit scoping** — data visibility is enforced at the queryset level, not assumed
-- **Defensive validation** — `clean()` methods on all models with business rules
-- **Signal-driven automation** — enrollment, assignment, and gamification happen via signals, not in views
-- **No silent failures** — every error is logged with context; bare `except` clauses are prohibited
-- **Production-safe code** — no `print()`, no hardcoded secrets, no partial patches
-- **Non-blocking gamification** — all gamification signals are wrapped in `try/except` to never block core learning flows
-- **Human-readable URLs** — course and assessment URLs use grade+subject slugs, not numeric IDs
+`apps/analytics/` provides:
+
+**Models:**
+- `EngagementEvent` — records user actions (login, lesson completion, assessment pass/fail, etc.)
+- `StudentRiskScore` — risk score (0–100) per student with tier: `on_track` / `needs_attention` / `at_risk` / `critical`
+
+**Nightly recompute:** QStash calls `POST /api/v1/analytics/nightly-recompute/` at 2:00 AM UTC. This recalculates risk scores for all students and sends in-app alerts to teachers when a student transitions into `at_risk` or `critical`.
+
+**Risk formula (weighted signals):**
+- Login recency (weight: 0.3)
+- Assessment score trend (weight: 0.3)
+- Lesson completion rate (weight: 0.2)
+- Live session attendance (weight: 0.2)
+
+---
+
+## 4. Database
+
+### 4.1 Provider
+
+PostgreSQL on Supabase (shared across dev and prod). No SQLite fallback in any environment.
+
+**Connection:** `DATABASE_URL` env var, parsed by `dj-database-url`.  
+**Pooling:** `CONN_MAX_AGE=60` — safe with gthread workers and same-region DB.
+
+### 4.2 Key Design Decisions
+
+**Derived progress** — Course completion % is computed at request time from `LessonProgress` counts. Never stored as a separate field — eliminates staleness bugs.
+
+**Batch course progress** — `/api/v1/courses/progress/batch/?ids=1,2,3` resolves N courses in 2 DB queries (lessons fetch + progress fetch). Dashboard uses this instead of N individual calls.
+
+**Ledger-based gamification** — Points stored as immutable `PointEvent` records, aggregated into `StudentPoints`. Double-awarding is architecturally impossible.
+
+**Denormalised `district` on User** — Avoids a join on every analytics query. Always synced by `User.save()`.
+
+---
+
+## 5. Caching (Redis / Upstash)
+
+| Use | TTL | Key pattern |
+|---|---|---|
+| Django sessions | `SESSION_COOKIE_AGE` | Django default |
+| System stats | 60s | `system_stats` |
+| Leaderboard (future) | 5 min | `leaderboard:{section_id}` |
+
+**Provider:** Upstash Redis (serverless, pay-per-command, Mumbai region).  
+**Django integration:** `django-redis` backend configured in `prod.py`.
+
+---
+
+## 6. Frontend Architecture
+
+### 6.1 Tech Stack
+
+- **React 19** + **TypeScript** + **Vite**
+- **React Router v6** — client-side routing with lazy-loaded pages
+- **Custom CSS** — Obsidian glassmorphism design system v3 (no Tailwind, no UI library)
+- **PWA** — Service worker caching, IndexedDB offline storage
+
+### 6.2 Directory Structure
+
+```
+frontend/src/
+├── auth/          AuthContext, role guards, Protected wrapper
+├── components/    TopBar, BottomNav, Sidebar, NotificationPanel, etc.
+├── pages/         50 route pages (lazy-loaded)
+├── services/      api.ts + 23 domain service files
+├── utils/         slugs, date helpers, offline utilities
+└── app/           router.tsx (95+ routes)
+```
+
+### 6.3 API Service Layer
+
+All API calls go through `src/services/api.ts`:
+- Session cookies: `credentials: "include"` on every request
+- CSRF: `X-CSRFToken` header from `gyangrit_csrftoken` cookie
+- Relative paths only — base URL from `VITE_API_URL` env var
+
+Service files per domain:
+`content.ts`, `assessments.ts`, `analytics.ts`, `livesessions.ts`, `notifications.ts`, `gamification.ts`, `flashcards.ts`, `gradebook.ts`, `chatrooms.ts`, `competitions.ts`, `courseProgress.ts`, etc.
+
+### 6.4 Key Frontend Pages
+
+| Route | Component | Role |
+|---|---|---|
+| `/dashboard` | `DashboardPage` | STUDENT |
+| `/courses/:grade/:subject` | `LessonsPage` | STUDENT |
+| `/live/:sessionId` | `LivePage` | STUDENT |
+| `/teacher/dashboard` | `TeacherDashboardPage` | TEACHER |
+| `/teacher/ai-tools` | `AIToolsPage` | TEACHER |
+| `/principal/dashboard` | `PrincipalDashboardPage` | PRINCIPAL |
+| `/official/dashboard` | `OfficialDashboardPage` | OFFICIAL |
+| `/admin/live` | `AdminLiveSessionsPage` | ADMIN/TEACHER/PRINCIPAL |
+| `/admin-panel` | `AdminContentPage` | ADMIN |
+| `/notifications` | `NotificationsPage` | ALL |
+| `/chat` | `ChatPage` | ALL |
+| `/competitions` | `CompetitionsPage` | ALL |
+| `/downloads` | `OfflineDownloadsPage` | STUDENT |
+
+---
+
+## 7. Infrastructure
+
+### 7.1 Oracle Cloud VM
+
+- **Shape:** A1.Flex (ARM64 / aarch64)
+- **OS:** Ubuntu 24.04 LTS
+- **IP:** 161.118.168.247
+- **Domain:** `api.gyangrit.site` (A record → 161.118.168.247)
+- **SSL:** Let's Encrypt via Certbot (auto-renew)
+- **Path:** `/opt/gyangrit/`
+
+### 7.2 Systemd Service
+
+```ini
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/gyangrit/backend
+ExecStart=/opt/gyangrit/backend/venv/bin/gunicorn gyangrit.wsgi:application -c gunicorn.conf.py
+Restart=always
+RestartSec=3
+```
+
+### 7.3 Nginx Configuration
+
+Nginx listens on 443 (SSL termination) and proxies to Gunicorn on `127.0.0.1:8000`. Passes `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers.
+
+Static files served by WhiteNoise (Nginx bypass).
+
+### 7.4 CI/CD (GitHub Actions)
+
+`.github/workflows/deploy.yml`:
+1. Lint job — `python manage.py check --fail-level WARNING`
+2. SSH deploy — git pull → pip install → migrate → collectstatic → systemctl reload
+3. 3-attempt health check against `http://127.0.0.1:8000/api/v1/health/`
+4. Auto-rollback with `trap ERR` if any step fails
+5. `concurrency: production-deploy` prevents parallel deploys
+
+---
+
+## 8. External Services
+
+| Service | Purpose | Free Tier |
+|---|---|---|
+| Supabase | PostgreSQL | Free (500MB) |
+| Upstash Redis | Sessions, rate limiting, cache | Free (10K cmds/day) |
+| Upstash QStash | Cron jobs (health + nightly analytics) | Free (500 msg/day) |
+| Vercel | Frontend hosting | Free (Hobby) |
+| Oracle Cloud | Backend VM (A1.Flex) | Always Free |
+| Cloudflare R2 | Media + recordings storage | Free (10GB) |
+| LiveKit Cloud | WebRTC live classes + recording | Free tier |
+| Ably | Real-time chat WebSocket | Free (6M msgs/month) |
+| Sentry | Error tracking | Free (5K events/month) |
+| Groq | AI primary (llama-3.3-70b) | Free (30 req/min) |
+| Together AI | AI fallback | $25 free credit |
+| Google Gemini | AI last resort | Free (15 req/min) |
+| Fast2SMS | SMS OTP (India) | Pay-per-SMS |
+| Zoho Mail | Transactional email | Free (5 users) |
+
+---
+
+## 9. Security
+
+- **HTTPS-only** — `SECURE_SSL_REDIRECT=True`, `HSTS` enabled with `includeSubdomains`
+- **Session-based auth** — revocable server-side, no JWT
+- **Single-device enforcement** — middleware-level, not just application-level
+- **CSRF** — token required on all state-changing requests
+- **ALLOWED_HOSTS** — strict list; `127.0.0.1`/`localhost` included for health checks
+- **CORS** — restricted to `https://gyangrit.site` and `https://www.gyangrit.site`
+- **Role queryset scoping** — ORM-level filters, data can never leak between roles
+- **OTP verification** — required for all staff logins; 6-digit codes, single-use
+
+---
+
+## 10. Architecture Decision Records
+
+| ADR | Decision | Rationale | Date |
+|---|---|---|---|
+| ADR-001 | Groq primary AI, Gemini last resort | Groq: 30 req/min vs Gemini: 15 req/min shared quota | 2026-04-03 |
+| ADR-002 | LiveKit Egress for recording | No extra VM load; LiveKit Cloud handles encoding | 2026-04-03 |
+| ADR-003 | Redis rate limiting not `sleep()` | `sleep()` blocks gthread workers; Redis is non-blocking | 2026-04-03 |
+| ADR-004 | `conn_max_age=60` | Safe with gthread + same-region DB (Mumbai–Mumbai) | 2026-04-03 |
+| ADR-005 | Session-based auth over JWT | Server-side revocation needed for single-device enforcement | 2026-03-01 |
+| ADR-006 | ARM64 wheels on Oracle A1 | A1.Flex is aarch64; x86 wheels fail silently with SIGILL | 2026-04-03 |
+| ADR-007 | `RelaxedManifestStaticFilesStorage` | `CompressedManifestStaticFilesStorage` strict mode causes admin 500 on unfold updates | 2026-04-05 |
+| ADR-008 | R2 public bucket for recordings | Presigned URLs add 50ms per list request; public bucket is zero-latency | 2026-04-04 |
+| ADR-009 | Batch course progress endpoint | Dashboard made N individual progress calls; batch does it in 2 DB queries | 2026-04-05 |
+| ADR-010 | QStash for cron (not Celery Beat) | No additional Celery worker process needed; Oracle VM is memory-constrained | 2026-04-04 |
+| ADR-011 | `max_requests=500` on gunicorn | Recycles workers to prevent memory leaks from boto3 / large analytics operations | 2026-04-04 |

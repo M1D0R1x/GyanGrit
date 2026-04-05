@@ -3,14 +3,14 @@
  *
  * Strategy:
  *   - App shell (HTML, CSS, JS, fonts) → Cache First (install + precache)
- *   - API calls (cross-origin to Render) → Network Only (no caching)
+ *   - API calls (cross-origin to api.gyangrit.site) → Network Only (no caching)
  *     Session cookies + CSRF make API caching dangerous in this architecture.
  *   - Static assets (images, icons) → Cache First with background update
  *   - Navigation → SPA shell (serve index.html)
  *   - Everything else → Network First
  *
- * IMPORTANT: The API is cross-origin (gyangrit.onrender.com) while the frontend
- * is on gyan-grit.vercel.app. We identify API calls by hostname, not pathname.
+ * IMPORTANT: The API is on api.gyangrit.site while the frontend
+ * is on gyangrit.site (Vercel). We identify API calls by hostname.
  *
  * Cache names are versioned. Bump CACHE_VERSION on each deploy to
  * force old caches to be replaced.

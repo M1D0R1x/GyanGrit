@@ -121,8 +121,8 @@ class TestAblyTokenCapability:
             data=json.dumps({"channel_type": "chat"}),
             content_type="application/json",
         )
-        # 200 if Ably key is configured, 500 if not
-        assert resp.status_code in (200, 500)
+        # 200 if Ably key is configured, 500/503 if not
+        assert resp.status_code in (200, 500, 503)
 
     def test_anon_token_blocked(self, anon_client):
         resp = anon_client.post(

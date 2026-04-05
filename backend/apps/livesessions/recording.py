@@ -74,7 +74,7 @@ def build_r2_key(session) -> str:
     institution_id = getattr(section, "institution_id", "0")
     grade          = getattr(section, "grade", "")
     section_name   = getattr(section, "name", str(section.id))
-    subject_name   = subject.name if subject else "General"
+    subject_name   = _slugify(subject.name if subject else "General")
 
     # Use started_at (IST) if available, otherwise scheduled_at
     ts = session.started_at or session.scheduled_at
@@ -84,7 +84,9 @@ def build_r2_key(session) -> str:
     time_str = ts_ist.strftime("%H-%M")
 
     slug = _slugify(session.title)
-    grade_section = f"{grade}-{section_name}" if grade else section_name
+    grade_str = _slugify(grade) if grade else ""
+    section_slug = _slugify(section_name) if section_name else "section"
+    grade_section = f"{grade_str}-{section_slug}" if grade_str else section_slug
 
     prefix = getattr(settings, "CLOUDFLARE_R2_RECORDINGS_PREFIX", "recordings/").rstrip("/")
     return (

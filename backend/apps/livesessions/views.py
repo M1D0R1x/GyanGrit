@@ -35,6 +35,10 @@ import time
 import uuid
 from datetime import timedelta
 
+import jwt as pyjwt  # PyJWT — used by _make_livekit_token and _delete_livekit_room
+
+import requests as http_requests
+from django.conf import settings
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -58,9 +62,6 @@ def _make_livekit_token(room_name: str, identity: str, name: str,
     can_publish      = True for everyone (mic, camera, screenshare)
     can_publish_data = True only for teachers (whiteboard/chat data channel)
     """
-    from django.conf import settings
-    import jwt as pyjwt
-
     api_key    = settings.LIVEKIT_API_KEY
     api_secret = settings.LIVEKIT_API_SECRET
     now        = int(time.time())
@@ -198,20 +199,16 @@ def _delete_livekit_room(room_name: str) -> None:
     All participants receive a Disconnected event and are forcibly removed.
     Called by session_end so students are auto-kicked instead of staying in the room.
     """
-    import requests as _req
-    from django.conf import settings as _s
-
-    api_key    = getattr(_s, "LIVEKIT_API_KEY", "")
-    api_secret = getattr(_s, "LIVEKIT_API_SECRET", "")
-    livekit_url = getattr(_s, "LIVEKIT_URL", "")
+    api_key    = getattr(settings, "LIVEKIT_API_KEY", "")
+    api_secret = getattr(settings, "LIVEKIT_API_SECRET", "")
+    livekit_url = getattr(settings, "LIVEKIT_URL", "")
 
     if not api_key or not api_secret or not livekit_url:
         logger.warning("LiveKit credentials not configured — cannot delete room")
         return
 
-    import jwt as _pyjwt
     now = int(time.time())
-    token = _pyjwt.encode({
+    token = pyjwt.encode({
         "iss": api_key,
         "exp": now + 60,
         "nbf": now,
@@ -220,7 +217,7 @@ def _delete_livekit_room(room_name: str) -> None:
 
     http_url = livekit_url.replace("wss://", "https://").replace("ws://", "http://").rstrip("/")
     try:
-        resp = _req.post(
+        resp = http_requests.post(
             f"{http_url}/twirp/livekit.RoomService/DeleteRoom",
             json={"room": room_name},
             headers={
@@ -233,7 +230,7 @@ def _delete_livekit_room(room_name: str) -> None:
             logger.info("LiveKit room deleted: %s", room_name)
         else:
             logger.warning("LiveKit room delete HTTP %d: %s", resp.status_code, resp.text[:200])
-    except _req.RequestException as exc:
+    except http_requests.RequestException as exc:
         logger.error("LiveKit room delete failed: %s", exc)
 
 
@@ -478,8 +475,6 @@ def session_token(request, session_id):
       TEACHER/PRINCIPAL/ADMIN — canPublish=True, canPublishData=True
       STUDENT                 — canPublish=True, canPublishData=False
     """
-    from django.conf import settings as django_settings
-
     session = get_object_or_404(LiveSession, public_id=session_id)
 
     if request.user.role == "STUDENT":
@@ -513,7 +508,7 @@ def session_token(request, session_id):
     return JsonResponse({
         "token":           token,
         "room_name":       session.livekit_room_name,
-        "livekit_url":     getattr(django_settings, "LIVEKIT_URL", ""),
+        "livekit_url":     getattr(settings, "LIVEKIT_URL", ""),
         "identity":        identity,
         "can_publish":     True,
         "can_publish_data": can_publish_data,
@@ -523,8 +518,6 @@ def session_token(request, session_id):
 # ── Ably notification helper ──────────────────────────────────────────────────
 
 def _notify_session_event(session: LiveSession, event: str) -> None:
-    from django.conf import settings
-    import requests as http_requests
     import base64
     from urllib.parse import quote
     from apps.accounts.models import User
@@ -561,8 +554,6 @@ def _notify_session_event(session: LiveSession, event: str) -> None:
 # ── QStash scheduled reminders ────────────────────────────────────────────────
 
 def _schedule_session_reminders(session: LiveSession) -> None:
-    from django.conf import settings
-    import requests as http_requests
     import os
 
     qstash_token = getattr(settings, "QSTASH_TOKEN", "").strip()
@@ -768,7 +759,6 @@ def sync_recording(request, session_id):
     Only TEACHER (own sessions) / PRINCIPAL / ADMIN can call this.
     """
     user = request.user
-    from django.conf import settings
     try:
         session = LiveSession.objects.select_related(
             "subject", "teacher", "section"

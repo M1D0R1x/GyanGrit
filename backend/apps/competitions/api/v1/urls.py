@@ -8,6 +8,7 @@ from apps.competitions import views
 
 urlpatterns = [
     path("",                         views.list_rooms),
+    path("history/",                 views.competition_history),
     path("create/",                  views.create_room),
     path("<int:room_id>/",           views.room_detail),
     path("<int:room_id>/join/",      views.join_room),

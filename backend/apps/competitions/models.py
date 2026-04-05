@@ -60,6 +60,10 @@ class CompetitionRoom(models.Model):
         default=RoomStatus.DRAFT,
         db_index=True,
     )
+    time_limit_secs = models.PositiveIntegerField(
+        default=60,
+        help_text="Time per question in seconds.",
+    )
     scheduled_at = models.DateTimeField(
         null=True, blank=True,
         help_text="Optional: when the room is scheduled to go live.",

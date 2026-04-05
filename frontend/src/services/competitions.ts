@@ -15,6 +15,7 @@ export type CompetitionRoom = {
   section:           string;
   assessment_id:     number;
   assessment:        string;
+  time_limit_secs:   number;
   scheduled_at:      string | null;
   started_at:        string | null;
   finished_at:       string | null;
@@ -73,6 +74,7 @@ export const createRoom = (payload: {
   title:         string;
   section_id:    number;
   assessment_id: number;
+  time_limit_secs?: number;
   scheduled_at?: string;
 }) => apiPost<CompetitionRoom>("/competitions/create/", payload);
 
@@ -102,3 +104,7 @@ export const getAblyToken = (roomId?: number, channelType?: "competition" | "cha
     ...(roomId      ? { room_id:      roomId      } : {}),
     ...(channelType ? { channel_type: channelType } : {}),
   });
+
+export const getMyCompetitionHistory = () =>
+  apiGet<{room_id: number, title: string, assessment: string, score: number, rank: number, finished_at: string, participant_count: number}[]>("/competitions/history/");
+

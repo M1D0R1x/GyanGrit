@@ -25,6 +25,7 @@ import {
   finishRoom,
   submitAnswer,
   getAblyToken,
+  getMyCompetitionHistory,
   type CompetitionRoom,
   type Question,
   type LeaderboardEntry,
@@ -211,8 +212,12 @@ export default function CompetitionRoomPage() {
     : location.pathname.startsWith("/principal") ? "/principal"
     : "/admin";
 
+  // ── Tabs ─────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"rooms" | "history">("rooms");
+
   // ── List view (no roomId) ─────────────────────────────────────────────
   const [rooms,        setRooms]        = useState<CompetitionRoom[]>([]);
+  const [history,      setHistory]      = useState<any[]>([]);
   const [loadingList,  setLoadingList]  = useState(true);
 
   // ── Room detail view (roomId present) ────────────────────────────────
@@ -228,6 +233,8 @@ export default function CompetitionRoomPage() {
   const [createTitle,  setCreateTitle]  = useState("");
   const [createSection, setCreateSection] = useState("");
   const [createAssessment, setCreateAssessment] = useState("");
+  const [createTimeLimit, setCreateTimeLimit] = useState("60");
+  const [createScheduledAt, setCreateScheduledAt] = useState("");
   const [createSchool, setCreateSchool] = useState<number | "">("");
   const [sections,     setSections]     = useState<Section[]>([]);
   const [assessments,  setAssessments]  = useState<(Assessment & { subject_id?: number; title: string; grade?: number })[]>([]);
@@ -243,6 +250,27 @@ export default function CompetitionRoomPage() {
 
   const numRoomId = roomId ? Number(roomId) : null;
 
+  // ── Timer State ───────────────────────────────────────────────────────
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+
+  useEffect(() => {
+    if (room?.status !== "active" || !room.started_at || !room.questions) return;
+    const timeLimitMs = (room.time_limit_secs || 60) * 1000;
+    
+    const calculateTimer = () => {
+      const elapsedMs = Date.now() - new Date(room.started_at!).getTime();
+      const idx = Math.floor(elapsedMs / timeLimitMs);
+      const remainingMs = timeLimitMs - (elapsedMs % timeLimitMs);
+      setActiveIdx(idx);
+      setTimeRemaining(Math.ceil(remainingMs / 1000));
+    };
+    
+    calculateTimer();
+    const interval = setInterval(calculateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [room?.status, room?.started_at, room?.time_limit_secs, room?.questions]);
+
   // ── Load list ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (numRoomId) return;
@@ -250,9 +278,14 @@ export default function CompetitionRoomPage() {
       .then(setRooms)
       .catch(() => setError("Failed to load competition rooms."))
       .finally(() => setLoadingList(false));
-  }, [numRoomId]);
+      
+    if (isStudent) {
+      getMyCompetitionHistory().then(setHistory).catch(console.error);
+    }
+  }, [numRoomId, isStudent]);
 
   const isAdminOrPrincipal = user?.role === "ADMIN" || user?.role === "PRINCIPAL";
+  const isRoomHost = room?.host_id === user?.id || isAdminOrPrincipal;
 
   // ── Load teacher create form dependencies ─────────────────────────────
   useEffect(() => {
@@ -444,10 +477,12 @@ export default function CompetitionRoomPage() {
         title:         createTitle.trim(),
         section_id:    Number(createSection),
         assessment_id: Number(createAssessment),
+        time_limit_secs: createTimeLimit ? Number(createTimeLimit) : 60,
+        scheduled_at:   createScheduledAt ? new Date(createScheduledAt).toISOString() : undefined,
       });
       setRooms((prev) => [newRoom, ...prev]);
       setShowCreate(false);
-      setCreateTitle(""); setCreateSection(""); setCreateAssessment("");
+      setCreateTitle(""); setCreateSection(""); setCreateAssessment(""); setCreateTimeLimit("60"); setCreateScheduledAt("");
       setSuccess("Room created! Click on it to open and start.");
     } catch {
       setError("Failed to create room.");
@@ -513,7 +548,7 @@ export default function CompetitionRoomPage() {
               </div>
 
               {/* Teacher controls */}
-              {isTeacher && (
+              {isTeacher && isRoomHost && (
                 <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
                   {room.status === "draft" && (
                     <button className="btn btn--primary" onClick={handleStart}>
@@ -527,12 +562,23 @@ export default function CompetitionRoomPage() {
                   )}
                 </div>
               )}
+              {isTeacher && !isRoomHost && (
+                <div style={{ display: "flex", flexShrink: 0 }}>
+                   <span className="badge badge--warning">👁 Spectating</span>
+                </div>
+              )}
 
               {/* Student join button */}
               {isStudent && room.status !== "finished" && !joined && (
-                <button className="btn btn--primary" onClick={handleJoin}>
-                  Join Room
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-2)"}}>
+                  {room.scheduled_at && new Date(room.scheduled_at).getTime() - Date.now() > 5 * 60 * 1000 ? (
+                    <span className="badge badge--info">Opens {new Date(room.scheduled_at).toLocaleString()}</span>
+                  ) : (
+                    <button className="btn btn--primary" onClick={handleJoin}>
+                      Join Room
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -555,28 +601,43 @@ export default function CompetitionRoomPage() {
             <div style={{ marginBottom: "var(--space-6)" }}>
               <div className="section-header">
                 <div>
-                  <h2 className="section-header__title">Questions</h2>
+                  <h2 className="section-header__title">Active Question</h2>
                   <p className="section-header__subtitle">
                     {answeredIds.size} / {questions.length} answered
                   </p>
+                </div>
+                <div style={{
+                  padding: "var(--space-2) var(--space-4)",
+                  borderRadius: "var(--radius-full)",
+                  background: timeRemaining <= 10 ? "rgba(239,68,68,0.1)" : "var(--bg-elevated)",
+                  color: timeRemaining <= 10 ? "var(--danger)" : "var(--ink-secondary)",
+                  fontWeight: 800,
+                  fontSize: "var(--text-lg)",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  ⏱ {timeRemaining}s
                 </div>
               </div>
               {questions.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", padding: "var(--space-8)" }}>
                   <p style={{ color: "var(--ink-muted)" }}>Loading questions...</p>
                 </div>
+              ) : activeIdx < questions.length ? (
+                <QuestionCard
+                  key={questions[activeIdx].id}
+                  question={questions[activeIdx]}
+                  index={activeIdx}
+                  total={questions.length}
+                  answeredIds={answeredIds}
+                  onAnswer={handleAnswer}
+                  submitting={submitting}
+                />
               ) : (
-                questions.map((q, i) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={i}
-                    total={questions.length}
-                    answeredIds={answeredIds}
-                    onAnswer={handleAnswer}
-                    submitting={submitting}
-                  />
-                ))
+                <div className="card" style={{ textAlign: "center", padding: "var(--space-8)", color: "var(--ink-primary)" }}>
+                  <div style={{ fontSize: 40, marginBottom: "var(--space-3)" }}>🏁</div>
+                  <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: "var(--space-2)" }}>All Questions Completed!</h3>
+                  <p style={{ color: "var(--ink-muted)" }}>Waiting for the host to officially end the competition.</p>
+                </div>
               )}
             </div>
           )}
@@ -585,21 +646,32 @@ export default function CompetitionRoomPage() {
           {isTeacher && room.status === "active" && questions.length > 0 && (
             <div style={{ marginBottom: "var(--space-6)" }}>
               <div className="section-header">
-                <h2 className="section-header__title">Questions (teacher view)</h2>
+                <h2 className="section-header__title">Active Question (Teacher View)</h2>
+                <div style={{
+                  padding: "var(--space-2) var(--space-4)",
+                  borderRadius: "var(--radius-full)",
+                  background: timeRemaining <= 10 ? "rgba(239,68,68,0.1)" : "var(--bg-elevated)",
+                  color: timeRemaining <= 10 ? "var(--danger)" : "var(--ink-secondary)",
+                  fontWeight: 800,
+                  fontSize: "var(--text-lg)",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  ⏱ {timeRemaining}s
+                </div>
               </div>
-              {questions.map((q, i) => (
-                <div key={q.id} className="card" style={{ marginBottom: "var(--space-3)" }}>
+              {activeIdx < questions.length ? (
+                <div key={questions[activeIdx].id} className="card" style={{ marginBottom: "var(--space-3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
                     <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--saffron)", textTransform: "uppercase" }}>
-                      Q{i + 1}
+                      Q{activeIdx + 1}
                     </span>
-                    <span className="badge badge--info" style={{ fontSize: 10 }}>{q.marks} mark{q.marks !== 1 ? "s" : ""}</span>
+                    <span className="badge badge--info" style={{ fontSize: 10 }}>{questions[activeIdx].marks} mark{questions[activeIdx].marks !== 1 ? "s" : ""}</span>
                   </div>
                   <p style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--ink-primary)", marginBottom: "var(--space-3)" }}>
-                    {q.text}
+                    {questions[activeIdx].text}
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-                    {q.options.map((opt) => (
+                    {questions[activeIdx].options.map((opt) => (
                       <div key={opt.id} style={{
                         padding: "var(--space-2) var(--space-3)",
                         borderRadius: "var(--radius-sm)",
@@ -616,7 +688,11 @@ export default function CompetitionRoomPage() {
                     ))}
                   </div>
                 </div>
-              ))}
+              ) : (
+                <div className="card" style={{ textAlign: "center", padding: "var(--space-8)", color: "var(--ink-primary)" }}>
+                  <p style={{ color: "var(--ink-muted)" }}>All questions have been displayed. The competition is waiting to be ended.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -745,6 +821,18 @@ export default function CompetitionRoomPage() {
                   </select>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Time Per Question (seconds) *</label>
+                  <input className="form-input" type="number" min="10" max="300"
+                    value={createTimeLimit} onChange={(e) => setCreateTimeLimit(e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Scheduled Start Time (Optional)</label>
+                  <input className="form-input" type="datetime-local"
+                    value={createScheduledAt} onChange={(e) => setCreateScheduledAt(e.target.value)} />
+                </div>
+
                 <div style={{ display: "flex", gap: "var(--space-3)" }}>
                   <button className="btn btn--primary" onClick={handleCreate} disabled={creating}>
                     {creating ? <><span className="btn__spinner" /> Creating…</> : "Create Room"}
@@ -758,14 +846,55 @@ export default function CompetitionRoomPage() {
           </div>
         )}
 
-        {/* Room list */}
-        <div className="section-header">
-          <h2 className="section-header__title">
-            {isTeacher ? "My Competition Rooms" : "Competition Rooms"}
-          </h2>
+        <div className="section-header" style={{ borderBottom: "1px solid var(--border-light)", paddingBottom: 0, marginBottom: "var(--space-6)" }}>
+          <div style={{ display: "flex", gap: "var(--space-6)" }}>
+            <button 
+              className={`tab-btn ${activeTab === "rooms" ? "tab-btn--active" : ""}`}
+              onClick={() => setActiveTab("rooms")}
+              style={{ paddingBottom: "var(--space-3)", fontWeight: activeTab === "rooms" ? 700 : 500, borderBottom: activeTab === "rooms" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "rooms" ? "var(--primary)" : "var(--ink-secondary)", background: "transparent", borderTop: "none", borderLeft: "none", borderRight: "none" }}
+            >
+              {isTeacher ? "My Competition Rooms" : "Active Rooms"}
+            </button>
+            {isStudent && (
+              <button 
+                className={`tab-btn ${activeTab === "history" ? "tab-btn--active" : ""}`}
+                onClick={() => setActiveTab("history")}
+                style={{ paddingBottom: "var(--space-3)", fontWeight: activeTab === "history" ? 700 : 500, borderBottom: activeTab === "history" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "history" ? "var(--primary)" : "var(--ink-secondary)", background: "transparent", borderTop: "none", borderLeft: "none", borderRight: "none" }}
+              >
+                My History
+              </button>
+            )}
+          </div>
         </div>
 
-        {loadingList ? (
+        {activeTab === "history" ? (
+          history.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state__icon">📜</div>
+              <h3 className="empty-state__title">No history yet</h3>
+              <p className="empty-state__message">Join a competition room to see your results here.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {history.map((h, i) => (
+                <div key={i} className="card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h4 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-lg)" }}>{h.title}</h4>
+                      <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", marginTop: "var(--space-1)" }}>
+                        {h.assessment} • {new Date(h.finished_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "var(--text-xl)", fontWeight: 800, color: "var(--primary)" }}>{h.score} pts</div>
+                      <div style={{ fontSize: "var(--text-sm)", color: "var(--ink-secondary)" }}>Rank {h.rank} of {h.participant_count}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : loadingList ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton" style={{ height: 100, borderRadius: "var(--radius-lg)" }} />

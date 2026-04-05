@@ -58,6 +58,7 @@ def _room_to_dict(room: CompetitionRoom, include_participants: bool = False) -> 
         "section":      room.section.name,
         "assessment_id": room.assessment_id,
         "assessment":   room.assessment.title,
+        "time_limit_secs": room.time_limit_secs,
         "scheduled_at": room.scheduled_at.isoformat() if room.scheduled_at else None,
         "started_at":   room.started_at.isoformat()   if room.started_at   else None,
         "finished_at":  room.finished_at.isoformat()  if room.finished_at  else None,
@@ -234,11 +235,19 @@ def create_room(request):
         from django.utils.dateparse import parse_datetime
         scheduled_at = parse_datetime(body["scheduled_at"])
 
+    # Extract time_limit_secs, defaults to 60 if empty or undefined
+    time_limit_secs = body.get("time_limit_secs", 60)
+    try:
+        time_limit_secs = int(time_limit_secs)
+    except (TypeError, ValueError):
+        time_limit_secs = 60
+
     room = CompetitionRoom.objects.create(
         title=title,
         host=request.user,
         section=section,
         assessment=assessment,
+        time_limit_secs=time_limit_secs,
         scheduled_at=scheduled_at,
     )
     logger.info("CompetitionRoom created: id=%s by user=%s", room.id, request.user.id)
@@ -315,6 +324,11 @@ def join_room(request, room_id):
         return JsonResponse({"error": "You are not in this section"}, status=403)
     if room.status == RoomStatus.FINISHED:
         return JsonResponse({"error": "This competition has ended"}, status=400)
+    if room.scheduled_at:
+        from datetime import timedelta
+        # Ensure it's not more than 5 minutes in the future
+        if timezone.now() + timedelta(minutes=5) < room.scheduled_at:
+            return JsonResponse({"error": "This room will open 5 minutes before scheduled start."}, status=400)
 
     participant, created = CompetitionParticipant.objects.get_or_create(
         room=room, student=user
@@ -561,3 +575,35 @@ def ably_token(request):
     except Exception as exc:
         logger.error("Ably token request failed: %s", exc)
         return JsonResponse({"error": "Could not generate real-time token"}, status=500)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPETITION HISTORY — GET /api/v1/competitions/history/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@require_auth
+@require_http_methods(["GET"])
+def competition_history(request):
+    user = request.user
+    if user.role != "STUDENT":
+        return JsonResponse({"error": "Only students have competition history"}, status=403)
+
+    participants = CompetitionParticipant.objects.filter(
+        student=user,
+        room__status=RoomStatus.FINISHED
+    ).select_related("room", "room__assessment").order_by("-room__finished_at")
+
+    history = [
+        {
+            "room_id":       p.room.id,
+            "title":         p.room.title,
+            "assessment":    p.room.assessment.title,
+            "score":         p.score,
+            "rank":          p.rank,
+            "finished_at":   p.room.finished_at.isoformat() if p.room.finished_at else None,
+            "participant_count": p.room.participants.count()
+        }
+        for p in participants
+    ]
+    return JsonResponse(history, safe=False)
+

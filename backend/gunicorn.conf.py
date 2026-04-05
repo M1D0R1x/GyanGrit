@@ -20,8 +20,9 @@ import os
 
 # ── Worker class ───────────────────────────────────────────────────────────
 worker_class       = "gthread"
-workers            = 5          # 2×OCPU+1 = 5 workers for Oracle 2-OCPU instance
-threads            = 4          # 4 threads per worker = 20 concurrent requests
+workers            = 3          # 3 workers × 6 threads = 18 concurrent requests
+                                # Reduced from 5 to cut peak RSS (was hitting OOM on heavy requests)
+threads            = 6          # More threads per worker — I/O-bound views benefit
 
 # ── Preload ────────────────────────────────────────────────────────────────
 # Load Django BEFORE forking workers:
@@ -31,7 +32,7 @@ threads            = 4          # 4 threads per worker = 20 concurrent requests
 preload_app = True
 
 # ── Timeouts ──────────────────────────────────────────────────────────────
-timeout            = 30         # 30s — DB and backend are same-region (Mumbai), no cold starts
+timeout            = 60         # 60s — allows for slow R2/LiveKit API calls and complex queries
 graceful_timeout   = 30         # 30s to finish in-flight requests on restart
 keepalive          = 75         # keep-alive for Nginx → Gunicorn upstream reuse
 
@@ -45,7 +46,7 @@ errorlog           = "-"        # stdout
 loglevel           = "info"
 
 # ── Memory management ─────────────────────────────────────────────────────
-max_requests       = 500        # recycle worker after 500 requests (prevents memory leaks)
+max_requests       = 300        # recycle worker after 300 requests (prevents memory growth)
 max_requests_jitter = 50        # randomise so all workers don't restart simultaneously
 
 # ── Django DB connection cleanup ──────────────────────────────────────────

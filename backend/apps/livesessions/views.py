@@ -757,6 +757,9 @@ def sync_recording(request, session_id):
 
     Fallback for when the webhook doesn't fire (payload shape mismatch, etc).
     Only TEACHER (own sessions) / PRINCIPAL / ADMIN can call this.
+
+    Optional body param: { "duration_seconds": 3600 } — if provided, sets the
+    recording duration (Issue #4: webhook doesn't always supply this field).
     """
     user = request.user
     try:
@@ -780,6 +783,18 @@ def sync_recording(request, session_id):
         return JsonResponse({
             "error": "No R2 key stored for this session — recording may not have started.",
         }, status=422)
+
+    # Optional duration hint from caller (Issue #4 fix — webhook doesn't always set duration)
+    _body = {}
+    try:
+        _body = json.loads(request.body) if request.body else {}
+    except (json.JSONDecodeError, ValueError):
+        pass
+    duration_hint = _body.get("duration_seconds")
+    try:
+        duration_hint = int(duration_hint) if duration_hint is not None else None
+    except (TypeError, ValueError):
+        duration_hint = None
 
     # R2 credentials
     account_id = getattr(settings, "CLOUDFLARE_R2_ACCOUNT_ID", "")
@@ -830,10 +845,12 @@ def sync_recording(request, session_id):
 
     # File exists in R2 — mark ready
     recording_url = f"{public_url}/{r2_key}" if public_url else ""
+    # Use caller-supplied duration if provided; otherwise preserve existing value
+    new_duration  = duration_hint if duration_hint is not None else session.recording_duration_seconds
     session.recording_status           = RecordingStatus.READY
     session.recording_url              = recording_url
-    session.recording_size_bytes       = size or None
-    session.recording_duration_seconds = session.recording_duration_seconds  # keep existing
+    session.recording_size_bytes       = size or session.recording_size_bytes
+    session.recording_duration_seconds = new_duration
     session.save(update_fields=[
         "recording_status",
         "recording_url",
@@ -842,11 +859,99 @@ def sync_recording(request, session_id):
     ])
 
     logger.info(
-        "sync_recording: marked READY — session=%s key=%s size=%s url=%s",
-        session.id, r2_key, size, recording_url,
+        "sync_recording: marked READY — session=%s key=%s size=%s duration=%s url=%s",
+        session.id, r2_key, size, new_duration, recording_url,
     )
     return JsonResponse({
         "status": "synced",
         "recording": _recording_to_dict(session),
     })
+
+
+# ── Auto-sync stale recordings (Issue #6) ────────────────────────────────────
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def auto_sync_stale_recordings(request):
+    """
+    POST /api/v1/live/recordings/auto-sync/
+
+    Called by QStash on a schedule (e.g. every 30 min).
+    Finds all LiveSessions stuck in PROCESSING for more than 15 minutes
+    and performs the same R2 head_object check as the manual sync endpoint.
+
+    If the file is found  → marks READY.
+    If after 2 hours still not found → marks FAILED.
+
+    No user auth required — this is a backend-to-backend cron endpoint.
+    """
+    account_id = getattr(settings, "CLOUDFLARE_R2_ACCOUNT_ID", "")
+    access_key = getattr(settings, "CLOUDFLARE_R2_ACCESS_KEY_ID", "")
+    secret_key = getattr(settings, "CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
+    bucket     = getattr(settings, "CLOUDFLARE_R2_BUCKET_NAME", "gyangrit-media")
+    public_url = getattr(settings, "CLOUDFLARE_R2_PUBLIC_URL", "").rstrip("/")
+
+    if not account_id or not access_key or not secret_key:
+        return JsonResponse({"error": "R2 credentials not configured."}, status=500)
+
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+    except ImportError:
+        return JsonResponse({"error": "boto3 not installed."}, status=500)
+
+    now         = timezone.now()
+    cutoff_old  = now - timedelta(minutes=15)   # stuck >15 min → eligible for auto-sync
+    cutoff_fail = now - timedelta(hours=2)      # stuck >2 h → mark FAILED
+
+    stale_qs = LiveSession.objects.filter(
+        recording_status=RecordingStatus.PROCESSING,
+        started_at__lte=cutoff_old,
+        recording_r2_key__isnull=False,
+    ).exclude(recording_r2_key="")
+
+    if not stale_qs.exists():
+        return JsonResponse({"ok": True, "checked": 0, "synced": 0, "failed": 0})
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name="auto",
+    )
+
+    checked = synced = failed = 0
+
+    for sess in stale_qs.select_related("subject"):
+        checked += 1
+        r2_key = sess.recording_r2_key
+        try:
+            head = s3.head_object(Bucket=bucket, Key=r2_key)
+            size = head.get("ContentLength", 0)
+            rec_url = f"{public_url}/{r2_key}" if public_url else ""
+            sess.recording_status     = RecordingStatus.READY
+            sess.recording_url        = rec_url
+            sess.recording_size_bytes = size or sess.recording_size_bytes
+            sess.save(update_fields=["recording_status", "recording_url", "recording_size_bytes"])
+            synced += 1
+            logger.info("auto_sync: READY session=%s key=%s size=%s", sess.public_id, r2_key, size)
+
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            if code in ("404", "NoSuchKey"):
+                if sess.started_at and sess.started_at <= cutoff_fail:
+                    sess.recording_status = RecordingStatus.FAILED
+                    sess.save(update_fields=["recording_status"])
+                    failed += 1
+                    logger.warning("auto_sync: FAILED (>2h) session=%s key=%s", sess.public_id, r2_key)
+                else:
+                    logger.info("auto_sync: still uploading session=%s key=%s", sess.public_id, r2_key)
+            else:
+                logger.warning("auto_sync: R2 error code=%s session=%s: %s", code, sess.public_id, exc)
+        except Exception as exc:
+            logger.error("auto_sync: error session=%s: %s", sess.public_id, exc)
+
+    logger.info("auto_sync complete: checked=%d synced=%d failed=%d", checked, synced, failed)
+    return JsonResponse({"ok": True, "checked": checked, "synced": synced, "failed": failed})
 

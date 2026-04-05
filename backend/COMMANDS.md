@@ -57,3 +57,9 @@ tree backend frontend docs \
 cd backend && python manage.py check 2>&1 | tail -3
 cd frontend && npx tsc --noEmit 2>&1 | grep "error TS" | head -20
 ```
+
+
+## Co-Authors
+```bash
+Co-authored-by: harshitha <honey77490@gmail.com>"
+```

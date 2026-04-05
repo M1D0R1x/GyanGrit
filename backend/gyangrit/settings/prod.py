@@ -77,6 +77,19 @@ if SENTRY_DSN:
         from sentry_sdk.integrations.django import DjangoIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
 
+        def _before_send(event, hint):
+            """Drop bot-scanner noise from Sentry."""
+            # Ignore DisallowedHost — bots hit random hostnames, not a real bug
+            exc_info = hint.get("exc_info")
+            if exc_info:
+                from django.core.exceptions import DisallowedHost
+                if isinstance(exc_info[1], DisallowedHost):
+                    return None
+            # Also drop via logger name (logged path)
+            if event.get("logger") == "django.security.DisallowedHost":
+                return None
+            return event
+
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             integrations=[
@@ -92,6 +105,7 @@ if SENTRY_DSN:
             traces_sample_rate=0.3,
             send_default_pii=False,
             environment="production",
+            before_send=_before_send,
         )
         logger.info("Sentry initialized.")
     except ImportError:
@@ -194,14 +208,19 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "oracle",
         },
+        "null": {
+            "class": "logging.NullHandler",
+        },
     },
     "root": {
         "handlers": ["console"],
         "level": "WARNING",
     },
     "loggers": {
-        "django":   {"handlers": ["console"], "level": "WARNING", "propagate": False},
-        "apps":     {"handlers": ["console"], "level": "INFO",    "propagate": False},
-        "gyangrit": {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        "django":                      {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "apps":                        {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        "gyangrit":                    {"handlers": ["console"], "level": "INFO",    "propagate": False},
+        # Suppress DisallowedHost — bot scanners hitting random hostnames, not a bug
+        "django.security.DisallowedHost": {"handlers": ["null"], "level": "CRITICAL", "propagate": False},
     },
 }

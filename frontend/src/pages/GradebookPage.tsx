@@ -349,61 +349,131 @@ function StudentRow({
               No marks entered yet.
             </p>
           ) : (
-            <table className="data-table" style={{ marginBottom: 0 }}>
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Term</th>
-                  <th>Category</th>
-                  <th>Score</th>
-                  <th>%</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {student.entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td style={{ fontWeight: 500, fontSize: "var(--text-sm)" }}>{entry.subject}</td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-                      {entry.term.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </td>
-                    <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-                      {entry.category.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </td>
-                    <td style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)" }}>
-                      {entry.marks}/{entry.total_marks}
-                    </td>
-                    <td>
-                      <span style={{
-                        fontFamily: "var(--font-display)", fontWeight: 800,
-                        fontSize: "var(--text-sm)", color: pctColor(entry.percentage),
-                      }}>
-                        {entry.percentage}%
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                        <button
-                          className="btn btn--ghost"
-                          style={{ fontSize: "var(--text-xs)", padding: "2px 8px" }}
-                          onClick={() => setEditEntry(entry)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn--ghost"
-                          style={{ fontSize: "var(--text-xs)", padding: "2px 8px", color: "var(--error)" }}
-                          disabled={deleting === entry.id}
-                          onClick={() => void handleDelete(entry)}
-                        >
-                          {deleting === entry.id ? "…" : "Delete"}
-                        </button>
-                      </div>
-                    </td>
+            <>
+              <table className="data-table" style={{ marginBottom: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Term</th>
+                    <th>Category</th>
+                    <th>Score</th>
+                    <th>%</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {student.entries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td style={{ fontWeight: 500, fontSize: "var(--text-sm)" }}>{entry.subject}</td>
+                      <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                        {entry.term.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </td>
+                      <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                        {entry.category.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </td>
+                      <td style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "var(--text-sm)" }}>
+                        {entry.marks}/{entry.total_marks}
+                      </td>
+                      <td>
+                        <span style={{
+                          fontFamily: "var(--font-display)", fontWeight: 800,
+                          fontSize: "var(--text-sm)", color: pctColor(entry.percentage),
+                        }}>
+                          {entry.percentage}%
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                          <button
+                            className="btn btn--ghost"
+                            style={{ fontSize: "var(--text-xs)", padding: "2px 8px" }}
+                            onClick={() => setEditEntry(entry)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn btn--ghost"
+                            style={{ fontSize: "var(--text-xs)", padding: "2px 8px", color: "var(--error)" }}
+                            disabled={deleting === entry.id}
+                            onClick={() => void handleDelete(entry)}
+                          >
+                            {deleting === entry.id ? "…" : "Delete"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* ── Term Totals Summary ─────────────────────────────── */}
+              {(() => {
+                const termMap: Record<string, { obtained: number; total: number }> = {};
+                for (const e of student.entries) {
+                  if (!termMap[e.term]) termMap[e.term] = { obtained: 0, total: 0 };
+                  termMap[e.term].obtained += e.marks;
+                  termMap[e.term].total    += e.total_marks;
+                }
+                const terms = Object.entries(termMap);
+                if (terms.length === 0) return null;
+                return (
+                  <div style={{
+                    marginTop: "var(--space-4)",
+                    padding: "var(--space-3) var(--space-4)",
+                    background: "var(--bg-elevated)",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-light)",
+                  }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+                      letterSpacing: "0.08em", color: "var(--ink-muted)", marginBottom: "var(--space-3)",
+                    }}>
+                      Term Totals
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
+                      {terms.map(([term, { obtained, total }]) => {
+                        const pct  = total > 0 ? Math.round((obtained / total) * 100) : 0;
+                        const pass = pct >= 50;
+                        return (
+                          <div key={term} style={{
+                            display: "flex", alignItems: "center", gap: "var(--space-3)",
+                            padding: "var(--space-2) var(--space-3)",
+                            borderRadius: "var(--radius-sm)",
+                            background: "var(--bg-surface)",
+                            border: "1px solid var(--border-light)",
+                          }}>
+                            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 500 }}>
+                              {term.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </span>
+                            <span style={{
+                              fontFamily: "var(--font-display)", fontWeight: 800,
+                              fontSize: "var(--text-sm)", color: pctColor(pct),
+                            }}>
+                              {obtained}/{total}
+                            </span>
+                            <span style={{
+                              fontFamily: "var(--font-display)", fontWeight: 700,
+                              fontSize: "var(--text-xs)", color: pctColor(pct),
+                            }}>
+                              {pct}%
+                            </span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: "2px 6px",
+                              borderRadius: 8,
+                              background: pass ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                              color: pass ? "#16a34a" : "#dc2626",
+                              border: `1px solid ${pass ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
+                            }}>
+                              {pass ? "Pass" : "Fail"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </div>
       )}

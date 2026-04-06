@@ -70,7 +70,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
           .then((registration) => {
             console.log("[PWA] Service Worker registered:", registration.scope);
             // Check for SW updates every hour
-            setInterval(() => registration.update(), 60 * 60 * 1000);
+            setInterval(() => { if (navigator.onLine) registration.update(); }, 60 * 60 * 1000);
           });
       })
       .catch((error) => {

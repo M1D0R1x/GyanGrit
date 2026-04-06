@@ -400,7 +400,7 @@ export default function CompetitionRoomPage() {
     void connect();
 
     // Poll every 5s as fallback (when Ably key not set)
-    const poll = setInterval(() => { if (mounted) loadRoom(); }, 5000);
+    const poll = setInterval(() => { if (mounted && navigator.onLine) loadRoom(); }, 5000);
 
     return () => {
       mounted = false;

@@ -438,7 +438,7 @@ export default function ChatRoomPage() {
     void connect();
 
     const poll = setInterval(() => {
-      if (!mounted || !activeRoom) return;
+      if (!mounted || !activeRoom || !navigator.onLine) return;
       getChatHistory(activeRoom.id)
         .then((msgs) => setMessages(msgs.map((m) => ({ ...m, replies: [] }))))
         .catch(() => {});

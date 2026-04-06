@@ -211,7 +211,7 @@ export default function RecordedSessionsPage() {
   useEffect(() => {
     const hasProcessing = recordings.some(r => r.recording_status === "processing");
     if (!hasProcessing) return;
-    const timer = setInterval(() => fetchRecordings(), 30_000);
+    const timer = setInterval(() => { if (navigator.onLine) fetchRecordings(); }, 30_000);
     return () => clearInterval(timer);
   }, [recordings, fetchRecordings]);
 

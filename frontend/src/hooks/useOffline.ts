@@ -99,12 +99,10 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
     checkSaved();
   }, [lesson?.id]);
 
-  // Save lesson text content to IndexedDB
+  // Save lesson text content to IndexedDB (always upserts — updates stale data)
   const saveText = useCallback(async () => {
     if (!lesson) return;
     if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
-    const existing = await isLessonSavedOffline(lesson.id).catch(() => false);
-    if (existing) { toast.warning("Lesson already downloaded"); setState((s) => ({ ...s, textSaved: true })); return; }
     setState((s) => ({ ...s, downloading: true, downloadType: "text", error: null }));
     try {
       const offlineData: OfflineLesson = {

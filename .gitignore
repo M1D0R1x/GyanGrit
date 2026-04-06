@@ -156,3 +156,7 @@ infra/**/secrets/
 
 *.dump
 backend/COMMANDS.md
+
+*.har
+har/
+*har/

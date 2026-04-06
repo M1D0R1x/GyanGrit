@@ -79,7 +79,7 @@ export default function TopBar({ title, onMenuClick }: Props) {
   const lastFetchRef = useRef<string | undefined>(undefined);
 
   const refreshUnread = useCallback(() => {
-    if (!auth.authenticated) return;
+    if (!auth.authenticated || !navigator.onLine) return;
     fetchNotifications({ since: lastFetchRef.current })
       .then((data) => {
         if (!data) return;

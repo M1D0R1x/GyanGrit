@@ -19,7 +19,7 @@ interface TelemetryOptions {
  * Drops errors implicitly to avoid interrupting the user flow.
  */
 export function trackEvent(eventType: EventType, opts?: TelemetryOptions) {
-  // We use apiPost but catch errors so they don't break the UI.
+  if (!navigator.onLine) return;
   apiPost("/analytics/event/", {
     event_type: eventType,
     resource_id: opts?.resource_id ?? null,

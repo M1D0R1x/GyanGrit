@@ -63,6 +63,7 @@ const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
 function startKeepAlive() {
   if (!import.meta.env.PROD) return;
   const ping = () => {
+    if (!navigator.onLine) return;
     fetch(`${API_BASE_URL}/health/`, { method: "GET" }).catch(() => {});
   };
   ping();
@@ -82,7 +83,7 @@ async function retryWithBackoff<T>(
     try {
       return await fn();
     } catch (err) {
-      if (attempt === retries) throw err;
+      if (attempt === retries || !navigator.onLine) throw err;
       const delay = baseDelayMs * Math.pow(2, attempt);
       console.warn(`[AuthContext] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
       await new Promise((r) => setTimeout(r, delay));

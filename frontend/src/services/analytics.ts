@@ -51,12 +51,14 @@ export const sendHeartbeat = (
   eventType: EngagementEventType,
   resourceId: number,
   resourceLabel?: string,
-) =>
-  apiPost("/analytics/heartbeat/", {
+) => {
+  if (!navigator.onLine) return Promise.resolve();
+  return apiPost("/analytics/heartbeat/", {
     event_type: eventType,
     resource_id: resourceId,
     resource_label: resourceLabel ?? "",
   });
+};
 
 // ── One-shot event (assessment submit, AI chat message) ──────────────────────
 
@@ -65,13 +67,15 @@ export const logEvent = (
   resourceId: number,
   durationSeconds: number,
   resourceLabel?: string,
-) =>
-  apiPost("/analytics/event/", {
+) => {
+  if (!navigator.onLine) return Promise.resolve();
+  return apiPost("/analytics/event/", {
     event_type: eventType,
     resource_id: resourceId,
     duration_seconds: durationSeconds,
     resource_label: resourceLabel ?? "",
   });
+};
 
 // ── Read summaries ───────────────────────────────────────────────────────────
 

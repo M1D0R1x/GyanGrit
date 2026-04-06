@@ -20,7 +20,7 @@
  * files to be fetched (old hashed files are automatically evicted).
  */
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const SHELL_CACHE   = `gyangrit-shell-${CACHE_VERSION}`;
 const ASSET_CACHE   = `gyangrit-assets-${CACHE_VERSION}`;
 
@@ -36,18 +36,39 @@ const SHELL_URLS = [
   "/favicon.svg",
 ];
 
-// ── Install: precache app shell ──────────────────────────────────────────────
+// Entry-point JS/CSS bundles — injected by vite.config.ts at build time.
+// These are the main app shell bundles that MUST be available for offline boot.
+// Lazy-loaded chunks are cached on-demand by cacheFirstImmutable().
+const PRECACHE_BUNDLES = [
+/* __PRECACHE_BUNDLES__ */
+];
+
+// ── Install: precache app shell + entry bundles ──────────────────────────────
 self.addEventListener("install", (event) => {
+  const allUrls = [...SHELL_URLS, ...PRECACHE_BUNDLES];
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => {
-      return Promise.allSettled(
-        SHELL_URLS.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn(`[SW] Failed to precache ${url}:`, err.message);
-          })
-        )
-      );
-    }).then(() => self.skipWaiting())
+    Promise.all([
+      // Shell goes into shell cache
+      caches.open(SHELL_CACHE).then((cache) => {
+        return Promise.allSettled(
+          SHELL_URLS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn(`[SW] Failed to precache ${url}:`, err.message);
+            })
+          )
+        );
+      }),
+      // Bundles go into asset cache (immutable — content-hashed)
+      caches.open(ASSET_CACHE).then((cache) => {
+        return Promise.allSettled(
+          PRECACHE_BUNDLES.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn(`[SW] Failed to precache bundle ${url}:`, err.message);
+            })
+          )
+        );
+      }),
+    ]).then(() => self.skipWaiting())
   );
 });
 

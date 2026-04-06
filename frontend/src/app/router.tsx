@@ -27,6 +27,9 @@ import FAQPage             from "../pages/FAQPage";
  * This wrapper catches that error and does a hard reload ONE time so the
  * browser fetches the new index.html which points to the new chunk hashes.
  * A sessionStorage flag prevents infinite reload loops.
+ *
+ * OFFLINE: if the device is offline, reloading won't help. We throw a
+ * descriptive error that ChunkErrorBoundary can show as a friendly message.
  */
 function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
   return lazy(() =>
@@ -39,6 +42,10 @@ function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
            err.message.includes("Loading chunk")));
 
       if (isChunkError) {
+        // If offline, reloading won't help — throw a clear offline error
+        if (!navigator.onLine) {
+          throw new Error("OFFLINE_CHUNK");
+        }
         const key = `chunk-retry-${window.location.pathname}`;
         if (!sessionStorage.getItem(key)) {
           console.warn(`[lazyRetry] Chunk load failed for ${window.location.pathname} — reloading`);
@@ -64,12 +71,18 @@ import ForbiddenPage    from "../pages/errors/ForbiddenPage";
 import ServerErrorPage  from "../pages/errors/ServerErrorPage";
 import NetworkErrorPage from "../pages/errors/NetworkErrorPage";
 
-// ── Student ──────────────────────────────────────────────────────────────────
-const DashboardPage      = lazyRetry(() => import("../pages/DashboardPage"));
-const CoursesPage        = lazyRetry(() => import("../pages/CoursesPage"));
-const LessonsPage        = lazyRetry(() => import("../pages/LessonsPage"));
-const LessonPage         = lazyRetry(() => import("../pages/LessonPage"));
-const SectionLessonPage  = lazyRetry(() => import("../pages/SectionLessonPage"));
+// ── Offline-critical pages — EAGERLY imported (always in main bundle) ─────────
+// These pages must work offline. Lazy-loading means they only get cached
+// after the user visits them once online — which may never happen before
+// someone goes offline. Eager import guarantees they're always available.
+import OfflineDownloadsPage from "../pages/OfflineDownloadsPage";
+import DashboardPage        from "../pages/DashboardPage";
+import LessonPage           from "../pages/LessonPage";
+import SectionLessonPage    from "../pages/SectionLessonPage";
+import CoursesPage          from "../pages/CoursesPage";
+import LessonsPage          from "../pages/LessonsPage";
+
+// ── Other student pages — lazy loaded (not needed offline) ───────────────────
 const LearningPathsPage  = lazyRetry(() => import("../pages/LearningPathsPage"));
 const LearningPathPage   = lazyRetry(() => import("../pages/LearningPathPage"));
 const ProfilePage        = lazyRetry(() => import("../pages/ProfilePage"));
@@ -102,8 +115,8 @@ const AdminJoinCodesPage         = lazyRetry(() => import("../pages/AdminJoinCod
 const UserManagementPage         = lazyRetry(() => import("../pages/UserManagementPage"));
 
 // ── Shared ──────────────────────────────────────────────────────────────────────
-const NotificationsPage      = lazyRetry(() => import("../pages/NotificationsPage"));
-const OfflineDownloadsPage   = lazyRetry(() => import("../pages/OfflineDownloadsPage"));
+const NotificationsPage = lazyRetry(() => import("../pages/NotificationsPage"));
+// OfflineDownloadsPage is eagerly imported above
 
 // ── Competition Rooms ─────────────────────────────────────────────────────────
 const CompetitionRoomPage  = lazyRetry(() => import("../pages/CompetitionRoomPage"));

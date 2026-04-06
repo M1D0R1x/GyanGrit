@@ -671,7 +671,9 @@ export default function LessonPage() {
         {/* Empty state — differentiate offline-no-download vs genuinely empty */}
         {!hasVideo && !hasPdf && !hasContent && (
           <div className="empty-state" style={{ paddingTop: "var(--space-16)" }}>
-            {isOfflineMode ? (
+            {/* Only show 'not downloaded' if we're OFFLINE — if online and content
+                is empty, the lesson genuinely has no content yet (backend). */}
+            {isOfflineMode && !navigator.onLine ? (
               <>
                 <div className="empty-state__icon">📥</div>
                 <h3 className="empty-state__title">Content not downloaded</h3>

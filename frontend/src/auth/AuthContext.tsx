@@ -171,7 +171,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(cached);
       setOfflineMode(true);
       setLoading(false);
-      return;
+
+      // When connectivity returns, reinitialise CSRF + verify session.
+      // This exits offlineMode and allows API calls to work again without
+      // requiring a full page reload.
+      const handleOnline = () => {
+        console.log("[AuthContext] Back online — reinitialising session");
+        setOfflineMode(false);
+        setLoading(true);
+        retryWithBackoff(() => initCsrf(), 2, 1000)
+          .then(() => refresh())
+          .catch(() => setLoading(false));
+        window.removeEventListener("online", handleOnline);
+      };
+      window.addEventListener("online", handleOnline);
+      return () => window.removeEventListener("online", handleOnline);
     }
 
     // Online — CSRF init + /me verification

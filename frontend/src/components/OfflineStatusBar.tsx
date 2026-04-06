@@ -1,16 +1,18 @@
 // components/OfflineStatusBar.tsx
 /**
- * Persistent offline status bar — same glassmorphism recipe as TopBar,
- * NotificationPanel, and user dropdown.
+ * Offline status bar — handles offline/pending-sync states as a sticky top bar.
+ * Slow connection state is delegated to a Sonner toast (centered in tab, dismissible).
  *
- * States:
- *   1. Offline         → glass with red accent border + icon
+ * States rendered as bar:
+ *   1. Offline         → glass with red accent border + icon (non-dismissible)
  *   2. Pending sync    → glass with amber accent + pending count
- *   3. Slow connection → glass with yellow accent + warning
- *   4. Sync complete   → glass with green accent → auto-dismiss
+ *   3. Sync complete   → glass with green accent → auto-dismiss
+ *
+ * Slow connection → Sonner toast only (no top bar)
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 import { useOnlineStatus, usePendingSync } from "../hooks/useOffline";
 
 export default function OfflineStatusBar() {
@@ -18,20 +20,48 @@ export default function OfflineStatusBar() {
   const { pendingCount, lastSyncResult } = usePendingSync();
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const slowToastId = useRef<string | number>("slow-conn");
 
+  // Slow connection → Sonner toast (not a bar)
   useEffect(() => {
-    if (!online || pendingCount > 0 || slow || lastSyncResult) {
+    if (slow && online) {
+      toast.warning(
+        "Slow connection — consider downloading content for offline use",
+        {
+          id: slowToastId.current,
+          duration: Infinity,
+          dismissible: true,
+          icon: (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        }
+      );
+    } else {
+      toast.dismiss(slowToastId.current);
+    }
+  }, [slow, online]);
+
+  // Bar visibility for offline / sync states
+  useEffect(() => {
+    if (!online || pendingCount > 0 || lastSyncResult) {
       setVisible(true);
       setDismissed(false);
     } else {
       const timer = setTimeout(() => setVisible(false), 400);
       return () => clearTimeout(timer);
     }
-  }, [online, pendingCount, slow, lastSyncResult]);
+  }, [online, pendingCount, lastSyncResult]);
 
+  // Slow-only state → no bar needed
+  if (slow && online && !(!online || pendingCount > 0 || lastSyncResult)) return null;
   if (!visible || dismissed) return null;
 
-  // Determine bar content based on priority
+  // Determine bar content based on priority (offline > sync > pending)
   let accentColor: string;
   let iconSvg: React.ReactNode;
   let message: string;
@@ -74,17 +104,6 @@ export default function OfflineStatusBar() {
       </svg>
     );
     message = `${pendingCount} item${pendingCount !== 1 ? "s" : ""} waiting to sync`;
-  } else if (slow) {
-    accentColor = "rgba(245, 158, 11, 0.7)";
-    iconSvg = (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    );
-    message = "Slow connection — consider downloading content for offline use";
   } else {
     return null;
   }

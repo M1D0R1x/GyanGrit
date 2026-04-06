@@ -134,7 +134,9 @@ const AIToolsPage           = lazyRetry(() => import("../pages/AIToolsPage"));
 function PageLoader() {
   return (
     <div className="auth-loading">
-      <div className="auth-loading__logo">Gyan<span>Grit</span></div>
+      <div className="auth-loading__logo">
+        <img src="/favicon.svg" alt="GyanGrit" draggable={false} />
+      </div>
       <div className="auth-loading__spinner" />
     </div>
   );

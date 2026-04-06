@@ -1,4 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
+/**
+ * AuthContext — session management with offline-first bootstrap.
+ *
+ * Strategy:
+ *  1. On every app boot, we check navigator.onLine FIRST.
+ *  2. If OFFLINE and localStorage has a cached user profile → restore it
+ *     immediately (no network calls, no spinner delay). offlineMode = true.
+ *  3. If ONLINE → CSRF init + /me as before.
+ *  4. After a successful /me response, we always persist the profile to
+ *     localStorage so the next offline boot can use it.
+ *  5. On logout, we clear the localStorage cache.
+ *
+ * This eliminates the "GyanGrit name + infinite spinner" on mobile PWA
+ * when the device has no internet connection.
+ */
 
 import {
   createContext,
@@ -12,6 +27,32 @@ import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
 import { getAblyToken } from "../services/competitions";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
 import type { TokenParams, ErrorInfo, TokenDetails, TokenRequest } from "ably";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local storage key for cached user profile
+// ─────────────────────────────────────────────────────────────────────────────
+const USER_CACHE_KEY = "gyangrit_user_v1";
+
+function saveCachedUser(user: UserProfile): void {
+  try {
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+  } catch { /* localStorage full or unavailable */ }
+}
+
+function loadCachedUser(): UserProfile | null {
+  try {
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as UserProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearCachedUser(): void {
+  try {
+    localStorage.removeItem(USER_CACHE_KEY);
+  } catch { /* ignore */ }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keep-alive ping — prevents Render cold starts
@@ -29,7 +70,7 @@ function startKeepAlive() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Retry helper for cold-start resilience
+// Retry helper for cold-start resilience (online-only)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function retryWithBackoff<T>(
@@ -55,12 +96,27 @@ async function retryWithBackoff<T>(
 const AuthContext = createContext<AuthState>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading]               = useState(true);
-  const [authenticated, setAuthenticated]   = useState(false);
-  const [user, setUser]                     = useState<UserProfile | null>(null);
-  const [kickedMessage, setKickedMessage]   = useState<string | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [user, setUser]                   = useState<UserProfile | null>(null);
+  const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+  const [offlineMode, setOfflineMode]     = useState(false);
 
   const clearKicked = useCallback(() => setKickedMessage(null), []);
+
+  // ── Persist user on every change ────────────────────────────────────────
+  const applyUser = useCallback((u: UserProfile) => {
+    setAuthenticated(true);
+    setUser(u);
+    saveCachedUser(u);
+  }, []);
+
+  const clearUser = useCallback(() => {
+    setAuthenticated(false);
+    setUser(null);
+    setOfflineMode(false);
+    clearCachedUser();
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -68,8 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: MeResponse = await apiGet("/accounts/me/");
 
       if (data.authenticated) {
-        setAuthenticated(true);
-        setUser({
+        const profile: UserProfile = {
           id:               data.id,
           public_id:        data.public_id ?? "",
           username:         data.username,
@@ -87,61 +142,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           section:          data.section ?? null,
           section_id:       data.section_id ?? null,
           district:         data.district ?? null,
-        });
+        };
+        applyUser(profile);
+        setOfflineMode(false);
       } else {
-        setAuthenticated(false);
-        setUser(null);
+        clearUser();
       }
     } catch (err) {
       console.error("[AuthContext] Failed to fetch /me:", err);
+      // Don't clear localStorage cache — user may still be valid
+      // but we couldn't verify it (network issue after login)
       setAuthenticated(false);
       setUser(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyUser, clearUser]);
 
-  // ── CSRF init on mount ─────────────────────────────────────────────────
+  // ── Boot: offline-first, then online verification ─────────────────────
   useEffect(() => {
+    const isOnline = navigator.onLine;
+    const cached   = loadCachedUser();
+
+    if (!isOnline && cached) {
+      // Instant offline bootstrap — no network calls needed
+      console.log("[AuthContext] Offline boot — restoring cached user:", cached.username);
+      setAuthenticated(true);
+      setUser(cached);
+      setOfflineMode(true);
+      setLoading(false);
+      return;
+    }
+
+    // Online — CSRF init + /me verification
     retryWithBackoff(() => initCsrf(), 3, 2000)
       .then(() => refresh())
       .catch((err) => {
         console.error("[AuthContext] CSRF init failed after retries:", err);
+        // If we have a cached user, restore it rather than showing login
+        if (cached) {
+          console.warn("[AuthContext] Using cached user after CSRF failure");
+          setAuthenticated(true);
+          setUser(cached);
+          setOfflineMode(true);
+        }
         setLoading(false);
       });
-  }, [refresh]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Keep-alive ping ────────────────────────────────────────────────────
+  // ── Keep-alive ping ─────────────────────────────────────────────────────
   useEffect(() => {
     const intervalId = startKeepAlive();
     return () => { if (intervalId) clearInterval(intervalId); };
   }, []);
 
-  // ── Session kicked listener ────────────────────────────────────────────
-  // When SingleActiveSessionMiddleware forces logout on another device,
-  // api.ts dispatches "session:kicked" with the message. We pick it up
-  // here and set kickedMessage so LoginPage can show the banner.
+  // ── Session kicked listener ─────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       setKickedMessage(detail?.message ?? "You were logged out from another device.");
-      setAuthenticated(false);
-      setUser(null);
+      clearUser();
     };
     window.addEventListener("session:kicked", handler);
     return () => window.removeEventListener("session:kicked", handler);
-  }, []);
+  }, [clearUser]);
 
-  // ── Ably notification listener ─────────────────────────────────────────
+  // ── Ably notification listener ──────────────────────────────────────────
   useEffect(() => {
-    if (!authenticated || !user) return;
+    if (!authenticated || !user || offlineMode) return;
     let mounted = true;
 
     const connect = async () => {
       try {
         const { default: Ably } = await import("ably");
-        // Use authCallback so Ably can auto-refresh tokens when they expire.
-        // This eliminates the "no way to renew" warning.
         const client = new Ably.Realtime({
           authCallback: async (
             _data: TokenParams,
@@ -183,27 +257,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cleanup?.();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, user?.id]);
+  }, [authenticated, user?.id, offlineMode]);
 
-  // ── Push notification auto-subscribe ─────────────────────────────────
-  // After login, subscribe to browser push if permission is not denied.
-  // Lazy-imports push.ts to keep the main bundle small.
-  useEffect(() => {
-    if (!authenticated) return;
-    import("../services/push")
-      .then(({ isPushSupported, getPushPermission, subscribeToPush }) => {
-        if (!isPushSupported()) return;
-        if (getPushPermission() === "denied") return;
-        subscribeToPush().catch(() => {});
-      })
-      .catch(() => {});
-  }, [authenticated]);
+  // Push notifications are OPT-IN — user explicitly enables from Profile/Settings.
+  // Removed auto-subscribe here to prevent Chrome from showing
+  // the 'GyanGrit — tap to copy the URL' notification on every login.
+  // Call subscribeToPush() only when user presses the "Enable Notifications" button.
 
   const value: AuthState = {
     loading,
     authenticated,
     user,
     kickedMessage,
+    offlineMode,
     clearKicked,
     refresh,
   };

@@ -124,7 +124,7 @@
   /* Layout */
   --topbar-height:      56px;
   --sidebar-width:      260px;
-  --bottom-nav-height:  68px;
+  --bottom-nav-height:  72px;
   --content-max:        860px;
   --content-max-narrow: 480px;
   --content-max-wide:   1200px;
@@ -739,16 +739,18 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   flex-direction:  column;
   align-items:     center;
   justify-content: center;
-  gap:             3px;
+  gap:             4px;
   background:      transparent;
   border:          none;
   color:           var(--ink-muted);
-  font-size:       10px;
+  font-size:       11px;
   font-weight:     600;
   font-family:     var(--font-body);
   transition:      color var(--transition-fast);
   padding:         var(--space-2) var(--space-1);
   position:        relative;
+  /* Ensure 48px minimum hit target per mobile UX guidelines */
+  min-height:      48px;
 }
 
 .bottom-nav__item--active {
@@ -756,8 +758,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 
 .bottom-nav__icon {
-  width:  22px;
-  height: 22px;
+  width:  26px;
+  height: 26px;
   transition: transform var(--transition-spring);
 }
 
@@ -1432,6 +1434,17 @@ textarea.form-input {
 .login-card__footer { text-align: center; margin-top: var(--space-6); font-size: var(--text-sm); color: var(--ink-muted); }
 .login-card__footer button { background: none; border: none; color: var(--saffron); font-weight: 700; font-size: inherit; cursor: pointer; padding: 0; font-family: inherit; }
 .login-card__footer button:hover { text-decoration: underline; }
+
+/* Mobile: fill screen, comfortable sizing */
+@media (max-width: 480px) {
+  .login-page { padding: var(--space-4); align-items: flex-start; padding-top: 10vh; }
+  .login-card {
+    padding:       var(--space-8) var(--space-5);
+    border-radius: var(--radius-xl);
+  }
+  .login-card__brand { font-size: 1.5rem; }
+  .login-card__tagline { margin-bottom: var(--space-6); }
+}
 
 /* ----------------------------------------------------------------
    NOTIFICATION BELL
@@ -2781,10 +2794,52 @@ textarea.form-input {
 .vaul-drag-handle { position: absolute; right: -8px; top: 50%; transform: translateY(-50%); width: 4px; height: 48px; background: var(--border-medium); border-radius: 0 var(--radius-full) var(--radius-full) 0; opacity: 0.5; }
 
 /* Loading state */
-.auth-loading { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-canvas); gap: var(--space-6); animation: fadeIn 0.15s ease; }
-.auth-loading__logo { font-family: var(--font-display); font-size: 1.75rem; font-weight: 900; letter-spacing: -0.04em; color: var(--ink-primary); }
-.auth-loading__logo span { color: var(--saffron); }
-.auth-loading__spinner { width: 36px; height: 36px; border: 3px solid var(--border-medium); border-top-color: var(--saffron); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.auth-loading {
+  min-height:      100dvh;
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: center;
+  background:      var(--bg-canvas);
+  gap:             var(--space-5);
+  animation:       fadeIn 0.2s ease;
+}
+.auth-loading__logo {
+  width:     72px;
+  height:    72px;
+  animation: logoPulse 2s ease-in-out infinite;
+}
+.auth-loading__logo img,
+.auth-loading__logo svg {
+  width:         100%;
+  height:        100%;
+  border-radius: 18px;
+  display:       block;
+}
+/* Legacy text logo — kept for any remaining uses */
+.auth-loading__logo--text {
+  font-family:    var(--font-display);
+  font-size:      1.75rem;
+  font-weight:    900;
+  letter-spacing: -0.04em;
+  color:          var(--ink-primary);
+  width:          auto;
+  height:         auto;
+  animation:      none;
+}
+.auth-loading__logo--text span { color: var(--saffron); }
+.auth-loading__spinner {
+  width:        32px;
+  height:       32px;
+  border:       2.5px solid var(--border-medium);
+  border-top-color: var(--saffron);
+  border-radius: 50%;
+  animation:    spin 0.75s linear infinite;
+}
+@keyframes logoPulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.05); opacity: 0.85; }
+}
 
 /* Sonner Toast overrides for glass readability */
 [data-sonner-toast] [data-title] {

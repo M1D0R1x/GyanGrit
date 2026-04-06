@@ -1,3 +1,7 @@
+// auth/RequireRole — gate for protected routes
+// Offline-mode users (restored from cache) are allowed through so they
+// can access downloaded lessons and the downloads page.
+// Only redirects to /login when truly unauthenticated AND online.
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -15,6 +19,9 @@ export function RequireRole({ role, children }: Props) {
   useEffect(() => {
     if (auth.loading) return;
 
+    // Offline mode: cached user exists — let them through
+    if (auth.offlineMode && auth.user) return;
+
     if (!auth.authenticated || !auth.user) {
       navigate("/login", { replace: true });
       return;
@@ -30,21 +37,22 @@ export function RequireRole({ role, children }: Props) {
     if (ROLE_RANK[auth.user.role] < ROLE_RANK[role]) {
       navigate("/403", { replace: true });
     }
-  }, [auth.loading, auth.authenticated, auth.user, role, navigate]);
+  }, [auth.loading, auth.authenticated, auth.user, auth.offlineMode, role, navigate]);
 
   if (auth.loading) {
     return (
       <div className="auth-loading">
         <div className="auth-loading__logo">
-          Gyan<span>Grit</span>
+          <img src="/favicon.svg" alt="GyanGrit" draggable={false} />
         </div>
         <div className="auth-loading__spinner" />
       </div>
     );
   }
 
-  if (!auth.authenticated || !auth.user) return null;
-  if (!auth.user.profile_complete && auth.user.role !== "ADMIN") return null;
+  if (!auth.authenticated && !auth.offlineMode) return null;
+  if (!auth.user) return null;
+  if (!auth.user.profile_complete && auth.user.role !== "ADMIN" && !auth.offlineMode) return null;
   if (ROLE_RANK[auth.user.role] < ROLE_RANK[role]) return null;
 
   return <>{children}</>;

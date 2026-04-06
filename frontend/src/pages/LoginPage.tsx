@@ -35,6 +35,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Detect offline before hitting the network
+    if (!navigator.onLine) {
+      setError("No internet connection. Connect to the internet and try again.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     auth.clearKicked();
@@ -54,7 +61,16 @@ export default function LoginPage() {
       navigate(ROLE_PATHS[response.role] ?? "/", { replace: true });
 
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Login failed. Please try again.";
+      let message = err instanceof Error ? err.message : "Login failed. Please try again.";
+      // Sanitize: hide internal API URLs and raw fetch errors from users
+      if (
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("networkerror") ||
+        message.toLowerCase().includes("api.") ||
+        message.startsWith("TypeError")
+      ) {
+        message = "Unable to connect. Check your internet connection and try again.";
+      }
       setError(message);
     } finally {
       setLoading(false);

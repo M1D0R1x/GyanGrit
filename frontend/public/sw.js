@@ -1,28 +1,31 @@
 /**
- * GyanGrit Service Worker
+ * GyanGrit Service Worker v4
  *
  * Strategy:
- *   - App shell (HTML, CSS, JS, fonts) → Cache First (install + precache)
- *   - API calls (cross-origin to api.gyangrit.site) → Network Only (no caching)
- *     Session cookies + CSRF make API caching dangerous in this architecture.
- *   - Static assets (images, icons) → Cache First with background update
- *   - Navigation → SPA shell (serve index.html)
- *   - Everything else → Network First
+ *   - App shell (HTML, icons, manifest) → precached on install
+ *   - Vite JS/CSS bundles (/assets/*.js, /assets/*.css) → Cache First
+ *     with background refresh. Cached on FIRST FETCH while online.
+ *     Available offline after first visit.
+ *   - API calls (cross-origin to api.gyangrit.site) → Network Only
+ *     Session cookies + CSRF make API caching dangerous.
+ *   - Static assets (images, fonts, icons) → Cache First
+ *   - Navigation → SPA shell (serve index.html from cache)
+ *   - Everything else → Network First with cache fallback
  *
- * IMPORTANT: The API is on api.gyangrit.site while the frontend
- * is on gyangrit.site (Vercel). We identify API calls by hostname.
+ * OFFLINE BOOT: After a user visits once while online, ALL app assets
+ * are cached. On subsequent offline visits, the full React app loads
+ * from cache. Auth is handled by AuthContext reading localStorage.
  *
- * Cache names are versioned. Bump CACHE_VERSION on each deploy to
- * force old caches to be replaced.
+ * IMPORTANT: Bump CACHE_VERSION on each deploy to force new bundle
+ * files to be fetched (old hashed files are automatically evicted).
  */
 
-const CACHE_VERSION   = "v3";
-const SHELL_CACHE     = `gyangrit-shell-${CACHE_VERSION}`;
-const ASSET_CACHE     = `gyangrit-assets-${CACHE_VERSION}`;
+const CACHE_VERSION = "v4";
+const SHELL_CACHE   = `gyangrit-shell-${CACHE_VERSION}`;
+const ASSET_CACHE   = `gyangrit-assets-${CACHE_VERSION}`;
 
-// App shell resources precached on install.
-// Only include files that DEFINITELY exist — missing files won't break install
-// thanks to Promise.allSettled, but generate noisy warnings.
+// Minimal shell precached on install (no hashed filenames here —
+// those get cached at runtime on first fetch while online).
 const SHELL_URLS = [
   "/",
   "/index.html",
@@ -30,9 +33,10 @@ const SHELL_URLS = [
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-180.png",
+  "/favicon.svg",
 ];
 
-// ── Install: precache the app shell ──────────────────────────────────────────
+// ── Install: precache app shell ──────────────────────────────────────────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) => {
@@ -69,48 +73,90 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET, chrome-extension, and WebSocket requests
+  // Skip non-GET, chrome-extension, and WebSocket
   if (request.method !== "GET") return;
   if (url.protocol === "chrome-extension:") return;
   if (request.headers.get("upgrade") === "websocket") return;
 
-  // ── Cross-origin API calls → ALWAYS go to network ──────────────────────
-  // The API is on gyangrit.onrender.com. Caching API responses with session
-  // cookies is dangerous (stale auth, wrong user data). Let them fail
-  // naturally so the frontend handles errors.
+  // ── Cross-origin API calls → ALWAYS network (no caching) ──────────────
+  // The API lives on a different hostname. Session cookies + CSRF = no cache.
   if (url.hostname !== self.location.hostname) {
-    return; // let the browser handle it — no SW interception
+    return; // Let browser handle it — no SW interception
   }
 
-  // ── Vercel analytics / Speed insights → skip ──────────────────────────
-  if (url.pathname.startsWith("/_vercel/")) {
-    return; // don't interfere with Vercel's own scripts
+  // ── Vercel analytics → skip ────────────────────────────────────────────
+  if (url.pathname.startsWith("/_vercel/")) return;
+
+  // ── Vite hashed JS/CSS bundles → Cache First (immutable) ──────────────
+  // These files have content-hash in the filename, so they're safe to
+  // cache forever. Cached on first fetch while online.
+  if (
+    url.pathname.startsWith("/assets/") &&
+    (url.pathname.endsWith(".js") ||
+     url.pathname.endsWith(".css") ||
+     url.pathname.endsWith(".woff2") ||
+     url.pathname.endsWith(".woff"))
+  ) {
+    event.respondWith(cacheFirstImmutable(request));
+    return;
   }
 
-  // Static assets (images, fonts, icons, Vite bundles) — Cache First
+  // ── Other static assets (images, SVG, fonts) → Cache First ───────────
   if (
     url.pathname.startsWith("/icons/") ||
-    url.pathname.startsWith("/assets/") ||
-    url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|woff2?|ttf|eot)$/)
+    url.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ttf|eot)$/)
   ) {
     event.respondWith(cacheFirstAsset(request));
     return;
   }
 
-  // App shell / navigation — serve index.html for all routes (SPA)
+  // ── SPA navigation → serve index.html from cache ──────────────────────
   if (request.mode === "navigate") {
     event.respondWith(serveShell(request));
     return;
   }
 
-  // Default — Network First
+  // ── Default → Network First with cache fallback ───────────────────────
   event.respondWith(networkFirst(request, SHELL_CACHE));
 });
 
-// ── Strategy: Cache First for static assets ───────────────────────────────────
-async function cacheFirstAsset(request) {
+// ── Strategy: Cache First for immutable assets (Vite bundles) ────────────────
+// These have content hashes — safe to cache forever without revalidation.
+async function cacheFirstImmutable(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(ASSET_CACHE);
+      // Clone before reading — response body can only be consumed once
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    // Asset not cached yet and network failed — return 503
+    return new Response("", {
+      status: 503,
+      statusText: "Service Unavailable — asset not cached yet",
+    });
+  }
+}
+
+// ── Strategy: Cache First for static assets (background refresh) ──────────────
+async function cacheFirstAsset(request) {
+  const cached = await caches.match(request);
+  if (cached) {
+    // Serve from cache, update in background
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          caches.open(ASSET_CACHE).then((cache) => cache.put(request, response));
+        }
+      })
+      .catch(() => {});
+    return cached;
+  }
 
   try {
     const response = await fetch(request);
@@ -124,22 +170,31 @@ async function cacheFirstAsset(request) {
   }
 }
 
-// ── Strategy: SPA shell — serve index.html for navigations ───────────────────
+// ── Strategy: SPA shell — serve index.html for all navigations ───────────────
 async function serveShell(request) {
+  // Try exact URL first (e.g. /dashboard might be cached from a previous visit)
   const cached = await caches.match(request);
   if (cached) return cached;
 
-  const indexCached = await caches.match("/index.html");
+  // Fall back to root index.html (SPA entry point)
+  const indexCached = await caches.match("/index.html") ||
+                      await caches.match("/");
   if (indexCached) return indexCached;
 
+  // Last resort — try network
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(SHELL_CACHE);
+      cache.put(new Request("/index.html"), response.clone());
+    }
+    return response;
   } catch {
     return offlinePage();
   }
 }
 
-// ── Strategy: Network First generic ──────────────────────────────────────────
+// ── Strategy: Network First ───────────────────────────────────────────────────
 async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
@@ -161,7 +216,7 @@ function offlinePage() {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>GyanGrit — Offline</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -169,26 +224,33 @@ function offlinePage() {
       font-family: "DM Sans", system-ui, sans-serif;
       background: #0d1117; color: #e2e8f0;
       display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 24px; text-align: center;
+      min-height: 100dvh; padding: 24px; text-align: center;
     }
-    .icon { font-size: 64px; margin-bottom: 24px; }
-    h1 { font-family: "Sora", sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 12px; color: #fff; }
-    p { font-size: 15px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; max-width: 320px; }
+    .card { max-width: 340px; width: 100%; }
+    .icon { font-size: 56px; margin-bottom: 20px; display: block; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 10px; color: #fff; }
+    p { font-size: 14px; color: #94a3b8; line-height: 1.7; margin-bottom: 20px; }
+    .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     button {
       background: #3b82f6; color: #fff; border: none;
-      padding: 12px 28px; border-radius: 8px; font-size: 15px;
-      font-weight: 600; cursor: pointer;
+      padding: 12px 24px; border-radius: 10px; font-size: 14px;
+      font-weight: 600; cursor: pointer; min-height: 48px;
     }
-    .hint { font-size: 13px; color: #64748b; margin-top: 16px; }
+    button.secondary {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
   </style>
 </head>
 <body>
-  <div>
-    <div class="icon">📚</div>
-    <h1>You're Offline</h1>
-    <p>Some content may be available offline — check your downloaded lessons below.</p>
-    <button onclick="window.location.href='/dashboard'">View Downloads</button>
-    <p class="hint">Previously opened pages may still work — try the back button.</p>
+  <div class="card">
+    <span class="icon">📚</span>
+    <h1>No Connection</h1>
+    <p>You're offline. Open the app once with internet to access your downloaded lessons offline.</p>
+    <div class="btns">
+      <button onclick="window.location.href='/downloads'">My Downloads</button>
+      <button class="secondary" onclick="window.location.reload()">Retry</button>
+    </div>
   </div>
 </body>
 </html>`,
@@ -200,9 +262,6 @@ function offlinePage() {
 }
 
 // ── Background sync ──────────────────────────────────────────────────────────
-// Triggered by SyncManager when connectivity is restored.
-// The actual queue processing lives in offlineSync.ts (client-side).
-// Here we just notify all clients to trigger their sync logic.
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-progress" || event.tag === "sync-offline-queue") {
     event.waitUntil(
@@ -248,7 +307,7 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
 
-  const path = event.notification.data?.url || "/dashboard";
+  const path    = event.notification.data?.url || "/dashboard";
   const fullUrl = new URL(path, self.location.origin).href;
 
   event.waitUntil(
@@ -265,9 +324,8 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// ── Background Fetch ────────────────────────────────────────────────────────────────────────
+// ── Background Fetch ─────────────────────────────────────────────────────────
 // Downloads survive navigation, tab close, and browser restart.
-// The SW wakes up when download finishes and stores bytes to IndexedDB.
 // fetch ID format: "gyangrit-video-{lessonId}" or "gyangrit-pdf-{lessonId}"
 
 self.addEventListener("backgroundfetchsuccess", (event) => {
@@ -298,11 +356,10 @@ async function handleBgFetchComplete(bgFetch, status) {
     return;
   }
 
-  // Parse the fetch ID to figure out what to store
-  // Format: "gyangrit-video-{lessonId}" or "gyangrit-pdf-{lessonId}"
-  const id = bgFetch.id;  // e.g. "gyangrit-video-42"
-  const parts = id.split("-");  // ["gyangrit", "video", "42"]
-  const mediaType = parts[1];   // "video" or "pdf"
+  // Parse the fetch ID: "gyangrit-video-{lessonId}" or "gyangrit-pdf-{lessonId}"
+  const id        = bgFetch.id;
+  const parts     = id.split("-");
+  const mediaType = parts[1];
   const lessonId  = parseInt(parts[2], 10);
 
   if (!lessonId || !mediaType) {
@@ -310,25 +367,23 @@ async function handleBgFetchComplete(bgFetch, status) {
     return;
   }
 
-  const data = await response.arrayBuffer();
+  const data        = await response.arrayBuffer();
   const contentType = response.headers.get("Content-Type") || "application/octet-stream";
-  const url = record.request.url;
-  const fileName = url.split("/").pop() || `lesson_${lessonId}`;
+  const url         = record.request.url;
+  const fileName    = url.split("/").pop() || `lesson_${lessonId}`;
 
-  // Write to IndexedDB directly from the SW
   const storeName = mediaType === "video" ? "videos" : "pdfs";
-  const key = mediaType === "video" ? `vid_${lessonId}` : `pdf_${lessonId}`;
-  const item = mediaType === "video"
+  const key       = mediaType === "video" ? `vid_${lessonId}` : `pdf_${lessonId}`;
+  const item      = mediaType === "video"
     ? { id: key, lessonId, fileName, data, size: data.byteLength, mimeType: contentType, savedAt: new Date().toISOString() }
     : { id: key, lessonId, fileName, data, size: data.byteLength, savedAt: new Date().toISOString() };
 
   await idbPut("gyangrit-offline", 2, storeName, item);
 
-  // Show a notification so user knows it's done
   await self.registration.showNotification("GyanGrit", {
     body: `Download complete — ${mediaType === "video" ? "Video" : "PDF"} saved offline`,
     icon: "/icons/icon-192.png",
-    tag: `dl-complete-${id}`,
+    tag:  `dl-complete-${id}`,
     data: { url: "/downloads" },
   });
 

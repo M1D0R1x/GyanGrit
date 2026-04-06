@@ -668,14 +668,27 @@ export default function LessonPage() {
           />
         )}
 
-        {/* Empty state */}
+        {/* Empty state — differentiate offline-no-download vs genuinely empty */}
         {!hasVideo && !hasPdf && !hasContent && (
           <div className="empty-state" style={{ paddingTop: "var(--space-16)" }}>
-            <div className="empty-state__icon">🚧</div>
-            <h3 className="empty-state__title">Content coming soon</h3>
-            <p className="empty-state__message">
-              This lesson has not been filled in yet.
-            </p>
+            {isOfflineMode ? (
+              <>
+                <div className="empty-state__icon">📥</div>
+                <h3 className="empty-state__title">Content not downloaded</h3>
+                <p className="empty-state__message">
+                  You saved this lesson offline, but the text content was not included.
+                  Go online and download the full lesson content.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="empty-state__icon">🚧</div>
+                <h3 className="empty-state__title">Content coming soon</h3>
+                <p className="empty-state__message">
+                  This lesson has not been filled in yet.
+                </p>
+              </>
+            )}
           </div>
         )}
 

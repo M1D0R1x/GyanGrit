@@ -54,11 +54,28 @@ async function buildErrorMessage(res: Response): Promise<string> {
     const trimmed = text.trim().toLowerCase();
     if (trimmed.startsWith("<!doctype html>") || trimmed.startsWith("<html")) {
       if (res.status === 404) return "Not Found: The requested resource does not exist.";
-      if (res.status >= 500) return "Internal Server Error: The server encountered an unexpected condition.";
-      return "Unexpected HTML response received from server.";
+      if (res.status >= 500) return "Server error. Please try again later.";
+      return "Unexpected response from server.";
     }
     return text;
   }
+}
+
+/**
+ * Strip internal URLs and raw TypeError messages from errors shown to users.
+ * e.g. "Failed to fetch https://api.gyangrit.site/..." → "Unable to connect"
+ */
+function sanitizeNetworkError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  if (
+    message.toLowerCase().includes("failed to fetch") ||
+    message.toLowerCase().includes("networkerror") ||
+    message.toLowerCase().includes("load failed") ||
+    (err instanceof TypeError && message.includes("fetch"))
+  ) {
+    return new Error("Unable to connect. Check your internet connection.");
+  }
+  return err instanceof Error ? err : new Error(message);
 }
 
 export async function initCsrf(): Promise<void> {
@@ -71,11 +88,16 @@ export async function initCsrf(): Promise<void> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "GET",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    throw sanitizeNetworkError(err);
+  }
 
   if (!res.ok) {
     await handleKicked(res);

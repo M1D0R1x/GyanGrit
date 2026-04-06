@@ -75,6 +75,7 @@ export type AuthState = {
   authenticated: boolean;
   user:          UserProfile | null;
   kickedMessage: string | null;
+  offlineMode:   boolean;
   clearKicked:   () => void;
   refresh:       () => Promise<void>;
 };

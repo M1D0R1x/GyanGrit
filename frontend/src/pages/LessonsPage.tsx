@@ -3,11 +3,13 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
-import { getCourseBySlug } from "../services/content";
+import { getCourseBySlug, getLessonDetail } from "../services/content";
 import { fromSlug } from "../utils/slugs";
 import {
   isLessonSavedOffline,
   saveLessonOffline,
+  savePdfOffline,
+  saveVideoOffline,
   isOnline,
 } from "../services/offline";
 
@@ -51,13 +53,19 @@ function LessonDownloadBtn({
   grade: number;
   forceSaved?: boolean;
 }) {
-  const [saved, setSaved]     = useState(false);
+  const [saved, setSaved]     = useState(!!forceSaved);
   const [saving, setSaving]   = useState(false);
 
-  // Check if already saved on mount, or if parent marks it done
+  // Sync from parent when bulk download marks it done
   useEffect(() => {
-    if (forceSaved) { setSaved(true); return; }
-    isLessonSavedOffline(lesson.id).then(setSaved).catch(() => {});
+    if (forceSaved) setSaved(true);
+  }, [forceSaved]);
+
+  // Check IndexedDB on mount
+  useEffect(() => {
+    if (!forceSaved) {
+      isLessonSavedOffline(lesson.id).then(setSaved).catch(() => {});
+    }
   }, [lesson.id, forceSaved]);
 
   const handleSave = async (e: React.MouseEvent) => {
@@ -69,19 +77,35 @@ function LessonDownloadBtn({
     try {
       const alreadySaved = await isLessonSavedOffline(lesson.id);
       if (alreadySaved) { toast.warning("Lesson already downloaded"); setSaved(true); return; }
+
+      // Fetch full lesson detail (content, pdf_url, video_url) from API
+      const detail = await getLessonDetail(lesson.id);
+      const textContent = detail.content ?? "";
+
       await saveLessonOffline({
-        id:          lesson.id,
+        id:             lesson.id,
         courseId,
-        courseTitle: courseName,
+        courseTitle:     courseName,
         subjectName,
         grade,
-        title:       lesson.title,
-        content:     "",
-        pdfUrl:      "",
-        videoUrl:    "",
-        order:       lesson.order,
-        savedAt:     new Date().toISOString(),
+        title:           detail.title,
+        content:         textContent,
+        hasTextContent:  textContent.trim().length > 0,
+        pdfUrl:          detail.pdf_url ?? "",
+        videoUrl:        detail.video_url ?? "",
+        order:           lesson.order,
+        savedAt:         new Date().toISOString(),
       });
+
+      // Download PDF blob if present
+      if (detail.pdf_url) {
+        await savePdfOffline(lesson.id, detail.pdf_url).catch(() => {});
+      }
+      // Download video blob if present
+      if (detail.video_url) {
+        await saveVideoOffline(lesson.id, detail.video_url).catch(() => {});
+      }
+
       setSaved(true);
       toast.success("Lesson saved offline");
     } catch {
@@ -307,14 +331,36 @@ export default function LessonsPage() {
       if (already) {
         skipped++;
       } else {
-        await saveLessonOffline({
-          id: lesson.id, courseId: courseId ?? 0,
-          courseTitle: courseName, subjectName: subjectLabel,
-          grade: grade ?? 0, title: lesson.title,
-          content: "", pdfUrl: "", videoUrl: "",
-          order: lesson.order, savedAt: new Date().toISOString(),
-        }).catch(() => {});
-        saved++;
+        try {
+          // Fetch full lesson detail for real content + media URLs
+          const detail = await getLessonDetail(lesson.id);
+          const textContent = detail.content ?? "";
+
+          await saveLessonOffline({
+            id: lesson.id, courseId: courseId ?? 0,
+            courseTitle: courseName, subjectName: subjectLabel,
+            grade: grade ?? 0, title: detail.title,
+            content: textContent,
+            hasTextContent: textContent.trim().length > 0,
+            pdfUrl: detail.pdf_url ?? "",
+            videoUrl: detail.video_url ?? "",
+            order: lesson.order, savedAt: new Date().toISOString(),
+          });
+
+          // Download PDF blob if present
+          if (detail.pdf_url) {
+            await savePdfOffline(lesson.id, detail.pdf_url).catch(() => {});
+          }
+          // Download video blob if present (can be large — catch silently)
+          if (detail.video_url) {
+            await saveVideoOffline(lesson.id, detail.video_url).catch(() => {});
+          }
+
+          saved++;
+        } catch {
+          // If detail fetch fails for one lesson, skip and continue
+          toast.error(`Failed to download "${lesson.title}"`);
+        }
       }
       newSaved.add(lesson.id);
       setSavedIds(new Set(newSaved));

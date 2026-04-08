@@ -1,6 +1,5 @@
 backend
 ├── COMMANDS.md
-├── Dockerfile
 ├── __init__.py
 ├── apps
 │   ├── __init__.py
@@ -153,6 +152,7 @@ backend
 │   │   ├── apps.py
 │   │   ├── migrations
 │   │   │   ├── 0001_initial.py
+│   │   │   ├── 0002_competitionroom_time_limit_secs.py
 │   │   │   └── __init__.py
 │   │   ├── models.py
 │   │   ├── tests.py
@@ -309,7 +309,7 @@ backend
 │       ├── services.py
 │       ├── tests.py
 │       └── views.py
-├── build.sh
+├── conftest.py
 ├── gunicorn.conf.py
 ├── gyangrit
 │   ├── __init__.py
@@ -318,222 +318,14 @@ backend
 │   │   ├── __init__.py
 │   │   ├── base.py
 │   │   ├── dev.py
-│   │   └── prod.py
+│   │   ├── prod.py
+│   │   └── test.py
 │   ├── storage.py
 │   ├── urls.py
 │   └── wsgi.py
 ├── gyangrit_backup.dump
-├── htmlcov
-│   ├── class_index.html
-│   ├── coverage_html_cb_dd2e7eb5.js
-│   ├── favicon_32_cb_c827f16f.png
-│   ├── function_index.html
-│   ├── index.html
-│   ├── keybd_closed_cb_900cfef5.png
-│   ├── status.json
-│   ├── style_cb_9ff733b0.css
-│   ├── z_029bd7d47b6f93e7___init___py.html
-│   ├── z_029bd7d47b6f93e7_admin_py.html
-│   ├── z_029bd7d47b6f93e7_apps_py.html
-│   ├── z_029bd7d47b6f93e7_models_py.html
-│   ├── z_029bd7d47b6f93e7_permissions_py.html
-│   ├── z_029bd7d47b6f93e7_scoped_service_py.html
-│   ├── z_029bd7d47b6f93e7_tests_py.html
-│   ├── z_029bd7d47b6f93e7_views_py.html
-│   ├── z_042651a2315fffe3_0001_initial_py.html
-│   ├── z_042651a2315fffe3_0002_remove_notification_title_remove_notification_type_and_more_py.html
-│   ├── z_042651a2315fffe3_0003_pushsubscription_py.html
-│   ├── z_042651a2315fffe3___init___py.html
-│   ├── z_08f373a651136309___init___py.html
-│   ├── z_0d2b580fc20b4324___init___py.html
-│   ├── z_0f8f90f26a5f97dd___init___py.html
-│   ├── z_0f8f90f26a5f97dd_admin_py.html
-│   ├── z_0f8f90f26a5f97dd_apps_py.html
-│   ├── z_0f8f90f26a5f97dd_models_py.html
-│   ├── z_0f8f90f26a5f97dd_tests_py.html
-│   ├── z_0f8f90f26a5f97dd_views_py.html
-│   ├── z_119b6fa8c98155d9___init___py.html
-│   ├── z_119b6fa8c98155d9_admin_py.html
-│   ├── z_119b6fa8c98155d9_apps_py.html
-│   ├── z_119b6fa8c98155d9_models_py.html
-│   ├── z_119b6fa8c98155d9_tests_py.html
-│   ├── z_119b6fa8c98155d9_views_py.html
-│   ├── z_15a864a5239d9d2d_0001_initial_py.html
-│   ├── z_15a864a5239d9d2d___init___py.html
-│   ├── z_1908a9d7a57c39f1___init___py.html
-│   ├── z_1908a9d7a57c39f1_urls_py.html
-│   ├── z_1b26c2035f381765_0001_initial_py.html
-│   ├── z_1b26c2035f381765_0002_lesson_pdf_url_lesson_updated_at_and_more_py.html
-│   ├── z_1b26c2035f381765_0003_sectionlesson_py.html
-│   ├── z_1b26c2035f381765___init___py.html
-│   ├── z_1c9f76ce31fd37c5___init___py.html
-│   ├── z_1c9f76ce31fd37c5_urls_py.html
-│   ├── z_1e83172f897ac670___init___py.html
-│   ├── z_1e83172f897ac670_admin_py.html
-│   ├── z_1e83172f897ac670_apps_py.html
-│   ├── z_1e83172f897ac670_middleware_py.html
-│   ├── z_1e83172f897ac670_models_py.html
-│   ├── z_1e83172f897ac670_services_py.html
-│   ├── z_1e83172f897ac670_tests_py.html
-│   ├── z_1e83172f897ac670_views_py.html
-│   ├── z_2cfa44a079666210___init___py.html
-│   ├── z_2cfa44a079666210_admin_py.html
-│   ├── z_2cfa44a079666210_apps_py.html
-│   ├── z_2cfa44a079666210_models_py.html
-│   ├── z_2cfa44a079666210_signals_py.html
-│   ├── z_2cfa44a079666210_tests_py.html
-│   ├── z_2cfa44a079666210_views_py.html
-│   ├── z_30d4a27ed785c8a9___init___py.html
-│   ├── z_3aa20c6b62f17b3b___init___py.html
-│   ├── z_426386b8c290b287___init___py.html
-│   ├── z_426386b8c290b287_admin_py.html
-│   ├── z_426386b8c290b287_apps_py.html
-│   ├── z_426386b8c290b287_models_py.html
-│   ├── z_426386b8c290b287_signals_py.html
-│   ├── z_426386b8c290b287_tests_py.html
-│   ├── z_426386b8c290b287_views_py.html
-│   ├── z_43bea6d1d6eab21d___init___py.html
-│   ├── z_44615e449c20d018___init___py.html
-│   ├── z_44615e449c20d018_admin_py.html
-│   ├── z_44615e449c20d018_apps_py.html
-│   ├── z_44615e449c20d018_models_py.html
-│   ├── z_44615e449c20d018_tests_py.html
-│   ├── z_44615e449c20d018_views_py.html
-│   ├── z_49766130175215f9___init___py.html
-│   ├── z_49766130175215f9_urls_py.html
-│   ├── z_4ced72dc35d991a4___init___py.html
-│   ├── z_4ced72dc35d991a4_admin_py.html
-│   ├── z_4ced72dc35d991a4_apps_py.html
-│   ├── z_4ced72dc35d991a4_models_py.html
-│   ├── z_4ced72dc35d991a4_signals_py.html
-│   ├── z_4ced72dc35d991a4_tests_py.html
-│   ├── z_4ced72dc35d991a4_views_py.html
-│   ├── z_4ec77943ce1e85fc___init___py.html
-│   ├── z_4ec77943ce1e85fc_urls_py.html
-│   ├── z_51baea21b27c555e___init___py.html
-│   ├── z_51baea21b27c555e_urls_py.html
-│   ├── z_5334029728a862d0___init___py.html
-│   ├── z_5334029728a862d0_admin_py.html
-│   ├── z_5334029728a862d0_apps_py.html
-│   ├── z_5334029728a862d0_models_py.html
-│   ├── z_5334029728a862d0_tests_py.html
-│   ├── z_5334029728a862d0_views_py.html
-│   ├── z_5bc57666a2382a7f_0001_initial_py.html
-│   ├── z_5bc57666a2382a7f_0002_rename_gradebook_g_student_8a3c1f_idx_gradebook_g_student_901ddb_idx_and_more_py.html
-│   ├── z_5bc57666a2382a7f___init___py.html
-│   ├── z_645754c47827a1df___init___py.html
-│   ├── z_64c52672f2149fae_0001_initial_py.html
-│   ├── z_64c52672f2149fae___init___py.html
-│   ├── z_69cd0d4a72a58468___init___py.html
-│   ├── z_69cd0d4a72a58468_admin_py.html
-│   ├── z_69cd0d4a72a58468_apps_py.html
-│   ├── z_69cd0d4a72a58468_models_py.html
-│   ├── z_69cd0d4a72a58468_push_py.html
-│   ├── z_69cd0d4a72a58468_signals_py.html
-│   ├── z_69cd0d4a72a58468_tests_py.html
-│   ├── z_69cd0d4a72a58468_views_py.html
-│   ├── z_6f2bf2a81f6c9781___init___py.html
-│   ├── z_71def6e9ed56ac1b___init___py.html
-│   ├── z_8b5693faf471916c___init___py.html
-│   ├── z_97f07d3674d927eb___init___py.html
-│   ├── z_97f07d3674d927eb_urls_py.html
-│   ├── z_9853a04a1d242ebb___init___py.html
-│   ├── z_9e189ee61a034fc9___init___py.html
-│   ├── z_9f7d57daa838b6a1___init___py.html
-│   ├── z_9f7d57daa838b6a1_admin_py.html
-│   ├── z_9f7d57daa838b6a1_apps_py.html
-│   ├── z_9f7d57daa838b6a1_models_py.html
-│   ├── z_9f7d57daa838b6a1_r2_py.html
-│   ├── z_9f7d57daa838b6a1_tests_py.html
-│   ├── z_9f7d57daa838b6a1_views_py.html
-│   ├── z_9f7e53535d276176___init___py.html
-│   ├── z_9f7e53535d276176_urls_py.html
-│   ├── z_9fc41623bc9c7760___init___py.html
-│   ├── z_a341b7ce4783cd01___init___py.html
-│   ├── z_ab0f738232d3b92e___init___py.html
-│   ├── z_ab0f738232d3b92e_urls_py.html
-│   ├── z_ab85b0c42bd48b57___init___py.html
-│   ├── z_ac1b3d1249e98ddb___init___py.html
-│   ├── z_af3631859e3384da_0001_initial_py.html
-│   ├── z_af3631859e3384da___init___py.html
-│   ├── z_af89184e41f1d6fc_0001_initial_py.html
-│   ├── z_af89184e41f1d6fc___init___py.html
-│   ├── z_b24b2a7cfdb6bae8___init___py.html
-│   ├── z_b24b2a7cfdb6bae8_admin_py.html
-│   ├── z_b24b2a7cfdb6bae8_apps_py.html
-│   ├── z_b24b2a7cfdb6bae8_models_py.html
-│   ├── z_b24b2a7cfdb6bae8_tests_py.html
-│   ├── z_b24b2a7cfdb6bae8_views_py.html
-│   ├── z_b3ba0512cc4d6d58___init___py.html
-│   ├── z_b8c93127da1f83e4___init___py.html
-│   ├── z_b8c93127da1f83e4_urls_py.html
-│   ├── z_b99397438d075463___init___py.html
-│   ├── z_b99397438d075463_urls_py.html
-│   ├── z_bc0ae92d05ec1e67___init___py.html
-│   ├── z_bc0ae92d05ec1e67_admin_py.html
-│   ├── z_bc0ae92d05ec1e67_apps_py.html
-│   ├── z_bc0ae92d05ec1e67_models_py.html
-│   ├── z_bc0ae92d05ec1e67_tests_py.html
-│   ├── z_bc0ae92d05ec1e67_views_py.html
-│   ├── z_c16e003fa57a6e71_0001_initial_py.html
-│   ├── z_c16e003fa57a6e71___init___py.html
-│   ├── z_c1778a55e2346fc3___init___py.html
-│   ├── z_dc7018bfb5159446___init___py.html
-│   ├── z_dc7018bfb5159446_urls_py.html
-│   ├── z_dfeefb9291c4893e___init___py.html
-│   ├── z_dfeefb9291c4893e_admin_py.html
-│   ├── z_dfeefb9291c4893e_apps_py.html
-│   ├── z_dfeefb9291c4893e_models_py.html
-│   ├── z_dfeefb9291c4893e_services_py.html
-│   ├── z_dfeefb9291c4893e_tests_py.html
-│   ├── z_dfeefb9291c4893e_views_py.html
-│   ├── z_e0b99ee7ec67f3a8___init___py.html
-│   ├── z_e0b99ee7ec67f3a8_urls_py.html
-│   ├── z_e234e3bdcbf1e394_0001_initial_py.html
-│   ├── z_e234e3bdcbf1e394_0002_initial_py.html
-│   ├── z_e234e3bdcbf1e394___init___py.html
-│   ├── z_e2365a2a08d70f48___init___py.html
-│   ├── z_e2365a2a08d70f48_bootstrap_chatrooms_py.html
-│   ├── z_e2ebc24378d878c1_0001_initial_py.html
-│   ├── z_e2ebc24378d878c1_0002_joincode_subject_py.html
-│   ├── z_e2ebc24378d878c1_0003_user_full_name_user_mobile_number_and_more_py.html
-│   ├── z_e2ebc24378d878c1_0004_rename_mobile_number_user_mobile_primary_and_more_py.html
-│   ├── z_e2ebc24378d878c1___init___py.html
-│   ├── z_e3b473437c57272d___init___py.html
-│   ├── z_e5fdb633d1e80146___init___py.html
-│   ├── z_e5fdb633d1e80146_urls_py.html
-│   ├── z_e64fc358d1a390e7_0001_initial_py.html
-│   ├── z_e64fc358d1a390e7___init___py.html
-│   ├── z_e7911364b550feb0___init___py.html
-│   ├── z_e7911364b550feb0_urls_py.html
-│   ├── z_ebbaec857f1b937f_0001_initial_py.html
-│   ├── z_ebbaec857f1b937f___init___py.html
-│   ├── z_ee7a6b4dfdf2cb5f___init___py.html
-│   ├── z_eed0334c51703cc2___init___py.html
-│   ├── z_f147117aa0886e78_0001_initial_py.html
-│   ├── z_f147117aa0886e78___init___py.html
-│   ├── z_f17a59ce264faa24___init___py.html
-│   ├── z_f4af5c0665511097___init___py.html
-│   ├── z_f4af5c0665511097_admin_py.html
-│   ├── z_f4af5c0665511097_apps_py.html
-│   ├── z_f4af5c0665511097_constants_py.html
-│   ├── z_f4af5c0665511097_models_py.html
-│   ├── z_f4af5c0665511097_signals_py.html
-│   ├── z_f4af5c0665511097_tests_py.html
-│   ├── z_f4af5c0665511097_views_py.html
-│   ├── z_f4f0f42bae8851ed___init___py.html
-│   ├── z_f4f0f42bae8851ed_urls_py.html
-│   ├── z_f5aea47cc11e79d6___init___py.html
-│   ├── z_f5aea47cc11e79d6_urls_py.html
-│   ├── z_f6eac2f207ee6139___init___py.html
-│   ├── z_f6eac2f207ee6139_admin_py.html
-│   ├── z_f6eac2f207ee6139_apps_py.html
-│   ├── z_f6eac2f207ee6139_models_py.html
-│   ├── z_f6eac2f207ee6139_signals_py.html
-│   └── z_f6eac2f207ee6139_views_py.html
 ├── manage.py
 ├── package-lock.json
-├── package.json
 ├── pytest.ini
 ├── requirements
 │   ├── base.txt
@@ -689,9 +481,7 @@ docs
 ├── ALTERNATIVE_DEPLOYMENT.md
 ├── API_AND_FRONTEND_END_POINTS.md
 ├── AUDIT_LOG.md
-├── BACKEND_DEPLOYMENT_RENDER.md
 ├── DATA_MODEL.md
-├── DEPLOYMENT.md
 ├── DOMAIN_AND_SERVICES.md
 ├── DOMAIN_SETUP.md
 ├── FRONTEND_DEPLOYMENT_VERCEL.md
@@ -701,16 +491,10 @@ docs
 ├── NGINX_ORACLE_CONFIG.md
 ├── ORACLE_DEPLOYMENT.md
 ├── ORACLE_SETUP_COMMANDS.md
-├── SESSION_HANDOFF.md
 ├── SIGNAL_CHAIN.md
 ├── SYSTEM_ARCHITECTURE_AND_DESIGN_DOCUMENTATION.md
-├── UI_REDESIGN_V4.md
-├── UI_V4_TRACKING.md
-├── UPDATE_PROJECT_KNOWLEDGE.md
-├── env_template.txt
-├── seo
-│   ├── LINK_SHEET.md
-│   └── SEO_STRATEGY.md
-└── tasks_opus4.6.md
+└── seo
+    ├── LINK_SHEET.md
+    └── SEO_STRATEGY.md
 
-104 directories, 610 files
+103 directories, 395 files

@@ -1,6 +1,7 @@
 # GyanGrit — Web Performance Audit
-**Date:** April 6, 2026  
+**Date:** April 6, 2026 (updated April 9, 2026)  
 **Data Source:** 12 HAR files across 4 network conditions × 3 user flows  
+**Parsed with:** `parse-har.py` skill script (bottlenecks, chains, duplicates per file)  
 **Environment:** Production (`www.gyangrit.site` / `api.gyangrit.site`)
 
 ---
@@ -456,7 +457,128 @@ This is the actual waterfall on the **No Throttle lesson flow**. The sequence re
 | Pre-login load | 9,907ms | <4,000ms | 709ms | <300ms |
 | Dashboard load | 9,942ms | <5,000ms | 729ms | <400ms |
 | Lesson load | 9,939ms | <5,500ms | 725ms | <500ms |
-| API avg response | 800–1100ms | <150ms | 800–1100ms | <150ms |
+| API avg response | 800-1100ms | <150ms | 800-1100ms | <150ms |
 | Cache hit rate (repeat) | 0% | >80% | 0% | >80% |
 | Ably init overhead | Every page | Lesson only | Every page | Lesson only |
-| Duplicate API calls | 4–5 per session | 0 | 4–5 per session | 0 |
+| Duplicate API calls | 4-5 per session | 0 | 4-5 per session | 0 |
+
+---
+
+## 16. HAR Parser Confirmation (April 9 re-analysis)
+
+Re-ran all 12 HARs through parse-har.py --summary. Key findings confirmed and refined:
+
+### Ably WebSocket - worse than estimated
+
+The /?access_token=... long-poll request (Ably) is the single largest entry in every lesson HAR:
+
+| File | Ably Duration | % of Waterfall |
+|---|---|---|
+| LoginNoThrottleLesson | 15.4s | 77% of 20.0s span |
+| LoginFast4GLesson | 15.4s | 86% of 17.9s span |
+| LoginSlow4GLesson | 15.3s | 69% of 22.3s span |
+| Login3GLesson | 45.5s | 70% of 65.3s span |
+
+The separate ably-Brd2yK6t.js chunk (3.2s on 3G) loads eagerly on every page. Lazy-import would eliminate both the JS chunk and the token fetch from non-live pages.
+
+### Sequential chains confirmed
+
+Every lesson flow has 3-5 forced sequential chains caused by OPTIONS->GET CORS preflight pairs:
+
+| File | Chains | Longest Chain |
+|---|---|---|
+| LoginNoThrottleLesson | 5 chains | 939ms (#62->#63->#64) |
+| LoginFast4GLesson | 5 chains | 661ms (#26->#27) |
+| LoginSlow4GLesson | 4 chains | 1.9s (#63->#64->#65) |
+| Login3GLesson | 3 chains | 4.2s (#18->#19) |
+
+Fix: CORS_PREFLIGHT_MAX_AGE = 86400 eliminates these on repeat visits.
+
+### Duplicate calls confirmed (every lesson file)
+
+| Endpoint | Calls per lesson | Wasted |
+|---|---|---|
+| POST /_vercel/insights/view | 4x | Analytics fires on every route change |
+| POST /api/v1/analytics/event/ | 4x | Same heartbeat fires 4 times |
+| OPTIONS /api/v1/analytics/event/ | 4x | CORS preflight for each duplicate |
+| GET /api/v1/courses/50/lessons/ | 2x | LessonsPage + LessonPage both fetch |
+| POST sentry.io/envelope/ | 2x | Two Sentry session uploads |
+
+### No throttle anomaly: 2.5s pre-login load
+
+noLoginNoThrottle.har shows onLoad=2,528ms - unexpectedly slow for no throttle. The bottleneck is index-BflGg3B2.js taking 2,237ms - this is pure parse/execute time for the monolithic bundle, not network. Code splitting would cut this to <500ms.
+
+---
+
+## 17. PWA Audit Gaps
+
+Compared current implementation against PWA best practices. Found 6 gaps:
+
+### Gap 1 - apple-touch-icon points to SVG (won't work on iOS)
+
+index.html line 9 has `<link rel="apple-touch-icon" href="/favicon.svg" />` (WRONG - iOS ignores SVG)
+index.html line 16 has `<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />` (CORRECT but duplicate)
+
+Fix: Remove the SVG apple-touch-icon (line 9). Keep only the PNG one.
+
+### Gap 2 - dns-prefetch points to Render, not production API domain
+
+Current: `<link rel="dns-prefetch" href="https://gyangrit.onrender.com" />`
+Should be: `<link rel="dns-prefetch" href="https://api.gyangrit.site" />`
+
+Fix: Change both dns-prefetch and preconnect to api.gyangrit.site.
+
+### Gap 3 - Missing msapplication-TileColor meta
+
+No Windows tile color set. Add: `<meta name="msapplication-TileColor" content="#0d1117" />`
+
+### Gap 4 - No screenshots in manifest.json
+
+Android install prompt shows screenshots when available. Improves install conversion.
+
+### Gap 5 - SW PRECACHE_BUNDLES placeholder never injected
+
+The `/* __PRECACHE_BUNDLES__ */` placeholder in sw.js is empty. Vite build doesn't inject hashed bundle names. The SW only precaches shell URLs, not the main JS/CSS bundles. First offline visit after deploy will fail because new hashed JS files aren't in cache.
+
+Fix: Add a Vite plugin or post-build script that replaces the placeholder with actual output filenames from dist/assets/.
+
+### Gap 6 - No Cache-Control headers on Vercel
+
+Zero 304 Not Modified responses across all 12 HAR files. Already documented in Section 11. Needs vercel.json with immutable cache headers for /assets/*.
+
+---
+
+## 18. Updated Prioritized Action Plan (April 9)
+
+### P0 - This Week (Highest Impact)
+
+| # | Action | Files | Expected Gain |
+|---|---|---|---|
+| 1 | Lazy-init Ably - dynamic import, only in LiveSession/Chat | AblyProvider, vite.config.js | Removes 15-45s from every non-live page |
+| 2 | Code-split Vite - vendor chunks + lazy routes | vite.config.js, router.tsx | 3G pre-login: 9.9s -> ~3s |
+| 3 | CORS_PREFLIGHT_MAX_AGE = 86400 | settings/base.py | Kills 3-5 sequential chains per session |
+| 4 | Cache-Control via vercel.json | frontend/vercel.json | Repeat visits: 347KB -> 0 network |
+| 5 | Fix dns-prefetch - point to api.gyangrit.site | index.html | Saves ~200ms DNS on first API call |
+| 6 | Fix apple-touch-icon - remove SVG, keep PNG | index.html | iOS home screen icon works |
+
+### P1 - Next 2 Weeks
+
+| # | Action | Files | Expected Gain |
+|---|---|---|---|
+| 7 | Deduplicate API calls - courses/50/lessons/ called 2x | LessonPage.tsx | Removes 1 API call per lesson nav |
+| 8 | Batch/dedupe analytics - 4x analytics/event/ per lesson | analytics.ts | 4 POSTs -> 1 per lesson |
+| 9 | Reduce Vercel Analytics - 4x insights/view per lesson | main.tsx or disable | 4 POSTs -> 1 per session |
+| 10 | Self-host Inter font with font-display: swap | index.html, index.css | 3G: -3.4s, removes 2 DNS lookups |
+| 11 | Defer Sentry init to after first paint | main.tsx | Slow 4G: -1.3s from critical path |
+| 12 | Redis cache for /accounts/me/, /subjects/, /courses/ | Django views | API: 800ms -> <150ms |
+| 13 | Inject PRECACHE_BUNDLES in SW at build time | Vite plugin / post-build | Offline boot works after deploy |
+
+### P2 - Sprint After
+
+| # | Action | Files | Expected Gain |
+|---|---|---|---|
+| 14 | Add manifest screenshots for install prompt | manifest.json, screenshot files | Better Android install UX |
+| 15 | Add msapplication-TileColor | index.html | Windows tile branding |
+| 16 | Diagnose server cold-start - CONN_MAX_AGE, workers, Redis | settings.py, OCI config | API latency root cause |
+| 17 | Async analytics endpoint - return 202, process in background | analytics/views.py | Sub-10ms analytics POST |
+| 18 | Embed CSRF in HTML - eliminate /accounts/csrf/ call | Django template | -1 API call per page |

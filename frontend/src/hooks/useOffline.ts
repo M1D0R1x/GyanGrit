@@ -276,7 +276,9 @@ export function useStorageUsage() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    // Defer to avoid synchronous setState in effect
+    const id = requestAnimationFrame(() => { refresh(); });
+    return () => cancelAnimationFrame(id);
   }, [refresh]);
 
   return { usage, quota, loading, refresh };

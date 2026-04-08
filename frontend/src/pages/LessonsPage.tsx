@@ -301,7 +301,12 @@ export default function LessonsPage() {
 
   useEffect(() => {
     if (!grade || !subjectSlug) {
-      setError("Invalid course URL."); setLoading(false); return;
+      // Defer setState to avoid synchronous set-state-in-effect
+      queueMicrotask(() => {
+        setError("Invalid course URL.");
+        setLoading(false);
+      });
+      return;
     }
     getCourseBySlug(grade, subjectSlug)
       .then((course) => {

@@ -105,6 +105,7 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
     if (!isOnline()) { toast.error("You're offline — connect to download"); return; }
     setState((s) => ({ ...s, downloading: true, downloadType: "text", error: null }));
     try {
+      const textContent = lesson.content ?? "";
       const offlineData: OfflineLesson = {
         id: lesson.id,
         courseId: lesson.course?.id ?? 0,
@@ -112,7 +113,8 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
         subjectName: lesson.course?.subject ?? "",
         grade: lesson.course?.grade ?? 0,
         title: lesson.title,
-        content: lesson.content ?? "",
+        content: textContent,
+        hasTextContent: textContent.trim().length > 0,
         pdfUrl: lesson.pdf_url ?? "",
         videoUrl: lesson.video_url ?? "",
         order: 0,

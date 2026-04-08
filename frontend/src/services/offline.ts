@@ -155,6 +155,7 @@ export type OfflineLesson = {
   grade?: number;
   title: string;
   content: string;
+  hasTextContent: boolean; // true if lesson had non-empty text when saved (distinguishes "empty" from "not downloaded")
   pdfUrl: string;
   videoUrl: string;
   order: number;

@@ -419,6 +419,7 @@ export default function LessonPage() {
   const [marking, setMarking]       = useState(false);
   const [marked, setMarked]         = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [offlineHasText, setOfflineHasText] = useState<boolean | null>(null); // null = online, true/false = from IndexedDB flag
   const [courseLessons, setCourseLessons] = useState<LessonItem[]>([]);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -478,6 +479,12 @@ export default function LessonPage() {
             setLesson(detail);
             setMarked(false);
             setIsOfflineMode(true);
+            // Preserve the hasTextContent flag from when the lesson was saved.
+            // Older saves (before this flag existed) won't have it, so fall back
+            // to checking whether the stored content string is non-empty.
+            setOfflineHasText(
+              offlineLesson.hasTextContent ?? (offlineLesson.content?.trim().length > 0)
+            );
             return;
           }
         } catch {
@@ -668,20 +675,32 @@ export default function LessonPage() {
           />
         )}
 
-        {/* Empty state — differentiate offline-no-download vs genuinely empty */}
+        {/* Empty state — differentiate offline-no-text vs genuinely empty */}
         {!hasVideo && !hasPdf && !hasContent && (
           <div className="empty-state" style={{ paddingTop: "var(--space-16)" }}>
-            {/* Only show 'not downloaded' if we're OFFLINE — if online and content
-                is empty, the lesson genuinely has no content yet (backend). */}
-            {isOfflineMode && !navigator.onLine ? (
-              <>
-                <div className="empty-state__icon">📥</div>
-                <h3 className="empty-state__title">Content not downloaded</h3>
-                <p className="empty-state__message">
-                  You saved this lesson offline, but the text content was not included.
-                  Go online and download the full lesson content.
-                </p>
-              </>
+            {isOfflineMode ? (
+              // Offline: check whether the lesson originally had text content
+              offlineHasText === false ? (
+                // Lesson genuinely has no text — it was video/PDF only online too
+                <>
+                  <div className="empty-state__icon">📹</div>
+                  <h3 className="empty-state__title">Video / PDF lesson</h3>
+                  <p className="empty-state__message">
+                    This lesson has no text content. The video or PDF may not have been
+                    downloaded — go online and use "Save All" to download media.
+                  </p>
+                </>
+              ) : (
+                // Lesson had text but it's missing from IndexedDB (old save / corrupt)
+                <>
+                  <div className="empty-state__icon">📥</div>
+                  <h3 className="empty-state__title">Content not downloaded</h3>
+                  <p className="empty-state__message">
+                    This lesson's text content wasn't saved. Go online and re-download
+                    the full lesson content.
+                  </p>
+                </>
+              )
             ) : (
               <>
                 <div className="empty-state__icon">🚧</div>

@@ -177,14 +177,17 @@ function DownloadedLessonRow({ lesson, onRemove }: {
     onRemove(lesson.id);
   };
 
+  // Capture the current time once at mount to compute a stable "time ago" label.
+  // Using `useState(Date.now)` calls the initializer outside of the render phase,
+  // satisfying the react-hooks/purity rule while keeping the display correct.
+  const [mountTime] = useState(Date.now);
   const timeAgo = useMemo(() => {
-    // eslint-disable-next-line react-hooks/purity
-    const diff = Date.now() - new Date(lesson.savedAt).getTime();
+    const diff = mountTime - new Date(lesson.savedAt).getTime();
     const h = Math.floor(diff / 3600000);
     if (h < 1) return "Just now";
     if (h < 24) return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
-  }, [lesson.savedAt]);
+  }, [mountTime, lesson.savedAt]);
 
   return (
     <div
@@ -462,6 +465,9 @@ export default function OfflineDownloadsPage() {
     setLoading(false);
   }, []);
 
+  // queueMicrotask defers the call so the react-hooks/set-state-in-effect rule
+  // is not triggered. The rule flags any function that contains setState calls
+  // (even async ones) when invoked synchronously in an effect body.
   useEffect(() => { queueMicrotask(() => loadContent()); }, [loadContent]);
 
   const handleClearAll = async () => {

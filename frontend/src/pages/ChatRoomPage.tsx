@@ -350,7 +350,7 @@ export default function ChatRoomPage() {
       })
       .catch(() => setError("Failed to load chat rooms."))
       .finally(() => setLoadingRooms(false));
-  }, [numRoomId, location.search, user?.role]);
+  }, [numRoomId, location.search, user?.role, user?.section_id, user?.institution_id]);
 
   // ── Load history ──────────────────────────────────────────────────────
   useEffect(() => {

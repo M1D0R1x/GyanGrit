@@ -245,7 +245,7 @@ export default function AssessmentTakePage() {
       sendHeartbeat("assessment", assessment.id, assessment.title).catch(() => {});
     }, 30_000);
     return () => clearInterval(interval);
-  }, [assessment?.id]);
+  }, [assessment]);
 
   const storageKey = `gg_q_${assessmentId ?? ""}`;
 

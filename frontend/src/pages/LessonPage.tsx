@@ -432,7 +432,7 @@ export default function LessonPage() {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
-  }, [lesson?.id, isOfflineMode]);
+  }, [lesson, isOfflineMode]);
 
   useEffect(() => {
     if (!lessonId) return;

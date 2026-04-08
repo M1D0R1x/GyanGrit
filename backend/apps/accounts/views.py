@@ -1,6 +1,5 @@
 import json
 import logging
-import random
 import secrets
 
 from django.conf import settings

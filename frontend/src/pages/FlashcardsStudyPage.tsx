@@ -144,7 +144,7 @@ export default function FlashcardsStudyPage() {
     return () => {
       if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
     };
-  }, [session?.deck_id, studying]);
+  }, [session?.deck_id, session, studying]);
   const [done,      setDone]      = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(false);

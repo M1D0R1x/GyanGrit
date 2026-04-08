@@ -11,7 +11,7 @@
  *   5. Clear all / manage storage controls
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getAllOfflineLessons,
@@ -177,13 +177,14 @@ function DownloadedLessonRow({ lesson, onRemove }: {
     onRemove(lesson.id);
   };
 
-  const timeAgo = (() => {
+  const timeAgo = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
     const diff = Date.now() - new Date(lesson.savedAt).getTime();
     const h = Math.floor(diff / 3600000);
     if (h < 1) return "Just now";
     if (h < 24) return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
-  })();
+  }, [lesson.savedAt]);
 
   return (
     <div
@@ -448,7 +449,6 @@ export default function OfflineDownloadsPage() {
   const [clearing, setClearing] = useState(false);
 
   const loadContent = useCallback(async () => {
-    setLoading(true);
     const [l, d, v, p] = await Promise.all([
       getAllOfflineLessons(),
       getAllOfflineDecks(),
@@ -462,7 +462,7 @@ export default function OfflineDownloadsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadContent(); }, [loadContent]);
+  useEffect(() => { queueMicrotask(() => loadContent()); }, [loadContent]);
 
   const handleClearAll = async () => {
     if (!confirm("Remove all downloaded content? This cannot be undone.")) return;

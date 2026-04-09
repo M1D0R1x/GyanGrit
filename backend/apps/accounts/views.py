@@ -16,6 +16,8 @@ from django.views.decorators.http import require_http_methods
 from apps.accesscontrol.permissions import require_roles
 from apps.accesscontrol.scoped_service import scope_queryset
 
+from django.core.cache import cache
+
 from apps.academics.models import (
     Institution,
     Section,

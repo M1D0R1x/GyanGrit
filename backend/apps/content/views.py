@@ -787,15 +787,15 @@ def batch_course_progress(request):
     # Cap to avoid abuse
     course_ids = course_ids[:50]
 
-    # Access check — only return courses the user actually has access to
-    accessible_ids = []
-    for cid in course_ids:
-        try:
-            course = Course.objects.get(id=cid)
-            if has_access_to_course(request.user, course):
-                accessible_ids.append(cid)
-        except Course.DoesNotExist:
-            pass
+    # Bulk-fetch all requested courses in 1 query (fixes N+1 SENTRY-BRONZE-GARDEN-1E)
+    courses_map = {
+        c.id: c
+        for c in Course.objects.filter(id__in=course_ids).select_related("subject")
+    }
+    accessible_ids = [
+        cid for cid in course_ids
+        if cid in courses_map and has_access_to_course(request.user, courses_map[cid])
+    ]
 
     if not accessible_ids:
         return JsonResponse({}, status=200)
@@ -940,32 +940,45 @@ def teacher_course_analytics(request):
     else:
         qs = scope_queryset(user, Course.objects.select_related("subject"))
 
+    # Annotate all stats in a single query instead of N per-course COUNTs
+    # (fixes N+1 SENTRY-BRONZE-GARDEN-1G)
+    from django.db.models import Count, Q as _Q
+    qs = qs.annotate(
+        total_lessons=Count(
+            "lesson",
+            filter=_Q(lesson__is_published=True),
+        ),
+        enrolled_students=Count(
+            "lesson__lessonprogress__user",
+            distinct=True,
+        ),
+        completed_students=Count(
+            "lesson__lessonprogress__user",
+            filter=_Q(lesson__lessonprogress__completed=True),
+            distinct=True,
+        ),
+        completed_lessons=Count(
+            "lesson__lessonprogress__lesson",
+            filter=_Q(lesson__lessonprogress__completed=True),
+            distinct=True,
+        ),
+    )
+
     data = []
     for course in qs:
-        total_lessons      = Lesson.objects.filter(course=course, is_published=True).count()
-        enrolled_students  = (
-            LessonProgress.objects.filter(lesson__course=course)
-            .values("user").distinct().count()
-        )
-        completed_students = (
-            LessonProgress.objects.filter(lesson__course=course, completed=True)
-            .values("user").distinct().count()
-        )
-        completed_lessons = (
-            LessonProgress.objects.filter(lesson__course=course, completed=True)
-            .values("lesson").distinct().count()
-        )
-        percentage = round(completed_lessons / total_lessons * 100) if total_lessons else 0
+        total = course.total_lessons
+        completed = course.completed_lessons
+        percentage = round(completed / total * 100) if total else 0
         data.append({
             "course_id":          course.id,
             "title":              course.title,
             "grade":              course.grade,
             "subject":            course.subject.name,
-            "total_lessons":      total_lessons,
-            "completed_lessons":  completed_lessons,
+            "total_lessons":      total,
+            "completed_lessons":  completed,
             "percentage":         percentage,
-            "enrolled_students":  enrolled_students,
-            "completed_students": completed_students,
+            "enrolled_students":  course.enrolled_students,
+            "completed_students": course.completed_students,
         })
     cache.set(cache_key, data, timeout=300)
     return JsonResponse(data, safe=False)
@@ -987,13 +1000,13 @@ def teacher_lesson_analytics(request):
     course  = get_scoped_object_or_403(user, Course.objects.all(), id=course_id)
 
     # Single query: annotate views + completions for all lessons at once
-    from django.db.models import Count as _Count
+    from django.db.models import Count as _Count, Q as _Q2
     lessons = (
         Lesson.objects
         .filter(course=course)
         .annotate(
             view_count=_Count("lessonprogress"),
-            completed_count=_Count("lessonprogress", filter=Q(lessonprogress__completed=True)),
+            completed_count=_Count("lessonprogress", filter=_Q2(lessonprogress__completed=True)),
         )
         .order_by("order")
     )

@@ -121,9 +121,13 @@ def enroll_user(room: ChatRoom, user) -> bool:
 
 
 def enroll_admin_in_room(room: ChatRoom) -> None:
-    """Ensure ADMIN user(s) are enrolled in every room."""
-    for admin in User.objects.filter(role="ADMIN"):
-        ChatRoomMember.objects.get_or_create(room=room, user=admin)
+    """Ensure ADMIN user(s) are enrolled in every room — single bulk INSERT."""
+    admin_ids = list(User.objects.filter(role="ADMIN").values_list("id", flat=True))
+    if admin_ids:
+        ChatRoomMember.objects.bulk_create(
+            [ChatRoomMember(room=room, user_id=aid) for aid in admin_ids],
+            ignore_conflicts=True,
+        )
 
 
 def enroll_student_in_all_section_rooms(student) -> None:

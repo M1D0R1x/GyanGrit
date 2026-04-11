@@ -73,14 +73,23 @@ export default defineConfig({
     chunkSizeWarningLimit: 5000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react":      ["react", "react-dom"],
-          "vendor-router":     ["react-router-dom"],
-          "vendor-ui":         ["sonner", "react-helmet-async"],
-          "vendor-realtime":   ["ably", "@ably/chat"],
-          "vendor-canvas":     ["@excalidraw/excalidraw"],
-          "vendor-livekit":    ["livekit-client", "@livekit/components-react", "@livekit/components-styles"],
-          "vendor-monitoring": ["@sentry/react", "@vercel/analytics", "@vercel/speed-insights"],
+        manualChunks(id) {
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/react-router") ||
+            id.includes("node_modules/scheduler/")
+          ) return "vendor-react";
+          if (id.includes("node_modules/sonner") || id.includes("node_modules/react-helmet-async"))
+            return "vendor-ui";
+          if (id.includes("node_modules/ably") || id.includes("node_modules/@ably/"))
+            return "vendor-realtime";
+          if (id.includes("node_modules/@excalidraw/"))
+            return "vendor-canvas";
+          if (id.includes("node_modules/livekit-client") || id.includes("node_modules/@livekit/"))
+            return "vendor-livekit";
+          if (id.includes("node_modules/@sentry/") || id.includes("node_modules/@vercel/"))
+            return "vendor-monitoring";
         },
       },
     },

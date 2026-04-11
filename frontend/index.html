@@ -34,7 +34,23 @@
       document.documentElement.dataset.theme =
         localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
     </script>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Boot splash — visible while JS parses. React.createRoot replaces it. -->
+      <div class="auth-loading" style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-canvas,#F2F4F7);gap:20px">
+        <div style="width:72px;height:72px;animation:logoPulse 2s ease-in-out infinite">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" style="width:100%;height:100%;border-radius:18px;display:block">
+            <defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#3b82f6"/><stop offset="100%" style="stop-color:#8b5cf6"/></linearGradient></defs>
+            <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+            <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Sora,system-ui,sans-serif" font-size="32" font-weight="800" fill="white">G</text>
+          </svg>
+        </div>
+        <div style="width:32px;height:32px;border:2.5px solid rgba(13,20,33,0.12);border-top-color:#FF3F6D;border-radius:50%;animation:spin .75s linear infinite"></div>
+      </div>
+      <style>
+        @keyframes logoPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.85}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

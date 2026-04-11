@@ -36,6 +36,7 @@ import {
   uploadNotificationFile,
   NOTIFICATION_ALLOWED_EXTENSIONS,
 } from "../services/media";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 // ── Constants & helpers ────────────────────────────────────────────────────
 
@@ -663,6 +664,7 @@ type Tab = "inbox" | "send" | "history";
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  usePageTitle("Notifications");
   const isSender = !!user?.role && ["TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"].includes(user.role);
 
   const [activeTab, setActiveTab] = useState<Tab>("inbox");

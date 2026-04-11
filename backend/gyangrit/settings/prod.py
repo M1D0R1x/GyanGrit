@@ -194,6 +194,8 @@ SECURE_HSTS_PRELOAD            = True
 SECURE_BROWSER_XSS_FILTER      = True
 SECURE_CONTENT_TYPE_NOSNIFF    = True
 SECURE_PROXY_SSL_HEADER        = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_REFERRER_POLICY         = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS                = "DENY"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging

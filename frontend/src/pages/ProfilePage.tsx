@@ -6,6 +6,7 @@ import { getMySummary, type MySummary } from "../services/gamification";
 import { getStudentGrades, type GradeEntry } from "../services/gradebook";
 import { apiPatch, apiPost } from "../services/api";
 import LogoutButton from "../components/LogoutButton";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -373,6 +374,7 @@ export default function ProfilePage() {
   const auth     = useAuth();
   const navigate = useNavigate();
   const user     = auth.user;
+  usePageTitle("Profile");
 
   const [gamification, setGamification] = useState<MySummary | null>(null);
   const [editing,      setEditing]      = useState(false);

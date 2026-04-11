@@ -72,6 +72,7 @@ import NotFoundPage     from "../pages/errors/NotFoundPage";
 import ForbiddenPage    from "../pages/errors/ForbiddenPage";
 import ServerErrorPage  from "../pages/errors/ServerErrorPage";
 import NetworkErrorPage from "../pages/errors/NetworkErrorPage";
+import RouteErrorBoundary from "../components/RouteErrorBoundary";
 
 // ── Offline-critical pages — EAGERLY imported (always in main bundle) ─────────
 // These pages must work offline. Lazy-loading means they only get cached
@@ -170,7 +171,9 @@ function Protected({
     <RequireRole role={role}>
       <Suspense fallback={<PageLoader />}>
         <AppLayout title={title}>
-          {children}
+          <RouteErrorBoundary>
+            {children}
+          </RouteErrorBoundary>
         </AppLayout>
       </Suspense>
     </RequireRole>

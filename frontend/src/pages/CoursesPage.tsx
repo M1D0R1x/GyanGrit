@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { courseDetailPath } from "../utils/slugs";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 type Course = {
   id: number;
@@ -33,6 +34,7 @@ export default function CoursesPage() {
 
   const subjectIdParam = searchParams.get("subject_id");
   const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
+  usePageTitle("Courses");
 
   useEffect(() => {
     apiGet<Course[]>("/courses/")

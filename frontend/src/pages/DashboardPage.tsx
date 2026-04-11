@@ -8,6 +8,7 @@ import { getMyEngagement, getMyRisk, type DailySummary, type RiskData } from "..
 import { type AssessmentWithStatus } from "../services/assessments";
 import { getBatchCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -437,6 +438,7 @@ function StreakCard({ gamification, onNavigate }: { gamification: MySummary; onN
 export default function DashboardPage() {
   const navigate = useNavigate();
   const auth     = useAuth();
+  usePageTitle("Dashboard");
 
   const [subjects,      setSubjects]      = useState<StudentSubject[]>([]);
   const [assessments,   setAssessments]   = useState<AssessmentWithStatus[]>([]);

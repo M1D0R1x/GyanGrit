@@ -71,5 +71,17 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     chunkSizeWarningLimit: 5000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react":      ["react", "react-dom", "react-router-dom"],
+          "vendor-ui":         ["sonner", "react-helmet-async"],
+          "vendor-realtime":   ["ably", "@ably/chat"],
+          "vendor-canvas":     ["@excalidraw/excalidraw"],
+          "vendor-livekit":    ["livekit-client", "@livekit/components-react", "@livekit/components-styles"],
+          "vendor-monitoring": ["@sentry/react", "@vercel/analytics", "@vercel/speed-insights"],
+        },
+      },
+    },
   },
 });

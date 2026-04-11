@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { getLessonDetail, getCourseLessons, type LessonDetail, type LessonItem } from "../services/content";
 import { apiPatch } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
@@ -434,6 +434,11 @@ export default function LessonPage() {
     };
   }, [lesson?.id, isOfflineMode]);
 
+  // Use the lesson list from router state if available (passed by LessonsPage).
+  // This eliminates a redundant GET /courses/{id}/lessons/ API call.
+  const location = useLocation();
+  const passedLessons = (location.state as { courseLessons?: LessonItem[] } | null)?.courseLessons;
+
   useEffect(() => {
     if (!lessonId) return;
     const id = Number(lessonId);
@@ -442,8 +447,10 @@ export default function LessonPage() {
       .then((data) => {
         setLesson(data);
         setMarked(data.completed);
-        // Fetch course lesson list for prev/next navigation
-        if (data.course?.id) {
+        // Use passed lessons from router state if available; else fetch
+        if (passedLessons?.length) {
+          setCourseLessons([...passedLessons].sort((a, b) => a.order - b.order));
+        } else if (data.course?.id) {
           getCourseLessons(data.course.id)
             .then(lessons => setCourseLessons(lessons.sort((a, b) => a.order - b.order)))
             .catch(() => {});

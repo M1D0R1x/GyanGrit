@@ -81,6 +81,14 @@ async function processQueueItem(item: OfflineQueueItem): Promise<boolean> {
         break;
       }
 
+      case "analytics_heartbeat":
+        await apiPost("/analytics/heartbeat/", {
+          event_type:     item.payload.event_type,
+          resource_id:    item.payload.resource_id,
+          resource_label: item.payload.resource_label ?? "",
+        });
+        break;
+
       default:
         console.warn(`[OfflineSync] Unknown queue item type: ${item.type}`);
         return false;

@@ -207,7 +207,7 @@ export type OfflineAssessment = {
 
 export type OfflineQueueItem = {
   queueId?: number;     // auto-increment
-  type: "lesson_complete" | "flashcard_review" | "assessment_submit" | "lesson_progress";
+  type: "lesson_complete" | "flashcard_review" | "assessment_submit" | "lesson_progress" | "analytics_heartbeat";
   payload: Record<string, unknown>;
   createdAt: string;
   synced: 0 | 1;       // 0 = pending, 1 = synced (indexed)

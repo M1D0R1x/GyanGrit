@@ -44,11 +44,52 @@
 
 ---
 
-## 📋 Sprint 3 — To Do
+## ✅ Sprint 3 — Offline UX + P2 Performance (In Progress)
 
-| # | Issue | Priority |
-|---|-------|----------|
-| 9 | SectionLessonPage: same "Content coming soon" offline fix | 🟢 Low |
-| 10 | Offline banner in AppLayout when offlineMode=true | 🟡 Medium |
-| 11 | Auto-sync progress when back online after offline session | 🟡 Medium |
-| 12 | iOS Safari: test IndexedDB quota & SW registration timing | 🔴 High |
+> Updated: 2026-04-11
+
+| # | Issue | Status | Files |
+|---|-------|--------|-------|
+| 9 | SectionLessonPage offline fallback | ✅ Done | `pages/SectionLessonPage.tsx` |
+| 10 | Offline mode banner in AppLayout | ✅ Done | `components/AppLayout.tsx` |
+| 11 | Auto-sync analytics heartbeats when back online | ✅ Done | `services/analytics.ts`, `services/offline.ts`, `services/offlineSync.ts` |
+| 12 | iOS Safari: test IndexedDB quota & SW registration | ⏳ Manual | Needs physical device testing |
+
+### Sprint 3 Fix Details
+
+**#9 — SectionLessonPage offline fallback**
+- Mirrored the `LessonPage` offline pattern into `SectionLessonPage`. On API failure, loads from IndexedDB with OFFLINE badge and differentiated empty states (no text vs not downloaded).
+
+**#10 — Offline banner in AppLayout**
+- Added persistent glassmorphism banner below TopBar when `auth.offlineMode === true`. Non-blocking, dismissible, with wifi-off icon. Distinct from OfflineStatusBar toasts.
+
+**#11 — Auto-sync heartbeats on reconnect**
+- `sendHeartbeat()` now queues to IndexedDB via `enqueueOfflineAction("analytics_heartbeat", ...)` when offline instead of silently dropping.
+- Added `analytics_heartbeat` case to `offlineSync.ts` processor.
+- Heartbeats are replayed through the existing FIFO queue on reconnect.
+
+---
+
+## ✅ P2 Performance Audit
+
+| # | Item | Status | Files |
+|---|------|--------|-------|
+| 14 | Manifest screenshots for install prompt | ✅ Done | `manifest.json`, `public/screenshots/` |
+| 15 | Windows tile branding | ✅ Done (P0) | `index.html` |
+| 16 | Server cold-start diagnosis | ⏳ Manual | Needs SSH to Oracle Cloud |
+| 17 | Async analytics endpoint (return 202) | ✅ Done | `analytics/views.py` |
+| 18 | Embed CSRF in HTML | ⏸ Skipped | N/A — Vercel serves frontend, Django serves API |
+
+### P2 Fix Details
+
+**#14 — Manifest screenshots**
+- Added phone (narrow) and tablet (wide) screenshots to `manifest.json`. These appear in the Android install prompt.
+
+**#17 — Async analytics**
+- `heartbeat()` and `log_event()` endpoints now return `202 Accepted` immediately.
+- Actual DB write runs in a daemon `threading.Thread`. Response time drops from ~864ms to <10ms.
+- Background thread includes `close_old_connections()` for DB cleanup and `logger.exception()` for error visibility.
+
+**#13 — SW precache verification (P1 leftover)**
+- Confirmed: `injectSWBundles()` Vite plugin correctly injects 12 hashed bundle URLs into `dist/sw.js` at build time. Offline boot is reliable after deploy.
+

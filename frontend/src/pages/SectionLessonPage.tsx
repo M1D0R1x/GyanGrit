@@ -7,11 +7,19 @@
  *  - No mark-complete — section lessons don't track LessonProgress
  *  - "Teacher Added" badge instead of completion state
  *  - Same video/PDF/Markdown rendering as LessonPage
+ *  - Offline fallback via IndexedDB (same pattern as LessonPage)
  */
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { extractYouTubeId, extractVimeoId } from "../services/media";
+import {
+  getOfflineLesson,
+  getOfflinePdf,
+  getOfflineVideo,
+  createPdfBlobUrl,
+  createVideoBlobUrl,
+} from "../services/offline";
 
 // ── Type ──────────────────────────────────────────────────────────────────
 
@@ -91,7 +99,8 @@ function VideoEmbed({ url, thumbnail, duration }: {
   const isDirectVideo =
     !ytId && !vimeoId &&
     (url.includes(".mp4") || url.includes(".webm") || url.includes(".mov") ||
-     url.includes("r2.dev") || url.includes("r2.cloudflarestorage.com"));
+     url.includes("r2.dev") || url.includes("r2.cloudflarestorage.com") ||
+     url.startsWith("blob:"));
 
   if (isDirectVideo) {
     return (
@@ -250,15 +259,59 @@ export default function SectionLessonPage() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate     = useNavigate();
 
-  const [lesson, setLesson]   = useState<SectionLessonDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [lesson, setLesson]               = useState<SectionLessonDetail | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [offlineHasText, setOfflineHasText] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!lessonId) return;
+    const id = Number(lessonId);
+
     apiGet<SectionLessonDetail>(`/lessons/section/${lessonId}/`)
       .then(setLesson)
-      .catch(() => setError("Could not load this lesson."))
+      .catch(async () => {
+        // ── Offline fallback: try loading from IndexedDB ────────────────
+        // Section lessons are stored in the same "lessons" store as regular
+        // lessons (they share the same download flow). The offline data
+        // has the lesson id as key, so we look up by numeric id.
+        try {
+          const offlineLesson = await getOfflineLesson(id);
+          if (offlineLesson) {
+            const offlinePdf   = await getOfflinePdf(id);
+            const offlineVideo = await getOfflineVideo(id);
+
+            const detail: SectionLessonDetail = {
+              id:                  offlineLesson.id,
+              title:               offlineLesson.title,
+              order:               offlineLesson.order ?? 0,
+              content:             offlineLesson.content,
+              video_url:           offlineVideo ? createVideoBlobUrl(offlineVideo) : null,
+              hls_manifest_url:    null,
+              video_thumbnail_url: null,
+              video_duration:      "",
+              pdf_url:             offlinePdf ? createPdfBlobUrl(offlinePdf) : null,
+              has_video:           !!offlineVideo,
+              has_pdf:             !!offlinePdf,
+              has_content:         (offlineLesson.content?.trim().length ?? 0) > 0,
+              section_id:          0,
+              course_id:           offlineLesson.courseId,
+              grade:               offlineLesson.grade ?? 0,
+              subject_name:        offlineLesson.subjectName ?? "",
+            };
+            setLesson(detail);
+            setIsOfflineMode(true);
+            setOfflineHasText(
+              offlineLesson.hasTextContent ?? (offlineLesson.content?.trim().length > 0)
+            );
+            return;
+          }
+        } catch {
+          // IndexedDB also failed — fall through to error state
+        }
+        setError("Could not load this lesson. You may be offline.");
+      })
       .finally(() => setLoading(false));
   }, [lessonId]);
 
@@ -299,9 +352,26 @@ export default function SectionLessonPage() {
           Back
         </button>
 
-        {/* Title + "Teacher Added" badge */}
+        {/* Title + badges */}
         <div style={{ marginBottom: "var(--space-6)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
+            {isOfflineMode && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                borderRadius: "var(--radius-full)", padding: "2px 10px",
+                fontSize: 10, fontWeight: 800, color: "var(--error)",
+                letterSpacing: "0.05em",
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                OFFLINE
+              </span>
+            )}
             <span style={{
               fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
               background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)",
@@ -345,12 +415,38 @@ export default function SectionLessonPage() {
           />
         )}
 
-        {/* Empty state */}
+        {/* Empty state — differentiate offline-no-text vs genuinely empty */}
         {!hasVideo && !hasPdf && !hasContent && (
           <div className="empty-state" style={{ paddingTop: "var(--space-16)" }}>
-            <div className="empty-state__icon">🚧</div>
-            <h3 className="empty-state__title">Content coming soon</h3>
-            <p className="empty-state__message">Your teacher hasn't added content yet.</p>
+            {isOfflineMode ? (
+              offlineHasText === false ? (
+                // Lesson genuinely has no text — it was video/PDF only online too
+                <>
+                  <div className="empty-state__icon">📹</div>
+                  <h3 className="empty-state__title">Video / PDF lesson</h3>
+                  <p className="empty-state__message">
+                    This lesson has no text content. The video or PDF may not have been
+                    downloaded — go online and use "Save All" to download media.
+                  </p>
+                </>
+              ) : (
+                // Lesson had text but it's missing from IndexedDB (old save / corrupt)
+                <>
+                  <div className="empty-state__icon">📥</div>
+                  <h3 className="empty-state__title">Content not downloaded</h3>
+                  <p className="empty-state__message">
+                    This lesson's text content wasn't saved. Go online and re-download
+                    the full lesson content.
+                  </p>
+                </>
+              )
+            ) : (
+              <>
+                <div className="empty-state__icon">🚧</div>
+                <h3 className="empty-state__title">Content coming soon</h3>
+                <p className="empty-state__message">Your teacher hasn't added content yet.</p>
+              </>
+            )}
           </div>
         )}
 

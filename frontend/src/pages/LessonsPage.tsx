@@ -320,7 +320,13 @@ export default function LessonsPage() {
   }, [grade, subjectSlug]);
 
   const handleSelect = (lesson: LessonItem) => {
-    navigate(lesson.type === "section" ? `/lessons/section/${lesson.id}` : `/lessons/${lesson.id}`);
+    // Pass already-fetched lesson list via router state so LessonPage
+    // can build prev/next navigation without re-fetching /courses/{id}/lessons/
+    const state = { courseLessons: lessons, courseId };
+    navigate(
+      lesson.type === "section" ? `/lessons/section/${lesson.id}` : `/lessons/${lesson.id}`,
+      { state },
+    );
   };
 
   const bulkDownloadAll = async () => {

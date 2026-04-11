@@ -126,6 +126,10 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+# Force persistent connections — dj_database_url sometimes ignores conn_max_age
+# if DATABASE_URL contains its own options. With gthread workers (gunicorn.conf.py),
+# each thread reuses the same connection for 60s instead of reconnecting per request.
+DATABASES["default"]["CONN_MAX_AGE"] = 60
 DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +171,7 @@ STATICFILES_STORAGE = "gyangrit.storage.RelaxedManifestStaticFilesStorage"
 
 CORS_ALLOWED_ORIGINS = _parse_origins(os.environ.get("CORS_ALLOWED_ORIGINS", ""))
 CORS_ALLOW_CREDENTIALS = True
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours — browsers cache OPTIONS response, saves ~4.4s on mobile
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS[:]
 
 # ─────────────────────────────────────────────────────────────────────────────

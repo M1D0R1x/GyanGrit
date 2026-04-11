@@ -53,5 +53,21 @@
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshots/phone-dashboard.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "GyanGrit Dashboard — track streaks, courses, and tasks"
+    },
+    {
+      "src": "/screenshots/tablet-courses.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "My Courses — browse all your enrolled subjects"
+    }
+  ],
   "prefer_related_applications": false
 }

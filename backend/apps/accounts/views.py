@@ -404,6 +404,15 @@ def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"authenticated": False})
 
+    # ── Redis cache: avoid repeated DB joins on every page navigation ──────
+    # AuthContext calls /accounts/me/ on every page load. The response rarely
+    # changes within a session. 60s TTL is short enough to pick up profile
+    # updates quickly. Cache is per-user.
+    cache_key = f"me:{request.user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
     user = (
         User.objects
         .select_related("institution", "section", "section__classroom")
@@ -416,7 +425,7 @@ def me(request):
     if institution_name and district_name and institution_name.endswith(district_name):
         institution_name = institution_name[:-len(district_name)].strip()
 
-    return JsonResponse({
+    data = {
         "authenticated":    True,
         "id":               user.id,
         "public_id":        user.public_id,
@@ -435,7 +444,9 @@ def me(request):
         "section":          f"Class {user.section.classroom.name}-{user.section.name}" if user.section and hasattr(user.section, 'classroom') else (user.section.name if user.section else None),
         "section_id":       user.section.id      if user.section     else None,
         "district":         district_name,
-    })
+    }
+    cache.set(cache_key, data, timeout=60)
+    return JsonResponse(data)
 
 
 # =========================================================
@@ -1067,6 +1078,9 @@ def complete_profile(request):
 
     user.profile_complete = is_complete
     user.save(update_fields=update_fields)
+
+    # Invalidate /accounts/me/ cache so next fetch picks up changes immediately
+    cache.delete(f"me:{user.id}")
 
     # Trigger Welcome Notification on first completion
     if is_complete and not was_complete:

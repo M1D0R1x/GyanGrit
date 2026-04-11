@@ -3,20 +3,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
-import LoginPage           from "../pages/LoginPage";
-import RegisterPage        from "../pages/RegisterPage";
-import VerifyOtpPage       from "../pages/VerifyOtpPage";
-import CompleteProfilePage from "../pages/CompleteProfilePage";
-import ForgotPasswordPage  from "../pages/ForgotPasswordPage";
-import ResetPasswordPage   from "../pages/ResetPasswordPage";
-
-import AboutPage           from "../pages/AboutPage";
-import ContactPage         from "../pages/ContactPage";
-import FAQPage             from "../pages/FAQPage";
-
-// Auth pages — lazy loaded. Authenticated users land on dashboard, not login,
-// so these only load when actually needed (saves ~40KB from entry bundle on 3G).
-
 /**
  * Retry-aware lazy loader for code-split pages.
  *
@@ -60,6 +46,22 @@ function lazyRetry(factory: () => Promise<{ default: React.ComponentType }>) {
     })
   );
 }
+
+// Auth pages — lazy loaded. Students land on dashboard, not login,
+// so these only load when actually needed (saves ~40KB from entry bundle).
+const LoginPage           = lazyRetry(() => import("../pages/LoginPage"));
+const RegisterPage        = lazyRetry(() => import("../pages/RegisterPage"));
+const VerifyOtpPage       = lazyRetry(() => import("../pages/VerifyOtpPage"));
+const CompleteProfilePage = lazyRetry(() => import("../pages/CompleteProfilePage"));
+const ForgotPasswordPage  = lazyRetry(() => import("../pages/ForgotPasswordPage"));
+const ResetPasswordPage   = lazyRetry(() => import("../pages/ResetPasswordPage"));
+
+// Public pages — lazy loaded (rarely visited by logged-in users)
+const AboutPage           = lazyRetry(() => import("../pages/AboutPage"));
+const ContactPage         = lazyRetry(() => import("../pages/ContactPage"));
+const FAQPage             = lazyRetry(() => import("../pages/FAQPage"));
+
+
 
 import { RequireRole }   from "../auth/RequireRole";
 import RoleBasedRedirect from "../auth/RoleBasedRedirect";
@@ -179,15 +181,15 @@ export const router = createBrowserRouter([
   { path: "/", element: <RoleBasedRedirect /> },
 
   // ── Public ───────────────────────────────────────────────────────────────
-  { path: "/about",            element: <AboutPage /> },
-  { path: "/contact",          element: <ContactPage /> },
-  { path: "/faq",              element: <FAQPage /> },
-  { path: "/login",            element: <LoginPage /> },
-  { path: "/register",         element: <RegisterPage /> },
-  { path: "/verify-otp",       element: <VerifyOtpPage /> },
-  { path: "/complete-profile", element: <CompleteProfilePage /> },
-  { path: "/forgot-password",  element: <ForgotPasswordPage /> },
-  { path: "/reset-password/:uidb64/:token", element: <ResetPasswordPage /> },
+  { path: "/about",            element: <Suspense fallback={<PageLoader />}><AboutPage /></Suspense> },
+  { path: "/contact",          element: <Suspense fallback={<PageLoader />}><ContactPage /></Suspense> },
+  { path: "/faq",              element: <Suspense fallback={<PageLoader />}><FAQPage /></Suspense> },
+  { path: "/login",            element: <Suspense fallback={<PageLoader />}><LoginPage /></Suspense> },
+  { path: "/register",         element: <Suspense fallback={<PageLoader />}><RegisterPage /></Suspense> },
+  { path: "/verify-otp",       element: <Suspense fallback={<PageLoader />}><VerifyOtpPage /></Suspense> },
+  { path: "/complete-profile", element: <Suspense fallback={<PageLoader />}><CompleteProfilePage /></Suspense> },
+  { path: "/forgot-password",  element: <Suspense fallback={<PageLoader />}><ForgotPasswordPage /></Suspense> },
+  { path: "/reset-password/:uidb64/:token", element: <Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense> },
 
 
   // ── Shared — all authenticated roles (rank ≥ STUDENT = everyone) ─────────

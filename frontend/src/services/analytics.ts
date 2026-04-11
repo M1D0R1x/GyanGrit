@@ -11,6 +11,7 @@
  * via logEvent().
  */
 import { apiPost, apiGet } from "./api";
+import { enqueueOfflineAction } from "./offline";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,13 +47,31 @@ export type StudentEngagement = {
 };
 
 // ── Heartbeat (call every 30s while student is actively viewing) ─────────────
+// Dedup: prevent multiple components from sending overlapping heartbeats for
+// the same resource. At most one heartbeat per resource per 30s window.
+const _heartbeatDedup = new Map<string, number>();
 
 export const sendHeartbeat = (
   eventType: EngagementEventType,
   resourceId: number,
   resourceLabel?: string,
 ) => {
-  if (!navigator.onLine) return Promise.resolve();
+  const key = `${eventType}:${resourceId}`;
+  const now = Date.now();
+  const last = _heartbeatDedup.get(key) ?? 0;
+  if (now - last < 25_000) return Promise.resolve(); // debounce: skip if <25s since last
+
+  _heartbeatDedup.set(key, now);
+
+  if (!navigator.onLine) {
+    // Queue for sync when back online instead of silently dropping
+    return enqueueOfflineAction("analytics_heartbeat", {
+      event_type: eventType,
+      resource_id: resourceId,
+      resource_label: resourceLabel ?? "",
+    });
+  }
+
   return apiPost("/analytics/heartbeat/", {
     event_type: eventType,
     resource_id: resourceId,

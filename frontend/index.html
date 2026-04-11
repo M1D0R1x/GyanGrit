@@ -5,14 +5,12 @@
 
     <!-- Favicon — inline SVG as data URI -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- DNS prefetch + preconnect — save ~500ms on 3G for first API call & fonts -->
-    <link rel="dns-prefetch" href="https://gyangrit.onrender.com" />
-    <link rel="preconnect" href="https://gyangrit.onrender.com" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- DNS prefetch + preconnect — save ~200ms on first API call -->
+    <link rel="dns-prefetch" href="https://api.gyangrit.site" />
+    <link rel="preconnect" href="https://api.gyangrit.site" crossorigin />
+    <!-- Fonts self-hosted via npm — no Google Fonts preconnect needed -->
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
 
     <!-- PWA meta -->
@@ -22,6 +20,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GyanGrit" />
+    <meta name="msapplication-TileColor" content="#0d1117" />
 
     <!-- SEO -->
     <meta name="description" content="GyanGrit — Empowering rural students, one lesson at a time." />

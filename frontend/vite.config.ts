@@ -74,7 +74,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          "vendor-react":      ["react", "react-dom", "react-router-dom"],
+          "vendor-react":      ["react", "react-dom"],
+          "vendor-router":     ["react-router-dom"],
           "vendor-ui":         ["sonner", "react-helmet-async"],
           "vendor-realtime":   ["ably", "@ably/chat"],
           "vendor-canvas":     ["@excalidraw/excalidraw"],

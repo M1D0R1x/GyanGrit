@@ -1,8 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { RouterProvider } from "react-router-dom";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "sonner";
 import { router } from "./app/router";
 import { AuthProvider } from "./auth/AuthContext";
@@ -139,20 +137,6 @@ createRoot(document.getElementById("root")!).render(
             }}
             closeButton
           />
-          {/* Vercel Analytics — deduplicate consecutive same-URL page views */}
-          <Analytics
-            beforeSend={(event) => {
-              // React Router can fire multiple route changes per navigation.
-              // Skip consecutive duplicate URLs to avoid inflated page view counts.
-              const key = "__va_last_url";
-              const last = sessionStorage.getItem(key);
-              if (last === event.url) return null;
-              sessionStorage.setItem(key, event.url);
-              return event;
-            }}
-          />
-          {/* Vercel Speed Insights — sample 10% to reduce network overhead */}
-          <SpeedInsights sampleRate={0.1} />
         </ThemeProvider>
       </AuthProvider>
     </ChunkErrorBoundary>

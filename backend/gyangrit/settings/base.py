@@ -171,6 +171,7 @@ REST_FRAMEWORK = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 CORS_ALLOW_CREDENTIALS   = True
+CORS_PREFLIGHT_MAX_AGE   = 86400  # 24h — browser caches OPTIONS, kills sequential chains
 SESSION_COOKIE_SAMESITE  = "Lax"
 CSRF_COOKIE_SAMESITE     = "Lax"
 SESSION_COOKIE_SECURE    = False   # overridden to True in prod.py

@@ -24,9 +24,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
-import { getAblyToken } from "../services/competitions";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
-import type { TokenParams, ErrorInfo, TokenDetails, TokenRequest } from "ably";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local storage key for cached user profile
@@ -223,56 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("session:kicked", handler);
   }, [clearUser]);
 
-  // ── Ably notification listener ──────────────────────────────────────────
-  useEffect(() => {
-    if (!authenticated || !user || offlineMode) return;
-    let mounted = true;
-
-    const connect = async () => {
-      try {
-        const { default: Ably } = await import("ably");
-        const client = new Ably.Realtime({
-          authCallback: async (
-            _data: TokenParams,
-            callback: (
-              error: ErrorInfo | string | null,
-              token: TokenDetails | TokenRequest | string | null,
-            ) => void,
-          ) => {
-            try {
-              const tokenData = await getAblyToken(undefined, "chat");
-              callback(null, tokenData.token);
-            } catch (err) {
-              callback(err instanceof Error ? err.message : "Token fetch failed", null);
-            }
-          },
-        });
-        if (!mounted) { client.close(); return; }
-
-        const channel = client.channels.get(`notifications:${user.id}`);
-        channel.subscribe((msg) => {
-          if (!mounted) return;
-          window.dispatchEvent(new CustomEvent("notif:new", { detail: msg.data }));
-        });
-
-        return () => {
-          channel.unsubscribe();
-          client.close();
-        };
-      } catch {
-        return undefined;
-      }
-    };
-
-    let cleanup: (() => void) | undefined;
-    connect().then((fn) => { cleanup = fn; });
-
-    return () => {
-      mounted = false;
-      cleanup?.();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, user?.id, offlineMode]);
+  // ── Ably notification listener — MOVED to hooks/useAblyNotifications.ts ──
+  // Mount useAblyNotifications() only in pages that need real-time updates
+  // (dashboard, chat, live session). This prevents Ably from connecting on
+  // every page and eliminates the 15-60s waterfall entry.
 
   // Push notifications are OPT-IN — user explicitly enables from Profile/Settings.
   // Removed auto-subscribe here to prevent Chrome from showing

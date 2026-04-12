@@ -132,8 +132,15 @@ export default function AdminChatManagementPage() {
           ) : (
             <div style={{ overflowY: "auto", flex: 1, padding: "var(--space-2)" }}>
               {Object.entries(grouped).sort().map(([instName, instRooms]) => (
-                <div key={instName}>
-                  <div style={{ padding: "var(--space-2) var(--space-3) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-muted)" }}>
+                <div key={instName} style={{ marginBottom: "var(--space-3)" }}>
+                  <div style={{
+                    padding: "var(--space-2) var(--space-4) var(--space-1)",
+                    fontSize: 10, fontWeight: 800,
+                    textTransform: "uppercase", letterSpacing: "0.08em",
+                    color: "var(--ink-muted)",
+                    display: "flex", alignItems: "center", gap: "var(--space-2)",
+                  }}>
+                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--ink-muted)", flexShrink: 0 }} />
                     {instName}
                   </div>
                   {instRooms.map((r) => {
@@ -141,23 +148,50 @@ export default function AdminChatManagementPage() {
                     const isSelected = selectedRoom?.id === r.id;
                     return (
                       <button key={r.id} onClick={() => openRoom(r)} style={{
-                        width: "100%", padding: "var(--space-3) var(--space-3)", background: isSelected ? "rgba(59,130,246,0.08)" : "none", border: "none",
-                        borderLeft: isSelected ? `3px solid var(--saffron)` : "3px solid transparent",
-                        textAlign: "left", cursor: "pointer", borderRadius: "var(--radius-sm)", marginBottom: 2,
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {r.name}
-                            </div>
-                            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 2 }}>
-                              <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase" }}>{ROOM_TYPE_LABELS[r.room_type]}</span>
-                              <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.member_count ?? 0} members</span>
-                              {(r.message_count ?? 0) > 0 && <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.message_count} msgs</span>}
-                            </div>
-                          </div>
-                          {!r.is_active && <span style={{ fontSize: 9, color: "var(--error)", fontWeight: 700 }}>CLOSED</span>}
+                        width: "100%",
+                        padding: "var(--space-3) var(--space-4)",
+                        background: isSelected ? `${color}12` : "transparent",
+                        border: "none",
+                        borderLeft: isSelected ? `3px solid ${color}` : "3px solid transparent",
+                        textAlign: "left", cursor: "pointer",
+                        borderRadius: "var(--radius-sm)", marginBottom: 2,
+                        display: "flex", alignItems: "center", gap: "var(--space-3)",
+                        transition: "all 150ms ease",
+                      }}
+                        onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)"; }}
+                        onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                      >
+                        {/* Room icon */}
+                        <div style={{
+                          width: 28, height: 28, borderRadius: "var(--radius-sm)",
+                          background: isSelected ? `${color}20` : "var(--bg-elevated)",
+                          border: `1px solid ${isSelected ? `${color}40` : "var(--border-light)"}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0, fontSize: 12,
+                          color: isSelected ? color : "var(--ink-muted)",
+                        }}>
+                          {r.room_type === "officials" ? "\uD83C\uDFDB" : r.room_type === "staff" ? "\uD83D\uDC65" : "#"}
                         </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: "var(--text-xs)",
+                            fontWeight: isSelected ? 700 : 500,
+                            fontFamily: isSelected ? "var(--font-display)" : "var(--font-body)",
+                            color: isSelected ? "var(--ink-primary)" : "var(--ink-secondary)",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          }}>
+                            {r.name}
+                          </div>
+                          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 2, alignItems: "center" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase" }}>{ROOM_TYPE_LABELS[r.room_type]}</span>
+                            <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.member_count ?? 0} members</span>
+                            {(r.message_count ?? 0) > 0 && <span style={{ fontSize: 9, color: "var(--ink-muted)" }}>{r.message_count} msgs</span>}
+                          </div>
+                        </div>
+
+                        {!r.is_active && <span style={{ fontSize: 9, color: "var(--error)", fontWeight: 700, flexShrink: 0 }}>CLOSED</span>}
+                        {isSelected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: `0 0 6px ${color}80` }} />}
                       </button>
                     );
                   })}

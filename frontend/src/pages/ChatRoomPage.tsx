@@ -573,29 +573,118 @@ export default function ChatRoomPage() {
 
         {/* ── Room sidebar ── */}
         {showSidebar && (
-          <div style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--glass-stroke)", overflowY: "auto", background: "var(--bg-surface)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "var(--space-3) var(--space-4)", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--glass-stroke)", flexShrink: 0 }}>
-              Rooms
+          <div style={{
+            width: 280, flexShrink: 0,
+            borderRight: "1px solid var(--glass-stroke)",
+            overflowY: "auto",
+            background: "var(--glass-fill)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            display: "flex", flexDirection: "column",
+          }}>
+            {/* Sidebar header */}
+            <div style={{
+              padding: "var(--space-4) var(--space-5)",
+              borderBottom: "1px solid var(--glass-stroke)",
+              flexShrink: 0,
+              display: "flex", alignItems: "center", gap: "var(--space-3)",
+            }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: "var(--radius-md)",
+                background: "linear-gradient(135deg, var(--brand-primary), var(--saffron))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "var(--text-sm)", color: "var(--ink-primary)", letterSpacing: "-0.02em" }}>
+                  Chat Rooms
+                </div>
+                <div style={{ fontSize: 10, color: "var(--ink-muted)", fontWeight: 500 }}>
+                  {rooms.length} room{rooms.length !== 1 ? "s" : ""}
+                </div>
+              </div>
             </div>
+
+            {/* Room groups */}
             {(["officials", "staff", "subject"] as const).map((type) => {
               const group = rooms.filter((r) => r.room_type === type);
               if (!group.length) return null;
+              const groupColor = ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)";
               return (
-                <div key={type}>
-                  <div style={{ padding: "var(--space-2) var(--space-4) var(--space-1)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: ROOM_TYPE_COLORS[type] ?? "var(--ink-muted)" }}>
+                <div key={type} style={{ marginTop: "var(--space-3)" }}>
+                  {/* Group label */}
+                  <div style={{
+                    padding: "var(--space-1) var(--space-5) var(--space-2)",
+                    fontSize: 10, fontWeight: 800,
+                    textTransform: "uppercase", letterSpacing: "0.08em",
+                    color: groupColor,
+                    display: "flex", alignItems: "center", gap: "var(--space-2)",
+                  }}>
+                    <span style={{ width: 4, height: 4, borderRadius: "50%", background: groupColor, flexShrink: 0 }} />
                     {type === "subject" && user?.role === "ADMIN" ? "Class Chats" : ROOM_TYPE_LABELS[type]}
                   </div>
-                  {group.map((r) => (
-                    <button key={r.id} onClick={() => setActiveRoom(r)} style={{
-                      width: "100%", padding: "var(--space-2) var(--space-4)", background: activeRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "none", border: "none",
-                      borderLeft: activeRoom?.id === r.id ? `3px solid ${ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)"}` : "3px solid transparent",
-                      textAlign: "left", cursor: "pointer",
-                    }}>
-                      <span style={{ fontSize: "var(--text-xs)", fontWeight: activeRoom?.id === r.id ? 700 : 500, color: activeRoom?.id === r.id ? "var(--ink-primary)" : "var(--ink-secondary)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {r.name}
-                      </span>
-                    </button>
-                  ))}
+
+                  {/* Room items */}
+                  {group.map((r) => {
+                    const isActive = activeRoom?.id === r.id;
+                    const accentColor = ROOM_TYPE_COLORS[r.room_type] ?? "var(--saffron)";
+                    return (
+                      <button key={r.id} onClick={() => setActiveRoom(r)} style={{
+                        width: "100%",
+                        padding: "var(--space-3) var(--space-5)",
+                        background: isActive ? `${accentColor}12` : "transparent",
+                        border: "none",
+                        borderLeft: isActive ? `3px solid ${accentColor}` : "3px solid transparent",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        transition: "all 150ms ease",
+                        display: "flex", alignItems: "center", gap: "var(--space-3)",
+                      }}
+                        onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-elevated)"; }}
+                        onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                      >
+                        {/* Room icon */}
+                        <div style={{
+                          width: 28, height: 28, borderRadius: "var(--radius-sm)",
+                          background: isActive ? `${accentColor}20` : "var(--bg-elevated)",
+                          border: `1px solid ${isActive ? `${accentColor}40` : "var(--border-light)"}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0, transition: "all 150ms ease",
+                          color: isActive ? accentColor : "var(--ink-muted)",
+                          fontSize: 12,
+                        }}>
+                          {r.room_type === "officials" ? "🏛" : r.room_type === "staff" ? "👥" : "#"}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            fontSize: "var(--text-xs)",
+                            fontWeight: isActive ? 700 : 500,
+                            fontFamily: isActive ? "var(--font-display)" : "var(--font-body)",
+                            color: isActive ? "var(--ink-primary)" : "var(--ink-secondary)",
+                            display: "block",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            transition: "color 150ms ease",
+                          }}>
+                            {r.name}
+                          </span>
+                        </div>
+
+                        {/* Active indicator dot */}
+                        {isActive && (
+                          <div style={{
+                            width: 6, height: 6, borderRadius: "50%",
+                            background: accentColor, flexShrink: 0,
+                            boxShadow: `0 0 6px ${accentColor}80`,
+                          }} />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })}

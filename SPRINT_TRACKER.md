@@ -93,3 +93,4 @@
 **#13 — SW precache verification (P1 leftover)**
 - Confirmed: `injectSWBundles()` Vite plugin correctly injects 12 hashed bundle URLs into `dist/sw.js` at build time. Offline boot is reliable after deploy.
 
+

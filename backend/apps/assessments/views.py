@@ -900,22 +900,46 @@ def teacher_student_assessments(request, class_id, student_id):
 # ── AI Assessment Generator ──────────────────────────────────────────────────────
 
 _AI_ASSESSMENT_PROMPT = """\
-Generate exactly {count} multiple-choice questions from the content below.
-Return ONLY a valid JSON array — no explanation, no markdown, no code block.
-Format:
-[
-  {{"question": "...", "options": ["A", "B", "C", "D"], "answer": 0}},
-  ...
-]
-Rules:
-- Each question tests one clear concept
-- Exactly 4 options per question; "answer" is the 0-based index of the correct one
-- Distractors must be plausible but clearly wrong on reflection
-- Factually accurate, curriculum-appropriate, grades 6-10 difficulty
-- Language: match the content language (English/Hindi/Punjabi)
+You are creating a multiple-choice assessment for Indian government school students (Punjab State Board, grades 6-10).
 
-Content:
+LESSON CONTENT:
 {content}
+
+Generate EXACTLY {count} MCQ question(s) as a JSON array. Each question MUST:
+
+1. Test a SPECIFIC fact, concept, formula, or skill from the lesson content above
+2. Have exactly 4 options
+3. Have exactly ONE correct answer (0-based index in "answer" field)
+4. Include plausible distractors (wrong options a student might pick if they don't fully understand)
+
+QUALITY RULES:
+- NEVER ask "Which of the following is discussed in this lesson?" — test the CONTENT not the lesson structure
+- NEVER use "All of the above" or "None of the above" as options
+- NEVER make the correct answer obviously longer or more detailed than wrong ones
+- Wrong options must be plausible — real terms from same subject, common misconceptions
+- Mix difficulty: 30% easy (direct recall), 40% medium (understanding), 30% hard (application/analysis)
+- For Math/Science: include numerical problems where students must calculate
+- For History/Social: test cause-effect, dates, significance — not just "who"
+- For Languages: test grammar rules, comprehension, vocabulary in context
+
+BAD QUESTION (never generate):
+  "What is the main topic of this lesson?"
+  → This tests nothing. A student who read ANY lesson would guess.
+
+GOOD QUESTION:
+  "A ball is thrown upward at 20 m/s. What is its velocity at the highest point? (g = 10 m/s2)"
+  options: ["20 m/s", "10 m/s", "0 m/s", "-20 m/s"], answer: 2
+  → Tests actual physics understanding with real numbers.
+
+GOOD QUESTION:
+  "Which gas is released during photosynthesis?"
+  options: ["Carbon dioxide", "Nitrogen", "Oxygen", "Hydrogen"], answer: 2
+  → Tests a specific biological fact with plausible distractors.
+
+Respond with ONLY a JSON array, no markdown, no explanation:
+[{{"question": "...", "options": ["A", "B", "C", "D"], "answer": 0}}, ...]
+
+IMPORTANT: "answer" is 0-based index. Exactly 4 options per question.
 """
 
 

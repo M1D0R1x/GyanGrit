@@ -92,13 +92,19 @@ function RiskBannerCard({ risk }: { risk: RiskData }) {
   const icon     = isHigh ? "⚠️" : "📊";
   const label    = isHigh ? "High Risk" : "Needs Attention";
 
-  // Human-readable factor reasons
+  // Human-readable factor reasons (v2 risk algorithm)
   const reasons: string[] = [];
   const f = risk.factors as Record<string, unknown>;
-  if (f.streak_broken)     reasons.push("missed 3+ days");
-  if (f.engagement_drop)   reasons.push("engagement dropped recently");
-  if (f.recent_failures && Number(f.recent_failures) > 0)
-    reasons.push(`${f.recent_failures} recent assessment failure${Number(f.recent_failures) > 1 ? "s" : ""}`);
+  if (f.login_recency)        reasons.push(String(f.login_recency));
+  if (f.engagement_trend)     reasons.push(String(f.engagement_trend));
+  if (f.assessment_failures)  reasons.push(String(f.assessment_failures));
+  if (f.lesson_completion)    reasons.push(`lesson progress: ${f.lesson_completion}`);
+  if (f.assessment_avoidance) reasons.push(String(f.assessment_avoidance));
+  if (f.live_session_absence) reasons.push(String(f.live_session_absence));
+  if (f.streak_broken)        reasons.push(String(f.streak_broken));
+  // Legacy factor names (v1 backward compat)
+  if (!reasons.length && f.engagement_drop)  reasons.push("engagement dropped recently");
+  if (!reasons.length && f.recent_failures)  reasons.push(`${f.recent_failures} failed assessment(s)`);
 
   const reasonText = reasons.length > 0 ? reasons.join(" · ") : "review your activity";
 

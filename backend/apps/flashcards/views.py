@@ -421,23 +421,40 @@ from django.db import models
 # ── AI Flashcard Generator ───────────────────────────────────────────────────────────────
 
 AI_FLASHCARD_PROMPT = """\
-Generate exactly {count} high-quality flashcard pairs from the content below.
-Return ONLY a valid JSON array — no explanation, no markdown, no code block.
-Format:
-[
-  {{"front": "question or term", "back": "answer or definition", "hint": "optional memory hint (max 100 chars)"}},
-  ...
-]
-Rules:
-- Each card must test one clear concept
-- Front should be a question or a term
-- Back should be the direct answer or definition
-- Hint is optional — leave empty string "" if not useful
-- Cards must be factually accurate and curriculum-appropriate
-- Language: match the content language (English/Hindi/Punjabi)
+You are creating flashcards for Indian government school students (Punjab State Board, grades 6-10).
 
-Content:
+LESSON CONTENT:
 {content}
+
+Generate EXACTLY {count} flashcard(s) as a JSON array. Each flashcard MUST:
+
+1. Test a SPECIFIC fact, formula, definition, date, or concept from the lesson content above
+2. Have a clear, unambiguous question on the "front"
+3. Have a precise, factual answer on the "back" (not vague or generic)
+4. Include a helpful "hint" that guides without giving away the answer
+
+QUALITY RULES:
+- NEVER ask "What is the main topic of this lesson?" or "What are the key points discussed?"
+- NEVER reference "this lesson" or "this chapter" — ask about the ACTUAL subject matter
+- Each card must stand alone — a student should be able to answer without seeing the lesson
+- For Math/Physics: include actual numbers, formulas, or calculations
+- For History: include real dates, names, events
+- For Biology/Chemistry: include scientific terms, processes, reactions
+- For Languages: include grammar rules with examples, translations
+- Mix difficulty: 40% recall (definitions), 40% understanding (why/how), 20% application (solve/apply)
+
+BAD EXAMPLES (never generate these):
+- "What is discussed in this lesson?" — too vague
+- "Name some important concepts" — too generic
+- "What is the context of this chapter?" — meta, not content
+
+GOOD EXAMPLES:
+- Front: "What is the SI unit of force?" / Back: "Newton (N). 1 N = 1 kg m/s2" / Hint: "Named after Sir Isaac..."
+- Front: "In which year did the Revolt of 1857 begin?" / Back: "1857, starting from Meerut on May 10" / Hint: "Also called the First War of Independence"
+- Front: "What is photosynthesis?" / Back: "Process where green plants make glucose from CO2 and water using sunlight. 6CO2 + 6H2O -> C6H12O6 + 6O2" / Hint: "Happens in chloroplasts"
+
+Respond with ONLY a JSON array, no markdown, no explanation:
+[{{"front": "...", "back": "...", "hint": "..."}}, ...]
 """
 
 

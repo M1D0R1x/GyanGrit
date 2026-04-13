@@ -15,6 +15,8 @@ With --force: overwrites ALL lesson content.
 import logging
 import time
 
+import requests
+
 from django.core.management.base import BaseCommand
 from apps.content.models import Course, Lesson
 
@@ -130,10 +132,9 @@ Make content specific to the ACTUAL TOPIC — not generic."""
 
 
 def generate_content(subject: str, grade: int, title: str, order: int) -> str:
-    """Try Groq -> Together -> Gemini. Return markdown."""
-    # Get curriculum context for this subject+grade
+    """Try BOA → Groq → Together → Gemini. Return markdown."""
     hints = CURRICULUM_HINTS.get(subject, {}).get(grade, "")
-    
+
     prompt = (
         f"Subject: {subject}\n"
         f"Grade: {grade} (Punjab State Board)\n"
@@ -143,7 +144,7 @@ def generate_content(subject: str, grade: int, title: str, order: int) -> str:
         f"Be specific to the actual topic. Include real facts, formulas, dates, or examples as appropriate."
     )
 
-    for fn, name in [(_call_groq, "Groq"), (_call_together, "Together"), (_call_gemini, "Gemini")]:
+    for fn, name in [(_call_boa, "BOA"), (_call_groq, "Groq"), (_call_together, "Together"), (_call_gemini, "Gemini")]:
         try:
             result = fn(prompt)
             if result and len(result) > 100:
@@ -152,6 +153,42 @@ def generate_content(subject: str, grade: int, title: str, order: int) -> str:
             logger.warning("%s failed: %s", name, e)
 
     return ""
+
+
+# ── BOA round-robin for management command ─────────────────────────────────────
+_boa_mgmt_idx = 0
+
+def _call_boa(prompt: str) -> str:
+    import os
+    global _boa_mgmt_idx
+    keys = []
+    idx = 1
+    while True:
+        k = os.environ.get(f"BOA_API_KEY_{idx}", "").strip()
+        if not k:
+            break
+        keys.append(k)
+        idx += 1
+    if not keys:
+        raise ValueError("No BOA_API_KEY_N keys in env")
+    api_key = keys[_boa_mgmt_idx % len(keys)]
+    _boa_mgmt_idx += 1
+    resp = requests.post(
+        "https://api.bayofassets.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7,
+        },
+        timeout=45,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
 
 
 def _call_groq(prompt: str) -> str:

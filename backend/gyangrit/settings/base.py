@@ -342,6 +342,16 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 # ── Together AI (fallback AI provider — Llama-4-Maverick-17B, $25 free credit) ─
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY", "")
 
+# Bay of Assets — auto-discover all BOA_API_KEY_N env vars for round-robin rotation
+BOA_API_KEYS = []
+_boa_idx = 1
+while True:
+    _key = os.environ.get(f"BOA_API_KEY_{_boa_idx}", "").strip()
+    if not _key:
+        break
+    BOA_API_KEYS.append(_key)
+    _boa_idx += 1
+
 # ── Web Push (VAPID) ─────────────────────────────────────────────────────────
 # Generate keys once:
 #   python -c "from py_vapid import Vapid; v=Vapid(); v.generate_keys(); print(v.private_pem().decode()); print(v.public_key)"

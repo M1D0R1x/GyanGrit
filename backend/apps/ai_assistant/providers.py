@@ -3,16 +3,17 @@
 Multi-provider AI fallback chain for GyanGrit.
 
 Priority order:
-  1. Groq          — llama-3.3-70b-versatile (30 req/min, 14 400/day, FREE)
-  2. Together AI   — Llama-4-Maverick-17B    ($25 free credit)
-  3. Gemini        — gemini-2.0-flash         (last resort)
+  1. Bay of Assets  — claude-haiku-4-5 via round-robin key rotation (3+ keys, 70 RPM each)
+  2. Groq            — llama-3.3-70b-versatile (30 req/min free)
+  3. Together AI     — Llama-4-Maverick-17B
+  4. Gemini          — gemini-2.0-flash (last resort)
 
-Each provider raises ProviderRateLimitError on 429/503.
-call_ai() walks the chain and falls through to the next provider silently.
-No time.sleep() — blocking Gunicorn gthread workers is forbidden (ADR-003).
+BOA key rotation: atomic counter cycles through BOA_API_KEY_1..N.
+Add more keys to .env → auto-discovered on startup. No code changes needed.
 """
+import itertools
 import logging
-import os
+import threading
 
 import requests
 
@@ -21,6 +22,27 @@ logger = logging.getLogger(__name__)
 MAX_TOKENS = 512
 TEMPERATURE = 0.7
 TIMEOUT_S = 15
+
+# ── BOA round-robin key rotator ────────────────────────────────────────────────
+# Thread-safe: uses itertools.cycle + lock. Each call_ai() picks the next key.
+
+_boa_cycle = None
+_boa_lock = threading.Lock()
+
+
+def _get_next_boa_key() -> str:
+    """Return next BOA API key in round-robin. Empty string if no keys configured."""
+    global _boa_cycle
+    from django.conf import settings
+
+    keys = getattr(settings, "BOA_API_KEYS", [])
+    if not keys:
+        return ""
+
+    with _boa_lock:
+        if _boa_cycle is None:
+            _boa_cycle = itertools.cycle(keys)
+        return next(_boa_cycle)
 
 
 class ProviderRateLimitError(Exception):
@@ -55,11 +77,48 @@ def _build_system_prompt(curriculum_context: str) -> str:
 # ── Provider implementations ───────────────────────────────────────────────────
 
 
+def _call_boa(messages: list[dict], system_prompt: str) -> str:
+    """
+    Call Bay of Assets API (OpenAI-compatible) with Claude Haiku 4.5.
+    0.3x token weight = cheapest model. Round-robin across BOA_API_KEY_1..N.
+    70 RPM per key × 3 keys = 210 RPM total capacity.
+    """
+    api_key = _get_next_boa_key()
+    if not api_key:
+        raise ProviderError("No BOA_API_KEY_N keys configured in .env")
+
+    resp = requests.post(
+        "https://api.bayofassets.com/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5-20251001",
+            "messages": [{"role": "system", "content": system_prompt}] + messages,
+            "max_tokens": MAX_TOKENS,
+            "temperature": TEMPERATURE,
+        },
+        timeout=TIMEOUT_S,
+    )
+
+    if resp.status_code == 429:
+        logger.warning("BOA rate-limited (key=%s...)", api_key[:12])
+        raise ProviderRateLimitError(f"BOA HTTP 429")
+    if resp.status_code == 402:
+        logger.warning("BOA credits exhausted (key=%s...)", api_key[:12])
+        raise ProviderRateLimitError(f"BOA HTTP 402")
+    if resp.status_code == 503:
+        raise ProviderRateLimitError(f"BOA HTTP 503")
+
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
 def _call_groq(messages: list[dict], system_prompt: str) -> str:
     """
     Call Groq API (OpenAI-compatible) with llama-3.3-70b-versatile.
     Free tier: 30 req/min, 14 400 req/day.
-    Raises ProviderRateLimitError on 429/503.
     """
     from django.conf import settings
 
@@ -94,8 +153,6 @@ def _call_together(messages: list[dict], system_prompt: str) -> str:
     """
     Call Together AI using their OpenAI-compatible REST API.
     Model: meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
-    Free: $25 credit on signup.
-    Raises ProviderRateLimitError on 429/503.
     """
     from django.conf import settings
 
@@ -128,9 +185,7 @@ def _call_together(messages: list[dict], system_prompt: str) -> str:
 
 def _call_gemini(messages: list[dict], system_prompt: str) -> str:
     """
-    Call Gemini 2.0 Flash API.
-    Last-resort fallback only — free tier is 15 req/min shared across all users.
-    Raises ProviderRateLimitError on 429/503.
+    Call Gemini 2.0 Flash API. Last-resort fallback.
     """
     from django.conf import settings
 
@@ -138,7 +193,6 @@ def _call_gemini(messages: list[dict], system_prompt: str) -> str:
     if not api_key:
         raise ProviderError("GEMINI_API_KEY not configured")
 
-    # Convert OpenAI-style messages to Gemini format
     contents = []
     for msg in messages:
         contents.append({
@@ -176,36 +230,28 @@ def _call_gemini(messages: list[dict], system_prompt: str) -> str:
 # ── Provider chain ─────────────────────────────────────────────────────────────
 
 _CHAIN = [
-    ("groq",    _call_groq),
+    ("boa",      _call_boa),
+    ("groq",     _call_groq),
     ("together", _call_together),
-    ("gemini",  _call_gemini),
+    ("gemini",   _call_gemini),
 ]
 
 
 def call_ai(messages: list[dict], curriculum_context: str) -> str:
     """
     Walk the provider chain until one succeeds.
-
-    Args:
-        messages:           List of {"role": "user"|"assistant", "content": "..."} dicts.
-                            Matches the format stored in AIChatMessage.
-        curriculum_context: Plain-text curriculum context injected into system prompt.
-
-    Returns:
-        Assistant reply string. Never raises — returns a friendly fallback message
-        if ALL providers fail.
+    BOA (Claude Haiku) is primary. Falls through to Groq → Together → Gemini.
     """
     system_prompt = _build_system_prompt(curriculum_context)
 
     for provider_name, call_fn in _CHAIN:
         try:
             reply = call_fn(messages, system_prompt)
-            if provider_name != "groq":
-                # Log when we're not on the primary provider so we know to investigate
+            if provider_name != "boa":
                 logger.warning("AI response served by fallback provider: %s", provider_name)
             return reply
         except ProviderRateLimitError:
-            logger.warning("Provider %s rate-limited — trying next in chain", provider_name)
+            logger.warning("Provider %s rate-limited — trying next", provider_name)
             continue
         except ProviderError as exc:
             logger.info("Provider %s skipped (%s) — trying next", provider_name, exc)
@@ -220,10 +266,9 @@ def call_ai(messages: list[dict], curriculum_context: str) -> str:
             logger.error("Provider %s unexpected error: %s", provider_name, exc, exc_info=True)
             continue
 
-    # All providers failed
     logger.error("All AI providers in the chain failed or are rate-limited.")
     return (
-        "All AI providers are busy right now. 😊 "
+        "All AI providers are busy right now. "
         "Please wait a minute and try your question again. "
         "If this keeps happening, contact your teacher."
     )

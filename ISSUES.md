@@ -1,6 +1,6 @@
 # GyanGrit — Open Issues
 
-> Last updated: 2026-04-09
+> Last updated: 2026-04-13
 
 No open issues.
 
@@ -8,34 +8,26 @@ No open issues.
 
 ## Resolved Issues
 
-### 2026-04-09 — Offline Download: Case 1/2 vs Case 3 Mismatch (3 bugs)
+### 2026-04-13 — Performance P0 fixes
 
-**Root Cause:** `LessonsPage.tsx` individual and bulk download buttons saved lessons with hardcoded empty strings for `content`, `pdfUrl`, `videoUrl`. They used `LessonItem` data from the list endpoint which has no content — needed `getLessonDetail()` to fetch full data first.
+- **CORS_PREFLIGHT_MAX_AGE=86400** → browser caches OPTIONS 24h, kills sequential chains
+- **Ably lazy-loaded** → moved from AuthContext to AppLayout hook w/ dynamic import. No boot-time /realtime/token/ call
+- **Vercel Analytics+SpeedInsights removed** → 3-4 reqs/lesson eliminated
+- **Telemetry batched** → trackEvent fires flush every 5s w/ dedup, 4x→1x analytics/event
+- **Dead offlineBanner code removed** from AppLayout
+- **AIToolsPage rewritten** → cascading Subject→Course→Lesson dropdowns, no manual IDs
+- **ChatRoomPage sidebar upgraded** → glassmorphic, room icons, hover states, active glow
+- **AdminChatManagementPage sidebar upgraded** → same treatment
+- **generate_lesson_content management command** → AI-fills empty lessons via Groq/Together/Gemini
 
-**Bugs fixed:**
+### 2026-04-13 — Sentry fixes (5 issues)
 
-1. **Bug 1 — Lesson text blank after Case 1/2 download** — `handleSave` and `bulkDownloadAll` now call `getLessonDetail(lesson.id)` before saving. Content set from `detail.content`.
+- **SENTRY-1H** NameError cache → added `from django.core.cache import cache` to accounts/views.py
+- **SENTRY-9** N+1 login signal → enroll_admin_in_room bulk_create
+- **SENTRY-1E** N+1 batch_course_progress → bulk Course.objects.filter(id__in=)
+- **SENTRY-1G** N+1 teacher_course_analytics → single annotated queryset
+- **SENTRY-1F** LiveKit Egress 404 → not a code bug, Egress not on plan
 
-2. **Bug 2 — PDF/video blobs never downloaded in Case 1/2** — Now calls `savePdfOffline()` and `saveVideoOffline()` after saving metadata.
+### 2026-04-09 — Offline download + OfflineStatusBar + ESLint
 
-3. **Bug 3 — `hasTextContent` flag missing in Case 1/2** — Now included in `saveLessonOffline()` call.
-
-**Files changed:** `frontend/src/pages/LessonsPage.tsx`
-
-### 2026-04-09 — OfflineStatusBar blocking TopBar navigation
-
-**Fix:** Converted from `position: fixed; top: 0; z-index: 10000` bar to Sonner toasts at `position: "top-center"`. Component now returns `null` — headless hook that fires toasts.
-
-**File:** `frontend/src/components/OfflineStatusBar.tsx`
-
-### 2026-04-09 — ESLint set-state-in-effect errors (3 occurrences)
-
-- `LessonsPage.tsx` `LessonDownloadBtn` — split `useEffect` into init-from-prop + async IndexedDB check
-- `LessonsPage.tsx` `LessonsPage` — wrapped early-return `setError`/`setLoading` in `queueMicrotask()`
-- `hooks/useOffline.ts` `useStorageUsage` — wrapped `refresh()` in `requestAnimationFrame()`
-
-### 2026-04-09 — Offline empty state shows wrong message
-
-**Fix:** Added `hasTextContent` to `OfflineLesson` type. `LessonPage.tsx` offline fallback now distinguishes "no text content" (video/PDF-only lesson) from "text not downloaded" (incomplete save).
-
-**Files:** `offline.ts`, `useOffline.ts`, `LessonPage.tsx`
+(See previous entries in git history)

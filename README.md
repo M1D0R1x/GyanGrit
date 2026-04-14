@@ -29,7 +29,7 @@ A role-based digital learning platform for rural government schools in Punjab, I
 | Real-time Chat | Ably WebSocket |
 | Live Classes | LiveKit Cloud (WebRTC, Mumbai region) |
 | Recordings | LiveKit Egress → Cloudflare R2 |
-| AI Tutor | Groq (primary) → Together AI (fallback) → Gemini (last resort) |
+| AI Tutor | Bay of Assets Claude Haiku (primary) → Groq → Together → Gemini |
 | Push Notifications | pywebpush + VAPID |
 | SMS OTP | Fast2SMS (India) |
 | Email | Zoho Mail SMTP (`noreply@gyangrit.site`) |

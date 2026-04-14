@@ -98,7 +98,8 @@ EMAIL_HOST_USER=noreply@gyangrit.site
 EMAIL_HOST_PASSWORD=<app-password>
 DEFAULT_FROM_EMAIL=GyanGrit <noreply@gyangrit.site>
 
-# AI providers (fallback chain: Groq → Together → Gemini)
+# AI providers (fallback chain: BOA → Groq → Together → Gemini)
+# BOA_API_KEY_1 through BOA_API_KEY_N — round-robin rotation (Bay of Assets, Claude Haiku 4.5)
 GROQ_API_KEY=gsk_<key>
 TOGETHER_API_KEY=<key>
 GEMINI_API_KEY=AIza<key>

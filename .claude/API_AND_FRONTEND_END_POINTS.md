@@ -283,7 +283,7 @@ Base path: `/api/v1/ai-assistant/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/ai-assistant/chat/` | Student | Chat with AI tutor (Groq → Together → Gemini) |
+| POST | `/ai-assistant/chat/` | Student | Chat with AI tutor (BOA → Groq → Together → Gemini) |
 | GET | `/ai-assistant/history/` | Student | Last 20 messages |
 | DELETE | `/ai-assistant/clear/` | Student | Clear conversation history |
 

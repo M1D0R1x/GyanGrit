@@ -65,7 +65,7 @@ The backend is divided into 18 independent Django apps under `backend/apps/`:
 | `gamification` | Points, badges, streaks, leaderboard |
 | `notifications` | In-app + browser push notification delivery (VAPID/pywebpush) |
 | `media` | Cloudflare R2 presigned upload/delete URL management |
-| `ai_assistant` | Multi-provider AI tutor (Groq → Together → Gemini) |
+| `ai_assistant` | Multi-provider AI tutor (BOA Claude Haiku → Groq → Together → Gemini) |
 | `chatrooms` | Real-time messaging via Ably (subject, staff, officials rooms) |
 | `competitions` | Live quiz competition rooms with real-time scoring |
 | `flashcards` | Spaced-repetition flashcard decks (SM-2 algorithm), AI generator |
@@ -164,7 +164,7 @@ Redis rate limiting (10 req/min per user) prevents one student from exhausting t
 
 **Models:**
 - `EngagementEvent` — records user actions (login, lesson completion, assessment pass/fail, etc.)
-- `StudentRiskScore` — risk score (0–100) per student with tier: `on_track` / `needs_attention` / `at_risk` / `critical`
+- `StudentRiskScore` — risk score (0–100) per student with tier: `LOW` (0-29) / `MEDIUM` (30-59) / `HIGH` (60-100). Calculated from 7 weighted signals: login recency (0-25), engagement trend (0-20), assessment failures (0-15), lesson completion rate (0-15), assessment avoidance (0-10), live session absence (0-10), streak broken (0-5). Recalculated on every assessment submission + nightly via QStash cron.
 
 **Nightly recompute:** QStash calls `POST /api/v1/analytics/nightly-recompute/` at 2:00 AM UTC. This recalculates risk scores for all students and sends in-app alerts to teachers when a student transitions into `at_risk` or `critical`.
 

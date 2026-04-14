@@ -70,7 +70,7 @@ A role-based digital learning platform for rural government schools in Punjab, I
 | `gamification` | PointEvent, StudentPoints, StudentBadge, StudentStreak, leaderboard |
 | `notifications` | Notification model, in-app + pywebpush browser push |
 | `media` | Cloudflare R2 presigned URL management |
-| `ai_assistant` | AI tutor — Groq → Together → Gemini fallback |
+| `ai_assistant` | AI tutor — BOA Claude Haiku → Groq → Together → Gemini fallback |
 | `chatrooms` | Ably real-time chat (subject, staff, officials rooms) |
 | `competitions` | Live quiz competition rooms |
 | `flashcards` | Spaced-repetition decks (SM-2), AI flashcard generator |

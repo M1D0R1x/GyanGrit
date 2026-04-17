@@ -945,21 +945,21 @@ def teacher_course_analytics(request):
     from django.db.models import Count, Q as _Q
     qs = qs.annotate(
         total_lessons=Count(
-            "lesson",
-            filter=_Q(lesson__is_published=True),
+            "lessons",
+            filter=_Q(lessons__is_published=True),
         ),
         enrolled_students=Count(
-            "lesson__lessonprogress__user",
+            "lessons__lessonprogress__user",
             distinct=True,
         ),
         completed_students=Count(
-            "lesson__lessonprogress__user",
-            filter=_Q(lesson__lessonprogress__completed=True),
+            "lessons__lessonprogress__user",
+            filter=_Q(lessons__lessonprogress__completed=True),
             distinct=True,
         ),
         completed_lessons=Count(
-            "lesson__lessonprogress__lesson",
-            filter=_Q(lesson__lessonprogress__completed=True),
+            "lessons__lessonprogress__lesson",
+            filter=_Q(lessons__lessonprogress__completed=True),
             distinct=True,
         ),
     )

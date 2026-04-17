@@ -181,13 +181,13 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
                   aria-label={showPass ? "Hide password" : "Show password"}
-                 style={{
-                    position: "absolute", right: "var(--space-3)", top: "50%",
+                  style={{
+                    position: "absolute", right: "var(--space-2)", top: "50%",
                     transform: "translateY(-50%)", background: "none", border: "none",
-                    cursor: "pointer", color: "var(--ink-muted)", padding: "var(--space-1)",
+                    cursor: "pointer", color: "var(--ink-muted)",
+                    width: 28, height: 28, padding: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "color 0.15s",
-                    minWidth: 24, minHeight: 24,
                   }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-primary)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-muted)"; }}
@@ -240,7 +240,7 @@ export default function LoginPage() {
             <button onClick={() => navigate("/faq")}>FAQ</button>
           </div>
         </div>
-      </main>
+        </main>
     </>
   );
 }

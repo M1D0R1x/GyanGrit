@@ -43,11 +43,15 @@ function injectSWBundles(): Plugin {
       // Deduplicate
       const unique = [...new Set(bundleUrls)];
 
-      // Only keep the entry-point bundles (index-*.js/css) — not lazy chunks
+      // Only keep the entry-point bundles (index-*.js/css) + essential vendors.
       // Lazy chunks are cached on-demand by cacheFirstImmutable().
-      // We want to precache just what's needed for the app shell to boot.
+      // Heavy feature-specific vendors (canvas, livekit, realtime, monitoring)
+      // are NOT precached — they download only when the feature is first used.
       const entryBundles = unique.filter(
-        (u) => u.includes("/index-") || u.includes("/vendor-")
+        (u) =>
+          u.includes("/index-") ||
+          u.includes("/vendor-react") ||
+          u.includes("/vendor-ui")
       );
 
       let sw = readFileSync(swPath, "utf-8");
@@ -84,11 +88,12 @@ export default defineConfig({
             return "vendor-ui";
           if (id.includes("node_modules/ably") || id.includes("node_modules/@ably/"))
             return "vendor-realtime";
-          // NOTE: @excalidraw and livekit-client are intentionally NOT in manualChunks.
-          // They are only used inside LiveSessionPage (already lazy-loaded via React.lazy).
-          // Putting them in manualChunks makes Rollup emit them as shared named entries
-          // that get preloaded on every page — keeping them as dynamic lazy chunks means
-          // they only download when the user navigates to a live session.
+          // Excalidraw intentionally excluded from manualChunks.
+          // Whiteboard.tsx uses dynamic import() for both JS and CSS,
+          // so Vite auto-splits it into a lazy chunk that only loads
+          // on /live routes — saving 1.5 MB from every other page load.
+          if (id.includes("node_modules/livekit-client") || id.includes("node_modules/@livekit/"))
+            return "vendor-livekit";
           if (id.includes("node_modules/@sentry/") || id.includes("node_modules/@vercel/"))
             return "vendor-monitoring";
         },

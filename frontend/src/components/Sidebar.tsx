@@ -153,6 +153,10 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Notifications", path: "/notifications", icon: <BellIcon /> },
         { label: "Profile",       path: "/profile",       icon: <UserIcon /> },
       ]},
+      { title: "Analytics", items: [
+        { label: "All Schools",   path: "/official",      icon: <SchoolIcon /> },
+        { label: "Class Details", path: "/official",      icon: <ChartIcon /> },
+      ]},
       { title: "Management", items: [
         { label: "Principal Codes", path: "/official/users", icon: <KeyIcon /> },
       ]},

@@ -261,8 +261,11 @@ export const router = createBrowserRouter([
   { path: "/principal/ai-tools",                  element: <Protected role="PRINCIPAL"><AIToolsPage /></Protected> },
 
   // ── Official ──────────────────────────────────────────────────────────────
-  { path: "/official",       element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
-  { path: "/official/users", element: <Protected role="OFFICIAL"><UserManagementPage /></Protected> },
+  { path: "/official",                                             element: <Protected role="OFFICIAL"><OfficialDashboardPage /></Protected> },
+  { path: "/official/users",                                       element: <Protected role="OFFICIAL"><UserManagementPage /></Protected> },
+  { path: "/official/classes/:classId",                            element: <Protected role="OFFICIAL"><TeacherClassDetailPage /></Protected> },
+  { path: "/official/classes/:classId/gradebook",                  element: <Protected role="OFFICIAL"><GradebookPage /></Protected> },
+  { path: "/official/classes/:classId/students/:studentId",        element: <Protected role="OFFICIAL"><TeacherStudentDetailPage /></Protected> },
 
   // ── Admin ─────────────────────────────────────────────────────────────────
   { path: "/admin-panel",   element: <Protected role="ADMIN"><AdminDashboardPage /></Protected> },

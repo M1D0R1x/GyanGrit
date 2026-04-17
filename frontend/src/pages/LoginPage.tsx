@@ -84,7 +84,7 @@ export default function LoginPage() {
         <meta name="description" content="Sign in to GyanGrit to access your courses, flashcards, and live sessions." />
       </Helmet>
 
-      <div className="login-page">
+      <main className="login-page">
         <div className="login-card">
 
           {/* Brand */}
@@ -181,11 +181,13 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
                   aria-label={showPass ? "Hide password" : "Show password"}
-                  style={{
+                 style={{
                     position: "absolute", right: "var(--space-3)", top: "50%",
                     transform: "translateY(-50%)", background: "none", border: "none",
-                    cursor: "pointer", color: "var(--ink-muted)", padding: 0,
-                    display: "flex", alignItems: "center", transition: "color 0.15s",
+                    cursor: "pointer", color: "var(--ink-muted)", padding: "var(--space-1)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "color 0.15s",
+                    minWidth: 24, minHeight: 24,
                   }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-primary)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-muted)"; }}
@@ -238,7 +240,7 @@ export default function LoginPage() {
             <button onClick={() => navigate("/faq")}>FAQ</button>
           </div>
         </div>
-      </div>
+      </main>
     </>
   );
 }

@@ -84,10 +84,11 @@ export default defineConfig({
             return "vendor-ui";
           if (id.includes("node_modules/ably") || id.includes("node_modules/@ably/"))
             return "vendor-realtime";
-          if (id.includes("node_modules/@excalidraw/"))
-            return "vendor-canvas";
-          if (id.includes("node_modules/livekit-client") || id.includes("node_modules/@livekit/"))
-            return "vendor-livekit";
+          // NOTE: @excalidraw and livekit-client are intentionally NOT in manualChunks.
+          // They are only used inside LiveSessionPage (already lazy-loaded via React.lazy).
+          // Putting them in manualChunks makes Rollup emit them as shared named entries
+          // that get preloaded on every page — keeping them as dynamic lazy chunks means
+          // they only download when the user navigates to a live session.
           if (id.includes("node_modules/@sentry/") || id.includes("node_modules/@vercel/"))
             return "vendor-monitoring";
         },

@@ -3115,3 +3115,59 @@ textarea.form-input {
   50%       { opacity: 0.5; transform: scale(0.85); }
 }
 
+/* ================================================================
+   PWA STANDALONE STYLES (Native App Experience)
+   ================================================================ */
+@media (display-mode: standalone) {
+  :root {
+    /* Mobile typography adjustments for standalone readability */
+    --text-base: 1.0625rem; /* bump 16px to 17px */
+    --text-sm: 0.9375rem; /* bump 14px to 15px */
+  }
+
+  /* Prevent text selection mimicking native apps */
+  html, body {
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Re-enable selection on explicit text elements to still allow copying text */
+  p, h1, h2, h3, h4, h5, h6, span, input, textarea, [contenteditable="true"] {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+
+  /* Structural UI elements should not be selectable */
+  .topbar, .bottom-nav, .sidebar, button, a {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+
+  /* Ensure bottom nav accounts for safe area (iOS home indicator) */
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .has-bottom-nav {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-4));
+  }
+
+  /* Enhance touch targets per Mobile AI standards */
+  button, .sidebar__item, .bottom-nav__item {
+    min-height: 48px; /* 48px minimum touch target */
+  }
+
+  /* EmilUI Active States: Springy press instead of hover */
+  button:active, .sidebar__item:active, .bottom-nav__item:active {
+    transform: scale(0.97);
+    transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1) !important;
+  }
+
+  /* Hide elements meant strictly for web/desktop when wrapped in app */
+  .desktop-only-pwa-hide {
+    display: none !important;
+  }
+}
+

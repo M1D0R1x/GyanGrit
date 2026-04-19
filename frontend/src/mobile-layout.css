@@ -1,0 +1,14 @@
+:root {
+  --mobile-canvas-width: 390px;
+  --mobile-horizontal-padding: 16px;
+  --mobile-content-width: calc(var(--mobile-canvas-width) - 2 * var(--mobile-horizontal-padding));
+}
+
+/* Ensure main content respects mobile layout */
+.page-content {
+  max-width: var(--mobile-content-width);
+  padding-left: var(--mobile-horizontal-padding);
+  padding-right: var(--mobile-horizontal-padding);
+  margin-left: auto;
+  margin-right: auto;
+}

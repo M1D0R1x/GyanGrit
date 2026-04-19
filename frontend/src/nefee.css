@@ -1,0 +1,27 @@
+/* nefee.css – Core Nefee design tokens and glassmorphism utilities */
+:root {
+  /* Primary Colors */
+  --color-suggestion-red: #FF3F6D; /* Alerts, negative actions */
+  --color-decision-orange: #FFA200; /* Warnings, important actions */
+  --color-praise-blue: #2B8CDC; /* Positive info, links */
+  --color-experience-turquoise: #00D5B0; /* Confirmed, success */
+
+  /* Semantic Colors */
+  --color-error-red: #C3284D;
+  --color-success: var(--color-experience-turquoise);
+  --color-warning: var(--color-decision-orange);
+  --color-info: var(--color-praise-blue);
+
+  /* Glassmorphism */
+  --glass-fill: linear-gradient(-20.95deg, rgba(255,255,255,0.06) 40.13%, rgba(255,255,255,0.1) 97.02%);
+  --glass-stroke: 1px solid rgba(255,255,255,0.06);
+  --glass-blur: saturate(180%) blur(12px);
+}
+
+/* Utility class for glass surfaces */
+.nefee-glass {
+  background: var(--glass-fill);
+  border: var(--glass-stroke);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}

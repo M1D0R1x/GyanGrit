@@ -172,7 +172,7 @@ function AssessmentRowSkeleton() {
 
 // ── Stat pill ─────────────────────────────────────────────────────
 
-function StatPill({ icon, value, label, color, onClick }: {
+
   icon: string; value: string | number; label: string; color?: string; onClick?: () => void;
 }) {
   const [hov, setHov] = useState(false);

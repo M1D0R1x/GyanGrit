@@ -172,11 +172,11 @@ export default function TopBar({ title, onMenuClick }: Props) {
 
   return (
     <>
-      {/* PWA Install Banner */}
+      {/* PWA Install Banner — sits below topbar, above content. NOT at bottom (would clash with BottomNav). */}
       {showInstallBanner && (
         <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
-          background: "var(--bg-surface)", borderTop: "1px solid rgba(245,158,11,0.4)",
+          position: "sticky", top: "var(--topbar-height)", left: 0, right: 0, zIndex: 98,
+          background: "var(--bg-surface)", borderBottom: "1px solid rgba(245,158,11,0.4)",
           padding: "var(--space-3) var(--space-4)", display: "flex",
           alignItems: "center", gap: "var(--space-3)", boxShadow: "var(--shadow-lg)",
         }}>
@@ -197,7 +197,7 @@ export default function TopBar({ title, onMenuClick }: Props) {
         </div>
       )}
 
-      <header role="banner" className="topbar">
+      <header role="banner" className="topbar" style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}>
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           width: "100%", maxWidth: 1100, margin: "0 auto",

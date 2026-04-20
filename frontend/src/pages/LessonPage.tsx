@@ -776,36 +776,37 @@ export default function LessonPage() {
         <DownloadManager lesson={lesson} />
 
         {/* Mark complete CTA */}
-        <div
-          style={{
-            marginTop: "var(--space-10)",
-            padding: "var(--space-6)",
-            background: ctaBg,
-            border: `1px solid ${ctaBorder}`,
-            borderRadius: "var(--radius-lg)",
-            textAlign: "center",
-            transition: "all var(--transition-slow)",
-          }}
-        >
-          {marked ? (
-            <div>
-              <div style={{ fontSize: 40, marginBottom: "var(--space-3)" }}>🎉</div>
-              <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: "var(--text-lg)",
-                  color: "var(--success)",
-                  marginBottom: "var(--space-2)",
-                }}
-              >
-                Lesson complete!
-              </div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
-                Well done. Keep going!
-              </p>
+        {marked ? (
+          /* ── Already completed: inline celebration card ── */
+          <div
+            style={{
+              marginTop: "var(--space-10)",
+              marginBottom: "var(--space-4)",
+              padding: "var(--space-5)",
+              background: ctaBg,
+              border: `1px solid ${ctaBorder}`,
+              borderRadius: "var(--radius-lg)",
+              textAlign: "center",
+              transition: "all var(--transition-slow)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "var(--space-3)",
+            }}
+          >
+            <div style={{ fontSize: 36 }}>🎉</div>
+            <div style={{
+              fontFamily: "var(--font-display)", fontWeight: 700,
+              fontSize: "var(--text-lg)", color: "var(--success)",
+            }}>
+              Lesson complete!
+            </div>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", margin: 0 }}>
+              Well done. Keep going!
+            </p>
+            <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", justifyContent: "center" }}>
               <button className="btn btn--secondary" onClick={() => navigate(-1)}>
-                ← Back to lessons
+                ← Back
               </button>
               {nextLesson && (
                 <button className="btn btn--primary" onClick={() => navigate(`/lessons/${nextLesson.id}`)}>
@@ -813,43 +814,31 @@ export default function LessonPage() {
                 </button>
               )}
             </div>
-          ) : (
-            <div>
-              <p style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)", marginBottom: "var(--space-4)" }}>
-                Finished reading? Mark this lesson as complete to track your progress.
-              </p>
-              <button
-                className="btn btn--primary btn--lg"
-                onClick={handleMarkComplete}
-                disabled={marking}
-              >
-                {marking ? (
-                  <>
-                    <span className="btn__spinner" aria-hidden="true" />
-                    Saving…
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    Mark as Complete
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* ── Not yet completed: sticky CTA (mobile = fixed above bottom nav, desktop = inline) ── */
+          <div className="sticky-cta-wrap" style={{ marginTop: "var(--space-10)" }}>
+            <button
+              className="btn btn--primary btn--sticky"
+              onClick={handleMarkComplete}
+              disabled={marking}
+              aria-label="Mark lesson as complete"
+            >
+              {marking ? (
+                <><span className="btn__spinner" aria-hidden="true" />Saving…</>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5"
+                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Mark as Complete
+                </>
+              )}
+            </button>
+          </div>
+        )}
     </div>
   );
 }

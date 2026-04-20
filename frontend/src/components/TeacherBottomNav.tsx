@@ -1,8 +1,9 @@
-// components/BottomNav.tsx — Mobile PWA v4
-// Tabs: Home | Courses | Ranks | Chat | Profile
-// Per GYANGRIT_MOBILE_PWA_SKILL §2.1: Ranks (Leaderboard) replaces Tests tab.
-// Assessments accessible via Dashboard cards + hamburger sidebar.
+// components/TeacherBottomNav.tsx — Mobile PWA v1
+// Teacher/Principal bottom tab bar (mobile only)
+// Tabs: Home | Classes | Chat | Profile
+// Per GYANGRIT_MOBILE_PWA_SKILL §2.1 Teacher tabs pattern.
 import { useLocation, useNavigate } from "react-router-dom";
+import type { Role } from "../auth/authTypes";
 
 function HomeIcon({ active }: { active: boolean }) {
   return (
@@ -15,25 +16,15 @@ function HomeIcon({ active }: { active: boolean }) {
   );
 }
 
-function CoursesIcon({ active }: { active: boolean }) {
+function ClassesIcon({ active }: { active: boolean }) {
   return (
     <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}
       strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}
-
-function LeaderboardIcon({ active }: { active: boolean }) {
-  return (
-    <svg className="bottom-nav__icon" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}
-      strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="18 20 18 10" />
-      <polyline points="12 20 12 4" />
-      <polyline points="6 20 6 14" />
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
@@ -59,7 +50,11 @@ function ProfileIcon({ active }: { active: boolean }) {
   );
 }
 
-export default function BottomNav() {
+interface Props {
+  role: Role;
+}
+
+export default function TeacherBottomNav({ role }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const path     = location.pathname;
@@ -67,16 +62,38 @@ export default function BottomNav() {
   const isActive = (prefixes: string[]) =>
     prefixes.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p + "?"));
 
+  // Resolve base path by role
+  const base = role === "PRINCIPAL" ? "/principal" : "/teacher";
+
   const tabs = [
-    { label: "Home",    to: "/dashboard",   active: isActive(["/dashboard"]),                        icon: (a: boolean) => <HomeIcon        active={a} /> },
-    { label: "Courses", to: "/courses",     active: isActive(["/courses", "/lessons", "/learning"]), icon: (a: boolean) => <CoursesIcon     active={a} /> },
-    { label: "Ranks",   to: "/leaderboard", active: isActive(["/leaderboard"]),                      icon: (a: boolean) => <LeaderboardIcon active={a} /> },
-    { label: "Chat",    to: "/chat",        active: isActive(["/chat"]),                             icon: (a: boolean) => <ChatIcon        active={a} /> },
-    { label: "Profile", to: "/profile",     active: isActive(["/profile"]),                          icon: (a: boolean) => <ProfileIcon     active={a} /> },
+    {
+      label:  "Home",
+      to:     base,
+      active: isActive([base]),
+      icon:   (a: boolean) => <HomeIcon    active={a} />,
+    },
+    {
+      label:  "Classes",
+      to:     `${base}/classes`,
+      active: isActive([`${base}/classes`, `${base}/users`]),
+      icon:   (a: boolean) => <ClassesIcon active={a} />,
+    },
+    {
+      label:  "Chat",
+      to:     `${base}/chat`,
+      active: isActive([`${base}/chat`]),
+      icon:   (a: boolean) => <ChatIcon    active={a} />,
+    },
+    {
+      label:  "Profile",
+      to:     "/profile",
+      active: isActive(["/profile"]),
+      icon:   (a: boolean) => <ProfileIcon active={a} />,
+    },
   ];
 
   return (
-    <nav className="bottom-nav" aria-label="Main navigation">
+    <nav className="bottom-nav" aria-label="Teacher navigation">
       {tabs.map((tab) => (
         <button
           key={tab.to}

@@ -1,4 +1,4 @@
-// pages.DashboardPage — Chalk & Sunlight v3
+// pages.DashboardPage — Chalk & Sunlight v3 + Mobile PWA
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -9,6 +9,7 @@ import { type AssessmentWithStatus } from "../services/assessments";
 import { getBatchCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useIsMobile } from "../hooks/useMobile";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -396,45 +397,67 @@ function AssessmentRow({ a, index }: { a: AssessmentWithStatus; index: number })
   );
 }
 
-// ── Streak card ───────────────────────────────────────────────────
+// ── Gamification strip (mobile-first gam-strip CSS, StatPills on desktop) ──────
 
-function StreakCard({ gamification, onNavigate }: { gamification: MySummary; onNavigate: (path: string) => void }) {
+function GamStrip({ gamification, onNavigate }: { gamification: MySummary; onNavigate: (path: string) => void }) {
+  const streakEmoji = gamification.current_streak >= 7 ? "⚡" : gamification.current_streak >= 3 ? "🔥" : "📅";
   return (
-    <div style={{
-      display: "flex", gap: "var(--space-4)",
-      overflowX: "auto", paddingBottom: "var(--space-2)",
-      marginBottom: "var(--space-10)",
-      scrollbarWidth: "none",
-    }}>
-      <StatPill
-        icon="⭐"
-        value={gamification.total_points}
-        label={`Points · #${gamification.class_rank ?? "—"} in class`}
-        color="var(--saffron-dark)"
+    <div className="gam-strip">
+      {/* Points */}
+      <div
+        className="gam-card gam-card--points"
         onClick={() => onNavigate("/leaderboard")}
-      />
-      <StatPill
-        icon={gamification.current_streak >= 7 ? "⚡" : gamification.current_streak >= 3 ? "🔥" : "📅"}
-        value={gamification.current_streak}
-        label="Day streak"
-        color={gamification.current_streak >= 3 ? "var(--warning)" : "var(--ink-primary)"}
-      />
+        role="button" tabIndex={0}
+        aria-label={`${gamification.total_points} points, rank #${gamification.class_rank ?? '—'}`}
+        onKeyDown={(e) => e.key === "Enter" && onNavigate("/leaderboard")}
+      >
+        <span className="gam-card__emoji">⭐</span>
+        <div>
+          <div className="gam-card__number">{gamification.total_points}</div>
+          <div className="gam-card__label">Points</div>
+        </div>
+      </div>
+
+      {/* Streak */}
+      <div className="gam-card gam-card--streak" role="img" aria-label={`${gamification.current_streak} day streak`}>
+        <span className="gam-card__emoji">{streakEmoji}</span>
+        <div>
+          <div className="gam-card__number">{gamification.current_streak}</div>
+          <div className="gam-card__label">Day streak</div>
+        </div>
+      </div>
+
+      {/* Badges */}
       {gamification.badge_count > 0 && (
-        <StatPill
-          icon="🏅"
-          value={gamification.badge_count}
-          label={`Badge${gamification.badge_count !== 1 ? "s" : ""}`}
-          color="var(--warning)"
+        <div
+          className="gam-card gam-card--badges"
           onClick={() => onNavigate("/profile")}
-        />
+          role="button" tabIndex={0}
+          aria-label={`${gamification.badge_count} badges`}
+          onKeyDown={(e) => e.key === "Enter" && onNavigate("/profile")}
+        >
+          <span className="gam-card__emoji">🏅</span>
+          <div>
+            <div className="gam-card__number">{gamification.badge_count}</div>
+            <div className="gam-card__label">Badges</div>
+          </div>
+        </div>
       )}
-      <StatPill
-        icon="🏆"
-        value="Rank"
-        label="Leaderboard"
-        color="var(--saffron-dark)"
+
+      {/* Rank */}
+      <div
+        className="gam-card gam-card--rank"
         onClick={() => onNavigate("/leaderboard")}
-      />
+        role="button" tabIndex={0}
+        aria-label={`Class rank #${gamification.class_rank ?? '—'}`}
+        onKeyDown={(e) => e.key === "Enter" && onNavigate("/leaderboard")}
+      >
+        <span className="gam-card__emoji">🏆</span>
+        <div>
+          <div className="gam-card__number">#{gamification.class_rank ?? "—"}</div>
+          <div className="gam-card__label">Class rank</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -444,6 +467,7 @@ function StreakCard({ gamification, onNavigate }: { gamification: MySummary; onN
 export default function DashboardPage() {
   const navigate = useNavigate();
   const auth     = useAuth();
+  const isMobile = useIsMobile();
   usePageTitle("Dashboard");
 
   const [subjects,      setSubjects]      = useState<StudentSubject[]>([]);
@@ -538,7 +562,7 @@ export default function DashboardPage() {
 
         {/* ── Gamification strip ── */}
         {gamification && (
-          <StreakCard gamification={gamification} onNavigate={navigate} />
+          <GamStrip gamification={gamification} onNavigate={navigate} />
         )}
 
         {/* ── Weekly engagement ── */}
@@ -647,7 +671,51 @@ export default function DashboardPage() {
               <h3 className="empty-state__title">No subjects yet</h3>
               <p className="empty-state__message">Your subjects will appear here once your teacher assigns them.</p>
             </div>
+          ) : isMobile ? (
+            /* ── Mobile: compact horizontal list rows ── */
+            <div className="subject-list-mobile">
+              {subjects.map((subject, i) => {
+                const progressColor =
+                  subject.progress >= 80 ? "var(--success)" :
+                  subject.progress >= 40 ? "var(--warning)" : "var(--saffron)";
+                const resumeId = subject.course_id != null ? resumeMap[subject.course_id] : undefined;
+                function handleTap() {
+                  if (typeof resumeId === "number") navigate(`/lessons/${resumeId}`);
+                  else navigate(`/courses?subject_id=${subject.id}`);
+                }
+                return (
+                  <button
+                    key={subject.id}
+                    className="subject-row-mobile page-enter"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                    onClick={handleTap}
+                    aria-label={`${subject.name} — ${subject.progress}% complete`}
+                  >
+                    <div className="subject-row-mobile__icon">
+                      {subject.name.charAt(0)}
+                    </div>
+                    <div className="subject-row-mobile__body">
+                      <div className="subject-row-mobile__name">{subject.name}</div>
+                      <div className="subject-row-mobile__meta">
+                        {subject.completed_lessons}/{subject.total_lessons} lessons · {subject.progress}%
+                      </div>
+                      <div className="subject-row-mobile__bar">
+                        <div
+                          className="subject-row-mobile__bar-fill"
+                          style={{ width: `${subject.progress}%`, background: progressColor }}
+                        />
+                      </div>
+                    </div>
+                    <svg className="subject-row-mobile__chevron" width="16" height="16" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                );
+              })}
+            </div>
           ) : (
+            /* ── Desktop: grid of vertical subject cards ── */
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "var(--space-5)" }}>
               {subjects.map((subject, i) => (
                 <div key={subject.id} className="page-enter" style={{ animationDelay: `${i * 50}ms` }}>

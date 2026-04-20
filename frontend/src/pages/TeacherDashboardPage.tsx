@@ -21,7 +21,7 @@ type MyAssignment = {
 
 function GridSkeleton({ count = 3, height = 130 }: { count?: number; height?: number }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-4)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(240px, 100%), 1fr))", gap: "var(--space-4)" }}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="skeleton" style={{ height, borderRadius: "var(--radius-lg)" }} />
       ))}
@@ -94,8 +94,8 @@ export default function TeacherDashboardPage() {
   return (
     <>
 
-        {/* Quick actions */}
-        <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-10)", flexWrap: "wrap" }}>
+        {/* Quick actions — horizontal scroll strip on mobile */}
+        <div className="teacher-quick-actions" style={{ marginBottom: "var(--space-10)" }}>
           {[
             { label: "Manage Students", icon: "👥", path: "/teacher/users" },
             { label: "My Classes", icon: "🏫", path: "/teacher/classes" },
@@ -123,7 +123,7 @@ export default function TeacherDashboardPage() {
               No teaching assignments found.
             </p>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "var(--space-3)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(200px, 100%), 1fr))", gap: "var(--space-3)" }}>
               {Object.entries(subjectMap).map(([subject, classSet], i) => (
                 <div
                   key={subject}

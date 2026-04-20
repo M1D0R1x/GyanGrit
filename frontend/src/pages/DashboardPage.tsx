@@ -170,54 +170,8 @@ function AssessmentRowSkeleton() {
   );
 }
 
-// ── Stat pill ─────────────────────────────────────────────────────
 
 
-  icon: string; value: string | number; label: string; color?: string; onClick?: () => void;
-}) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={(e) => e.key === "Enter" && onClick?.()}
-      style={{
-        flex:         "0 0 auto",
-        minWidth:     160,
-        display:      "flex",
-        alignItems:   "center",
-        gap:          "var(--space-4)",
-        padding:      "var(--space-4) var(--space-5)",
-        background:   hov ? "var(--glass-fill)" : "var(--bg-surface)",
-        border:       `1px solid ${hov ? "var(--glass-stroke)" : "var(--border-light)"}`,
-        borderRadius: "var(--radius-xl)",
-        cursor:       onClick ? "pointer" : "default",
-        transition:   "all var(--transition-base)",
-        transform:    hov ? "translateY(-1px)" : "translateY(0)",
-        boxShadow:    hov ? "var(--shadow-md)" : "var(--shadow-card)",
-      }}
-    >
-      <span style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-      <div>
-        <div style={{
-          fontFamily: "var(--font-display)", fontWeight: 800,
-          fontSize: "var(--text-xl)", color: color ?? "var(--ink-primary)", lineHeight: 1,
-        }}>
-          {value}
-        </div>
-        <div style={{
-          fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "0.06em", color: "var(--ink-muted)", marginTop: 4,
-        }}>
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Subject card ──────────────────────────────────────────────────
 

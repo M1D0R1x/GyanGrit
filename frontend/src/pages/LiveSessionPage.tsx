@@ -425,11 +425,12 @@ type DraggablePiPBoxProps = {
 };
 
 function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: DraggablePiPBoxProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging   = useRef(false);
-  const dragOffset   = useRef({ x: 0, y: 0 });
-  const [size, setSize] = useState({ w: 240, h: 135 }); // 16:9
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const isDragging    = useRef(false);
+  const dragOffset    = useRef({ x: 0, y: 0 });
+  const [size, setSize]           = useState({ w: 240, h: 135 }); // 16:9
   const [minimized, setMinimized] = useState(false);
+  const [grabbing, setGrabbing]   = useState(false);
   const posRef = useRef<{ left: number; top: number } | null>(null);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -446,6 +447,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     el.style.top    = `${rect.top}px`;
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     isDragging.current = true;
+    setGrabbing(true);
     document.body.style.userSelect = "none";
   }, []);
 
@@ -462,6 +464,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     };
     const onUp = () => {
       isDragging.current = false;
+      setGrabbing(false);
       document.body.style.userSelect = "";
     };
     window.addEventListener("mousemove", onMove);
@@ -511,6 +514,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     const t = e.touches[0];
     dragOffset.current = { x: t.clientX - rect.left, y: t.clientY - rect.top };
     isDragging.current = true;
+    setGrabbing(true);
   }, []);
 
   useEffect(() => {
@@ -523,7 +527,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
       el.style.left = `${Math.max(0, Math.min(t.clientX - dragOffset.current.x, maxLeft))}px`;
       el.style.top  = `${Math.max(0, Math.min(t.clientY - dragOffset.current.y, maxTop))}px`;
     };
-    const onUp = () => { isDragging.current = false; };
+    const onUp = () => { isDragging.current = false; setGrabbing(false); };
     window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend",  onUp);
     return () => {
@@ -546,7 +550,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
         overflow: "hidden",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
         border: "2px solid rgba(255,255,255,0.18)",
-        cursor: isDragging.current ? "grabbing" : "grab",
+        cursor: grabbing ? "grabbing" : "grab",
         transition: "width 0.18s ease, height 0.18s ease, border-radius 0.18s ease",
         userSelect: "none",
         touchAction: "none",
@@ -788,7 +792,6 @@ function InRoomView({ isTeacher, activeSession, onEnd, onLeave, userName, userId
     }, 800);
     return () => clearTimeout(timer);
     // Intentionally omit whiteboardOpen from deps after first run — we only trigger once
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTeacher, room, whiteboardOpen]);
 
   // Stop only on full session unmount

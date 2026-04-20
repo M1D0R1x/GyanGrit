@@ -7,7 +7,7 @@ import { apiPost } from "../services/api";
 import Logo from "./Logo";
 import { NotificationBell, NotificationPanel } from "./NotificationPanel";
 import { fetchNotifications } from "../services/notifications";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "../hooks/useTheme";
 
 type Props = {
   title?: string;

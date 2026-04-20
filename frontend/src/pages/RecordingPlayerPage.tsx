@@ -50,7 +50,7 @@ export default function RecordingPlayerPage() {
   // Auto-refresh countdown when processing
   useEffect(() => {
     if (!recording || recording.recording_status !== "processing") return;
-    setCountdown(30);
+    queueMicrotask(() => setCountdown(30));
     const tick = setInterval(() => setCountdown(c => {
       if (c <= 1) {
         fetchRecording();

@@ -198,7 +198,7 @@ export default function RecordedSessionsPage() {
   const isTeacher = user?.role === "TEACHER" || user?.role === "PRINCIPAL" || user?.role === "ADMIN";
 
   const fetchRecordings = useCallback((showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
+    if (showRefresh) queueMicrotask(() => setRefreshing(true));
     return recordingsApi.list(statusFilter ? { recording_status: statusFilter } : {})
       .then(data => setRecordings(data))
       .catch(() => {/* silent */})

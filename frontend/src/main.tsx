@@ -95,7 +95,6 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
 
 // Handle Vite's preload error event (fires before React sees the error)
 // This is the earliest possible interception point for stale chunk 404s.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 window.addEventListener("vite:preloadError", () => {
   const key = `chunk-preload-${window.location.pathname}`;
   if (!sessionStorage.getItem(key)) {

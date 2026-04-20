@@ -432,7 +432,7 @@ export default function LessonPage() {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
-  }, [lesson?.id, isOfflineMode]);
+  }, [lesson, isOfflineMode]);
 
   // Use the lesson list from router state if available (passed by LessonsPage).
   // This eliminates a redundant GET /courses/{id}/lessons/ API call.

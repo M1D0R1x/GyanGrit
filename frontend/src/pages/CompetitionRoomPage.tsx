@@ -37,6 +37,7 @@ import { apiGet } from "../services/api";
 
 type Section  = { id: number; name: string; short_label: string; class_name?: string; grade?: string; institution_id?: number; institution_name?: string };
 type Assessment = { id: number; title: string };
+type CompetitionHistoryEntry = { room_id: number; title: string; assessment: string; score: number; rank: number; finished_at: string; participant_count: number };
 
 // ── Status badge ──────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ export default function CompetitionRoomPage() {
 
   // ── List view (no roomId) ─────────────────────────────────────────────
   const [rooms,        setRooms]        = useState<CompetitionRoom[]>([]);
-  const [history,      setHistory]      = useState<any[]>([]);
+  const [history,      setHistory]      = useState<CompetitionHistoryEntry[]>([]);
   const [loadingList,  setLoadingList]  = useState(true);
 
   // ── Room detail view (roomId present) ────────────────────────────────
@@ -308,7 +309,7 @@ export default function CompetitionRoomPage() {
           data.forEach((a) => {
             if (!seen.has(a.section_id)) {
               seen.add(a.section_id);
-              secs.push({ id: a.section_id, short_label: a.section_name, class_name: a.class_name } as any);
+              secs.push({ id: a.section_id, name: a.section_name, short_label: a.section_name, class_name: a.class_name });
             }
           });
           setSections(secs);

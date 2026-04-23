@@ -233,6 +233,9 @@ def course_by_slug(request):
     except ValueError:
         return JsonResponse({"error": "grade must be an integer"}, status=400)
 
+    if not (1 <= grade <= 12):
+        return JsonResponse({"error": "grade must be between 1 and 12"}, status=400)
+
     candidates = Course.objects.filter(grade=grade).select_related("subject")
     course = next(
         (c for c in candidates if _subject_matches_slug(c.subject.name, subject_slug)),
@@ -1238,6 +1241,7 @@ def media_proxy(request):
     Survives large videos without memory pressure.
     """
     import urllib.request as _urllib
+    import urllib.parse as _urlparse
     import os
     from django.http import StreamingHttpResponse
 
@@ -1245,8 +1249,23 @@ def media_proxy(request):
     if not url:
         return JsonResponse({"error": "url param required"}, status=400)
 
+    # Validate the URL strictly: the hostname must be exactly the configured R2
+    # public base or end with ".r2.dev". A simple substring check like
+    # '".r2.dev/" in url' is not sufficient — an attacker could craft a URL
+    # such as "https://evil.attacker.com/?x=.r2.dev/..." to bypass it.
     r2_base = os.environ.get("CLOUDFLARE_R2_PUBLIC_URL", "")
-    if not (url.startswith(r2_base) or ".r2.dev/" in url):
+    try:
+        parsed = _urlparse.urlparse(url)
+        hostname = parsed.hostname or ""
+    except Exception:
+        return JsonResponse({"error": "Invalid URL"}, status=400)
+
+    r2_base_hostname = (_urlparse.urlparse(r2_base).hostname or "") if r2_base else ""
+    allowed = (
+        (r2_base_hostname and hostname == r2_base_hostname)
+        or hostname.endswith(".r2.dev")
+    )
+    if not allowed:
         return JsonResponse({"error": "Forbidden URL"}, status=403)
 
     try:

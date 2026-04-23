@@ -62,7 +62,7 @@ export default function TeacherClassDetailPage() {
       .catch(() => setError("Failed to load student data."))
       .finally(() => setLoading(false));
 
-    setLoadingHeatmap(true);
+    queueMicrotask(() => setLoadingHeatmap(true));
     getClassEngagement(undefined, 7, Number(classId))
       .then((data) => {
         const riskVal = { high: 3, medium: 2, low: 1 };

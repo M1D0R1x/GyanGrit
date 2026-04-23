@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import type { Role } from "../auth/authTypes";
 import Logo from "./Logo";
 import LogoutButton from "./LogoutButton";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "../hooks/useTheme";
 
 // ── Types ─────────────────────────────────────────────────────────
 

@@ -97,7 +97,7 @@ export function useOfflineDownload(lesson: LessonDetail | null) {
       setState((s) => ({ ...s, textSaved, pdfSaved, videoSaved }));
     };
     checkSaved();
-  }, [lesson?.id]);
+  }, [lesson]);
 
   // Save lesson text content to IndexedDB (always upserts — updates stale data)
   const saveText = useCallback(async () => {

@@ -35,6 +35,7 @@ import { apiGet } from "../services/api";
 import { useAuth } from "../auth/AuthContext";
 import { isSlowConnection } from "../services/offline";
 import { sendHeartbeat } from "../services/analytics";
+import { useAblyNotifications } from "../hooks/useAblyNotifications";
 import type { WhiteboardState } from "../components/Whiteboard";
 
 const Whiteboard = lazy(() => import("../components/Whiteboard"));
@@ -1168,6 +1169,7 @@ export default function LiveSessionPage() {
   const location       = useLocation();
   const { user, loading: authLoading } = useAuth();
   const isTeacher      = user?.role === "TEACHER" || user?.role === "PRINCIPAL" || user?.role === "ADMIN";
+  useAblyNotifications();
 
   const [sessions,    setSessions]    = useState<LiveSession[]>([]);
   const [loading,     setLoading]     = useState(true);

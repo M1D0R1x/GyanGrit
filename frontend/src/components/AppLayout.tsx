@@ -13,7 +13,7 @@ import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/authTypes";
 import { usePageTracking } from "../utils/telemetry";
 import { useStorageCleaned } from "../hooks/useOffline";
-import { useAblyNotifications } from "../hooks/useAblyNotifications";
+
 
 interface AppLayoutProps {
   children:  React.ReactNode;
@@ -22,7 +22,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title }: AppLayoutProps) {
   usePageTracking();
-  useAblyNotifications(); // lazy Ably — dynamic import, no critical path impact
+  // Ably notifications moved to DashboardPage/ChatRoomPage/LiveSessionPage only
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auth = useAuth();

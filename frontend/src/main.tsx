@@ -27,7 +27,7 @@ if (SENTRY_DSN && import.meta.env.PROD) {
           Sentry.browserTracingIntegration(),
           Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false }),
         ],
-        tracesSampleRate: 0.3,       // 30% of transactions — enough for a school app
+        tracesSampleRate: 0.05,      // 5% of transactions — reduces envelope POSTs per session
         replaysSessionSampleRate: 0, // don't record replays by default
         replaysOnErrorSampleRate: 1.0, // but capture 100% of error sessions
         environment: import.meta.env.MODE,

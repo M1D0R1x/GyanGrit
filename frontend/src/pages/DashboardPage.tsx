@@ -10,6 +10,8 @@ import { getBatchCourseProgress } from "../services/content";
 import { assessmentPath } from "../utils/slugs";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useIsMobile } from "../hooks/useMobile";
+import { useAblyNotifications } from "../hooks/useAblyNotifications";
+import { cachedGet } from "../utils/fetchCache";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -423,6 +425,7 @@ export default function DashboardPage() {
   const auth     = useAuth();
   const isMobile = useIsMobile();
   usePageTitle("Dashboard");
+  useAblyNotifications();
 
   const [subjects,      setSubjects]      = useState<StudentSubject[]>([]);
   const [assessments,   setAssessments]   = useState<AssessmentWithStatus[]>([]);
@@ -444,9 +447,9 @@ export default function DashboardPage() {
     async function load() {
       try {
         const [subjectsData, gData, assessData] = await Promise.allSettled([
-          apiGet<StudentSubject[]>("/academics/subjects/"),
-          getMySummary(),
-          apiGet<AssessmentWithStatus[]>("/assessments/my/"),
+          cachedGet("dash:subjects", () => apiGet<StudentSubject[]>("/academics/subjects/")),
+          cachedGet("dash:gamification", () => getMySummary()),
+          cachedGet("dash:assessments", () => apiGet<AssessmentWithStatus[]>("/assessments/my/")),
         ]);
         if (cancelled) return;
         if (subjectsData.status === "fulfilled") setSubjects(subjectsData.value ?? []);
@@ -455,9 +458,9 @@ export default function DashboardPage() {
         if (assessData.status === "fulfilled") setAssessments(assessData.value ?? []);
         else setAssessError(true);
         // Engagement summary (non-critical — fail silently)
-        getMyEngagement(7).then(r => { if (!cancelled) setEngagement(r.summary ?? []); }).catch(() => {});
+        cachedGet("dash:engagement", () => getMyEngagement(7)).then(r => { if (!cancelled) setEngagement(r.summary ?? []); }).catch(() => {});
         // Risk score (non-critical — fail silently)
-        getMyRisk().then(r => { if (!cancelled) setRisk(r); }).catch(() => {});
+        cachedGet("dash:risk", () => getMyRisk()).then(r => { if (!cancelled) setRisk(r); }).catch(() => {});
       } finally {
         if (!cancelled) { setLoadingSubj(false); setLoadingAssess(false); }
       }
@@ -473,7 +476,10 @@ export default function DashboardPage() {
     let cancelled = false;
     async function loadResume() {
       // Single batch request instead of N individual calls (fixes BRONZE-7)
-      const batchMap = await getBatchCourseProgress(coursed.map((s) => s.course_id!));
+      const batchMap = await cachedGet(
+        `dash:progress:${coursed.map(s => s.course_id).join(",")}`,
+        () => getBatchCourseProgress(coursed.map((s) => s.course_id!)),
+      );
       if (cancelled) return;
       const map: ResumeMap = {};
       for (const s of coursed) {

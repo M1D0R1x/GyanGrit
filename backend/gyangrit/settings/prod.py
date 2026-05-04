@@ -102,7 +102,7 @@ if SENTRY_DSN:
                     event_level=logging.ERROR,
                 ),
             ],
-            traces_sample_rate=0.3,
+            traces_sample_rate=0.05,
             send_default_pii=False,
             environment="production",
             before_send=_before_send,

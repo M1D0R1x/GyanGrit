@@ -896,6 +896,12 @@ export default function AdminLessonEditorPage() {
                                 ? <span style={{ color: "var(--success)" }}>Published</span>
                                 : <span style={{ color: "var(--ink-muted)" }}>Draft</span>}
                             </button>
+                            <button className="btn btn--ghost"
+                              style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)", color: "var(--saffron)" }}
+                              onClick={() => navigate(`/lessons/${lesson.id}`)}
+                              title="Preview this lesson as a student would see it">
+                              View
+                            </button>
                             <button className="btn btn--secondary"
                               style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
                               onClick={() => openEdit(lesson)}>
@@ -1010,6 +1016,12 @@ export default function AdminLessonEditorPage() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+                            <button className="btn btn--ghost"
+                              style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)", color: "var(--saffron)" }}
+                              onClick={() => navigate(`/lessons/section/${sl.id}`)}
+                              title="Preview this lesson">
+                              View
+                            </button>
                             <button className="btn btn--secondary"
                               style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
                               onClick={() => openSectionEdit(sl)}>

@@ -21,9 +21,11 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import type { ReactNode } from "react";
 import { apiGet, initCsrf, API_BASE_URL } from "../services/api";
+import { clearCache } from "../utils/fetchCache";
 import type { AuthState, MeResponse, UserProfile } from "./authTypes";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
   const [offlineMode, setOfflineMode]     = useState(false);
 
+  // P1-1: Prevent redundant /me/ refetches within 60s (StrictMode double-mount)
+  const lastMeFetchRef = useRef(0);
+
   const clearKicked = useCallback(() => setKickedMessage(null), []);
 
   // ── Persist user on every change ────────────────────────────────────────
@@ -115,12 +120,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setOfflineMode(false);
     clearCachedUser();
+    clearCache();              // purge in-memory fetch cache
+    lastMeFetchRef.current = 0; // reset so next login fetches fresh
   }, []);
 
   const refresh = useCallback(async () => {
+    // Skip if fetched within last 60s (prevents StrictMode/nav double-fetch)
+    if (user && Date.now() - lastMeFetchRef.current < 60_000) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data: MeResponse = await apiGet("/accounts/me/");
+      lastMeFetchRef.current = Date.now();
 
       if (data.authenticated) {
         const profile: UserProfile = {

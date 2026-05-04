@@ -27,12 +27,12 @@ type SectionItem     = {
   label: string; short_label: string;
 };
 
-type RoleType    = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL";
+type RoleType    = "STUDENT" | "TEACHER" | "PRINCIPAL" | "OFFICIAL" | "ADMIN";
 type ValidFilter = "ALL" | "VALID" | "USED";
 type FormMode    = "single" | "bulk";
 
-const ROLES: RoleType[]            = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
-const ROLE_FILTERS: string[]       = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"];
+const ROLES: RoleType[]            = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
+const ROLE_FILTERS: string[]       = ["ALL", "STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"];
 const VALID_FILTERS: ValidFilter[] = ["ALL", "VALID", "USED"];
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)

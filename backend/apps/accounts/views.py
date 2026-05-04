@@ -517,6 +517,12 @@ def users(request):
     """
     user = request.user
 
+    # P1-3: 60s Redis cache — user list rarely changes within a session
+    cache_key = f"users_list:{user.id}:{user.role}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached, safe=False)
+
     if user.role == "TEACHER":
         # Teachers see only students at their institution — never other staff
         if not user.institution:
@@ -526,10 +532,12 @@ def users(request):
             institution=user.institution,
         ).order_by("username")
         data = list(queryset.values("id", "username", "role", "public_id"))
+        cache.set(cache_key, data, timeout=60)
         return JsonResponse(data, safe=False)
 
     queryset = scope_queryset(request.user, User.objects.all())
     data = list(queryset.values("id", "username", "role", "public_id", "district"))
+    cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
 
 
@@ -684,7 +692,7 @@ def create_join_code(request):
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
     role = body.get("role", "").upper()
-    valid_roles = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"]
+    valid_roles = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"]
 
     if role not in valid_roles:
         return JsonResponse(
@@ -1136,7 +1144,7 @@ def bulk_create_join_codes(request):
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
     role = body.get("role", "").upper()
-    valid_roles = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL"]
+    valid_roles = ["STUDENT", "TEACHER", "PRINCIPAL", "OFFICIAL", "ADMIN"]
 
     if role not in valid_roles:
         return JsonResponse({"error": f"role must be one of: {', '.join(valid_roles)}"}, status=400)

@@ -160,3 +160,5 @@ backend/COMMANDS.md
 *.har
 har/
 *har/
+
+.claude/

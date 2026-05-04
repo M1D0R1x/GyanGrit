@@ -16,11 +16,30 @@ interface TelemetryEvent {
   ts: number;
 }
 
-// ── Batched event queue — flushes every 5s instead of firing per-route ────────
+// ── Batched event queue — flushes every 10s instead of firing per-route ───────
 const _queue: TelemetryEvent[] = [];
 let _flushTimer: ReturnType<typeof setTimeout> | null = null;
-const FLUSH_INTERVAL = 5000;
+const FLUSH_INTERVAL = 10_000;
 const MAX_BATCH = 20;
+
+// ── Dedup: skip identical (event_type + resource_label) within 10s window ─────
+const _recentEvents = new Map<string, number>();
+const DEDUP_WINDOW = 10_000;
+
+function _isDuplicate(eventType: EventType, label: string): boolean {
+  const key = `${eventType}:${label}`;
+  const now = Date.now();
+  const last = _recentEvents.get(key);
+  if (last && now - last < DEDUP_WINDOW) return true;
+  _recentEvents.set(key, now);
+  // Prune old entries periodically
+  if (_recentEvents.size > 50) {
+    for (const [k, ts] of _recentEvents) {
+      if (now - ts > DEDUP_WINDOW) _recentEvents.delete(k);
+    }
+  }
+  return false;
+}
 
 function _scheduleFlush() {
   if (_flushTimer) return;
@@ -62,17 +81,21 @@ if (typeof window !== "undefined") {
 }
 
 /**
- * Queue event for batched flush. Fires at most once per 5s window.
+ * Queue event for batched flush. Fires at most once per 10s window.
+ * Deduplicates by (event_type + resource_label) — prevents StrictMode double-fires.
  */
 export function trackEvent(
   eventType: EventType,
   opts?: { resource_id?: number; resource_label?: string; duration_seconds?: number },
 ) {
   if (!navigator.onLine) return;
+  const label = opts?.resource_label ?? "";
+  if (_isDuplicate(eventType, label)) return;
+
   _queue.push({
     event_type: eventType,
     resource_id: opts?.resource_id ?? null,
-    resource_label: opts?.resource_label ?? "",
+    resource_label: label,
     duration_seconds: opts?.duration_seconds ?? 0,
     ts: Date.now(),
   });
@@ -81,6 +104,7 @@ export function trackEvent(
 
 /**
  * Track page visits. Fires on route change but batched+deduped before sending.
+ * Dedup prevents StrictMode double-mount from sending duplicate page_visit events.
  */
 export function usePageTracking() {
   const location = useLocation();

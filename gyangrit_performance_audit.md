@@ -582,3 +582,176 @@ Zero 304 Not Modified responses across all 12 HAR files. Already documented in S
 | 16 | Diagnose server cold-start - CONN_MAX_AGE, workers, Redis | settings.py, OCI config | API latency root cause |
 | 17 | Async analytics endpoint - return 202, process in background | analytics/views.py | Sub-10ms analytics POST |
 | 18 | Embed CSRF in HTML - eliminate /accounts/csrf/ call | Django template | -1 API call per page |
+
+---
+
+## Section 19 — May 5, 2026 HAR Re-Analysis (Post All P0 Fixes)
+
+**Date:** May 5, 2026  
+**Files:** `har/may5/loginlessonnothrottle.har`, `har/may5/studentloginlessonfast4g.har`  
+**Baseline:** April 12 (after code-split + telemetry batch + Vercel Analytics removal)
+
+---
+
+### 19.1 Headline Numbers
+
+| Metric | April 12 | May 5 (NoThrottle) | May 5 (Fast 4G) |
+|---|---|---|---|
+| DOMContentLoaded | 126ms | 169ms | ~0ms (tab nav) |
+| onLoad | 128ms | 247ms | ~0ms (tab nav) |
+| Waterfall span | 16.7s | **82.6s** | **93.8s** |
+| Request count | 62 | 69 | 109 |
+| Transfer size | 5.7MB | 1.4MB | 5.6MB |
+| Duplicate groups | 4 | **14** | **25+** |
+
+**DOMContentLoaded still fast (169ms NoThrottle).** Good — critical path unchanged.
+
+**Waterfall exploded: 16.7s → 82.6s.** Root cause: Ably WebSocket `/?access_token=` is 75.3s long-lived connection. HAR records it as one massive span. Does NOT block render — cosmetic metric inflation. Real user experience: page interactive in 169ms.
+
+---
+
+### 19.2 Top Issues Found
+
+#### 🔴 P0 — Ably still dominates waterfall (75.5s)
+
+```
+#31  75.3s  /?access_token=HJyd-A.Gg9au5cJi6f9PCgPuPS3
+#29   698ms  /api/v1/realtime/token/
+```
+
+Despite moving Ably to `useAblyNotifications` hook in `AppLayout`, it still connects immediately on every authenticated page. The hook is mounted in AppLayout which wraps ALL pages — not just chat/live pages.
+
+**Fix:** Move hook mount to `ChatRoomPage`, `LiveSessionPage`, and `DashboardPage` only (not AppLayout). Saves 75s waterfall + eliminates `/realtime/token/` call from lesson/course pages.
+
+#### 🔴 P0 — Dashboard APIs called 3× per session (Fast 4G trace)
+
+```
+GET /api/v1/academics/subjects/      3x
+GET /api/v1/gamification/me/         3x  
+GET /api/v1/assessments/my/          3x
+GET /api/v1/courses/                 3x
+GET /api/v1/courses/by-slug/         3x
+GET /api/v1/courses/progress/batch/  3x
+GET /api/v1/analytics/my-summary/    3x
+GET /api/v1/analytics/my-risk/       3x
+```
+
+All 8 dashboard endpoints fire 3× per session. Cause: React StrictMode double-mount + navigation back/forward trigger re-fetch without cache. All 8 have OPTIONS preflight too = **48 extra requests**.
+
+**Fix:** Add `staleTime: 60_000` to all dashboard fetches (or simple module-level cache in service files). Cuts 48 unnecessary reqs per session.
+
+#### 🔴 P0 — `analytics/event/` still 5–10× per session
+
+```
+POST /api/v1/analytics/event/   5x (NoThrottle)
+POST /api/v1/analytics/event/  10x (Fast 4G)
+OPTIONS same as above
+```
+
+Telemetry batching from April was applied but 5s flush means page navigation events still fire individually before flush. 10x = 20 total reqs (POST + OPTIONS).
+
+**Fix:** Extend flush to 10s. Add dedup by exact pathname — same route within 10s window fires once only.
+
+#### 🟡 P1 — `accounts/me/` called 2–3×
+
+```
+GET /api/v1/accounts/me/  2x (NoThrottle), 3x (Fast 4G)
+```
+
+AuthContext fetches `/me/` on init + re-fetches on tab focus/visibility change. Redis cache on backend helps but still wastes round-trips.
+
+**Fix:** Cache `/me/` response in `AuthContext` state — only re-fetch if session cookie changes or explicit logout/login.
+
+#### 🟡 P1 — `favicon.svg` fetched 2–4×
+
+```
+GET /favicon.svg  4x (NoThrottle), 2x (Fast 4G)
+```
+
+Browser re-fetches favicon on each navigation. No `Cache-Control` header on SVG.
+
+**Fix:** Add to `vercel.json`:
+```json
+{ "source": "/favicon.svg", "headers": [{"key": "Cache-Control", "value": "public, max-age=86400, immutable"}] }
+```
+
+#### 🟡 P1 — `/api/v1/accounts/users/` slow (693ms) — admin-only
+
+```
+GET /api/v1/accounts/users/  693ms
+```
+
+Only fires in admin teacher login flow. 693ms = no cache + large queryset. Add 60s Redis cache.
+
+#### 🟡 P1 — `PATCH /lessons/1/update/` called 2× with 2 OPTIONS
+
+```
+PATCH /api/v1/lessons/1/update/  2x (#50, #52)
+OPTIONS same  2x (#51, #53)
+```
+
+Lesson progress update fires twice — likely from two `useEffect` triggers (mount + lesson load). Guard with `useRef` to prevent double-fire.
+
+#### 🟢 P2 — Sentry envelope 3–4× per session
+
+```
+POST sentry.io/api/45111  3x (NoThrottle), 4x (Fast 4G)
+```
+
+Sentry batches well but still fires multiple envelopes. Lower `tracesSampleRate` from current to 0.05 for production to reduce overhead.
+
+---
+
+### 19.3 What's Working Well ✅
+
+| Fix | Status |
+|---|---|
+| Vercel Analytics removed | ✅ Gone (was 912ms in April 12, 0 in May 5) |
+| Code splitting | ✅ 1.4MB transfer vs 5.7MB April 12 |
+| DOMContentLoaded fast | ✅ 169ms — below 200ms target |
+| CORS preflight cache (24h) | ✅ Sequential chains 0 (was chains in April 12) |
+| Telemetry batch | ✅ Partial — 5x vs 4x before (marginal improvement) |
+| Groq 429 fallback to BOA | ✅ Provider chain working |
+
+---
+
+### 19.4 Prioritised Fix Plan (May 2026)
+
+| Priority | Fix | Impact | Effort |
+|---|---|---|---|
+| **P0** | Move `useAblyNotifications` out of AppLayout → only ChatRoomPage + DashboardPage + LiveSessionPage | Kills 75s waterfall + 1 API call on all other pages | 15 min |
+| **P0** | Add `staleTime: 60_000` / module cache to 8 dashboard fetches | Eliminates 48 duplicate reqs per session | 30 min |
+| **P0** | Fix analytics/event dedup — same pathname within 10s = 1 call | Cuts 10 → 2 calls per session | 15 min |
+| **P1** | Cache `/me/` in AuthContext state | Eliminates 2-3x re-fetch | 10 min |
+| **P1** | Add Cache-Control to favicon.svg in vercel.json | Eliminates 2-4x re-fetch | 5 min |
+| **P1** | Redis 60s cache for `/accounts/users/` | 693ms → ~10ms | 10 min |
+| **P1** | Guard lesson progress PATCH with useRef | Eliminates duplicate PATCH | 10 min |
+| **P2** | Lower Sentry tracesSampleRate to 0.05 | Fewer envelope POSTs | 2 min |
+
+**Total estimated time: ~97 minutes for all P0+P1 fixes.**
+
+---
+
+### 19.5 April 12 → May 5 Regression Summary
+
+The May 5 trace shows **regression in duplicate calls** (4 groups → 14-25 groups). This is likely because:
+
+1. May 5 trace covers a longer session (login → dashboard → lessons page → lesson detail) — more navigations = more duplicate fetches visible
+2. Ably still connecting from AppLayout despite the hook move — may not have deployed yet
+3. Telemetry flush timing didn't fully solve the 5x analytics/event issue
+
+**DOMContentLoaded still excellent (169ms).** The regression is in session-level efficiency, not initial page load. Real users on slow connections: first paint still fast, but background API chatter wastes bandwidth.
+
+---
+
+### 19.6 Next HAR Capture Checklist
+
+After applying P0 fixes above, re-capture with:
+- [ ] NoThrottle: login → dashboard → lessons list → lesson detail → back to dashboard
+- [ ] Fast 4G: same flow
+- [ ] 3G: same flow
+- [ ] Check: Ably `/?access_token=` gone from non-chat pages
+- [ ] Check: dashboard APIs called once not 3×
+- [ ] Check: analytics/event ≤ 2× per session
+- [ ] Check: favicon.svg cached (no repeat fetch after first)
+

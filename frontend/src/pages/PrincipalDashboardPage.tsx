@@ -97,7 +97,12 @@ export default function PrincipalDashboardPage() {
       apiGet<CourseAnalytics[]>("/teacher/analytics/courses/"),
       apiGet<AssessmentAnalytics[]>("/teacher/analytics/assessments/"),
     ]).then(([classRes, teacherRes, courseRes, assessmentRes]) => {
-      if (classRes.status === "fulfilled")      setClasses(classRes.value ?? []);
+      if (classRes.status === "fulfilled") {
+        const sorted = (classRes.value ?? []).sort(
+          (a, b) => parseInt(a.class_name) - parseInt(b.class_name)
+        );
+        setClasses(sorted);
+      }
       if (teacherRes.status === "fulfilled")    setTeachers(teacherRes.value ?? []);
       if (courseRes.status === "fulfilled")     setCourses(courseRes.value ?? []);
       if (assessmentRes.status === "fulfilled") setAssessments(assessmentRes.value ?? []);

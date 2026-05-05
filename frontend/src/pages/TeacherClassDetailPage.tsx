@@ -320,28 +320,31 @@ export default function TeacherClassDetailPage() {
                     </td>
 
                     <td>
-                      {s.risk_level && (
-                        <div style={{
-                          display: "inline-block",
-                          padding: "2px 8px",
-                          borderRadius: 12,
-                          fontSize: "var(--text-xs)",
-                          fontWeight: 600,
-                          background: s.risk_level === "HIGH" ? "rgba(255, 59, 48, 0.15)" : 
-                                      s.risk_level === "MEDIUM" ? "rgba(255, 149, 0, 0.15)" : 
-                                      "rgba(52, 199, 89, 0.15)",
-                          color: s.risk_level === "HIGH" ? "#ff3b30" : 
-                                 s.risk_level === "MEDIUM" ? "#ff9500" : 
-                                 "#34c759",
-                          border: `1px solid ${
-                            s.risk_level === "HIGH" ? "rgba(255, 59, 48, 0.3)" : 
-                            s.risk_level === "MEDIUM" ? "rgba(255, 149, 0, 0.3)" : 
-                            "rgba(52, 199, 89, 0.3)"
-                          }`
-                        }}>
-                          {s.risk_level.charAt(0).toUpperCase() + s.risk_level.slice(1).toLowerCase()}
-                        </div>
-                      )}
+                      {s.risk_level && (() => {
+                        const rl = s.risk_level.toUpperCase();
+                        return (
+                          <div style={{
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: 12,
+                            fontSize: "var(--text-xs)",
+                            fontWeight: 600,
+                            background: rl === "HIGH" ? "rgba(255, 59, 48, 0.15)" : 
+                                        rl === "MEDIUM" ? "rgba(255, 149, 0, 0.15)" : 
+                                        "rgba(52, 199, 89, 0.15)",
+                            color: rl === "HIGH" ? "#ff3b30" : 
+                                   rl === "MEDIUM" ? "#ff9500" : 
+                                   "#34c759",
+                            border: `1px solid ${
+                              rl === "HIGH" ? "rgba(255, 59, 48, 0.3)" : 
+                              rl === "MEDIUM" ? "rgba(255, 149, 0, 0.3)" : 
+                              "rgba(52, 199, 89, 0.3)"
+                            }`
+                          }}>
+                            {rl === "HIGH" ? "High" : rl === "MEDIUM" ? "Medium" : "Low"}
+                          </div>
+                        );
+                      })()}
                       {!s.risk_level && (
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                           Unknown

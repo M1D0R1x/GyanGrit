@@ -242,11 +242,29 @@ def _notify_teachers_high_risk(student, factors: dict) -> None:
         reason = ", ".join(reason_parts[:3]) or "multiple risk factors"
 
         subject = f"\u26a0\ufe0f Student At Risk: {student_name}"
+
+        # Build specific, actionable message
+        actions = []
+        if factors.get("login_recency"):
+            actions.append("check on the student's attendance and well-being")
+        if factors.get("engagement_trend"):
+            actions.append("schedule a one-on-one check-in to understand their situation")
+        if factors.get("assessment_failures"):
+            actions.append("provide extra practice material or arrange remedial tutoring")
+        if factors.get("lesson_completion"):
+            actions.append("encourage them to complete pending lessons before the next assessment")
+        if factors.get("assessment_avoidance"):
+            actions.append("motivate them to attempt the available assessments")
+        if factors.get("streak_broken"):
+            actions.append("remind them about daily login goals to rebuild their streak")
+
+        action_text = actions[0] if actions else "reach out to understand their situation"
+
         message = (
             f"{student_name} is at HIGH risk \u2014 {reason}. "
-            f"Consider reaching out or suggesting remedial content."
+            f"Recommended action: {action_text}."
         )
-        link = f"/analytics/class/{section.classroom_id}/student/{student.id}/"
+        link = f"/teacher/classes/{section.classroom_id}/students/{student.id}"
 
         notifs = [
             Notification(

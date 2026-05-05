@@ -912,7 +912,7 @@ def course_progress(request, course_id):
 # TEACHER ANALYTICS
 # ─────────────────────────────────────────────────────────────────────────────
 
-@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN", "OFFICIAL"])
 @require_http_methods(["GET"])
 def teacher_course_analytics(request):
     """
@@ -1023,7 +1023,7 @@ def teacher_lesson_analytics(request):
 
 
 
-@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN", "OFFICIAL"])
 @require_http_methods(["GET"])
 def teacher_class_analytics(request):
     user = request.user
@@ -1088,7 +1088,7 @@ def teacher_class_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN", "OFFICIAL"])
 @require_http_methods(["GET"])
 def teacher_class_students(request, class_id):
     classroom = get_object_or_404(ClassRoom, id=class_id)
@@ -1133,7 +1133,7 @@ def teacher_class_students(request, class_id):
 
 
 
-@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN", "OFFICIAL"])
 @require_http_methods(["GET"])
 def teacher_assessment_analytics(request):
     user = request.user
@@ -1188,7 +1188,7 @@ def teacher_assessment_analytics(request):
     return JsonResponse(data, safe=False)
 
 
-@require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
+@require_roles(["TEACHER", "PRINCIPAL", "ADMIN", "OFFICIAL"])
 @require_http_methods(["GET"])
 def teacher_student_assessments(request, class_id, student_id):
     classroom  = get_object_or_404(ClassRoom, id=class_id)

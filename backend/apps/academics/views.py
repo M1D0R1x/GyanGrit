@@ -3,6 +3,7 @@ from django.core.cache import cache
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
+from apps.accesscontrol.cache_headers import cache_api
 from django.db.models import Count, Q
 
 from .models import (
@@ -146,6 +147,7 @@ def sections(request):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=120, stale=300)  # subjects change very rarely
 def subjects(request):
     """
     Returns subjects scoped by role.

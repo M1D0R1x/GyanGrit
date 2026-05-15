@@ -32,7 +32,7 @@ threads            = 6          # More threads per worker — I/O-bound views be
 preload_app = True
 
 # ── Timeouts ──────────────────────────────────────────────────────────────
-timeout            = 60         # 60s — allows for slow R2/LiveKit API calls and complex queries
+timeout            = 600        # 10 min — large video uploads (500 MB) need time on slow networks
 graceful_timeout   = 30         # 30s to finish in-flight requests on restart
 keepalive          = 75         # keep-alive for Nginx → Gunicorn upstream reuse
 

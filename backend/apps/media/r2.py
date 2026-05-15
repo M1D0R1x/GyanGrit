@@ -207,6 +207,23 @@ def upload_file(
     key = _build_key(folder, name_to_use)
 
     client = _get_client()
+
+    # For videos, use inline disposition so browsers can play them directly
+    disposition = (
+        f'inline; filename="{sanitize_filename(name_to_use)}"'
+        if content_type.startswith("video/")
+        else f'attachment; filename="{sanitize_filename(name_to_use)}"'
+    )
+
+    # Use multipart upload for large files (>10 MB chunks, 4 concurrent)
+    from boto3.s3.transfer import TransferConfig
+    transfer_config = TransferConfig(
+        multipart_threshold=10 * 1024 * 1024,   # 10 MB — switch to multipart above this
+        multipart_chunksize=10 * 1024 * 1024,   # 10 MB chunks
+        max_concurrency=4,                       # parallel chunk uploads
+        use_threads=True,
+    )
+
     client.upload_fileobj(
         file_obj,
         settings.CLOUDFLARE_R2_BUCKET_NAME,
@@ -214,11 +231,9 @@ def upload_file(
         ExtraArgs={
             "ContentType": content_type,
             "CacheControl": "public, max-age=31536000",
-            # Force download — browser should never try to render arbitrary uploads
-            "ContentDisposition": (
-                f'attachment; filename="{sanitize_filename(name_to_use)}"'
-            ),
+            "ContentDisposition": disposition,
         },
+        Config=transfer_config,
     )
 
     public_url = f"{settings.CLOUDFLARE_R2_PUBLIC_URL.rstrip('/')}/{key}"

@@ -285,13 +285,24 @@ function VideoUploadZone({
         {uploading ? (
           <div>
             <div style={{ fontSize: "var(--text-sm)", color: "var(--saffron)", marginBottom: "var(--space-2)", fontWeight: 600 }}>
-              Uploading video… {progress}%
+              {progress >= 100
+                ? "☁️ Processing… Saving to CDN"
+                : `Uploading video… ${progress}%`}
             </div>
             <div style={{ height: 6, background: "var(--bg-elevated)", borderRadius: 99, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: "var(--saffron)", borderRadius: 99, transition: "width 0.2s" }} />
+              <div style={{
+                height: "100%",
+                width: progress >= 100 ? "100%" : `${progress}%`,
+                background: progress >= 100 ? "var(--emerald)" : "var(--saffron)",
+                borderRadius: 99,
+                transition: "width 0.3s",
+                animation: progress >= 100 ? "pulse 1.5s ease-in-out infinite" : "none",
+              }} />
             </div>
             <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "var(--space-2)" }}>
-              Large files may take a moment. Do not close this page.
+              {progress >= 100
+                ? "Almost done — saving video to cloud storage. Do not close this page."
+                : "Large videos may take a few minutes. Do not close this page."}
             </div>
           </div>
         ) : (

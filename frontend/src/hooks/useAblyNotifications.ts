@@ -40,6 +40,16 @@ export function useAblyNotifications() {
         });
         if (!mounted) { client.close(); return; }
 
+        // Suppress Ably connection errors (network blips, token expiry)
+        // so they don't bubble as unhandled rejections to Sentry
+        client.connection.on("suspended", () => {
+          console.warn("[Ably] Connection suspended — will auto-retry");
+        });
+        client.connection.on("failed", () => {
+          console.warn("[Ably] Connection failed — falling back to polling");
+          client.close();
+        });
+
         const channel = client.channels.get(`notifications:${user.id}`);
         channel.subscribe((msg) => {
           if (!mounted) return;

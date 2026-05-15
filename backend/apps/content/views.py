@@ -38,6 +38,7 @@ import re
 
 from django.contrib.auth import get_user_model
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
+from apps.accesscontrol.cache_headers import cache_api
 from django.core.cache import cache
 from django.db.models import Avg
 from django.http import JsonResponse
@@ -175,6 +176,7 @@ def _get_student_grade(user):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=120, stale=300)  # courses change rarely — 2 min fresh, 5 min stale
 def courses(request):
     from django.core.cache import cache
     user    = request.user
@@ -322,6 +324,7 @@ def delete_course(request, course_id):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=60, stale=120)  # lesson list cached 1 min
 def course_lessons(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     if not has_access_to_course(request.user, course):
@@ -389,6 +392,7 @@ def course_lessons(request, course_id):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=60, stale=120)  # admin lesson list cached 1 min
 def course_lessons_all(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     raw    = list(

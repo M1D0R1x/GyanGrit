@@ -262,22 +262,59 @@ File: `/etc/nginx/sites-available/gyangrit`
 
 ```nginx
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name api.gyangrit.site;
 
     ssl_certificate /etc/letsencrypt/live/api.gyangrit.site/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/api.gyangrit.site/privkey.pem;
 
+    # ── Gzip compression (CRITICAL for slow networks) ─────────────────
+    # Without this, JSON API responses are sent uncompressed.
+    # A 50KB JSON response becomes ~8KB gzipped → 6x faster on 3G.
+    gzip                on;
+    gzip_vary           on;
+    gzip_proxied        any;          # compress proxied responses too
+    gzip_comp_level     6;            # good balance of CPU vs compression
+    gzip_min_length     256;          # don't bother with tiny responses
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/xml
+        image/svg+xml
+        font/woff2;
+
+    # ── Large file uploads (videos up to 500 MB) ──────────────────────
+    client_max_body_size        600m;
+    client_body_timeout         600s;
+    proxy_request_buffering     off;
+
+    # ── Static files — served directly by Nginx (fast, bypasses Django) ─
     location /static/ {
         alias /opt/gyangrit/backend/staticfiles/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
     }
 
+    # ── API proxy ─────────────────────────────────────────────────────
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts for large uploads / AI calls
+        proxy_connect_timeout   60s;
+        proxy_send_timeout      600s;
+        proxy_read_timeout      600s;
+
+        # Enable keepalive to gunicorn (reuse TCP connections)
+        proxy_http_version  1.1;
+        proxy_set_header    Connection "";
     }
 }
 

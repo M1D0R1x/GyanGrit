@@ -5,6 +5,7 @@ import logging
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from apps.accesscontrol.permissions import require_auth  # returns 401 JSON, not 302
+from apps.accesscontrol.cache_headers import cache_api
 from django.db.models import Avg, Count, Max, Q, IntegerField
 from django.db.models.functions import Cast
 from django.http import JsonResponse
@@ -523,6 +524,7 @@ def all_my_attempts(request):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=60, stale=120)  # assessment list cached 1 min, stale for 2 min
 def my_assessments(request):
     """
     GET /api/v1/assessments/my/
@@ -660,6 +662,7 @@ def my_assessments(request):
 
 @require_auth
 @require_http_methods(["GET"])
+@cache_api(max_age=120, stale=300)  # analytics cached 2 min, stale for 5 min
 def teacher_assessment_analytics(request):
     if request.user.role not in ["TEACHER", "OFFICIAL", "ADMIN", "PRINCIPAL"]:
         return JsonResponse({"detail": "Forbidden"}, status=403)
@@ -999,18 +1002,48 @@ def ai_generate_assessment(request, course_id):
         return JsonResponse({"error": "Either lesson_id or text is required"}, status=400)
 
     prompt = _AI_ASSESSMENT_PROMPT.format(count=count, content=raw_text[:4000])
-    raw_response = call_ai(
-        messages=[{"role": "user", "content": prompt}],
-        curriculum_context="",
-    )
 
-    clean = _re.sub(r"```(?:json)?\s*", "", raw_response).strip().strip("`")
-    try:
-        questions_data = json.loads(clean)
-        if not isinstance(questions_data, list):
-            raise ValueError("Expected a JSON array")
-    except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("AI assessment parse error: %s | raw=%s", exc, raw_response[:300])
+    # Assessment generation needs much more output tokens than chat (512 is too
+    # small for 5-20 JSON questions). Use a dedicated higher limit.
+    from apps.ai_assistant.providers import call_ai as _call_ai_raw, MAX_TOKENS as _default_tokens
+
+    # Temporarily increase max_tokens for this call
+    import apps.ai_assistant.providers as _providers
+    _original_max = _providers.MAX_TOKENS
+    _providers.MAX_TOKENS = max(4096, count * 300)  # ~300 tokens per question
+
+    questions_data = None
+    last_error = None
+
+    for attempt_num in range(2):  # retry once on parse failure
+        try:
+            raw_response = _call_ai_raw(
+                messages=[{"role": "user", "content": prompt}],
+                curriculum_context="",
+            )
+
+            clean = _re.sub(r"```(?:json)?\s*", "", raw_response).strip().strip("`")
+            questions_data = json.loads(clean)
+            if not isinstance(questions_data, list):
+                raise ValueError("Expected a JSON array")
+            break  # success
+        except (json.JSONDecodeError, ValueError) as exc:
+            last_error = exc
+            logger.warning(
+                "AI assessment parse attempt %d failed: %s | raw=%s",
+                attempt_num + 1, exc, raw_response[:200] if 'raw_response' in dir() else "N/A",
+            )
+            if attempt_num == 0:
+                # Retry with fewer questions to reduce truncation risk
+                prompt = _AI_ASSESSMENT_PROMPT.format(
+                    count=min(count, 5), content=raw_text[:2000]
+                )
+                continue
+
+    _providers.MAX_TOKENS = _original_max  # restore
+
+    if questions_data is None:
+        logger.error("AI assessment parse error after retries: %s", last_error)
         return JsonResponse({"error": "AI returned unexpected format. Please try again."}, status=502)
 
     total_marks = count * marks_per_q

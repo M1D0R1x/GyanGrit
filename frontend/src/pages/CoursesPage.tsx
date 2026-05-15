@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet } from "../services/api";
 import { courseDetailPath } from "../utils/slugs";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useAuth } from "../auth/AuthContext";
 
 type Course = {
   id: number;
@@ -31,6 +32,8 @@ export default function CoursesPage() {
   const [error, setError]     = useState<string | null>(null);
   const navigate              = useNavigate();
   const [searchParams]        = useSearchParams();
+  const { user }              = useAuth();
+  const isTeacher             = user?.role === "TEACHER" || user?.role === "PRINCIPAL";
 
   const subjectIdParam = searchParams.get("subject_id");
   const subjectId      = subjectIdParam ? Number(subjectIdParam) : null;
@@ -67,7 +70,9 @@ export default function CoursesPage() {
         <div>
           <h2 className="section-header__title">{subjectName ?? "Your Courses"}</h2>
           <p className="section-header__subtitle">
-            {subjectName ? "Select a course to begin" : "All your enrolled courses"}
+            {subjectName
+              ? (isTeacher ? "Select a course to manage lessons" : "Select a course to begin")
+              : (isTeacher ? "Your assigned courses" : "All your enrolled courses")}
           </p>
         </div>
         {subjectName && (
@@ -96,10 +101,18 @@ export default function CoursesPage() {
               key={course.id}
               className="card card--clickable page-enter"
               style={{ animationDelay: `${i * 50}ms`, minHeight: 160, display: "flex", flexDirection: "column" }}
-              onClick={() => navigate(courseDetailPath(course.grade, course.subject__name))}
+              onClick={() => navigate(
+                isTeacher
+                  ? `/teacher/courses/${course.id}/lessons`
+                  : courseDetailPath(course.grade, course.subject__name)
+              )}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && navigate(courseDetailPath(course.grade, course.subject__name))}
+              onKeyDown={(e) => e.key === "Enter" && navigate(
+                isTeacher
+                  ? `/teacher/courses/${course.id}/lessons`
+                  : courseDetailPath(course.grade, course.subject__name)
+              )}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
                 <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-muted)" }}>
@@ -129,7 +142,7 @@ export default function CoursesPage() {
 
               <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 700 }}>
-                  Start learning
+                  {isTeacher ? "Manage lessons →" : "Start learning"}
                 </span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                   stroke="var(--saffron)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

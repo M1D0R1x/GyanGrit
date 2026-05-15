@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 512
 TEMPERATURE = 0.7
-TIMEOUT_S = 15
+TIMEOUT_S = 25
 
 # ── BOA round-robin key rotator ────────────────────────────────────────────────
 # Thread-safe: uses itertools.cycle + lock. Each call_ai() picks the next key.
@@ -110,6 +110,10 @@ def _call_boa(messages: list[dict], system_prompt: str) -> str:
         raise ProviderRateLimitError(f"BOA HTTP 402")
     if resp.status_code == 503:
         raise ProviderRateLimitError(f"BOA HTTP 503")
+
+    if resp.status_code == 404:
+        logger.warning("BOA endpoint returned 404 — model or URL may have changed")
+        raise ProviderError("BOA HTTP 404 — endpoint not found")
 
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"]

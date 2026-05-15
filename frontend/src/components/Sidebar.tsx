@@ -101,10 +101,12 @@ function getNavSections(role: Role): NavSection[] {
         { label: "Profile",       path: "/profile",        icon: <UserIcon /> },
       ]},
       { title: "Teaching", items: [
-        { label: "My Classes",      path: "/teacher",                icon: <SchoolIcon /> },
+        { label: "My Classes",      path: "/teacher/classes",         icon: <SchoolIcon /> },
+        { label: "Courses",         path: "/courses",                icon: <BookIcon /> },
         { label: "Live Classes",    path: "/teacher/live",           icon: <VideoIcon /> },
         { label: "Recordings",      path: "/teacher/recordings",     icon: <HistoryIcon /> },
         { label: "Flashcard Decks", path: "/teacher/flashcards",     icon: <CardIcon /> },
+        { label: "AI Tutor",        path: "/teacher/ai-tutor",       icon: <BotIcon /> },
         { label: "AI Tools",        path: "/teacher/ai-tools",       icon: <BotIcon /> },
       ]},
       { title: "Students & Codes", items: [

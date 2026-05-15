@@ -710,10 +710,16 @@ export default function AdminLessonEditorPage() {
 
   const openSectionEdit = (sl: SectionLessonItem) => {
     setTitle(sl.title);
-    setContent(""); // section lesson detail not loaded in list — blank content on edit
-    setVideoUrl(""); setVideoThumbnail(""); setVideoDuration(""); setPdfUrl("");
+    setContent(sl.content ?? "");
+    setVideoUrl(sl.video_url ?? "");
+    setVideoThumbnail(sl.video_thumbnail_url ?? "");
+    setVideoDuration(sl.video_duration ?? "");
+    setPdfUrl(sl.pdf_url ?? "");
     setIsPublished(sl.is_published);
-    setVideoInputMode("url");
+    const isR2 = !!sl.video_url && (
+      sl.video_url.includes("r2.dev") || sl.video_url.includes("r2.cloudflarestorage.com")
+    );
+    setVideoInputMode(isR2 ? "upload" : "url");
     setEditingSection(sl);
     setSectionMode("edit");
   };
@@ -836,15 +842,17 @@ export default function AdminLessonEditorPage() {
               <>
                 <div className="section-header">
                   <h2 className="section-header__title">Curriculum Lessons</h2>
-                  <button className="btn btn--primary" onClick={openCreate}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                      strokeLinejoin="round" aria-hidden="true">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Add Lesson
-                  </button>
+                  {role !== "TEACHER" && (
+                    <button className="btn btn--primary" onClick={openCreate}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                        strokeLinejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Add Lesson
+                    </button>
+                  )}
                 </div>
 
                 {loading ? (
@@ -889,24 +897,37 @@ export default function AdminLessonEditorPage() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
-                            <button className="btn btn--ghost"
-                              style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
-                              onClick={() => void handleTogglePublish(lesson)}>
-                              {lesson.is_published
-                                ? <span style={{ color: "var(--success)" }}>Published</span>
-                                : <span style={{ color: "var(--ink-muted)" }}>Draft</span>}
-                            </button>
+                            {role !== "TEACHER" && (
+                              <button className="btn btn--ghost"
+                                style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
+                                onClick={() => void handleTogglePublish(lesson)}>
+                                {lesson.is_published
+                                  ? <span style={{ color: "var(--success)" }}>Published</span>
+                                  : <span style={{ color: "var(--ink-muted)" }}>Draft</span>}
+                              </button>
+                            )}
+                            {role === "TEACHER" && (
+                              <span style={{
+                                padding: "var(--space-1) var(--space-3)",
+                                fontSize: "var(--text-xs)",
+                                color: lesson.is_published ? "var(--success)" : "var(--ink-muted)",
+                              }}>
+                                {lesson.is_published ? "Published" : "Draft"}
+                              </span>
+                            )}
                             <button className="btn btn--ghost"
                               style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)", color: "var(--saffron)" }}
                               onClick={() => navigate(`/lessons/${lesson.id}`)}
                               title="Preview this lesson as a student would see it">
                               View
                             </button>
-                            <button className="btn btn--secondary"
-                              style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
-                              onClick={() => openEdit(lesson)}>
-                              Edit
-                            </button>
+                            {role !== "TEACHER" && (
+                              <button className="btn btn--secondary"
+                                style={{ padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}
+                                onClick={() => openEdit(lesson)}>
+                                Edit
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

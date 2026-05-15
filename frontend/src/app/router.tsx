@@ -233,6 +233,7 @@ export const router = createBrowserRouter([
 
   // ── Teacher ───────────────────────────────────────────────────────────────
   { path: "/teacher",                                        element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
+  { path: "/teacher/classes",                                  element: <Protected role="TEACHER"><TeacherDashboardPage /></Protected> },
   { path: "/teacher/classes/:classId",                       element: <Protected role="TEACHER"><TeacherClassDetailPage /></Protected> },
   { path: "/teacher/classes/:classId/gradebook",             element: <Protected role="TEACHER"><GradebookPage /></Protected> },
   { path: "/teacher/classes/:classId/students/:studentId",   element: <Protected role="TEACHER"><TeacherStudentDetailPage /></Protected> },
@@ -248,6 +249,7 @@ export const router = createBrowserRouter([
 
   // ── Principal ─────────────────────────────────────────────────────────────
   { path: "/principal",                                          element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
+  { path: "/principal/classes",                                   element: <Protected role="PRINCIPAL"><PrincipalDashboardPage /></Protected> },
   { path: "/principal/classes/:classId",                         element: <Protected role="PRINCIPAL"><TeacherClassDetailPage /></Protected> },
   { path: "/principal/classes/:classId/gradebook",               element: <Protected role="PRINCIPAL"><GradebookPage /></Protected> },
   { path: "/principal/classes/:classId/students/:studentId",     element: <Protected role="PRINCIPAL"><TeacherStudentDetailPage /></Protected> },

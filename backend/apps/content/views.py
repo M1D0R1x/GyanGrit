@@ -410,9 +410,10 @@ def course_lessons_all(request, course_id):
             "video_thumbnail_url": l["video_thumbnail_url"],
             "video_duration":      l["video_duration"],
             "pdf_url":             l["pdf_url"],
+            "content":             l["content"],
             "has_video":           bool(l["video_url"] or l["hls_manifest_url"]),
             "has_pdf":             bool(l["pdf_url"]),
-            "has_content":         bool(l["content"]),
+            "has_text":            bool(l["content"]),
         }
         for l in raw
     ]
@@ -484,13 +485,20 @@ def section_lesson_list_create(request, course_id):
 
         data = [
             {
-                "id":          sl.id,
-                "title":       sl.title,
-                "order":       sl.order,
-                "has_video":   bool(sl.video_url or sl.hls_manifest_url),
-                "has_pdf":     bool(sl.pdf_url),
-                "has_content": bool(sl.content),
-                "created_by":  sl.created_by.username if sl.created_by else None,
+                "id":                  sl.id,
+                "title":               sl.title,
+                "order":               sl.order,
+                "content":             sl.content,
+                "video_url":           sl.video_url,
+                "video_thumbnail_url": sl.video_thumbnail_url,
+                "video_duration":      sl.video_duration,
+                "hls_manifest_url":    sl.hls_manifest_url,
+                "pdf_url":             sl.pdf_url,
+                "is_published":        sl.is_published,
+                "has_video":           bool(sl.video_url or sl.hls_manifest_url),
+                "has_pdf":             bool(sl.pdf_url),
+                "has_content":         bool(sl.content),
+                "created_by":          sl.created_by.username if sl.created_by else None,
             }
             for sl in SectionLesson.objects
             .filter(course=course, section=section)
@@ -513,10 +521,16 @@ def section_lesson_list_create(request, course_id):
 
     section_id = body.get("section_id")
     if not section_id:
-        return JsonResponse({"error": "section_id is required"}, status=400)
-
-    from apps.academics.models import Section
-    section    = get_object_or_404(Section, id=section_id)
+        # Auto-detect from teacher's assignment — frontend doesn't send this
+        section = _get_teacher_section(request.user)
+        if not section:
+            return JsonResponse(
+                {"error": "Could not determine your section. Please contact admin."},
+                status=400,
+            )
+    else:
+        from apps.academics.models import Section
+        section = get_object_or_404(Section, id=section_id)
     last_order = (
         SectionLesson.objects.filter(course=course, section=section)
         .order_by("-order").values_list("order", flat=True).first()

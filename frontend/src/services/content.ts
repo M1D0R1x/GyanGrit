@@ -97,6 +97,13 @@ export type SectionLessonItem = {
   has_content: boolean;
   is_published: boolean;
   created_by: string | null;
+  // Full fields returned by the list endpoint for edit pre-population
+  content?: string;
+  video_url?: string | null;
+  video_thumbnail_url?: string | null;
+  video_duration?: string;
+  pdf_url?: string | null;
+  hls_manifest_url?: string | null;
 };
 
 export type CreateSectionLessonPayload = {

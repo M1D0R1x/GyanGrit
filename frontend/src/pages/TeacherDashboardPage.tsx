@@ -99,6 +99,7 @@ export default function TeacherDashboardPage() {
           {[
             { label: "Manage Students", icon: "👥", path: "/teacher/users" },
             { label: "My Classes", icon: "🏫", path: "/teacher/classes" },
+            { label: "Courses & Lessons", icon: "📚", path: "/courses" },
             { label: "Flashcards", icon: "🃏", path: "/teacher/flashcards" },
             { label: "AI Tutor", icon: "🤖", path: "/teacher/ai-tutor" },
           ].map(({ label, icon, path }) => (

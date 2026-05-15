@@ -46,6 +46,34 @@ sudo systemctl reload gyangrit
 
 ---
 
+## Navigating the Server
+
+When you SSH in, you land in `/home/ubuntu/` — **not** the app directory.  
+The GyanGrit repo lives at `/opt/gyangrit/`. You must `cd` there first.
+
+```bash
+# Go to the app root
+cd /opt/gyangrit
+
+# List all files & folders
+ls -la
+
+# See the backend directory
+ls -la backend/
+
+# See the .env file
+ls -la backend/.env
+
+# View full directory tree (install if missing: sudo apt install tree)
+tree -L 2
+```
+
+> **Why can't I see files?**  
+> You're probably in `/home/ubuntu/` (your home dir). The app is deployed to `/opt/gyangrit/`.  
+> Always `cd /opt/gyangrit` first after SSH-ing in.
+
+---
+
 ## Automated Deployment (Normal Flow)
 
 Every `git push origin master` (touching `backend/`) triggers GitHub Actions:
@@ -135,6 +163,47 @@ SENTRY_DSN=https://<key>@sentry.io/<project-id>
 # Backend URL (used internally for webhook verification)
 BACKEND_BASE_URL=https://api.gyangrit.site
 ```
+
+### Editing Environment Variables (Step-by-Step)
+
+```bash
+# 1. SSH into the server
+ssh -i ~/Downloads/ssh-key-2026-03-26.key ubuntu@161.118.168.247
+
+# 2. Open the .env file in nano
+sudo nano /opt/gyangrit/backend/.env
+
+# 3. Edit the variables you need (see nano controls below)
+
+# 4. Save and exit:
+#    Ctrl + O  →  Enter  (save)
+#    Ctrl + X             (exit)
+
+# 5. Restart the service so Django picks up changes
+sudo systemctl restart gyangrit
+
+# 6. Verify the app is running
+sudo systemctl status gyangrit
+
+# 7. (Optional) Tail logs to confirm no errors
+sudo journalctl -u gyangrit -f
+```
+
+#### Nano Cheat Sheet
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl + O` → `Enter` | Save file |
+| `Ctrl + X` | Exit nano |
+| `Ctrl + W` | Search for text |
+| `Ctrl + K` | Cut (delete) current line |
+| `Ctrl + U` | Paste cut line |
+| `Ctrl + G` | Show help |
+| `Alt + U` | Undo |
+| `Arrow keys` | Navigate |
+
+> **Tip:** If you only need to check the current values without editing, use:  
+> `cat /opt/gyangrit/backend/.env`
 
 ---
 
@@ -291,3 +360,5 @@ sudo systemctl status certbot.timer
 | OOM SIGKILL in logs | Worker memory leak | `max_requests=500` is set — check for runaway analytics |
 | Health check fails | Wrong Host header | Nginx must pass `Host: api.gyangrit.site` header |
 | Deploy rollback triggered | Any deploy step failed | Check CI logs — `git log --oneline -5` to confirm SHA |
+| Can't see files after SSH | You're in `/home/ubuntu/` (home dir) | `cd /opt/gyangrit` — the app is deployed there, not in home |
+| Env changes not taking effect | Service not restarted | `sudo systemctl restart gyangrit` after editing `.env` |

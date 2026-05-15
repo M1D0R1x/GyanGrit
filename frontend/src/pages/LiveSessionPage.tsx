@@ -429,6 +429,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging   = useRef(false);
   const dragOffset   = useRef({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
   const [size, setSize] = useState({ w: 240, h: 135 }); // 16:9
   const [minimized, setMinimized] = useState(false);
   const posRef = useRef<{ left: number; top: number } | null>(null);
@@ -447,6 +448,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     el.style.top    = `${rect.top}px`;
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     isDragging.current = true;
+    setDragging(true);
     document.body.style.userSelect = "none";
   }, []);
 
@@ -463,6 +465,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     };
     const onUp = () => {
       isDragging.current = false;
+      setDragging(false);
       document.body.style.userSelect = "";
     };
     window.addEventListener("mousemove", onMove);
@@ -512,6 +515,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
     const t = e.touches[0];
     dragOffset.current = { x: t.clientX - rect.left, y: t.clientY - rect.top };
     isDragging.current = true;
+    setDragging(true);
   }, []);
 
   useEffect(() => {
@@ -524,7 +528,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
       el.style.left = `${Math.max(0, Math.min(t.clientX - dragOffset.current.x, maxLeft))}px`;
       el.style.top  = `${Math.max(0, Math.min(t.clientY - dragOffset.current.y, maxTop))}px`;
     };
-    const onUp = () => { isDragging.current = false; };
+    const onUp = () => { isDragging.current = false; setDragging(false); };
     window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend",  onUp);
     return () => {
@@ -547,7 +551,7 @@ function DraggablePiPBox({ trackRef: pipTrack, label = "\ud83d\udcf9 Camera" }: 
         overflow: "hidden",
         boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)",
         border: "2px solid rgba(255,255,255,0.18)",
-        cursor: isDragging.current ? "grabbing" : "grab",
+        cursor: dragging ? "grabbing" : "grab",
         transition: "width 0.18s ease, height 0.18s ease, border-radius 0.18s ease",
         userSelect: "none",
         touchAction: "none",
@@ -1012,7 +1016,7 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
   const statusBg: Record<string, string> = { scheduled: "rgba(107,114,128,0.08)", live: "rgba(34,197,94,0.1)", ended: "rgba(239,68,68,0.08)" };
 
   const scheduledTime = session.scheduled_at
-    ? new Date(session.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    ? new Date(session.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })
     : null;
   const startedTime = session.started_at
     ? new Date(session.started_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
@@ -1033,7 +1037,7 @@ function SessionCard({ session, onAction, actionLabel, actionStyle, loadingActio
         </div>
         {scheduledTime && (
           <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>
-            {"\uD83D\uDCC5"} {scheduledTime}
+            {scheduledTime}
             {startedTime && session.status === "live" && <span style={{ color: "var(--success)" }}> {"\u2022"} Started {startedTime}</span>}
           </div>
         )}
@@ -1403,9 +1407,8 @@ export default function LiveSessionPage() {
               <label className="form-label">Schedule date & time <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", fontWeight: 400 }}>(optional)</span></label>
               <GlassDateTimePicker value={newScheduledAt} onChange={setNewScheduledAt} />
               {newScheduledAt && (
-                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                  <span>\uD83D\uDCC5</span>
-                  <span>{new Date(newScheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--saffron)", fontWeight: 600 }}>
+                  {new Date(newScheduledAt).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
                 </div>
               )}
             </div>

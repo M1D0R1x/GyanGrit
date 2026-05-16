@@ -553,7 +553,22 @@ def section_lesson_list_create(request, course_id):
         pdf_url=body.get("pdf_url") or None,
         created_by=request.user,
     )
-    return JsonResponse({"id": sl.id, "title": sl.title, "order": sl.order}, status=201)
+    return JsonResponse({
+        "id":                  sl.id,
+        "title":               sl.title,
+        "order":               sl.order,
+        "content":             sl.content,
+        "is_published":        sl.is_published,
+        "video_url":           sl.video_url,
+        "video_thumbnail_url": sl.video_thumbnail_url,
+        "video_duration":      sl.video_duration,
+        "hls_manifest_url":    sl.hls_manifest_url,
+        "pdf_url":             sl.pdf_url,
+        "has_video":           bool(sl.video_url or sl.hls_manifest_url),
+        "has_pdf":             bool(sl.pdf_url),
+        "has_content":         bool(sl.content),
+        "created_by":          sl.created_by.username if sl.created_by else None,
+    }, status=201)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -668,7 +683,21 @@ def update_lesson(request, lesson_id):
 
     lesson.save()
     logger.info("Lesson updated: id=%s by user=%s", lesson_id, request.user.id)
-    return JsonResponse({"success": True, "id": lesson.id})
+    return JsonResponse({
+        "id":                  lesson.id,
+        "title":               lesson.title,
+        "order":               lesson.order,
+        "content":             lesson.content,
+        "is_published":        lesson.is_published,
+        "video_url":           lesson.video_url,
+        "video_thumbnail_url": lesson.video_thumbnail_url,
+        "video_duration":      lesson.video_duration,
+        "hls_manifest_url":    lesson.hls_manifest_url,
+        "pdf_url":             lesson.pdf_url,
+        "has_video":           bool(lesson.video_url or lesson.hls_manifest_url),
+        "has_pdf":             bool(lesson.pdf_url),
+        "has_text":            bool(lesson.content),
+    })
 
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])
@@ -690,7 +719,21 @@ def update_section_lesson(request, lesson_id):
     if "order" in body:
         sl.order = int(body["order"])
     sl.save()
-    return JsonResponse({"success": True, "id": sl.id})
+    return JsonResponse({
+        "id":                  sl.id,
+        "title":               sl.title,
+        "order":               sl.order,
+        "content":             sl.content,
+        "is_published":        sl.is_published,
+        "video_url":           sl.video_url,
+        "video_thumbnail_url": sl.video_thumbnail_url,
+        "video_duration":      sl.video_duration,
+        "hls_manifest_url":    sl.hls_manifest_url,
+        "pdf_url":             sl.pdf_url,
+        "has_video":           bool(sl.video_url or sl.hls_manifest_url),
+        "has_pdf":             bool(sl.pdf_url),
+        "has_content":         bool(sl.content),
+    })
 
 
 @require_roles(["TEACHER", "PRINCIPAL", "ADMIN"])

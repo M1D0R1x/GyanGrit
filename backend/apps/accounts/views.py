@@ -313,6 +313,12 @@ def verify_otp(request):
     login(request, user)
     _create_device_session(request, user)
 
+    # Stamp OTP role flag + initial activity — middleware will enforce
+    # 30 min inactivity timeout for these roles.
+    import time
+    request.session['_otp_role'] = True
+    request.session['_last_activity'] = time.time()
+
     otp_record.is_verified = True
     otp_record.save(update_fields=["is_verified"])
 

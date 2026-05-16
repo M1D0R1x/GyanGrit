@@ -1,4 +1,5 @@
 import logging
+import time
 from django.utils.deprecation import MiddlewareMixin
 from django.contrib.auth import logout
 from apps.accounts.models import DeviceSession
@@ -100,3 +101,53 @@ class SingleActiveSessionMiddleware(MiddlewareMixin):
                 "Unexpected error in SingleActiveSessionMiddleware for user id=%s.",
                 getattr(request.user, "id", "unknown"),
             )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Inactivity timeout for OTP-protected roles
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACHER, PRINCIPAL, OFFICIAL log in with OTP — their sessions should be
+# stricter. If no API request for 30 min → force logout.
+#
+# How it works:
+#   1. verify_otp() stamps session['_otp_role'] = True
+#   2. On each request, this middleware updates session['_last_activity']
+#   3. If >30 min since last activity → force logout, return 401
+#   4. STUDENT/ADMIN have no _otp_role flag → unaffected
+# ─────────────────────────────────────────────────────────────────────────────
+
+OTP_INACTIVITY_SECONDS = 30 * 60  # 30 minutes
+
+
+class HardSessionExpiryMiddleware(MiddlewareMixin):
+    """Logout OTP roles after 30 min of inactivity."""
+
+    def process_request(self, request):
+        if not request.user.is_authenticated:
+            return
+
+        if not request.session.get("_otp_role"):
+            return  # STUDENT/ADMIN — skip, use normal 1-hour sliding window
+
+        now = time.time()
+        last_activity = request.session.get("_last_activity")
+
+        if last_activity and (now - last_activity) > OTP_INACTIVITY_SECONDS:
+            username = getattr(request.user, "username", "unknown")
+            role = getattr(request.user, "role", "unknown")
+            logger.info(
+                "Inactivity timeout for user=%s role=%s (idle %.0f min) — forcing re-login.",
+                username, role, (now - last_activity) / 60,
+            )
+            logout(request)
+            from django.http import JsonResponse
+            return JsonResponse(
+                {
+                    "error": "session_expired",
+                    "message": "Your session has expired due to inactivity. Please log in again.",
+                },
+                status=401,
+            )
+
+        # Update last activity timestamp
+        request.session["_last_activity"] = now

@@ -24,7 +24,7 @@ function getCsrfToken(): string | undefined {
 }
 
 /**
- * Check if a response is a "session_kicked" 401 from SingleActiveSessionMiddleware.
+ * Check if a response is a "session_kicked" or "session_expired" 401.
  * If so, dispatch a window event that AuthContext listens to.
  */
 async function handleKicked(res: Response): Promise<void> {
@@ -32,7 +32,7 @@ async function handleKicked(res: Response): Promise<void> {
     try {
       const cloned = res.clone();
       const body = await cloned.json();
-      if (body?.error === "session_kicked") {
+      if (body?.error === "session_kicked" || body?.error === "session_expired") {
         window.dispatchEvent(
           new CustomEvent("session:kicked", {
             detail: { message: body.message },

@@ -500,33 +500,54 @@ def _send_daily_risk_summary():
         high_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH).count()
         medium_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM).count()
 
-        # Build student list (top 5)
+        # Build full student list grouped by risk level
         student_lines = []
-        for r in at_risk[:5]:
-            name = r.user.get_full_name() or r.user.username
-            section_label = ""
-            if r.user.section and hasattr(r.user.section, "classroom"):
-                section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
-            student_lines.append(f"• {name}{section_label} — {r.risk_level} ({round(r.score)}pts)")
+        if high_count > 0:
+            student_lines.append("**🔴 HIGH RISK:**")
+            for r in at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH):
+                name = r.user.get_full_name() or r.user.username
+                section_label = ""
+                if r.user.section and hasattr(r.user.section, "classroom"):
+                    section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
+                student_lines.append(f"• {name}{section_label} — {round(r.score)}pts")
 
-        remaining = at_risk.count() - 5
-        if remaining > 0:
-            student_lines.append(f"  ...and {remaining} more")
+        if medium_count > 0:
+            if high_count > 0:
+                student_lines.append("")  # blank line separator
+            student_lines.append("**🟡 MEDIUM RISK:**")
+            for r in at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM):
+                name = r.user.get_full_name() or r.user.username
+                section_label = ""
+                if r.user.section and hasattr(r.user.section, "classroom"):
+                    section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
+                student_lines.append(f"• {name}{section_label} — {round(r.score)}pts")
 
         subject = f"📊 Daily Risk Report: {high_count} high, {medium_count} medium risk students"
         message = (
-            f"Today's risk analysis found {high_count} HIGH risk and {medium_count} MEDIUM risk "
+            f"Today's risk analysis found **{high_count} HIGH** risk and **{medium_count} MEDIUM** risk "
             f"students in your classes.\n\n"
             + "\n".join(student_lines)
-            + "\n\nReview the full details in your class analytics dashboard."
+            + "\n\nClick below to view full class analytics."
         )
+
+        # Link to the first class that has at-risk students
+        first_section = list(section_ids)[0] if section_ids else None
+        from apps.academics.models import Section
+        class_id = None
+        if first_section:
+            try:
+                class_id = Section.objects.get(id=first_section).classroom_id
+            except Section.DoesNotExist:
+                pass
+
+        link = f"/classes/{class_id}" if class_id else "/classes"
 
         Notification.objects.create(
             user_id=teacher_id,
             subject=subject,
             message=message,
-            notification_type=NotificationType.INFO,
-            link="/classes",  # role prefix added by frontend based on logged-in user
+            notification_type=NotificationType.WARNING if high_count > 0 else NotificationType.INFO,
+            link=link,
         )
         notified += 1
 

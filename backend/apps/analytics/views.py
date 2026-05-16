@@ -439,13 +439,96 @@ def nightly_recompute(request):
             logger.warning("nightly_recompute: failed for student %s: %s", student.id, exc)
             errors += 1
 
+    # ── Daily summary notification to teachers ────────────────────────────────
+    notified_teachers = _send_daily_risk_summary()
+
     logger.info(
-        "nightly_recompute complete: updated=%d newly_high=%d errors=%d",
-        updated, newly_high, errors,
+        "nightly_recompute complete: updated=%d newly_high=%d errors=%d notified_teachers=%d",
+        updated, newly_high, errors, notified_teachers,
     )
     return JsonResponse({
-        "ok":         True,
-        "updated":    updated,
-        "newly_high": newly_high,
-        "errors":     errors,
+        "ok":                True,
+        "updated":           updated,
+        "newly_high":        newly_high,
+        "errors":            errors,
+        "notified_teachers": notified_teachers,
     })
+
+
+def _send_daily_risk_summary():
+    """
+    Send a daily summary notification to each teacher listing their
+    HIGH and MEDIUM risk students.
+    """
+    from django.contrib.auth import get_user_model
+    from apps.notifications.models import Notification, NotificationType
+    from apps.academics.models import TeachingAssignment
+    from .models import StudentRiskScore
+
+    User = get_user_model()
+
+    # Get all teachers with section assignments
+    assignments = (
+        TeachingAssignment.objects
+        .select_related("teacher", "section", "section__classroom")
+        .values_list("teacher_id", "section_id")
+        .distinct()
+    )
+
+    # Group sections by teacher
+    teacher_sections: dict[int, set[int]] = {}
+    for teacher_id, section_id in assignments:
+        teacher_sections.setdefault(teacher_id, set()).add(section_id)
+
+    notified = 0
+
+    for teacher_id, section_ids in teacher_sections.items():
+        # Get at-risk students in this teacher's sections
+        at_risk = (
+            StudentRiskScore.objects
+            .filter(
+                user__section_id__in=section_ids,
+                risk_level__in=["HIGH", "MEDIUM"],
+            )
+            .select_related("user", "user__section", "user__section__classroom")
+            .order_by("-score")
+        )
+
+        if not at_risk.exists():
+            continue
+
+        high_count = at_risk.filter(risk_level="HIGH").count()
+        medium_count = at_risk.filter(risk_level="MEDIUM").count()
+
+        # Build student list (top 5)
+        student_lines = []
+        for r in at_risk[:5]:
+            name = r.user.get_full_name() or r.user.username
+            section_label = ""
+            if r.user.section and hasattr(r.user.section, "classroom"):
+                section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
+            student_lines.append(f"• {name}{section_label} — {r.risk_level} ({round(r.score)}pts)")
+
+        remaining = at_risk.count() - 5
+        if remaining > 0:
+            student_lines.append(f"  ...and {remaining} more")
+
+        subject = f"📊 Daily Risk Report: {high_count} high, {medium_count} medium risk students"
+        message = (
+            f"Today's risk analysis found {high_count} HIGH risk and {medium_count} MEDIUM risk "
+            f"students in your classes.\n\n"
+            + "\n".join(student_lines)
+            + "\n\nReview the full details in your class analytics dashboard."
+        )
+
+        Notification.objects.create(
+            user_id=teacher_id,
+            subject=subject,
+            message=message,
+            notification_type=NotificationType.INFO,
+            link="/teacher/classes",
+        )
+        notified += 1
+
+    return notified
+

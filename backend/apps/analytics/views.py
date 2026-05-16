@@ -488,7 +488,7 @@ def _send_daily_risk_summary():
             StudentRiskScore.objects
             .filter(
                 user__section_id__in=section_ids,
-                risk_level__in=["HIGH", "MEDIUM"],
+                risk_level__in=[StudentRiskScore.RiskLevel.HIGH, StudentRiskScore.RiskLevel.MEDIUM],
             )
             .select_related("user", "user__section", "user__section__classroom")
             .order_by("-score")
@@ -497,8 +497,8 @@ def _send_daily_risk_summary():
         if not at_risk.exists():
             continue
 
-        high_count = at_risk.filter(risk_level="HIGH").count()
-        medium_count = at_risk.filter(risk_level="MEDIUM").count()
+        high_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH).count()
+        medium_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM).count()
 
         # Build student list (top 5)
         student_lines = []

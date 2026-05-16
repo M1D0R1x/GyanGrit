@@ -500,34 +500,41 @@ def _send_daily_risk_summary():
         high_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH).count()
         medium_count = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM).count()
 
-        # Build full student list grouped by risk level
+        # Build student list — max 15 per risk level to keep notification readable
+        MAX_PER_LEVEL = 15
         student_lines = []
         if high_count > 0:
             student_lines.append("**🔴 HIGH RISK:**")
-            for r in at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH):
+            high_students = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.HIGH)
+            for r in high_students[:MAX_PER_LEVEL]:
                 name = r.user.get_full_name() or r.user.username
                 section_label = ""
                 if r.user.section and hasattr(r.user.section, "classroom"):
                     section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
                 student_lines.append(f"• {name}{section_label} — {round(r.score)}pts")
+            if high_count > MAX_PER_LEVEL:
+                student_lines.append(f"  *...and {high_count - MAX_PER_LEVEL} more*")
 
         if medium_count > 0:
             if high_count > 0:
                 student_lines.append("")  # blank line separator
             student_lines.append("**🟡 MEDIUM RISK:**")
-            for r in at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM):
+            medium_students = at_risk.filter(risk_level=StudentRiskScore.RiskLevel.MEDIUM)
+            for r in medium_students[:MAX_PER_LEVEL]:
                 name = r.user.get_full_name() or r.user.username
                 section_label = ""
                 if r.user.section and hasattr(r.user.section, "classroom"):
                     section_label = f" (Class {r.user.section.classroom.name}-{r.user.section.name})"
                 student_lines.append(f"• {name}{section_label} — {round(r.score)}pts")
+            if medium_count > MAX_PER_LEVEL:
+                student_lines.append(f"  *...and {medium_count - MAX_PER_LEVEL} more*")
 
         subject = f"📊 Daily Risk Report: {high_count} high, {medium_count} medium risk students"
         message = (
             f"Today's risk analysis found **{high_count} HIGH** risk and **{medium_count} MEDIUM** risk "
             f"students in your classes.\n\n"
             + "\n".join(student_lines)
-            + "\n\nClick below to view full class analytics."
+            + "\n\nClick below to view the full list in your class analytics."
         )
 
         # Link to the first class that has at-risk students

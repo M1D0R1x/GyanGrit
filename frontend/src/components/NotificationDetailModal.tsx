@@ -26,6 +26,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { marked } from "marked";
 // Default import avoids TS2503 (cannot find namespace 'DOMPurify')
 import DOMPurify from "dompurify";
@@ -216,13 +217,36 @@ export default function NotificationDetailModal({ notification: n, onClose }: Pr
   const hasLink   = !!n.link && isValidLink(n.link);
   const hasFile   = !!n.attachment_url && !!n.attachment_name;
 
+  const { user } = useAuth();
+
+  // Role-based route prefix: /classes → /teacher/classes, /principal/classes, etc.
+  const ROLE_PREFIX: Record<string, string> = {
+    TEACHER:   "/teacher",
+    PRINCIPAL: "/principal",
+    OFFICIAL:  "/official",
+    ADMIN:     "/admin",
+    STUDENT:   "",
+  };
+
+  const resolveLink = (link: string): string => {
+    if (isExternalLink(link)) return link;
+    // If link already has a role prefix, use as-is
+    if (link.startsWith("/teacher/") || link.startsWith("/principal/") ||
+        link.startsWith("/official/") || link.startsWith("/admin/") ||
+        link.startsWith("/dashboard")) return link;
+    // Add role prefix for generic links like /classes
+    const prefix = ROLE_PREFIX[user?.role ?? ""] ?? "";
+    return prefix + link;
+  };
+
   const handleLinkClick = () => {
     if (!hasLink) return;
     if (isExternalLink(n.link)) {
       window.open(n.link, "_blank", "noopener,noreferrer");
     } else {
+      const resolved = resolveLink(n.link);
       onClose();
-      navigate(n.link);
+      navigate(resolved);
     }
   };
 

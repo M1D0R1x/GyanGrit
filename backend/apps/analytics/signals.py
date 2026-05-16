@@ -264,7 +264,7 @@ def _notify_teachers_high_risk(student, factors: dict) -> None:
             f"{student_name} is at HIGH risk \u2014 {reason}. "
             f"Recommended action: {action_text}."
         )
-        link = f"/teacher/classes/{section.classroom_id}/students/{student.id}"
+        link = f"/classes/{section.classroom_id}/students/{student.id}"
 
         notifs = [
             Notification(

@@ -526,7 +526,7 @@ def _send_daily_risk_summary():
             subject=subject,
             message=message,
             notification_type=NotificationType.INFO,
-            link="/teacher/classes",
+            link="/classes",  # role prefix added by frontend based on logged-in user
         )
         notified += 1
 
